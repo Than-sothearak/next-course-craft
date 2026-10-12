@@ -1,0 +1,34 @@
+# Architecture
+
+Coursecraft is one Next.js App Router application. Server routes and server components handle authentication, persistence, authorization, and authoring APIs. Client components provide the interactive authoring experience.
+
+## Boundaries
+
+- `app/`: routes, layouts, and API handlers.
+- `components/`: reusable authoring and learner UI.
+- `lib/db/`: cached MongoDB connection and Mongoose model registration.
+- `lib/auth/`: Auth.js configuration and server session helpers.
+- `lib/schemas/`: versioned, runtime-validated content contracts shared by authoring, preview, and export.
+- `lib/player/`: shared player-domain logic and progress interfaces.
+- `lib/dashboard/`: validated folder/course operations, ownership-scoped queries, and dashboard request helpers.
+- `player/`: standalone static player entry point and build configuration. It must not import Next.js server code, MongoDB, Auth.js, or private storage credentials.
+- `models/`: Mongoose models; lessons and assets are independent documents rather than a giant course document.
+- `tests/`: Vitest unit tests and Playwright end-to-end tests.
+
+The standalone player is bundled separately by Vite as a build tool inside this repository. Its distributable consists only of static HTML, CSS, and JavaScript and can later be copied into HTML5 or SCORM packages by server-side export services. Phase 1 establishes the boundary only; it does not implement an exporter.
+
+## Persistence and security
+
+MongoDB is accessed only from server-side code. Every data access path must scope reads and writes to the authenticated owner or workspace. Zod validates untrusted input before persistence. Mongoose schemas add database-level validation, indexes, and timestamps. Secrets stay in server environment variables.
+
+The Phase 2 dashboard uses `/api/folders`, `/api/courses`, and `/api/dashboard`. Folder deletion is blocked while it contains courses or subfolders. Course deletion requires an exact title confirmation and marks the document as recently deleted, preserving its content references. The dashboard filters deleted documents from normal listings.
+
+The Phase 3 course page is served at `/courses/[courseId]/edit`, with lessons edited individually at `/courses/[courseId]/edit/lessons/[lessonId]`. Adding a lesson uses `/api/courses/[courseId]/lessons`; editor saves persist through `/api/courses/[courseId]/editor`. It stores ordered section metadata on the course and stores lessons as separate documents with stable editor IDs. Autosaves validate the complete snapshot and check the course revision. Replica sets use a MongoDB transaction; standalone MongoDB uses an atomic course revision lock and restores the prior course and lesson snapshot if a write fails. A stale revision returns a conflict so the editor can preserve the author's local changes and ask them to reload. The initial editor supports heading, rich text, divider, image URL, and video URL blocks; media upload and learner rendering are later phases.
+
+## Authentication
+
+Auth.js v5 is configured with a MongoDB adapter and environment-based provider credentials. Provider setup is deployment-specific; no provider secrets are committed. Routes can use `auth()` and should enforce ownership independently of authentication.
+
+## Runtime and deployment
+
+Mongo-backed route handlers use the Node.js runtime. The player bundle is built with `npm run build:player` into `public/course-player`; this is static output and can be copied into an export archive in a later phase. Export work belongs in isolated server-side service modules and must respect hosting request and memory limits.

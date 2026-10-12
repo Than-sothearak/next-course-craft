@@ -1,0 +1,162 @@
+import {
+  ArrowRight,
+  BookOpen,
+  Github,
+  Layers3,
+  ShieldCheck,
+} from "lucide-react";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { auth, signIn } from "@/lib/auth";
+import { Button } from "@/components/ui/button";
+
+type LoginPageProps = {
+  searchParams: Promise<{ callbackUrl?: string }>;
+};
+
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const { callbackUrl } = await searchParams;
+  const redirectTo = callbackUrl?.startsWith("/") && !callbackUrl.startsWith("//") ? callbackUrl : "/";
+  const session = await auth();
+  if (session?.user) redirect(redirectTo);
+
+  async function signInWithGitHub() {
+    "use server";
+    await signIn("github", { redirectTo });
+  }
+
+  return (
+    <main className="grid min-h-screen bg-white lg:grid-cols-[1.05fr_0.95fr]">
+      <section className="relative hidden overflow-hidden bg-slate-950 px-12 py-10 text-white lg:flex lg:flex-col lg:justify-between xl:px-20">
+        <div
+          className="absolute -right-32 -top-28 h-[30rem] w-[30rem] rounded-full bg-indigo-500/20 blur-3xl"
+          aria-hidden="true"
+        />
+        <div
+          className="absolute -bottom-40 -left-24 h-[30rem] w-[30rem] rounded-full bg-cyan-400/10 blur-3xl"
+          aria-hidden="true"
+        />
+        <Link
+          href="/"
+          className="relative inline-flex w-fit items-center gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white"
+        >
+          <span className="grid size-10 place-items-center rounded-xl bg-indigo-500">
+            <Layers3 size={21} aria-hidden="true" />
+          </span>
+          <span className="text-lg font-semibold tracking-tight">
+            Coursecraft
+          </span>
+        </Link>
+
+        <div className="relative max-w-xl pb-10">
+          <p className="mb-5 text-sm font-semibold uppercase tracking-[0.2em] text-indigo-300">
+            A calmer way to create learning
+          </p>
+          <h1 className="text-4xl font-semibold leading-tight tracking-tight xl:text-5xl">
+            Turn what you know into courses people love.
+          </h1>
+          <p className="mt-6 max-w-lg text-lg leading-8 text-slate-300">
+            Build clear, engaging learning experiences from one focused
+            workspace.
+          </p>
+          <div className="mt-12 grid gap-4 sm:grid-cols-2">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-5 backdrop-blur-sm">
+              <BookOpen
+                className="mb-5 text-indigo-300"
+                size={22}
+                aria-hidden="true"
+              />
+              <p className="font-medium">Keep ideas organized</p>
+              <p className="mt-1 text-sm leading-6 text-slate-400">
+                Shape lessons into a course that flows.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.06] p-5 backdrop-blur-sm">
+              <ShieldCheck
+                className="mb-5 text-cyan-300"
+                size={22}
+                aria-hidden="true"
+              />
+              <p className="font-medium">Your work stays yours</p>
+              <p className="mt-1 text-sm leading-6 text-slate-400">
+                Sign in securely with your GitHub account.
+              </p>
+            </div>
+          </div>
+        </div>
+        <p className="relative text-sm text-slate-500">
+          Thoughtful learning starts with a good first draft.
+        </p>
+      </section>
+
+      <section className="flex min-h-screen flex-col px-6 py-7 sm:px-10 lg:px-14">
+        <Link
+          href="/"
+          className="inline-flex w-fit items-center gap-2 rounded-lg font-semibold tracking-tight text-slate-900 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-indigo-600 lg:hidden"
+        >
+          <span className="grid size-9 place-items-center rounded-xl bg-indigo-600 text-white">
+            <Layers3 size={19} aria-hidden="true" />
+          </span>
+          Coursecraft
+        </Link>
+
+        <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center py-12">
+          <div className="mb-8 grid size-12 place-items-center rounded-2xl bg-indigo-50 text-indigo-700">
+            <Layers3 size={24} aria-hidden="true" />
+          </div>
+          <p className="text-sm font-semibold text-indigo-700">
+            Welcome to Coursecraft
+          </p>
+          <h2 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
+            Sign in to your workspace
+          </h2>
+          <p className="mt-3 leading-7 text-slate-600">
+            Use your GitHub account to continue creating your courses.
+          </p>
+
+          <form action={signInWithGitHub} className="mt-9">
+            <Button
+              type="submit"
+              className="group min-h-13 w-full justify-center rounded-xl bg-slate-950 px-5 py-3.5 font-medium text-white shadow-sm transition hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 active:scale-[0.99]"
+            >
+              <Github size={19} aria-hidden="true" />
+              Continue with GitHub
+              <ArrowRight
+                size={17}
+                className="ml-auto text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-white"
+                aria-hidden="true"
+              />
+            </Button>
+          </form>
+
+          <p className="mt-5 text-center text-sm leading-6 text-slate-500">
+            You’ll be redirected to GitHub to authorize sign-in.
+          </p>
+          <div className="my-8 flex items-center gap-4" aria-hidden="true">
+            <span className="h-px flex-1 bg-slate-200" />
+            <span className="text-xs font-medium uppercase tracking-wider text-slate-400">
+              Secure access
+            </span>
+            <span className="h-px flex-1 bg-slate-200" />
+          </div>
+          <div className="flex gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm leading-6 text-slate-600">
+            <ShieldCheck
+              className="mt-0.5 shrink-0 text-emerald-600"
+              size={19}
+              aria-hidden="true"
+            />
+            <p>
+              Your password is handled by GitHub. Coursecraft never sees or
+              stores it.
+            </p>
+          </div>
+        </div>
+
+        <footer className="mx-auto w-full max-w-md pb-2 text-center text-xs leading-5 text-slate-400">
+          By signing in, you agree to use Coursecraft responsibly. Contact your
+          workspace administrator for account access.
+        </footer>
+      </section>
+    </main>
+  );
+}

@@ -1,0 +1,11 @@
+node_modules/
+.next/
+/out/
+/build/
+/public/course-player/
+.env*
+!.env.example
+playwright-report/
+test-results/
+coverage/
+*.tsbuildinfo

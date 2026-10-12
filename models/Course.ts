@@ -1,0 +1,27 @@
+import { Schema, model, models, type InferSchemaType, type Model } from "mongoose";
+
+const SectionSchema = new Schema({
+  id: { type: String, required: true, maxlength: 64 },
+  title: { type: String, required: true, trim: true, maxlength: 160 },
+  order: { type: Number, required: true, min: 0 },
+}, { _id: false });
+
+const CourseSchema = new Schema({
+  ownerId: { type: Schema.Types.ObjectId, required: true, index: true },
+  folderId: { type: Schema.Types.ObjectId, default: null, index: true },
+  title: { type: String, required: true, trim: true, maxlength: 160 },
+  description: { type: String, default: "", maxlength: 5_000 },
+  coverImage: { type: String, default: null },
+  sections: { type: [SectionSchema], default: [] },
+  language: { type: String, default: "en" },
+  theme: { type: Schema.Types.Mixed, default: {} },
+  status: { type: String, enum: ["draft", "published", "archived"], default: "draft" },
+  revision: { type: Number, default: 0, min: 0 },
+  editorSaveLock: { type: String, default: null, select: false },
+  editorSaveLockAt: { type: Date, default: null, select: false },
+  deletedAt: { type: Date, default: null, index: true },
+  completionSettings: { type: Schema.Types.Mixed, default: {} },
+}, { timestamps: true, optimisticConcurrency: true });
+CourseSchema.index({ ownerId: 1, folderId: 1, updatedAt: -1 });
+export type CourseDocument = InferSchemaType<typeof CourseSchema>;
+export const Course = (models.Course as Model<CourseDocument> | undefined) ?? model<CourseDocument>("Course", CourseSchema);
