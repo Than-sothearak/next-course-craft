@@ -22,5 +22,5 @@ export function AddLessonButton({ courseId }: { courseId: string }) {
       setPending(false);
     }
   }
-  return <div className="flex flex-col items-end gap-2">{error && <p role="alert" className="text-xs text-rose-700">{error}</p>}<Button onClick={addLesson} disabled={pending}>{pending ? <LoaderCircle className="animate-spin" size={16} /> : <FilePlus2 size={16} />}Add lesson</Button></div>;
+  return <div className="flex flex-col items-end gap-2">{error && <p role="alert" className="text-xs text-rose-700">{error}</p>}<Button onClick={addLesson} disabled={pending}>{pending ? <LoaderCircle className="animate-spin" size={16} /> : <FilePlus2 size={16} />}Add content</Button></div>;
 }

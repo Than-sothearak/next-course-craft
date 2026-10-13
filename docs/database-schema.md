@@ -8,7 +8,7 @@ All collections use Mongoose timestamps and ObjectId references. Ownership must 
 | Folder | `name`, `normalizedName`, `ownerId`, `parentId` | Unique owner/parent/normalized-name index; service prevents circular ancestry |
 | Course | `ownerId`, `folderId`, title, description, language, theme, ordered sections, status, revision, `deletedAt` | Owner/folder and updatedAt indexes; revision supports optimistic concurrency; dashboard delete is a title-confirmed soft delete |
 | Lesson | `courseId`, `editorId`, `sectionId`, title, order, versioned blocks, revision, settings | Course/section/order lookup and unique course/editor ID; separate collection prevents oversized course documents |
-| Asset | owner/course IDs, storage key, MIME type, byte size, checksum, metadata | Owner/course indexes; private storage keys never exposed as credentials |
+| Asset | owner/course IDs, original filename, private storage key, MIME type, byte size, pending/ready status, checksum, metadata | Owner/course/status/createdAt index; private storage keys never exposed to clients |
 | Quiz | course/lesson IDs, versioned questions, passing score, attempt settings | Course/lesson indexes |
 | ExportJob | course/owner IDs, snapshot revision, format, status, result key, error details | Status/createdAt and owner/createdAt; durable states allow a future worker |
 

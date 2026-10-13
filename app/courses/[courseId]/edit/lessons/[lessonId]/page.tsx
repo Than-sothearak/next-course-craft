@@ -18,5 +18,6 @@ export default async function LessonEditPage({ params }: { params: Promise<{ cou
     if (error instanceof DashboardError && error.status === 404) notFound();
     throw error;
   }
-  return <EditorClient initialData={initialData} focusedLessonId={lessonId} />;
+  const authorName = session.user.name?.trim() || session.user.email || "Course author";
+  return <EditorClient initialData={initialData} focusedLessonId={lessonId} authorName={authorName} />;
 }

@@ -17,7 +17,7 @@ import {
   Video,
   X,
 } from "lucide-react";
-import type { ContentBlock, StatementStyle } from "@/lib/schemas/block";
+import { defaultBlockPadding, defaultBlockWidth, type ContentBlock, type DividerCompletionType, type StatementStyle } from "@/lib/schemas/block";
 import { Button } from "@/components/ui/button";
 import { InputBlockPreview } from "./input-block-preview";
 import { StatementBlockPreview } from "./statement-block-preview";
@@ -47,12 +47,14 @@ export type BlockTemplate = {
   description: string;
   type: "richText" | "image" | "gallery" | "video" | "divider" | "statement";
   html?: string;
-  dividerStyle?: "line" | "space";
+  dividerStyle?: "line" | "space" | "continue";
+  dividerLabel?: string;
+  dividerCompletionType?: DividerCompletionType;
   statement?: { style: StatementStyle; title: string; body: string };
   preview: string;
 };
 
-const templates: BlockTemplate[] = [
+export const blockTemplates: BlockTemplate[] = [
   {
     id: "text-title-paragraph",
     category: "Text",
@@ -117,6 +119,42 @@ const templates: BlockTemplate[] = [
     preview: "quote",
   },
   {
+    id: "quote-pull",
+    category: "Quote",
+    title: "Pull quote",
+    description: "Make a memorable sentence stand out with larger type.",
+    type: "richText",
+    html: '<blockquote><p><strong><span style="font-size: 28px">“Write a memorable line here.”</span></strong></p><p>— Attribution</p></blockquote>',
+    preview: "quote-pull",
+  },
+  {
+    id: "quote-centered",
+    category: "Quote",
+    title: "Centered quote",
+    description: "Center a short quote and its attribution.",
+    type: "richText",
+    html: '<blockquote><p style="text-align: center"><em>“A short thought worth remembering.”</em></p><p style="text-align: center">— Attribution</p></blockquote>',
+    preview: "quote-centered",
+  },
+  {
+    id: "quote-citation",
+    category: "Quote",
+    title: "Quote with citation",
+    description: "Pair a quote with a book, article, or source.",
+    type: "richText",
+    html: '<blockquote><p>“Add a sourced quotation to support this lesson.”</p><p>— Source title, author, year</p></blockquote>',
+    preview: "quote-citation",
+  },
+  {
+    id: "quote-testimonial",
+    category: "Quote",
+    title: "Learner testimonial",
+    description: "Share learner feedback with a name and role.",
+    type: "richText",
+    html: '<blockquote><p><em>“This course helped me put the ideas into practice.”</em></p><p><strong>Learner name</strong><br>Role or organization</p></blockquote>',
+    preview: "quote-testimonial",
+  },
+  {
     id: "list-bulleted",
     category: "List",
     title: "Bulleted list",
@@ -133,6 +171,60 @@ const templates: BlockTemplate[] = [
     type: "richText",
     html: "<ol><li><p>First step</p></li><li><p>Second step</p></li><li><p>Third step</p></li></ol>",
     preview: "numbered",
+  },
+  {
+    id: "list-lettered",
+    category: "List",
+    title: "Lettered list",
+    description: "Organize points with A, B, and C markers.",
+    type: "richText",
+    html: '<ol type="A"><li><p>First point</p></li><li><p>Second point</p></li><li><p>Third point</p></li></ol>',
+    preview: "lettered",
+  },
+  {
+    id: "list-roman",
+    category: "List",
+    title: "Roman numeral steps",
+    description: "Present a sequence with I, II, and III markers.",
+    type: "richText",
+    html: '<ol type="I"><li><p>First step</p></li><li><p>Second step</p></li><li><p>Third step</p></li></ol>',
+    preview: "roman",
+  },
+  {
+    id: "list-circle-bullets",
+    category: "List",
+    title: "Circle bullets",
+    description: "Use open-circle markers for supporting points.",
+    type: "richText",
+    html: '<ul data-list-style="circle"><li><p>First point</p></li><li><p>Second point</p></li><li><p>Third point</p></li></ul>',
+    preview: "circle-bullets",
+  },
+  {
+    id: "list-square-bullets",
+    category: "List",
+    title: "Square bullets",
+    description: "Use compact square markers to group key details.",
+    type: "richText",
+    html: '<ul data-list-style="square"><li><p>First point</p></li><li><p>Second point</p></li><li><p>Third point</p></li></ul>',
+    preview: "square-bullets",
+  },
+  {
+    id: "list-checklist",
+    category: "List",
+    title: "Checklist",
+    description: "Give learners a clear checklist of actions.",
+    type: "richText",
+    html: '<ul data-list-style="check"><li><p>Review the example</p></li><li><p>Try the steps yourself</p></li><li><p>Check your result</p></li></ul>',
+    preview: "checklist",
+  },
+  {
+    id: "list-dashes",
+    category: "List",
+    title: "Dash list",
+    description: "Use a light dash marker for concise notes.",
+    type: "richText",
+    html: '<ul data-list-style="dash"><li><p>First note</p></li><li><p>Second note</p></li><li><p>Third note</p></li></ul>',
+    preview: "dash-list",
   },
   {
     id: "image-single",
@@ -213,6 +305,37 @@ const templates: BlockTemplate[] = [
     preview: "spacer",
   },
   {
+    id: "divider-continue",
+    category: "Divider",
+    title: "Continue button",
+    description: "Reveal the next part of the lesson when clicked.",
+    type: "divider",
+    dividerStyle: "continue",
+    dividerLabel: "Continue",
+    preview: "continue",
+  },
+  {
+    id: "divider-continue-reading",
+    category: "Divider",
+    title: "Continue reading",
+    description: "Add a labeled button to reveal more lesson content.",
+    type: "divider",
+    dividerStyle: "continue",
+    dividerLabel: "Continue reading",
+    preview: "continue-reading",
+  },
+  {
+    id: "divider-continue-required",
+    category: "Divider",
+    title: "Continue after reading",
+    description: "Require learners to reach the end of the content above.",
+    type: "divider",
+    dividerStyle: "continue",
+    dividerLabel: "Continue",
+    dividerCompletionType: "completeAbove",
+    preview: "continue-required",
+  },
+  {
     id: "blank-text",
     category: "Blank",
     title: "Blank text block",
@@ -265,14 +388,14 @@ const categoryIcons = {
   Code: Code2,
 };
 
-function commonBlock(id: string) {
+function commonBlock(id: string, type: ContentBlock["type"]) {
   return {
     id,
     version: 1 as const,
-    width: "small" as const,
+    width: defaultBlockWidth(type),
     widthCustom: false,
     backgroundColor: "#ffffff",
-    blockPadding: "medium" as const,
+    blockPadding: defaultBlockPadding(type),
   };
 }
 
@@ -280,7 +403,8 @@ export function createBlocksFromTemplate(
   template: BlockTemplate,
   id: string,
 ): ContentBlock[] {
-  const base = commonBlock(id);
+  const blockType = template.id === "knowledge-choice" ? "knowledgeCheck" : template.id === "survey-rating" ? "survey" : template.type;
+  const base = commonBlock(id, blockType);
   if (template.id === "knowledge-choice")
     return [
       {
@@ -355,9 +479,38 @@ export function createBlocksFromTemplate(
     {
       ...base,
       type: "divider",
-      data: { style: template.dividerStyle ?? "line" },
+      data: {
+        style: template.dividerStyle ?? "line",
+        label: template.dividerLabel ?? "Continue",
+        completionType: template.dividerCompletionType ?? "none",
+      },
     },
   ];
+}
+
+type ListPreviewStyle = "disc" | "circle" | "square" | "check" | "dash" | "numbered" | "lettered" | "roman";
+
+function ListTemplatePreview({ style }: { style: ListPreviewStyle }) {
+  const labels: Record<ListPreviewStyle, string[]> = {
+    disc: ["•", "•", "•"],
+    circle: ["○", "○", "○"],
+    square: ["▪", "▪", "▪"],
+    check: ["✓", "✓", "✓"],
+    dash: ["–", "–", "–"],
+    numbered: ["1.", "2.", "3."],
+    lettered: ["A.", "B.", "C."],
+    roman: ["I.", "II.", "III."],
+  };
+  const items = style === "numbered" || style === "lettered" || style === "roman"
+    ? ["Review the example", "Try the steps yourself", "Check your result"]
+    : ["First point", "Second point", "Third point"];
+
+  return <div className="space-y-1.5 text-[11px] leading-4 text-slate-700">
+    {items.map((item, index) => <p key={item} className="flex gap-2">
+      <span className={`w-7 shrink-0 text-right ${style === "check" || style === "numbered" || style === "lettered" || style === "roman" ? "font-semibold text-indigo-600" : "text-indigo-600"}`}>{labels[style][index]}</span>
+      <span>{item}</span>
+    </p>)}
+  </div>;
 }
 
 function TemplatePreview({ template }: { template: BlockTemplate }) {
@@ -417,6 +570,14 @@ function TemplatePreview({ template }: { template: BlockTemplate }) {
         </footer>
       </blockquote>
     );
+  if (kind === "quote-pull")
+    return <blockquote className="border-l-2 border-indigo-500 pl-3 text-sm font-semibold leading-5 text-slate-800"><p>“Write a memorable line here.”</p><footer className="mt-2 text-[10px] font-normal text-slate-500">— Attribution</footer></blockquote>;
+  if (kind === "quote-centered")
+    return <blockquote className="border-l-2 border-slate-300 pl-3 text-center text-[11px] italic leading-4 text-slate-700"><p>“A short thought worth remembering.”</p><footer className="mt-2 text-[10px] not-italic text-slate-500">— Attribution</footer></blockquote>;
+  if (kind === "quote-citation")
+    return <blockquote className="border-l-2 border-emerald-500 pl-3 text-[11px] leading-4 text-slate-700"><p>“Add a sourced quotation to support this lesson.”</p><footer className="mt-2 text-[10px] text-slate-500">Source title, author, year</footer></blockquote>;
+  if (kind === "quote-testimonial")
+    return <blockquote className="border-l-2 border-violet-400 pl-3 text-[11px] italic leading-4 text-slate-700"><p>“This course helped me put the ideas into practice.”</p><footer className="mt-2 text-[10px] not-italic font-semibold text-slate-600">Learner name <span className="font-normal text-slate-400">· Role or organization</span></footer></blockquote>;
   if (kind === "interactive")
     return (
       <div className="rounded-lg border border-indigo-100 bg-indigo-50 p-3 text-[11px] text-slate-700">
@@ -427,40 +588,14 @@ function TemplatePreview({ template }: { template: BlockTemplate }) {
         </span>
       </div>
     );
-  if (kind === "list")
-    return (
-      <div className="space-y-1.5 text-[11px] leading-4 text-slate-700">
-        <p className="flex gap-2">
-          <span className="text-indigo-600">•</span>
-          <span>First point</span>
-        </p>
-        <p className="flex gap-2">
-          <span className="text-indigo-600">•</span>
-          <span>Second point</span>
-        </p>
-        <p className="flex gap-2">
-          <span className="text-indigo-600">•</span>
-          <span>Third point</span>
-        </p>
-      </div>
-    );
-  if (kind === "numbered")
-    return (
-      <div className="space-y-1.5 text-[11px] leading-4 text-slate-700">
-        <p className="flex gap-2">
-          <span className="font-semibold text-indigo-600">1.</span>
-          <span>Review the example</span>
-        </p>
-        <p className="flex gap-2">
-          <span className="font-semibold text-indigo-600">2.</span>
-          <span>Try the steps yourself</span>
-        </p>
-        <p className="flex gap-2">
-          <span className="font-semibold text-indigo-600">3.</span>
-          <span>Check your result</span>
-        </p>
-      </div>
-    );
+  if (kind === "list") return <ListTemplatePreview style="disc" />;
+  if (kind === "numbered") return <ListTemplatePreview style="numbered" />;
+  if (kind === "lettered") return <ListTemplatePreview style="lettered" />;
+  if (kind === "roman") return <ListTemplatePreview style="roman" />;
+  if (kind === "circle-bullets") return <ListTemplatePreview style="circle" />;
+  if (kind === "square-bullets") return <ListTemplatePreview style="square" />;
+  if (kind === "checklist") return <ListTemplatePreview style="check" />;
+  if (kind === "dash-list") return <ListTemplatePreview style="dash" />;
   if (kind === "image")
     return (
       <div className="relative grid h-24 place-items-center overflow-hidden rounded-md bg-gradient-to-br from-sky-200 via-cyan-100 to-emerald-200">
@@ -540,6 +675,14 @@ function TemplatePreview({ template }: { template: BlockTemplate }) {
         </span>
       </div>
     );
+  if (kind === "continue" || kind === "continue-reading" || kind === "continue-required")
+    return (
+      <div className="flex justify-center">
+        <span className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-[10px] font-semibold text-white shadow-sm">
+          {kind === "continue-reading" ? "Continue reading" : "Continue"}
+        </span>
+      </div>
+    );
   if (kind === "blank")
     return (
       <div className="grid h-20 place-items-center rounded-md border border-dashed border-slate-300 text-[10px] text-slate-400">
@@ -549,11 +692,11 @@ function TemplatePreview({ template }: { template: BlockTemplate }) {
   if (kind === "code")
     return (
       <div className="rounded-md bg-slate-900 p-3 font-mono text-[9px] leading-4 text-emerald-300">
-        <span className="text-slate-500">// greet the learner</span>
+        <span className="text-slate-500">{"// greet the learner"}</span>
         <br />
         function greetLearner() &#123;
         <br />
-        &nbsp; return <span className="text-amber-200">"Welcome!"</span>;<br />
+        &nbsp; return <span className="text-amber-200">&quot;Welcome!&quot;</span>;<br />
         &#125;
       </div>
     );
@@ -575,10 +718,6 @@ export function BlockTemplatePicker({
   const [category, setCategory] = useState<BlockCategory>(initialCategory);
 
   useEffect(() => {
-    if (open) setCategory(initialCategory);
-  }, [open, initialCategory]);
-
-  useEffect(() => {
     if (!open) return;
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") onClose();
@@ -588,7 +727,7 @@ export function BlockTemplatePicker({
   }, [open, onClose]);
 
   if (!open) return null;
-  const visibleTemplates = templates.filter(
+  const visibleTemplates = blockTemplates.filter(
     (template) => template.category === category,
   );
 
@@ -603,7 +742,7 @@ export function BlockTemplatePicker({
         role="dialog"
         aria-modal="true"
         aria-labelledby="block-picker-title"
-        className="dialog-panel-in flex max-h-[min(820px,calc(100vh-24px))] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl sm:max-h-[min(820px,calc(100vh-48px))]"
+        className="dialog-panel-in flex h-[min(820px,calc(100dvh-24px))] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl sm:h-[min(820px,calc(100dvh-48px))]"
       >
         <header className="flex shrink-0 items-center justify-between border-b border-slate-100 px-5 py-4 sm:px-6">
           <div>

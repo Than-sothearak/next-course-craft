@@ -11,6 +11,8 @@ const CourseSchema = new Schema({
   folderId: { type: Schema.Types.ObjectId, default: null, index: true },
   title: { type: String, required: true, trim: true, maxlength: 160 },
   description: { type: String, default: "", maxlength: 5_000 },
+  descriptionHtml: { type: String, maxlength: 100_000 },
+  authorVisible: { type: Boolean, default: true },
   coverImage: { type: String, default: null },
   sections: { type: [SectionSchema], default: [] },
   language: { type: String, default: "en" },

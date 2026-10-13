@@ -52,6 +52,15 @@ export type DashboardData = {
   folderTree: FolderTreeNode[];
 };
 
+export async function getCourseCopyDestinations(ownerId: string, sourceCourseId: string) {
+  const owner = ownerObjectId(ownerId);
+  if (!Types.ObjectId.isValid(sourceCourseId)) throw new DashboardError("Course not found.", 404);
+  const source = await Course.exists({ _id: sourceCourseId, ownerId: owner, deletedAt: null });
+  if (!source) throw new DashboardError("Course not found.", 404);
+  const courses = await Course.find({ ownerId: owner, deletedAt: null, _id: { $ne: sourceCourseId } }).sort({ title: 1 }).limit(200).select("title folderId").lean();
+  return courses.map((course) => ({ id: course._id.toString(), title: course.title, folderId: course.folderId?.toString() ?? null }));
+}
+
 export type DashboardQuery = { folderId?: string | null; q?: string; status?: "all" | "draft" | "published" | "archived"; sort?: "updated" | "title" | "created" };
 
 export async function getDashboardData(ownerId: string, query: DashboardQuery = {}): Promise<DashboardData> {
@@ -278,6 +287,8 @@ export async function duplicateCourse(ownerId: string, courseId: string) {
     folderId: source.folderId,
     title: `${source.title} (copy)`.slice(0, 160),
     description: source.description,
+    descriptionHtml: source.descriptionHtml,
+    authorVisible: source.authorVisible ?? true,
     coverImage: source.coverImage,
     language: source.language,
     theme: structuredClone(source.theme),

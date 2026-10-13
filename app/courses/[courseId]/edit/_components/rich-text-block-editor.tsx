@@ -24,7 +24,7 @@ export function RichTextBlockEditor({ block, onChange }: { block: Extract<Conten
   }, [block.data.html, editor]);
 
   return <div ref={rootRef} className="relative">
-    <EditorContent editor={editor} className={`prose max-w-none px-5 focus-within:outline-none [&_.tiptap]:outline-none [&_.tiptap]:text-inherit [&_.tiptap_*]:text-inherit ${editor?.isEmpty ? "py-0 [&_.tiptap_p]:my-0" : "py-4 [&_.tiptap_p]:my-2"}`} />
+    <EditorContent editor={editor} className={`lesson-rich-text prose max-w-none focus-within:outline-none [&_.tiptap]:outline-none [&_.tiptap]:text-inherit [&_.tiptap_*]:text-inherit ${editor?.isEmpty ? "[&_.tiptap_p]:my-0" : "[&_.tiptap_p]:my-2"}`} />
     {isTextSelected && <div className="absolute left-0 top-full z-30 mt-2 w-[360px] max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white p-2.5 text-slate-700 shadow-xl">
       <div className="mb-2 flex items-center gap-2 px-1 text-xs font-medium text-slate-500"><Settings2 size={14} />Edit text format</div>
       <TextFormattingToolbar editor={editor} />

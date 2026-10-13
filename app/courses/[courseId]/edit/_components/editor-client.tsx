@@ -1,21 +1,25 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { ArrowDown, ArrowLeft, ArrowUp, Check, CircleAlert, Copy, FilePlus2, LayoutGrid, LoaderCircle, Plus, Redo2, RotateCcw, Save, Trash2 } from "lucide-react";
-import type { ContentBlock } from "@/lib/schemas/block";
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Check, ChevronDown, CircleAlert, Copy, Eye, EyeOff, FilePlus2, LayoutGrid, LoaderCircle, Plus, Redo2, Save, Trash2, Undo2 } from "lucide-react";
+import { defaultBlockPadding, defaultBlockWidth, type ContentBlock } from "@/lib/schemas/block";
 import type { EditorSnapshotInput } from "@/lib/editor/schemas";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { DashboardNavbar } from "@/app/dashboard/_components/dashboard-navbar";
 import { CourseOutline } from "./course-outline";
 import { ContentBlockEditor } from "./content-block-editor";
+import { LessonTitleEditor } from "./lesson-title-editor";
+import { StatementTextEditor } from "./statement-text-editor";
 import { SortableItem } from "./sortable-item";
 import { useDismissDetailsOnOutsideClick } from "@/lib/ui/use-dismiss-details";
 import { BlockFormatMenu } from "./block-format-menu";
 import { BlockTemplatePicker, createBlocksFromTemplate, type BlockCategory, type BlockTemplate } from "./block-template-picker";
+import { QuizEditor } from "./quiz-editor";
 
 type InitialData = { courseId: string } & EditorSnapshotInput;
 type Draft = Omit<EditorSnapshotInput, "revision">;
@@ -54,28 +58,45 @@ function getTemplateCategory(block: ContentBlock): BlockCategory {
   return "Survey";
 }
 
-export function EditorClient({ initialData, focusedLessonId }: { initialData: InitialData; focusedLessonId?: string }) {
+export function EditorClient({ initialData, focusedLessonId, authorName }: { initialData: InitialData; focusedLessonId?: string; authorName: string }) {
   useDismissDetailsOnOutsideClick();
+  const router = useRouter();
   const blockDndId = `lesson-blocks-${useId().replaceAll(":", "")}`;
-  const initialDraft: Draft = { title: initialData.title, description: initialData.description, sections: initialData.sections, lessons: initialData.lessons };
+  const initialDraft: Draft = { title: initialData.title, description: initialData.description, descriptionHtml: initialData.descriptionHtml, authorVisible: initialData.authorVisible, sections: initialData.sections, lessons: initialData.lessons };
   const [draft, setDraft] = useState(initialDraft);
   const draftRef = useRef(draft);
   const revisionRef = useRef(initialData.revision);
   const lastSavedRef = useRef(JSON.stringify(initialDraft));
   const saveInFlight = useRef(false);
   const savePending = useRef(false);
+  const pendingRouteRef = useRef<string | null>(null);
   const conflictRef = useRef(false);
   const historyRef = useRef<Draft[]>([]);
   const redoRef = useRef<Draft[]>([]);
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
-  const [activeLessonId, setActiveLessonId] = useState<string | null>(focusedLessonId ?? initialData.lessons[0]?.id ?? null);
+  const [activeLessonId, setSelectedLessonId] = useState<string | null>(focusedLessonId ?? null);
   const [saveState, setSaveState] = useState<"saved" | "saving" | "error" | "conflict">("saved");
   const [saveMessage, setSaveMessage] = useState("");
+  const [titleValid, setTitleValid] = useState(true);
+  const titleValidRef = useRef(true);
+  const courseTitleRef = useRef<HTMLTextAreaElement>(null);
   const [templatePicker, setTemplatePicker] = useState<TemplatePickerState | null>(null);
   const activeLesson = draft.lessons.find((lesson) => lesson.id === activeLessonId) ?? null;
   const orderedSections = useMemo(() => [...draft.sections].sort((a, b) => a.order - b.order), [draft.sections]);
   const blockSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
+
+  function setActiveLessonId(id: string | null) {
+    titleValidRef.current = true;
+    setTitleValid(true);
+    setSelectedLessonId(id);
+  }
+
+  function navigateBack() {
+    const hasSameOriginHistory = document.referrer.startsWith(window.location.origin);
+    if (window.history.length > 1 && hasSameOriginHistory) router.back();
+    else router.push("/dashboard");
+  }
 
   function commit(next: Draft) {
     if (JSON.stringify(next) === JSON.stringify(draftRef.current)) return;
@@ -89,6 +110,35 @@ export function EditorClient({ initialData, focusedLessonId }: { initialData: In
 
   function updateDraft(update: (current: Draft) => Draft) {
     commit(update(draftRef.current));
+  }
+
+  useEffect(() => {
+    const textarea = courseTitleRef.current;
+    if (!textarea) return;
+    const resize = () => {
+      textarea.style.height = "0px";
+      textarea.style.height = `${textarea.scrollHeight}px`;
+    };
+    resize();
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
+  }, [draft.title]);
+
+  function openRouteAfterSave(path: string) {
+    if (JSON.stringify(draftRef.current) === lastSavedRef.current && !saveInFlight.current) {
+      router.push(path);
+      return;
+    }
+    pendingRouteRef.current = path;
+    void saveLatest();
+  }
+
+  function openLesson(id: string) {
+    openRouteAfterSave(`/courses/${initialData.courseId}/edit/lessons/${id}`);
+  }
+
+  function openPreview() {
+    openRouteAfterSave(`/courses/${initialData.courseId}/preview`);
   }
 
   function undo() {
@@ -112,7 +162,7 @@ export function EditorClient({ initialData, focusedLessonId }: { initialData: In
   }
 
   async function saveLatest() {
-    if (conflictRef.current) return;
+    if (conflictRef.current || !titleValidRef.current) return;
     if (saveInFlight.current) {
       savePending.current = true;
       return;
@@ -140,6 +190,11 @@ export function EditorClient({ initialData, focusedLessonId }: { initialData: In
       revisionRef.current = result.revision;
       lastSavedRef.current = serialized;
       setSaveState("saved");
+      const pendingRoute = pendingRouteRef.current;
+      if (pendingRoute && JSON.stringify(draftRef.current) === serialized) {
+        pendingRouteRef.current = null;
+        router.push(pendingRoute);
+      }
     } catch (error) {
       setSaveState("error");
       setSaveMessage(error instanceof Error ? error.message : "Your changes could not be saved.");
@@ -163,7 +218,7 @@ export function EditorClient({ initialData, focusedLessonId }: { initialData: In
     return () => window.clearTimeout(timer);
     // saveLatest reads the current draft from a ref so saves stay serialized.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft, saveState]);
+  }, [draft, saveState, titleValid]);
 
   function addSection() {
     const id = newId();
@@ -190,7 +245,7 @@ export function EditorClient({ initialData, focusedLessonId }: { initialData: In
     const copyId = newId();
     updateDraft((current) => {
       const sections = [...current.sections, { ...section, id: copyId, title: `${section.title} copy`, order: current.sections.length }];
-      const copies = current.lessons.filter((lesson) => lesson.sectionId === id).map((lesson, index) => ({ ...lesson, id: newId(), sectionId: copyId, order: index, blocks: lesson.blocks.map((block) => ({ ...block, id: newId() })) }));
+      const copies = current.lessons.filter((lesson) => lesson.sectionId === id).map((lesson, index) => ({ ...lesson, id: newId(), sectionId: copyId, order: index, blocks: lesson.blocks.map((block) => ({ ...block, id: newId() })), quizQuestions: lesson.quizQuestions.map((question) => ({ ...question, id: newId(), choices: question.choices.map((choice) => ({ ...choice, id: newId() })) })) }));
       return { ...current, sections, lessons: [...current.lessons, ...copies] };
     });
   }
@@ -209,20 +264,25 @@ export function EditorClient({ initialData, focusedLessonId }: { initialData: In
     });
   }
 
-  function addLesson(sectionId: string) {
+  function addLesson(sectionId: string, lessonType: "content" | "quiz" = "content") {
     const siblings = draftRef.current.lessons.filter((item) => item.sectionId === sectionId);
-    const lesson = { id: newId(), sectionId, title: "New lesson", order: Math.max(-1, ...siblings.map((item) => item.order)) + 1, blocks: [] as ContentBlock[] };
+    const isQuiz = lessonType === "quiz";
+    const lesson = { id: newId(), sectionId, title: isQuiz ? "New quiz" : "New lesson", icon: isQuiz ? "quiz" as const : "file" as const, lessonType, order: Math.max(-1, ...siblings.map((item) => item.order)) + 1, blocks: [] as ContentBlock[], quizQuestions: [] };
+    pendingRouteRef.current = null;
     updateDraft((current) => ({ ...current, lessons: [...current.lessons, lesson] }));
-    setActiveLessonId(lesson.id);
+    void saveLatest();
   }
 
   function duplicateLesson(id: string) {
     const source = draftRef.current.lessons.find((lesson) => lesson.id === id);
     if (!source) return;
     const siblings = draftRef.current.lessons.filter((item) => item.sectionId === source.sectionId);
-    const lesson = { ...source, id: newId(), title: `${source.title} copy`, order: Math.max(-1, ...siblings.map((item) => item.order)) + 1, blocks: source.blocks.map((block) => ({ ...block, id: newId() })) };
+    const suffix = source.title.length <= 155 ? " copy" : "";
+    const titleHtml = source.titleHtml?.replace(/((?:<\/[^>]+>\s*)+)$/, `${suffix}$1`);
+    const lesson = { ...source, id: newId(), title: `${source.title}${suffix}`, titleHtml, order: Math.max(-1, ...siblings.map((item) => item.order)) + 1, blocks: source.blocks.map((block) => ({ ...block, id: newId() })), quizQuestions: source.quizQuestions.map((question) => ({ ...question, id: newId(), choices: question.choices.map((choice) => ({ ...choice, id: newId() })) })) };
+    pendingRouteRef.current = `/courses/${initialData.courseId}/edit/lessons/${lesson.id}`;
     updateDraft((current) => ({ ...current, lessons: [...current.lessons, lesson] }));
-    setActiveLessonId(lesson.id);
+    void saveLatest();
   }
 
   function deleteLesson(id: string) {
@@ -238,6 +298,10 @@ export function EditorClient({ initialData, focusedLessonId }: { initialData: In
   function reorderLessons(sectionId: string, orderedIds: string[]) {
     const orderMap = new Map(orderedIds.map((id, order) => [id, order]));
     updateDraft((current) => ({ ...current, lessons: current.lessons.map((lesson) => lesson.sectionId === sectionId ? { ...lesson, order: orderMap.get(lesson.id) ?? lesson.order } : lesson) }));
+  }
+
+  function changeLessonIcon(id: string, icon: NonNullable<Draft["lessons"][number]["icon"]>) {
+    updateLesson(id, (lesson) => ({ ...lesson, icon }));
   }
 
   function updateLesson(id: string, change: (lesson: Draft["lessons"][number]) => Draft["lessons"][number]) {
@@ -320,37 +384,57 @@ export function EditorClient({ initialData, focusedLessonId }: { initialData: In
   }
 
   function renderOutline() {
-    return <CourseOutline sections={draft.sections} lessons={draft.lessons} activeLessonId={activeLessonId} onSelectLesson={setActiveLessonId} onAddSection={addSection} onRenameSection={renameSection} onMoveSection={moveSection} onDuplicateSection={duplicateSection} onDeleteSection={deleteSection} onAddLesson={addLesson} onDuplicateLesson={duplicateLesson} onDeleteLesson={deleteLesson} onReorderLessons={reorderLessons} />;
+    return <CourseOutline currentCourseId={initialData.courseId} sections={draft.sections} lessons={draft.lessons} activeLessonId={activeLessonId} onSelectLesson={openLesson} onAddSection={addSection} onRenameSection={renameSection} onMoveSection={moveSection} onDuplicateSection={duplicateSection} onDeleteSection={deleteSection} onAddLesson={addLesson} onAddQuiz={(sectionId) => addLesson(sectionId, "quiz")} onDuplicateLesson={duplicateLesson} onDeleteLesson={deleteLesson} onChangeLessonIcon={changeLessonIcon} onReorderLessons={reorderLessons} />;
   }
 
   const stateIcon = saveState === "saving" ? <LoaderCircle size={15} className="animate-spin" /> : saveState === "error" || saveState === "conflict" ? <CircleAlert size={15} /> : <Check size={15} />;
-  const stateLabel = saveState === "saving" ? "Saving changes" : saveState === "error" ? "Save failed" : saveState === "conflict" ? "Conflict" : "All changes saved";
+  const stateLabel = !titleValid ? "Check lesson title" : saveState === "saving" ? "Saving changes" : saveState === "error" ? "Save failed" : saveState === "conflict" ? "Conflict" : "All changes saved";
+  const isCourseOverview = !focusedLessonId && !activeLesson;
+  const isQuizLesson = activeLesson?.lessonType === "quiz";
+  const authorInitials = authorName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "CA";
 
-  return <main className="min-h-screen bg-slate-100 text-slate-900">
-    <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
+  return <main className={`min-h-screen text-slate-900 ${isCourseOverview || isQuizLesson ? "bg-white" : "bg-slate-100"}`}>
+    {isCourseOverview && <DashboardNavbar userName={authorName} actions={<><Button type="button" variant="ghost" size="icon" onClick={navigateBack} aria-label="Back" title="Back"><ArrowLeft size={17} /></Button><Button type="button" variant="ghost" size="icon" onClick={() => router.forward()} aria-label="Forward" title="Forward"><ArrowRight size={17} /></Button></>} primaryAction={<Button type="button" variant="outline" size="sm" onClick={openPreview}><Eye size={15} />Preview</Button>} />}
+    {!isCourseOverview && <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="flex min-h-[68px] items-center justify-between gap-4 px-4 sm:px-6">
-        <div className="flex min-w-0 items-center gap-3"><Link href={focusedLessonId ? `/courses/${initialData.courseId}/edit` : "/dashboard"} aria-label={focusedLessonId ? "Back to course" : "Back to dashboard"} className="grid size-9 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900"><ArrowLeft size={18} /></Link><div className="min-w-0"><p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-indigo-600">Coursecraft authoring</p><p className="truncate text-sm font-semibold">{focusedLessonId ? activeLesson?.title ?? draft.title : draft.title}</p></div></div>
-        <div className="flex shrink-0 items-center gap-1 sm:gap-2"><Button variant="ghost" size="icon" disabled={!canUndo} onClick={undo} aria-label="Undo"><RotateCcw size={16} /></Button><Button variant="ghost" size="icon" disabled={!canRedo} onClick={redo} aria-label="Redo"><Redo2 size={16} /></Button><span className={`hidden items-center gap-1.5 text-xs sm:inline-flex ${saveState === "error" || saveState === "conflict" ? "text-rose-700" : "text-slate-500"}`}>{stateIcon}{stateLabel}</span><Button variant="outline" size="sm" onClick={() => void saveLatest()} disabled={saveState === "saving"}><Save size={15} />Save now</Button></div>
+        <div className="flex min-w-0 items-center gap-3">{activeLesson && !focusedLessonId ? <button type="button" onClick={() => setActiveLessonId(null)} aria-label="Back to course outline" className="grid size-9 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900"><ArrowLeft size={18} /></button> : <Link href={focusedLessonId ? `/courses/${initialData.courseId}/edit` : "/dashboard"} aria-label={focusedLessonId ? "Back to course" : "Back to dashboard"} className="grid size-9 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900"><ArrowLeft size={18} /></Link>}<div className="min-w-0"><p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-indigo-600">Coursecraft authoring</p><p className="truncate text-sm font-semibold">{activeLesson?.title ?? draft.title}</p></div></div>
+        <div className="flex shrink-0 items-center gap-1 sm:gap-2"><Button variant="ghost" size="icon" disabled={!canUndo} onClick={undo} aria-label="Undo"><Undo2 size={16} /></Button><Button variant="ghost" size="icon" disabled={!canRedo} onClick={redo} aria-label="Redo"><Redo2 size={16} /></Button><span className={`hidden items-center gap-1.5 text-xs sm:inline-flex ${saveState === "error" || saveState === "conflict" ? "text-rose-700" : "text-slate-500"}`}>{stateIcon}{stateLabel}</span><Button variant="outline" size="sm" onClick={() => void saveLatest()} disabled={saveState === "saving"}><Save size={15} />Save now</Button></div>
       </div>
       {(saveState === "error" || saveState === "conflict") && <div role="alert" className="flex items-center justify-between gap-3 border-t border-rose-100 bg-rose-50 px-4 py-2 text-xs text-rose-800 sm:px-6"><span>{saveMessage}</span>{saveState === "conflict" ? <Button size="sm" variant="outline" onClick={() => window.location.reload()}>Reload course</Button> : <Button size="sm" variant="outline" onClick={() => void saveLatest()}>Retry save</Button>}</div>}
-    </header>
+    </header>}
+    {isCourseOverview && <div role="status" aria-live="polite" title={stateLabel} className={`fixed right-5 top-[76px] z-30 flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-xs shadow-sm ${saveState === "error" || saveState === "conflict" || !titleValid ? "text-rose-700" : "text-slate-500"}`}>{stateIcon}<span className="sr-only">{stateLabel}</span></div>}
+    {isCourseOverview && (saveState === "error" || saveState === "conflict") && <div role="alert" className="fixed right-5 top-[108px] z-40 flex max-w-[calc(100vw-2.5rem)] items-center gap-3 rounded-lg border border-rose-200 bg-white px-3 py-2 text-xs text-rose-800 shadow-lg"><span>{saveMessage}</span>{saveState === "conflict" ? <Button size="sm" variant="outline" onClick={() => window.location.reload()}>Reload</Button> : <Button size="sm" variant="outline" onClick={() => void saveLatest()}>Retry</Button>}</div>}
 
-    <div className={`mx-auto w-full max-w-none ${focusedLessonId ? "p-0" : "px-3 py-4 sm:px-5 lg:px-8"}`}>
-      {!focusedLessonId && <details className="mb-3 rounded-xl border border-slate-200 bg-white p-3 lg:hidden"><summary className="cursor-pointer list-none text-sm font-semibold [&::-webkit-details-marker]:hidden">Course outline <span className="ml-1 text-xs font-normal text-slate-500">({draft.lessons.length} lessons)</span></summary><div className="mt-3 border-t border-slate-100 pt-3">{renderOutline()}</div></details>}
-      <div className={`grid gap-4 ${focusedLessonId ? "grid-cols-1" : "lg:grid-cols-[270px_minmax(0,1fr)] xl:grid-cols-[290px_minmax(0,1fr)_230px]"}`}>
-        {!focusedLessonId && <aside className="sticky top-[84px] hidden max-h-[calc(100vh-100px)] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-3 lg:block">{renderOutline()}</aside>}
+    <div className={`mx-auto w-full ${isCourseOverview ? "max-w-[880px] px-5 pb-16 pt-7 sm:px-8 sm:pt-8" : focusedLessonId ? "max-w-none p-0" : "max-w-none px-3 py-4 sm:px-5 lg:px-8"}`}>
+      {!focusedLessonId && activeLesson && <details className="mb-3 rounded-xl border border-slate-200 bg-white p-3 lg:hidden"><summary className="cursor-pointer list-none text-sm font-semibold [&::-webkit-details-marker]:hidden">Course outline <span className="ml-1 text-xs font-normal text-slate-500">({draft.lessons.length} content items)</span></summary><div className="mt-3 border-t border-slate-100 pt-3">{renderOutline()}</div></details>}
+      <div className={`grid gap-4 ${focusedLessonId || !activeLesson ? "grid-cols-1" : "lg:grid-cols-[270px_minmax(0,1fr)]"}`}>
+        {!focusedLessonId && activeLesson && <aside className="sticky top-[84px] hidden max-h-[calc(100vh-100px)] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-3 lg:block">{renderOutline()}</aside>}
 
         <section className="min-w-0" aria-label="Lesson canvas">
-          <div className={`mx-auto ${focusedLessonId ? "max-w-none" : "max-w-3xl"}`}>
-            {!focusedLessonId && <div className="mb-8 border-b border-slate-100 pb-6">
-              <label className="block text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">Course title<Input value={draft.title} onChange={(event) => updateDraft((current) => ({ ...current, title: event.target.value }))} maxLength={160} className="mt-2 h-auto border-0 px-0 py-1 text-2xl font-semibold tracking-tight shadow-none focus-visible:ring-0 sm:text-3xl" /></label>
-              <label className="mt-4 block text-xs font-semibold text-slate-500">Course description<Textarea value={draft.description} onChange={(event) => updateDraft((current) => ({ ...current, description: event.target.value }))} maxLength={5000} rows={2} placeholder="What will learners be able to do?" className="mt-1.5 resize-y border-0 bg-slate-50 text-sm font-normal shadow-none" /></label>
+          <div className={`mx-auto ${isCourseOverview ? "max-w-[840px]" : focusedLessonId ? "max-w-none" : "max-w-3xl"}`}>
+            {isCourseOverview && <div className="mb-0">
+              <label className="block"><span className="sr-only">Course title</span><Textarea ref={courseTitleRef} aria-label="Course title" rows={1} value={draft.title} onChange={(event) => updateDraft((current) => ({ ...current, title: event.target.value }))} maxLength={160} className="h-auto min-h-0 w-full resize-none overflow-hidden whitespace-pre-wrap break-words rounded-none border-0 bg-transparent px-0 py-0 text-[36px] font-bold leading-[1.08] tracking-[-0.035em] text-black shadow-none outline-none placeholder:text-slate-300 focus-visible:ring-0 [overflow-wrap:anywhere] sm:text-[44px]" /></label>
+              <div className="mt-6 flex min-h-11 items-center gap-2.5">
+                {draft.authorVisible ? <>
+                  <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-full bg-[#ff876c] text-sm font-medium text-white">{authorInitials}</span>
+                  <span className="max-w-[240px] truncate text-sm font-medium text-slate-500">{authorName}</span>
+                  <details className="relative">
+                    <summary aria-label="Author options" className="grid size-7 cursor-pointer list-none place-items-center rounded-md text-slate-500 hover:bg-slate-100 [&::-webkit-details-marker]:hidden"><ChevronDown size={15} /></summary>
+                    <div className="absolute left-0 top-full z-20 mt-1 w-36 rounded-lg border border-slate-200 bg-white p-1 shadow-lg"><button type="button" aria-pressed="true" onClick={() => updateDraft((current) => ({ ...current, authorVisible: false }))} className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-xs text-slate-700 hover:bg-slate-50"><EyeOff size={13} />Hide author</button></div>
+                  </details>
+                </> : <Button type="button" variant="ghost" size="sm" onClick={() => updateDraft((current) => ({ ...current, authorVisible: true }))}><Eye size={15} />Show author</Button>}
+              </div>
+              <div aria-hidden="true" className="mt-14 h-[5px] w-44 bg-[#2f5f9f]" />
+              <div className="mt-[4.5rem] text-[16px] leading-[2.2] text-[#202124]">
+                <StatementTextEditor id="course-description" label="Edit course description" tag="p" html={draft.descriptionHtml} text={draft.description} className="text-[16px] leading-[2.2]" onChange={(descriptionHtml, description) => updateDraft((current) => ({ ...current, description, descriptionHtml }))} />
+              </div>
             </div>}
-            {activeLesson ? <>
+            {activeLesson ? activeLesson.lessonType === "quiz" ? <QuizEditor key={activeLesson.id} title={activeLesson.title} titleHtml={activeLesson.titleHtml} onTitleChange={(title, titleHtml) => updateLesson(activeLesson.id, (lesson) => ({ ...lesson, title, titleHtml }))} onTitleValidityChange={(valid) => { titleValidRef.current = valid; setTitleValid(valid); }} questions={activeLesson.quizQuestions} onChange={(quizQuestions) => updateLesson(activeLesson.id, (lesson) => ({ ...lesson, quizQuestions }))} /> : <>
+              <LessonTitleEditor key={activeLesson.id} title={activeLesson.title} html={activeLesson.titleHtml} onChange={(title, titleHtml) => updateLesson(activeLesson.id, (lesson) => ({ ...lesson, title, titleHtml }))} onValidityChange={(valid) => { titleValidRef.current = valid; setTitleValid(valid); }} />
               {activeLesson.blocks.length ? <DndContext id={blockDndId} sensors={blockSensors} collisionDetection={closestCenter} onDragEnd={reorderBlocks}><SortableContext items={activeLesson.blocks.map((block) => `block-${block.id}`)} strategy={verticalListSortingStrategy}><div>{activeLesson.blocks.map((block, index) => {
-                const contentWidth = block.widthCustom ? block.width : "small";
+                const contentWidth = block.widthCustom ? block.width : defaultBlockWidth(block.type);
                 const widthClass = contentWidth === "small" ? "max-w-[520px]" : contentWidth === "medium" ? "max-w-[720px]" : "max-w-[920px]";
-                const blockPaddingClass = { none: "", small: "py-2", medium: "py-4", large: "py-8" }[block.blockPadding ?? "medium"];
+                const blockPadding = block.blockPadding ?? defaultBlockPadding(block.type);
                 const headingPaddingClass = { none: "", small: "px-2 py-1", medium: "px-4 py-2", large: "px-8 py-4" }[block.headingPadding ?? "none"];
                 return <SortableItem key={block.id} id={`block-${block.id}`} className="relative w-full" overlayHandle>
                   <div className="group/boundary absolute -top-1.5 inset-x-0 z-40 h-3">
@@ -359,18 +443,18 @@ export function EditorClient({ initialData, focusedLessonId }: { initialData: In
                   <div className="group/block-content relative min-w-0 flex-1">
                     <div aria-hidden="true" className="pointer-events-none absolute inset-0 z-10 border border-dashed border-slate-400 opacity-0 transition-opacity group-hover/block-content:opacity-100 group-focus-within/block-content:opacity-100" />
                     <div className="absolute right-4 top-3 z-20 flex items-center gap-1 opacity-0 transition-opacity group-hover/block-content:opacity-100 group-focus-within/block-content:opacity-100"><Button variant="ghost" size="icon" onClick={() => moveBlock(block.id, -1)} disabled={index === 0} aria-label="Move block up" title="Move block up" className="size-8"><ArrowUp size={14} /></Button><Button variant="ghost" size="icon" onClick={() => moveBlock(block.id, 1)} disabled={index === activeLesson.blocks.length - 1} aria-label="Move block down" title="Move block down" className="size-8"><ArrowDown size={14} /></Button><Button variant="ghost" size="icon" onClick={() => openReplaceTemplatePicker(block)} aria-label="Change block template" title="Change block template" className="size-8"><LayoutGrid size={14} /></Button><BlockFormatMenu block={block} onChange={(next) => updateBlock(block.id, next)} /><Button variant="ghost" size="icon" onClick={() => duplicateBlock(block.id)} aria-label="Duplicate block" className="size-8"><Copy size={14} /></Button><Button variant="ghost" size="icon" onClick={() => deleteBlock(block.id)} aria-label="Delete block" className="size-8 text-slate-400 hover:text-rose-700"><Trash2 size={15} /></Button></div>
-                    <div className={`w-full ${blockPaddingClass}`} style={{ backgroundColor: block.backgroundColor, color: contrastTextColor(block.backgroundColor) }}><div className={`mx-auto w-full ${widthClass} px-4`}><div className={block.type === "heading" ? headingPaddingClass : ""}><ContentBlockEditor block={block} onChange={(next) => updateBlock(block.id, next)} /></div></div></div>
+                    <div className="w-full" style={{ backgroundColor: block.backgroundColor, color: contrastTextColor(block.backgroundColor), paddingTop: `${blockPadding}px`, paddingBottom: `${blockPadding}px` }}><div className={`mx-auto w-full ${widthClass} px-4`}><div className={block.type === "heading" ? headingPaddingClass : ""}><ContentBlockEditor block={block} courseId={initialData.courseId} onChange={(next) => updateBlock(block.id, next)} /></div></div></div>
                   </div>
                   {index === activeLesson.blocks.length - 1 && <div className="group/boundary absolute -bottom-1.5 inset-x-0 z-40 h-3"><Button variant="outline" size="icon" aria-label="Add block" title="Add block" onClick={() => openAddTemplatePicker(activeLesson.blocks.length)} className="absolute left-1/2 top-1/2 size-6 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white p-0 opacity-0 shadow-sm transition-opacity group-hover/boundary:opacity-100 group-focus-within/boundary:opacity-100"><Plus size={14} /></Button></div>}
                 </SortableItem>;
               })}</div></SortableContext></DndContext> : <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-5 py-6 text-center"><p className="font-medium text-slate-800">Build this lesson one block at a time</p><p className="mt-1 text-sm text-slate-500">Add a text block, heading, or media link to begin.</p></div>}
               <div className="mt-5 flex justify-center"><Button variant="outline" onClick={() => openAddTemplatePicker(activeLesson.blocks.length)}><Plus size={16} />Add block</Button></div>
-            </> : <div className="grid min-h-[440px] place-items-center text-center"><div className="max-w-sm"><span className="mx-auto grid size-12 place-items-center rounded-2xl bg-indigo-50 text-indigo-600"><FilePlus2 size={22} /></span><h1 className="mt-4 text-xl font-semibold">Your course outline is ready</h1><p className="mt-2 text-sm leading-6 text-slate-500">Add a lesson from the outline to start writing your first learning experience.</p><Button className="mt-5" onClick={() => addLesson(orderedSections[0].id)}><FilePlus2 size={16} />Add your first lesson</Button></div></div>}
+              </> : !focusedLessonId ? <div className="mt-28">{renderOutline()}</div> : <div className="grid min-h-[440px] place-items-center text-center"><div className="max-w-sm"><span className="mx-auto grid size-12 place-items-center rounded-2xl bg-indigo-50 text-indigo-600"><FilePlus2 size={22} /></span><h1 className="mt-4 text-xl font-semibold">Your course outline is ready</h1><p className="mt-2 text-sm leading-6 text-slate-500">Add content from the course outline to start building this course.</p><Button className="mt-5" onClick={() => addLesson(orderedSections[0].id)}><FilePlus2 size={16} />Add content</Button></div></div>}
           </div>
         </section>
 
       </div>
     </div>
-    <BlockTemplatePicker open={templatePicker !== null} initialCategory={templatePicker?.category ?? "Text"} mode={templatePicker?.mode ?? "add"} onClose={() => setTemplatePicker(null)} onSelect={applyTemplate} />
+    {templatePicker && <BlockTemplatePicker open initialCategory={templatePicker.category} mode={templatePicker.mode} onClose={() => setTemplatePicker(null)} onSelect={applyTemplate} />}
   </main>;
 }

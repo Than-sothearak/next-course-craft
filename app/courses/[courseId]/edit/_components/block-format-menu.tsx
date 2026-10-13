@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Settings2 } from "lucide-react";
-import type { ContentBlock } from "@/lib/schemas/block";
+import { defaultBlockPadding, defaultBlockWidth, type ContentBlock } from "@/lib/schemas/block";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 
@@ -12,11 +12,14 @@ const spacingOptions = [
   { value: "medium", label: "Medium" },
   { value: "large", label: "Large" },
 ] as const;
+const blockPaddingOptions = [0, 20, 40, 60] as const;
 const backgroundColors = ["#ffffff", "#f1f5f9", "#dbeafe", "#bfdbfe", "#dcfce7", "#bbf7d0", "#fef3c7", "#fde68a", "#fee2e2", "#fecaca", "#ede9fe", "#1e293b"];
 
 export function BlockFormatMenu({ block, onChange }: { block: ContentBlock; onChange: (block: ContentBlock) => void }) {
   const [colorCode, setColorCode] = useState(block.backgroundColor);
 
+  // Keep editable drafts in sync when an external edit or undo changes the block.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => setColorCode(block.backgroundColor), [block.backgroundColor]);
 
   function changeColorCode(value: string) {
@@ -30,7 +33,7 @@ export function BlockFormatMenu({ block, onChange }: { block: ContentBlock; onCh
     <div className="absolute right-0 z-40 mt-1 w-64 space-y-3 rounded-xl border border-slate-200 bg-white p-4 text-slate-700 shadow-xl">
       <h3 className="text-sm font-semibold">Format</h3>
       <label className="block text-xs font-medium">Content width
-        <Select aria-label="Content width" value={block.widthCustom ? block.width : "small"} onChange={(event) => onChange({ ...block, width: event.target.value as ContentBlock["width"], widthCustom: true })} className="mt-1 h-9 w-full text-xs"><option value="full">L - 920px</option><option value="medium">M - 720px</option><option value="small">S - 520px</option></Select>
+        <Select aria-label="Content width" value={block.widthCustom ? block.width : defaultBlockWidth(block.type)} onChange={(event) => onChange({ ...block, width: event.target.value as ContentBlock["width"], widthCustom: true })} className="mt-1 h-9 w-full text-xs"><option value="full">L - 920px</option><option value="medium">M - 720px</option><option value="small">S - 520px</option></Select>
       </label>
       <div>
         <label htmlFor={`block-background-${block.id}`} className="block text-xs font-medium">Background color</label>
@@ -51,7 +54,10 @@ export function BlockFormatMenu({ block, onChange }: { block: ContentBlock; onCh
         <p className="mt-1 text-[11px] text-slate-500">Text color adjusts for contrast.</p>
       </div>
       <label className="block text-xs font-medium">Block padding
-        <Select aria-label="Block padding" value={block.blockPadding ?? "medium"} onChange={(event) => onChange({ ...block, blockPadding: event.target.value as ContentBlock["blockPadding"] })} className="mt-1 h-9 w-full text-xs">{spacingOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select>
+        <Select aria-label="Block padding" value={String(block.blockPadding ?? defaultBlockPadding(block.type))} onChange={(event) => onChange({ ...block, blockPadding: Number(event.target.value) })} className="mt-1 h-9 w-full text-xs">
+          {block.blockPadding !== undefined && !blockPaddingOptions.includes(block.blockPadding as typeof blockPaddingOptions[number]) && <option value={block.blockPadding}>{block.blockPadding} px</option>}
+          {blockPaddingOptions.map((padding) => <option key={padding} value={padding}>{padding} px</option>)}
+        </Select>
       </label>
       {block.type === "heading" && <label className="block text-xs font-medium">Heading padding
         <Select aria-label="Heading padding" value={block.headingPadding ?? "none"} onChange={(event) => onChange({ ...block, headingPadding: event.target.value as ContentBlock["headingPadding"] })} className="mt-1 h-9 w-full text-xs">{spacingOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select>

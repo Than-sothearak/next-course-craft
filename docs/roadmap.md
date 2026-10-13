@@ -18,4 +18,4 @@ Work one phase at a time; stop after the requested phase.
 14. Optional AI features.
 15. Production hardening.
 
-Current status: Phases 1, 2, and 3 are complete. Phase 4 is not started.
+Current status: Phases 1, 2, 3, and 4 are complete. Phase 5 is next.
