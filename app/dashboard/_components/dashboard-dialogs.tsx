@@ -184,16 +184,9 @@ export function DashboardDialogs({
                   ))}
                 </Select>
               </label>
-              <label className="block text-sm font-medium text-slate-700">
-                Cover image URL{" "}
-                <span className="font-normal text-slate-400">(optional)</span>
-                <Input
-                  name="coverImage"
-                  type="url"
-                  placeholder="https://…"
-                  className="mt-1.5 font-normal"
-                />
-              </label>
+              <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-500">
+                After creating the course, choose or upload its image from the course card menu.
+              </p>
               <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
                 <Button variant="outline" onClick={onCloseCourse}>
                   Cancel

@@ -31,6 +31,7 @@ function lessonWriteOperations(
           titleHtml: lesson.titleHtml ?? null,
           icon: lesson.icon ?? "file",
           lessonType: lesson.lessonType,
+          passingScore: lesson.passingScore ?? 70,
           quizQuestions: lesson.quizQuestions,
           order: lesson.order,
           blocks: lesson.blocks,
@@ -60,7 +61,7 @@ async function saveWithoutTransactions(
     revision: snapshot.revision,
   })
     .select(
-      "title description descriptionHtml authorVisible sections revision __v",
+      "title description descriptionHtml authorVisible theme sections revision __v",
     )
     .lean();
   if (!before) {
@@ -95,6 +96,7 @@ async function saveWithoutTransactions(
         description: snapshot.description,
         descriptionHtml: snapshot.descriptionHtml ?? null,
         authorVisible: snapshot.authorVisible,
+        theme: snapshot.theme,
         sections: snapshot.sections,
         editorSaveLock: lockId,
         editorSaveLockAt: new Date(),
@@ -144,6 +146,7 @@ async function saveWithoutTransactions(
             description: before.description,
             descriptionHtml: before.descriptionHtml ?? null,
             authorVisible: before.authorVisible,
+            theme: before.theme,
             sections: before.sections,
             revision: snapshot.revision,
             __v: before.__v,
@@ -190,6 +193,7 @@ export async function saveCourseEditor(
               description: snapshot.description,
               descriptionHtml: snapshot.descriptionHtml ?? null,
               authorVisible: snapshot.authorVisible,
+              theme: snapshot.theme,
               sections: snapshot.sections,
             },
             $inc: { revision: 1, __v: 1 },

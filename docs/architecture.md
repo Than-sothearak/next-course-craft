@@ -9,16 +9,18 @@ Coursecraft is one Next.js App Router application. Server routes and server comp
 - `lib/db/`: cached MongoDB connection and Mongoose model registration.
 - `lib/auth/`: Auth.js configuration and server session helpers.
 - `lib/schemas/`: versioned, runtime-validated content contracts shared by authoring, preview, and export.
-- `lib/player/`: shared player-domain logic and progress interfaces.
+- `lib/export/`: shared export runtime logic and learner progress interfaces.
 - `lib/dashboard/`: validated folder/course operations, ownership-scoped queries, and dashboard request helpers.
 - `lib/<domain>/services/`: server-side operations grouped by the dashboard, editor, and media page/API areas that use them.
-- `player/`: standalone static player entry point and build configuration. It must not import Next.js server code, MongoDB, Auth.js, or private storage credentials.
+- `export/`: standalone static export entry point and build configuration. It must not import Next.js server code, MongoDB, Auth.js, or private storage credentials.
 - `models/`: Mongoose models; lessons and assets are independent documents rather than a giant course document.
 - `tests/`: Vitest unit tests and Playwright end-to-end tests.
 
-The standalone player is bundled separately by Vite as a build tool inside this repository. Its build output consists only of static HTML, CSS, and JavaScript. The authenticated HTML5 publishing route embeds that bundle, the validated course snapshot, and owner-scoped course media in one downloadable HTML file. The SCORM 1.2 publishing route packages the same compiled player with a validated snapshot, owner-scoped media, the root-level `imsmanifest.xml`, and the referenced schema files. The browser-only player checks for the SCORM 1.2 `API` runtime and persists resume and completion state through the LMS when available; without an LMS it falls back to browser storage.
+The standalone export runtime is bundled separately by Vite as a build tool inside this repository. Its build output consists only of static HTML, CSS, and JavaScript. The authenticated HTML publishing route embeds that bundle, the validated course snapshot, and owner-scoped course media in one downloadable HTML file. The SCORM 1.2 publishing route packages the same compiled export runtime with a validated snapshot, owner-scoped media, the root-level `imsmanifest.xml`, and the referenced schema files. SCORM 2004 uses the same runtime and packaged media with its own manifest and `API_1484_11` adapter. The browser-only export saves resume and completion state through either LMS API when available; without an LMS it falls back to browser storage.
 
-The browser-only learner view lives in `app/courses/[courseId]/preview/course-preview.tsx` and is shared by the authenticated preview route and the standalone Vite entry point. App-only navigation and publishing actions are supplied by the preview route wrapper, so the static player bundle does not depend on Next.js APIs. The SCORM runtime adapter lives in `player/src/scorm-runtime.ts` and depends only on browser APIs and the shared player progress contract. Both outputs use `app/globals.css` for matching layout, typography, and animations.
+The browser-only learner view lives in `app/courses/[courseId]/preview/course-preview.tsx` and is shared by the authenticated preview route and the standalone Vite entry point. App-only navigation and publishing actions are supplied by the preview route wrapper, so the static export does not depend on Next.js APIs. The SCORM adapter lives in `export/src/scorm-runtime.ts` and depends only on browser APIs and the shared learner progress contract. Quiz best scores and passed-quiz IDs are saved with resume state; the adapter reports raw scores as attempts are graded and reports assessment success with course completion. Both outputs use `app/globals.css` for matching layout, typography, and animations.
+
+Course themes are validated in `lib/editor/theme.ts`, persisted in the course document, and included in the revision-checked editor snapshot. The course editor exposes palette presets, custom brand and accent colors, and local system font choices. The shared learner view maps these values to CSS custom properties, so the authenticated preview, HTML package, and both SCORM formats render the same branding without loading external fonts or assets.
 
 ## Persistence and security
 
@@ -36,4 +38,4 @@ Auth.js v5 is configured with a MongoDB adapter and environment-based provider c
 
 ## Runtime and deployment
 
-Mongo-backed route handlers use the Node.js runtime. The player bundle is built with `npm run build:player` into `public/course-player`; this is static output and can be copied into an export archive in a later phase. Export work belongs in isolated server-side service modules and must respect hosting request and memory limits.
+Mongo-backed route handlers use the Node.js runtime. The export bundle is built with `npm run build:export` into `public/course-export`; this is static output that publishing routes package as HTML or SCORM. Export work belongs in isolated server-side service modules and must respect hosting request and memory limits.

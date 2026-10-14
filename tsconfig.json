@@ -37,6 +37,6 @@
   ],
   "exclude": [
     "node_modules",
-    "player/dist"
+    "export/dist"
   ]
 }

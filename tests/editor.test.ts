@@ -23,22 +23,25 @@ const validSnapshot = {
 
 describe("course editor snapshot", () => {
   it("accepts a versioned course, lesson, and block snapshot", () => {
-    expect(editorSnapshotSchema.parse(validSnapshot)).toMatchObject({ title: "Onboarding", revision: 2 });
+    expect(editorSnapshotSchema.parse(validSnapshot)).toMatchObject({ title: "Onboarding", revision: 2, theme: { preset: "ocean", primaryColor: "#2f5f9f" } });
   });
 
   it("accepts formatted course and lesson titles, author visibility, and content icons", () => {
     const formatted = structuredClone(validSnapshot) as typeof validSnapshot & {
       descriptionHtml?: string;
       authorVisible?: boolean;
+      theme?: { preset: string; primaryColor: string; accentColor: string; fontFamily: string };
       lessons: Array<(typeof validSnapshot.lessons)[number] & { titleHtml?: string; icon?: string }>;
     };
     formatted.descriptionHtml = "<p><strong>Welcome</strong> to the course.</p>";
     formatted.authorVisible = false;
+    formatted.theme = { preset: "forest", primaryColor: "#24734f", accentColor: "#f2a65a", fontFamily: "serif" };
     formatted.lessons[0].titleHtml = "<h2><em>First day</em></h2>";
     formatted.lessons[0].icon = "book";
     expect(editorSnapshotSchema.parse(formatted)).toMatchObject({
       descriptionHtml: "<p><strong>Welcome</strong> to the course.</p>",
       authorVisible: false,
+      theme: { preset: "forest", primaryColor: "#24734f", accentColor: "#f2a65a", fontFamily: "serif" },
       lessons: [{ titleHtml: "<h2><em>First day</em></h2>", icon: "book" }],
     });
   });
@@ -98,6 +101,15 @@ describe("course editor snapshot", () => {
       }],
     };
     expect(editorSnapshotSchema.safeParse(invalid).success).toBe(false);
+  });
+
+  it("accepts a quiz passing score from zero through one hundred", () => {
+    const quiz = {
+      ...validSnapshot,
+      lessons: [{ ...validSnapshot.lessons[0], lessonType: "quiz", passingScore: 82 }],
+    };
+    expect(editorSnapshotSchema.parse(quiz).lessons[0].passingScore).toBe(82);
+    expect(editorSnapshotSchema.safeParse({ ...quiz, lessons: [{ ...quiz.lessons[0], passingScore: 101 }] }).success).toBe(false);
   });
 
   it("requires every lesson to reference a section", () => {
@@ -187,7 +199,23 @@ describe("content block dimensions", () => {
 
   it("keeps the existing defaults for media and interactive blocks", () => {
     const image = blockSchema.parse({ id: "image-a", version: 1, type: "image", data: { src: "/image.png", alt: "" } });
+    const flipCard = blockSchema.parse({
+      id: "flip-card-a",
+      version: 1,
+      type: "flipCard",
+      data: {
+        cards: [{
+          id: "card-a",
+          frontLabel: "Question",
+          front: { type: "text", text: "Prompt" },
+          backLabel: "Answer",
+          back: { type: "text", text: "Explanation" },
+        }],
+      },
+    });
     expect(image).toMatchObject({ width: "small", blockPadding: 20 });
+    expect(flipCard).toMatchObject({ width: "full", blockPadding: 20 });
+    expect(defaultBlockWidth("flipCard")).toBe("full");
   });
 });
 

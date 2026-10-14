@@ -9,6 +9,7 @@ const LessonSchema = new Schema({
   icon: { type: String, enum: ["file", "book", "video", "quiz", "idea"], default: "file" },
   order: { type: Number, required: true, min: 0 },
   lessonType: { type: String, enum: ["content", "quiz"], default: "content" },
+  passingScore: { type: Number, min: 0, max: 100, default: 70 },
   quizQuestions: { type: [Schema.Types.Mixed], default: [] },
   blocks: { type: [Schema.Types.Mixed], default: [] },
   revision: { type: Number, default: 0, min: 0 },

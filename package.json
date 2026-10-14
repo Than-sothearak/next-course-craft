@@ -11,7 +11,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "build:player": "vite build --config player/vite.config.ts"
+    "build:export": "vite build --config export/vite.config.ts"
   },
   "dependencies": {
     "@auth/mongodb-adapter": "^3.10.0",

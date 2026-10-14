@@ -65,6 +65,8 @@ export function QuizEditor({
   titleHtml,
   onTitleChange,
   onTitleValidityChange,
+  passingScore,
+  onPassingScoreChange,
   questions,
   onChange,
 }: {
@@ -72,6 +74,8 @@ export function QuizEditor({
   titleHtml?: string;
   onTitleChange: (title: string, html: string) => void;
   onTitleValidityChange: (valid: boolean) => void;
+  passingScore: number;
+  onPassingScoreChange: (passingScore: number) => void;
   questions: QuizQuestion[];
   onChange: (questions: QuizQuestion[]) => void;
 }) {
@@ -175,6 +179,23 @@ export function QuizEditor({
               onChange={onTitleChange}
               onValidityChange={onTitleValidityChange}
             />
+            <label className="mb-8 mt-3 flex w-fit items-center gap-2 text-xs text-slate-500">
+              <span>Pass at</span>
+              <Input
+                type="number"
+                aria-label="Quiz passing score percentage"
+                min={0}
+                max={100}
+                step={1}
+                value={passingScore}
+                onChange={(event) => {
+                  const value = Number(event.target.value);
+                  if (event.target.value && Number.isInteger(value) && value >= 0 && value <= 100) onPassingScoreChange(value);
+                }}
+                className="h-8 w-16 rounded-none border-0 border-b border-slate-200 bg-transparent px-1 text-center text-sm text-slate-900 shadow-none focus-visible:border-slate-300 focus-visible:outline-none focus-visible:ring-0"
+              />
+              <span>%</span>
+            </label>
             <div className="grid min-h-[42vh] place-items-center">
               <Button type="button" variant="ghost" onClick={addQuestion}>
                 <Plus size={15} />
@@ -309,6 +330,23 @@ export function QuizEditor({
             onChange={onTitleChange}
             onValidityChange={onTitleValidityChange}
           />
+          <label className="mb-8 mt-3 flex w-fit items-center gap-2 text-xs text-slate-500">
+            <span>Pass at</span>
+            <Input
+              type="number"
+              aria-label="Quiz passing score percentage"
+              min={0}
+              max={100}
+              step={1}
+              value={passingScore}
+              onChange={(event) => {
+                const value = Number(event.target.value);
+                if (event.target.value && Number.isInteger(value) && value >= 0 && value <= 100) onPassingScoreChange(value);
+              }}
+              className="h-8 w-16 rounded-none border-0 border-b border-slate-200 bg-transparent px-1 text-center text-sm text-slate-900 shadow-none focus-visible:border-slate-300 focus-visible:outline-none focus-visible:ring-0"
+            />
+            <span>%</span>
+          </label>
           <div className="mb-5 flex items-center gap-2 md:hidden">
             <Select
               aria-label="Question order"

@@ -32,11 +32,45 @@ body { margin: 0; min-height: 100vh; background: #f8fafc; color: #0f172a; font-f
 @keyframes course-learn-enter { from { opacity: 0; transform: translateY(12px) scale(0.995); } to { opacity: 1; transform: translateY(0) scale(1); } }
 @keyframes lesson-block-enter { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes lesson-list-item-enter { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes labeled-graphic-radar {
+  0% { opacity: .72; transform: scale(.55); }
+  75%, 100% { opacity: 0; transform: scale(2.15); }
+}
+@keyframes labeled-graphic-popover-enter {
+  from { opacity: 0; scale: .94; translate: 0 7px; }
+  to { opacity: 1; scale: 1; translate: 0 0; }
+}
+@keyframes lesson-lock-release {
+  0%, 48% { opacity: 1; transform: rotate(0) translateY(0) scale(1); }
+  15% { transform: rotate(-14deg) translateY(0) scale(1.08); }
+  30% { transform: rotate(14deg) translateY(0) scale(1.08); }
+  68% { opacity: 1; transform: rotate(0) translateY(-1px) scale(1); }
+  100% { opacity: 0; transform: rotate(12deg) translateY(-7px) scale(.75); }
+}
+@keyframes lesson-lock-open {
+  0%, 42% { opacity: 0; transform: translateY(2px) scale(.8); }
+  58% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-7px) scale(.75); }
+}
 .dialog-backdrop-in { animation: dialog-backdrop-in 160ms ease-out both; }
 .dialog-panel-in { animation: dialog-panel-in 200ms cubic-bezier(0.16, 1, 0.3, 1) both; }
 .course-learn-enter { animation: course-learn-enter 700ms cubic-bezier(0.22, 1, 0.36, 1) both; }
 .lesson-block-enter { animation: lesson-block-enter 950ms cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: var(--lesson-block-delay, 0ms); }
 .lesson-list-enter ul > li, .lesson-list-enter ol > li { animation: lesson-list-item-enter 1000ms cubic-bezier(0.22, 1, 0.36, 1) both; animation-delay: calc(var(--lesson-block-delay, 0ms) + var(--lesson-list-item-delay, 0ms)); }
+.lesson-lock-release { animation: lesson-lock-release 780ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.lesson-lock-open { animation: lesson-lock-open 780ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.labeled-graphic-radar::before,
+.labeled-graphic-radar::after {
+  position: absolute;
+  inset: -3px;
+  border: 2px solid var(--radar-color, #2f5f9f);
+  border-radius: 9999px;
+  content: "";
+  pointer-events: none;
+  animation: labeled-graphic-radar 2.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+.labeled-graphic-radar::after { animation-delay: 1.3s; }
+.labeled-graphic-popover { animation: labeled-graphic-popover-enter 280ms cubic-bezier(0.22, 1, 0.36, 1) both; }
 .lesson-rich-text ul,
 .lesson-rich-text ol { margin-block: 0.75rem; padding-inline-start: 1.5rem; }
 .lesson-rich-text blockquote { margin-block: 1rem; border-inline-start: 3px solid #cbd5e1; padding-inline-start: 1rem; color: #334155; }
@@ -49,7 +83,7 @@ body { margin: 0; min-height: 100vh; background: #f8fafc; color: #0f172a; font-f
 .lesson-rich-text ul[data-list-style="dash"] li,
 .lesson-rich-text ul[data-list-style="check"] li { position: relative; padding-inline-start: 1.5rem; }
 .lesson-rich-text ul[data-list-style="dash"] li::before,
-.lesson-rich-text ul[data-list-style="check"] li::before { position: absolute; left: 0; color: #2f5f9f; font-weight: 700; }
+.lesson-rich-text ul[data-list-style="check"] li::before { position: absolute; left: 0; color: var(--course-primary, #2f5f9f); font-weight: 700; }
 .lesson-rich-text ul[data-list-style="dash"] li::before { content: "–"; }
 .lesson-rich-text ul[data-list-style="check"] li::before { content: "✓"; }
 .lesson-rich-text ol { list-style-type: decimal; }
@@ -58,8 +92,11 @@ body { margin: 0; min-height: 100vh; background: #f8fafc; color: #0f172a; font-f
 .lesson-rich-text ol[type="I"] { list-style-type: upper-roman; }
 .lesson-rich-text ol[type="i"] { list-style-type: lower-roman; }
 .lesson-rich-text li { margin-block: 0.35rem; }
-.lesson-rich-text li::marker { color: #2f5f9f; font-size: inherit; }
+.lesson-rich-text li::marker { color: var(--course-primary, #2f5f9f); font-size: inherit; }
 .lesson-rich-text li > p { margin-block: 0; }
 @media (prefers-reduced-motion: reduce) {
   .dialog-backdrop-in, .dialog-panel-in, .course-learn-enter, .lesson-block-enter, .lesson-list-enter ul > li, .lesson-list-enter ol > li { animation: none; }
+  .lesson-lock-release, .lesson-lock-open { animation-duration: 1ms; }
+  .labeled-graphic-radar::before, .labeled-graphic-radar::after { animation: none; }
+  .labeled-graphic-popover { animation: none; }
 }

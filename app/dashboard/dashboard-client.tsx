@@ -358,7 +358,7 @@ export default function DashboardClient({
               <div
                 className={
                   folderView === "grid"
-                  ? "grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+                  ? "grid gap-3 sm:grid-cols-2 xl:grid-cols-5 2xl:grid-cols-6"
                     : "grid gap-2"
                 }
               >
@@ -389,7 +389,7 @@ export default function DashboardClient({
               <span className="text-xs text-slate-400">Showing up to 200</span>
             </div>
             {data.courses.length ? (
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-6">
                 {data.courses.map((course) => (
                   <CourseCard
                     key={course.id}

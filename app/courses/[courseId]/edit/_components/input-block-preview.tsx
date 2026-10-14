@@ -1,5 +1,5 @@
 type InputBlockPreviewProps =
-  | { type: "knowledgeCheck"; question: string; options: string[] }
+  | { type: "knowledgeCheck"; question: string; options: string[]; correctOptionIndex?: number }
   | { type: "survey"; question: string; minLabel: string; maxLabel: string };
 
 export function InputBlockPreview(props: InputBlockPreviewProps) {
@@ -17,9 +17,9 @@ export function InputBlockPreview(props: InputBlockPreviewProps) {
             >
               <span
                 aria-hidden="true"
-                className={`grid size-3.5 shrink-0 place-items-center rounded-full border ${index === 0 ? "border-indigo-600" : "border-slate-300"}`}
+                className={`grid size-3.5 shrink-0 place-items-center rounded-full border ${index === (props.correctOptionIndex ?? 0) ? "border-indigo-600" : "border-slate-300"}`}
               >
-                {index === 0 && (
+                {index === (props.correctOptionIndex ?? 0) && (
                   <span className="size-1.5 rounded-full bg-indigo-600" />
                 )}
               </span>

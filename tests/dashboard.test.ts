@@ -20,6 +20,8 @@ describe("dashboard input validation", () => {
   it("allows HTTP(S) cover images and rejects active content URLs", () => {
     expect(createCourseSchema.safeParse({ title: "Guide", coverImage: "https://cdn.example.com/cover.png" }).success).toBe(true);
     expect(createCourseSchema.safeParse({ title: "Guide", coverImage: "javascript:alert(1)" }).success).toBe(false);
+    expect(updateCourseSchema.safeParse({ coverImage: "/api/assets/0123456789abcdef01234567/file" }).success).toBe(true);
+    expect(updateCourseSchema.safeParse({ coverImage: "/api/assets/not-an-id/file" }).success).toBe(false);
   });
 });
 

@@ -4,9 +4,10 @@ import { Asset } from "@/models/Asset";
 import { getCourseEditor } from "@/lib/editor/services/course";
 import { DashboardError } from "@/lib/dashboard/rules";
 import { createMediaReadUrl } from "@/lib/media/storage";
-import { createScorm12Manifest } from "./manifest";
-import { parseScorm12Snapshot } from "./snapshot";
-import { createZipArchive, type ZipFile } from "./zip";
+import { createScorm12Manifest } from "../scorm12/manifest";
+import { createScorm2004Manifest } from "./manifest-2004";
+import { parseScorm12Snapshot } from "../scorm12/snapshot";
+import { createZipArchive, type ZipFile } from "../scorm12/zip";
 
 const assetUrlPattern = /\/api\/assets\/([\da-f]{24})\/file\b/gi;
 const MAX_MEDIA_BYTES = 200 * 1024 * 1024;
@@ -74,14 +75,16 @@ function safeFilename(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "course";
 }
 
-export async function buildScorm12Package({
+async function buildScormPackage({
   ownerId,
   courseId,
   authorName,
+  version,
 }: {
   ownerId: string;
   courseId: string;
   authorName: string;
+  version: "1.2" | "2004";
 }) {
   const editorCourse = await getCourseEditor(ownerId, courseId);
   const { courseId: snapshotCourseId, ...untrustedSnapshot } = editorCourse;
@@ -141,33 +144,34 @@ export async function buildScorm12Package({
     }
   }
 
-  const playerDir = join(process.cwd(), "public", "course-player");
-  const assetsDir = join(playerDir, "assets");
-  let playerFiles: string[];
+  const exportDir = join(process.cwd(), "public", "course-export");
+  const assetsDir = join(exportDir, "assets");
+  let exportFiles: string[];
   try {
-    playerFiles = await listFiles(assetsDir);
+    exportFiles = await listFiles(assetsDir);
   } catch {
-    throw new DashboardError("Build the standalone player before publishing (npm run build:player).", 503);
+    throw new DashboardError("Build the course export before publishing (npm run build:export).", 503);
   }
-  const jsFile = playerFiles.find((file) => file.endsWith(".js"));
-  const cssFile = playerFiles.find((file) => file.endsWith(".css"));
+  const jsFile = exportFiles.find((file) => file.endsWith(".js"));
+  const cssFile = exportFiles.find((file) => file.endsWith(".css"));
   if (!jsFile || !cssFile) {
-    throw new DashboardError("The standalone player build is incomplete. Rebuild it before publishing.", 503);
+    throw new DashboardError("The course export build is incomplete. Rebuild it before publishing.", 503);
   }
 
-  const relativePlayerFiles = playerFiles.map((file) => ({
-    path: relative(playerDir, file).split(sep).join("/"),
+  const relativeExportFiles = exportFiles.map((file) => ({
+    path: relative(exportDir, file).split(sep).join("/"),
     data: readFile(file),
   }));
-  const playerBundle = await Promise.all(relativePlayerFiles.map(async ({ path, data }) => ({ path, data: await data })));
+  const exportBundle = await Promise.all(relativeExportFiles.map(async ({ path, data }) => ({ path, data: await data })));
   const courseData = replaceAssetSources({
     courseId: snapshotCourseId,
     ...course,
     authorName: course.authorVisible ? authorName : "Course author",
-    scorm12Enabled: true,
+    scorm12Enabled: version === "1.2",
+    scorm2004Enabled: version === "2004",
   }, mediaSources);
-  const jsPath = relative(playerDir, jsFile).split(sep).join("/");
-  const cssPath = relative(playerDir, cssFile).split(sep).join("/");
+  const jsPath = relative(exportDir, jsFile).split(sep).join("/");
+  const cssPath = relative(exportDir, cssFile).split(sep).join("/");
   const index = `<!doctype html>
 <html lang="en">
 <head>
@@ -177,27 +181,38 @@ export async function buildScorm12Package({
   <link rel="stylesheet" href="./${cssPath}">
 </head>
 <body>
-  <div id="player-root"></div>
-  <script>window.COURSE_PLAYER_DATA=${scriptSafeJson(courseData)}</script>
+  <div id="export-root"></div>
+  <script>window.COURSE_EXPORT_DATA=${scriptSafeJson(courseData)}</script>
   <script type="module" src="./${jsPath}"></script>
 </body>
 </html>`;
-  const files: ZipFile[] = [
-    { path: "index.html", data: index },
-    ...playerBundle,
-    ...await Promise.all(
+  const schemaFiles: ZipFile[] = version === "1.2"
+    ? await Promise.all(
       ["imscp_rootv1p1p2.xsd", "imsmd_rootv1p2p1.xsd", "adlcp_rootv1p2.xsd", "ims_xml.xsd"].map(async (name) => ({
         path: name,
         data: await readFile(join(process.cwd(), "public", "scorm12", "schema", name)),
       })),
-    ),
+    )
+    : await Promise.all(
+      ["imscp_v1p1.xsd", "adlcp_v1p3.xsd", "xml.xsd"].map(async (name) => ({
+        path: `SCORM-schemas/${name}`,
+        data: await readFile(join(process.cwd(), "public", "scorm2004", "schema", name)),
+      })),
+    );
+  const files: ZipFile[] = [
+    { path: "index.html", data: index },
+    ...exportBundle,
+    ...schemaFiles,
     ...mediaFiles,
   ];
-  const manifest = createScorm12Manifest({
+  const manifestInput = {
     identifier: `course-${snapshotCourseId}-r${course.revision}`,
     title: course.title,
     files,
-  });
+  };
+  const manifest = version === "1.2"
+    ? createScorm12Manifest(manifestInput)
+    : createScorm2004Manifest(manifestInput);
   return {
     filename: `${safeFilename(course.title)}.zip`,
     archive: createZipArchive([
@@ -205,4 +220,12 @@ export async function buildScorm12Package({
       ...files,
     ]),
   };
+}
+
+export function buildScorm12Package(input: { ownerId: string; courseId: string; authorName: string }) {
+  return buildScormPackage({ ...input, version: "1.2" });
+}
+
+export function buildScorm2004Package(input: { ownerId: string; courseId: string; authorName: string }) {
+  return buildScormPackage({ ...input, version: "2004" });
 }

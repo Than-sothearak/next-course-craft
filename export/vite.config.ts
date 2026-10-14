@@ -7,5 +7,5 @@ export default defineConfig({
   resolve: {
     alias: { "@": resolve(__dirname, "..") },
   },
-  build: { outDir: resolve(__dirname, "../public/course-player"), emptyOutDir: true },
+  build: { outDir: resolve(__dirname, "../public/course-export"), emptyOutDir: true },
 });

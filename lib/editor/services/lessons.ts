@@ -115,6 +115,7 @@ export async function copyCourseLesson(
     titleHtml: lesson.titleHtml,
     icon: lesson.icon ?? "file",
     lessonType: lesson.lessonType,
+    passingScore: lesson.passingScore ?? 70,
     quizQuestions: lesson.quizQuestions.map((question) => ({
       ...question,
       id: randomUUID(),

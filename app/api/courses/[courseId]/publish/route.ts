@@ -9,6 +9,7 @@ import { DashboardError } from "@/lib/dashboard/rules";
 import { getCourseEditor } from "@/lib/editor/services/course";
 import { Asset } from "@/models/Asset";
 import { createMediaReadUrl } from "@/lib/media/storage";
+import { validateQuizAssessments } from "@/lib/interactive/quiz-assessment";
 
 export const runtime = "nodejs";
 const paramsSchema = z.object({ courseId: z.string().regex(/^[\da-f]{24}$/i) });
@@ -29,13 +30,15 @@ export async function POST(_request: NextRequest, context: { params: Promise<{ c
     if (!parsed.success) throw new DashboardError("Course not found.", 404);
     await connectToDatabase();
     const course = await getCourseEditor(ownerId, parsed.data.courseId);
-    const playerDir = join(process.cwd(), "public", "course-player");
+    const assessmentIssue = validateQuizAssessments(course.lessons);
+    if (assessmentIssue) throw new DashboardError(assessmentIssue, 422);
+    const exportDir = join(process.cwd(), "public", "course-export");
     let files: string[];
-    try { files = await readdir(join(playerDir, "assets")); }
-    catch { throw new DashboardError("Build the standalone player before publishing (npm run build:player).", 503); }
+    try { files = await readdir(join(exportDir, "assets")); }
+    catch { throw new DashboardError("Build the course export before publishing (npm run build:export).", 503); }
     const jsName = files.find((name) => name.endsWith(".js"));
     const cssName = files.find((name) => name.endsWith(".css"));
-    if (!jsName || !cssName) throw new DashboardError("The standalone player build is incomplete. Rebuild it before publishing.", 503);
+    if (!jsName || !cssName) throw new DashboardError("The course export build is incomplete. Rebuild it before publishing.", 503);
 
     const referencedAssetIds = new Set<string>();
     const serialized = JSON.stringify(course);
@@ -51,10 +54,10 @@ export async function POST(_request: NextRequest, context: { params: Promise<{ c
       embeddedAssets.set(String(asset._id), `data:${asset.mimeType};base64,${bytes.toString("base64")}`);
     }));
     const courseData = replaceAssetSources({ ...course, authorName: session?.user?.name?.trim() || session?.user?.email || "Course author" }, embeddedAssets);
-    const js = await readFile(join(playerDir, "assets", jsName), "utf8");
-    const css = await readFile(join(playerDir, "assets", cssName), "utf8");
+    const js = await readFile(join(exportDir, "assets", jsName), "utf8");
+    const css = await readFile(join(exportDir, "assets", cssName), "utf8");
     const safeJson = JSON.stringify(courseData).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
-    const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="${course.description.replace(/[&<>"']/g, " ").slice(0, 300)}"><title>${course.title.replace(/[&<>"']/g, " ")}</title><style>${css}</style></head><body><div id="player-root"></div><script>window.COURSE_PLAYER_DATA=${safeJson}</script><script>${js}</script></body></html>`;
+    const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="${course.description.replace(/[&<>"']/g, " ").slice(0, 300)}"><title>${course.title.replace(/[&<>"']/g, " ")}</title><style>${css}</style></head><body><div id="export-root"></div><script>window.COURSE_EXPORT_DATA=${safeJson}</script><script>${js}</script></body></html>`;
     const filename = `${course.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "course"}.html`;
     return new NextResponse(html, { headers: { "Content-Type": "text/html; charset=utf-8", "Content-Disposition": `attachment; filename="${filename}"`, "Cache-Control": "private, no-store" } });
   } catch (error) {

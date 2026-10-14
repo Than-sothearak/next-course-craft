@@ -3,10 +3,12 @@ import { Course, Lesson } from "@/models";
 import { DashboardError } from "@/lib/dashboard/rules";
 import {
   defaultBlockWidth,
+  normalizeStoredFlipCardBlock,
   normalizeBlockPadding,
   type ContentBlock,
 } from "@/lib/schemas/block";
 import { defaultSection, ownerObjectId } from "./shared";
+import { normalizeCourseTheme } from "../theme";
 
 export async function getCourseEditor(ownerId: string, courseId: string) {
   ownerObjectId(ownerId);
@@ -34,6 +36,7 @@ export async function getCourseEditor(ownerId: string, courseId: string) {
     description: course.description,
     descriptionHtml: course.descriptionHtml ?? undefined,
     authorVisible: course.authorVisible ?? true,
+    theme: normalizeCourseTheme(course.theme),
     revision: course.revision,
     sections,
     lessons: lessons.map((lesson) => {
@@ -49,17 +52,21 @@ export async function getCourseEditor(ownerId: string, courseId: string) {
         titleHtml: lesson.titleHtml ?? undefined,
         icon: lesson.icon ?? "file",
         lessonType: lesson.lessonType ?? "content",
+        passingScore: lesson.passingScore ?? 70,
         quizQuestions: lesson.quizQuestions ?? [],
         order,
-        blocks: lesson.blocks.map((block: ContentBlock) => ({
-          ...block,
-          width: block.widthCustom
-            ? block.width
-            : defaultBlockWidth(block.type),
-          widthCustom: block.widthCustom ?? false,
-          backgroundColor: block.backgroundColor ?? "#ffffff",
-          blockPadding: normalizeBlockPadding(block.blockPadding, block.type),
-        })),
+        blocks: lesson.blocks.map((storedBlock: ContentBlock) => {
+          const block = normalizeStoredFlipCardBlock(storedBlock);
+          return {
+            ...block,
+            width: block.widthCustom
+              ? block.width
+              : defaultBlockWidth(block.type),
+            widthCustom: block.widthCustom ?? false,
+            backgroundColor: block.backgroundColor ?? "#ffffff",
+            blockPadding: normalizeBlockPadding(block.blockPadding, block.type),
+          };
+        }),
       };
     }),
   };

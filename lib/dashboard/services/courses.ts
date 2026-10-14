@@ -1,5 +1,5 @@
 import { Types } from "mongoose";
-import { Course } from "@/models";
+import { Asset, Course } from "@/models";
 import type { CreateCourseInput, UpdateCourseInput } from "../schemas";
 import { DashboardError } from "../rules";
 import { assertFolderOwned, objectId, ownerObjectId } from "./internal";
@@ -82,6 +82,18 @@ export async function updateCourse(
   }
   if (input.folderId !== undefined)
     await assertFolderOwned(ownerId, input.folderId);
+  const coverAssetId = input.coverImage?.match(/^\/api\/assets\/([a-f\d]{24})\/file$/i)?.[1];
+  if (coverAssetId) {
+    const coverAsset = await Asset.findOne({
+      _id: coverAssetId,
+      ownerId,
+      courseId,
+      status: "ready",
+      mimeType: /^image\//,
+    }).select("_id").lean();
+    if (!coverAsset)
+      throw new DashboardError("Choose an image from this course’s media library.", 400);
+  }
   if (input.title !== undefined) course.title = input.title;
   if (input.description !== undefined) course.description = input.description;
   if (input.coverImage !== undefined) course.coverImage = input.coverImage;

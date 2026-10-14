@@ -21,8 +21,24 @@ export function DashboardNavbar({ userName, actions, primaryAction }: { userName
       </div>
       <nav aria-label="Account" className="flex items-center gap-3">
         {primaryAction}
-        <form action={signOutAction}><Button variant="outline" size="sm">Sign out</Button></form>
-        <span title={userName} aria-label={`Signed in as ${userName}`} className="grid size-9 place-items-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-800">{userInitials(userName)}</span>
+        <details className="relative">
+          <summary
+            title={userName}
+            aria-label={`Open profile menu for ${userName}`}
+            className="grid size-9 cursor-pointer list-none place-items-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-800 transition-colors hover:bg-indigo-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 [&::-webkit-details-marker]:hidden"
+          >
+            {userInitials(userName)}
+          </summary>
+          <div className="absolute right-0 z-50 mt-2 w-56 rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
+            <p className="truncate px-3 py-2 text-sm font-medium text-slate-700">{userName}</p>
+            <div className="my-1 border-t border-slate-100" />
+            <form action={signOutAction}>
+              <Button type="submit" variant="ghost" size="sm" className="w-full justify-start text-slate-700">
+                Sign out
+              </Button>
+            </form>
+          </div>
+        </details>
       </nav>
     </div>
   </header>;

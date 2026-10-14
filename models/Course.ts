@@ -6,6 +6,13 @@ const SectionSchema = new Schema({
   order: { type: Number, required: true, min: 0 },
 }, { _id: false });
 
+const CourseThemeSchema = new Schema({
+  preset: { type: String, enum: ["ocean", "forest", "sunset", "violet", "slate", "custom"], default: "ocean" },
+  primaryColor: { type: String, match: /^#[\da-fA-F]{6}$/, default: "#2f5f9f" },
+  accentColor: { type: String, match: /^#[\da-fA-F]{6}$/, default: "#ff876c" },
+  fontFamily: { type: String, enum: ["sans", "serif", "rounded"], default: "sans" },
+}, { _id: false });
+
 const CourseSchema = new Schema({
   ownerId: { type: Schema.Types.ObjectId, required: true, index: true },
   folderId: { type: Schema.Types.ObjectId, default: null, index: true },
@@ -16,7 +23,7 @@ const CourseSchema = new Schema({
   coverImage: { type: String, default: null },
   sections: { type: [SectionSchema], default: [] },
   language: { type: String, default: "en" },
-  theme: { type: Schema.Types.Mixed, default: {} },
+  theme: { type: CourseThemeSchema, default: () => ({}) },
   status: { type: String, enum: ["draft", "published", "archived"], default: "draft" },
   revision: { type: Number, default: 0, min: 0 },
   editorSaveLock: { type: String, default: null, select: false },

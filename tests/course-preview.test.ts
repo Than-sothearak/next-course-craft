@@ -26,8 +26,8 @@ const initialData: PreviewData = {
   ],
 };
 
-describe("shared course preview player", () => {
-  it("uses the same course content while hiding author controls in HTML5 mode", () => {
+describe("shared course preview experience", () => {
+  it("uses the same course content while hiding author controls in standalone mode", () => {
     const standalone = renderToStaticMarkup(
       createElement(CoursePreview, {
         initialData,
@@ -47,6 +47,23 @@ describe("shared course preview player", () => {
     expect(standalone).not.toContain("HTML5");
     expect(preview).toContain("First lesson");
     expect(preview).toContain("Course Preview");
-    expect(preview).toContain("HTML5");
+    expect(preview).toContain("Publish");
+  });
+
+  it("applies the saved theme to the shared learner preview", () => {
+    const themed = renderToStaticMarkup(
+      createElement(CoursePreview, {
+        initialData: {
+          ...initialData,
+          theme: { preset: "forest", primaryColor: "#24734f", accentColor: "#f2a65a", fontFamily: "serif" },
+        },
+        authorName: "Course author",
+        standalone: true,
+      }),
+    );
+
+    expect(themed).toContain("--course-primary:#24734f");
+    expect(themed).toContain("--course-accent:#f2a65a");
+    expect(themed).toContain("font-family:Georgia, &#x27;Times New Roman&#x27;, serif");
   });
 });

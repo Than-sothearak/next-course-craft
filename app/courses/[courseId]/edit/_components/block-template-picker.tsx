@@ -11,16 +11,17 @@ import {
   Images,
   List,
   Minus,
-  MousePointerClick,
   Quote,
+  RotateCcw,
   Type,
   Video,
   X,
 } from "lucide-react";
-import { defaultBlockPadding, defaultBlockWidth, type ContentBlock, type DividerCompletionType, type StatementStyle } from "@/lib/schemas/block";
+import { defaultBlockPadding, defaultBlockWidth, type ContentBlock, type DividerCompletionType, type ImageLayout, type StatementStyle } from "@/lib/schemas/block";
 import { Button } from "@/components/ui/button";
 import { InputBlockPreview } from "./input-block-preview";
 import { StatementBlockPreview } from "./statement-block-preview";
+import { ChartBlockPreview } from "../../preview/chart-block";
 
 export const blockCategories = [
   "Text",
@@ -45,12 +46,23 @@ export type BlockTemplate = {
   category: BlockCategory;
   title: string;
   description: string;
-  type: "richText" | "image" | "gallery" | "video" | "divider" | "statement";
+  type: ContentBlock["type"];
   html?: string;
   dividerStyle?: "line" | "space" | "continue";
   dividerLabel?: string;
   dividerCompletionType?: DividerCompletionType;
   statement?: { style: StatementStyle; title: string; body: string };
+  knowledgeCheck?: Extract<ContentBlock, { type: "knowledgeCheck" }>['data'];
+  survey?: Extract<ContentBlock, { type: "survey" }>['data'];
+  flipCard?: Extract<ContentBlock, { type: "flipCard" }>['data'];
+  accordion?: Extract<ContentBlock, { type: "accordion" }>['data'];
+  labeledGraphic?: Extract<ContentBlock, { type: "labeledGraphic" }>['data'];
+  processSteps?: Extract<ContentBlock, { type: "processSteps" }>['data'];
+  chart?: Extract<ContentBlock, { type: "chart" }>['data'];
+  imageLayout?: ImageLayout;
+  imageTitle?: string;
+  imageBody?: string;
+  width?: ContentBlock["width"];
   preview: string;
 };
 
@@ -59,9 +71,9 @@ export const blockTemplates: BlockTemplate[] = [
     id: "text-title-paragraph",
     category: "Text",
     title: "Title and paragraph",
-    description: "A 36px heading followed by supporting text.",
+    description: "A bold section title followed by comfortable body text.",
     type: "richText",
-    html: '<p><strong><span style="font-size: 36px">Section heading</span></strong><br><span style="font-size: 12px">Write your paragraph here.</span></p>',
+    html: '<p><strong><span style="font-size: 36px">Section heading</span></strong></p><p><span style="font-size: 16px">Write your paragraph here.</span></p>',
     preview: "title",
   },
   {
@@ -72,6 +84,60 @@ export const blockTemplates: BlockTemplate[] = [
     type: "richText",
     html: "<p>Write your text here.</p>",
     preview: "text",
+  },
+  {
+    id: "text-lead",
+    category: "Text",
+    title: "Lead paragraph",
+    description: "Start with larger, softer text that introduces a topic.",
+    type: "richText",
+    html: '<p><span style="font-size: 20px; color: #475569">Introduce the main idea with a clear, welcoming explanation.</span></p>',
+    preview: "text-lead",
+  },
+  {
+    id: "text-large-body",
+    category: "Text",
+    title: "Large body text",
+    description: "Use 24px type when a short explanation needs more emphasis.",
+    type: "richText",
+    html: '<p><span style="font-size: 24px">Explain one important idea in a few concise sentences.</span></p>',
+    preview: "text-large-body",
+  },
+  {
+    id: "text-small-note",
+    category: "Text",
+    title: "Small note",
+    description: "Add a subtle 14px note, reminder, or supporting detail.",
+    type: "richText",
+    html: '<p><span style="font-size: 14px; color: #64748b">Note: Add a short reminder or supporting detail here.</span></p>',
+    preview: "text-small-note",
+  },
+  {
+    id: "text-centered-intro",
+    category: "Text",
+    title: "Centered introduction",
+    description: "Center a short 20px introduction for a clear visual pause.",
+    type: "richText",
+    html: '<p style="text-align: center"><strong><span style="font-size: 20px">A new way to think about this topic</span></strong></p><p style="text-align: center"><span style="font-size: 16px">Add a sentence that sets up the lesson below.</span></p>',
+    preview: "text-centered-intro",
+  },
+  {
+    id: "text-subheading",
+    category: "Text",
+    title: "Subheading and body",
+    description: "Separate a bold 24px subheading from its 16px explanation.",
+    type: "richText",
+    html: '<p><strong><span style="font-size: 24px">A clear subheading</span></strong></p><p><span style="font-size: 16px">Use the paragraph below to explain the idea or add an example.</span></p>',
+    preview: "text-subheading",
+  },
+  {
+    id: "text-color-emphasis",
+    category: "Text",
+    title: "Color emphasis",
+    description: "Pair a colored 22px key phrase with regular supporting text.",
+    type: "richText",
+    html: '<p><strong><span style="font-size: 22px; color: #4f46e5">Key idea</span></strong><br><span style="font-size: 16px">Explain why this idea matters to the learner.</span></p>',
+    preview: "text-color-emphasis",
   },
   {
     id: "statement-callout",
@@ -232,7 +298,66 @@ export const blockTemplates: BlockTemplate[] = [
     title: "Image with caption",
     description: "Add one image and an optional caption.",
     type: "image",
+    imageLayout: "full",
     preview: "image",
+  },
+  {
+    id: "image-banner",
+    category: "Image",
+    title: "Wide image banner",
+    description: "Use a panoramic image as a visual break in the lesson.",
+    type: "image",
+    imageLayout: "banner",
+    width: "full",
+    preview: "image-banner",
+  },
+  {
+    id: "image-text-left",
+    category: "Image",
+    title: "Text left, image right",
+    description: "Pair a short explanation with a supporting image.",
+    type: "image",
+    imageLayout: "text-left",
+    imageTitle: "Explain the idea",
+    imageBody: "Add a short explanation that helps learners understand this image.",
+    width: "medium",
+    preview: "image-text-left",
+  },
+  {
+    id: "image-text-right",
+    category: "Image",
+    title: "Image left, text right",
+    description: "Lead with a visual, then explain what learners should notice.",
+    type: "image",
+    imageLayout: "text-right",
+    imageTitle: "What to notice",
+    imageBody: "Describe the important detail or connect the visual to the lesson.",
+    width: "medium",
+    preview: "image-text-right",
+  },
+  {
+    id: "image-text-overlay",
+    category: "Image",
+    title: "Image with text overlay",
+    description: "Place a short title and description over a full-width image.",
+    type: "image",
+    imageLayout: "text-overlay",
+    imageTitle: "A visual introduction",
+    imageBody: "Set the scene with one short sentence.",
+    width: "full",
+    preview: "image-text-overlay",
+  },
+  {
+    id: "image-feature-card",
+    category: "Image",
+    title: "Image feature card",
+    description: "Combine a clean image, heading, and description in one card.",
+    type: "image",
+    imageLayout: "card",
+    imageTitle: "Feature title",
+    imageBody: "Add a concise explanation below the image.",
+    width: "medium",
+    preview: "image-feature-card",
   },
   {
     id: "gallery-three",
@@ -253,19 +378,153 @@ export const blockTemplates: BlockTemplate[] = [
   {
     id: "interactive-reveal",
     category: "Interactive",
-    title: "Reflection prompt",
-    description: "A starter prompt learners can respond to.",
-    type: "richText",
-    html: "<blockquote><p><strong>Take a moment to reflect</strong><br>What would you do in this situation? Write a prompt for your learners.</p></blockquote>",
-    preview: "interactive",
+    title: "Flip card",
+    description: "Let learners reveal an answer, hint, or explanation.",
+    type: "flipCard",
+    flipCard: { cards: [{ id: "card-1", frontLabel: "Think about it", front: { type: "text", text: "What is one benefit of active recall?" }, backLabel: "Reveal", back: { type: "text", text: "Trying to remember an idea strengthens learning and shows what you still need to review." } }] },
+    preview: "flip-card",
+  },
+  {
+    id: "interactive-term-definition",
+    category: "Interactive",
+    title: "Term and definition",
+    description: "Create a study card learners can flip to check a definition.",
+    type: "flipCard",
+    flipCard: { cards: [{ id: "card-1", frontLabel: "Term", front: { type: "text", text: "Active recall" }, backLabel: "Definition", back: { type: "text", text: "Retrieving information from memory instead of simply rereading it." } }] },
+    preview: "flip-term",
+  },
+  {
+    id: "interactive-scenario-reveal",
+    category: "Interactive",
+    title: "Scenario and response",
+    description: "Invite a decision, then reveal a suggested response.",
+    type: "flipCard",
+    flipCard: { cards: [{ id: "card-1", frontLabel: "Scenario", front: { type: "text", text: "A learner is stuck on a difficult problem. What could they try next?" }, backLabel: "Suggested response", back: { type: "text", text: "Break the task into smaller steps, review a relevant example, and ask for feedback on the first step." } }] },
+    preview: "flip-scenario",
+  },
+  {
+    id: "interactive-flashcards-2",
+    category: "Interactive",
+    title: "Two-card study set",
+    description: "Use two connected prompts to review a concept and its application.",
+    type: "flipCard",
+    flipCard: { cards: [
+      { id: "card-1", frontLabel: "Concept", front: { type: "text", text: "What is spaced practice?" }, backLabel: "Definition", back: { type: "text", text: "Reviewing information over multiple sessions with time between them." } },
+      { id: "card-2", frontLabel: "Apply it", front: { type: "text", text: "How could you use spaced practice this week?" }, backLabel: "Example", back: { type: "text", text: "Schedule short review sessions across several days instead of one long study session." } },
+    ] },
+    width: "full",
+    preview: "flip-card",
+  },
+  {
+    id: "interactive-flashcards-3",
+    category: "Interactive",
+    title: "Three-card review",
+    description: "Build a short three-step recall activity for a lesson topic.",
+    type: "flipCard",
+    flipCard: { cards: [
+      { id: "card-1", frontLabel: "Recall", front: { type: "text", text: "What is the key idea?" }, backLabel: "Key idea", back: { type: "text", text: "Write the main concept learners should remember." } },
+      { id: "card-2", frontLabel: "Explain", front: { type: "text", text: "Why does it matter?" }, backLabel: "Reason", back: { type: "text", text: "Add a short explanation of why this idea is useful." } },
+      { id: "card-3", frontLabel: "Apply", front: { type: "text", text: "Where could you use it?" }, backLabel: "Example", back: { type: "text", text: "Give a practical example from work, study, or daily life." } },
+    ] },
+    width: "full",
+    preview: "flip-card",
+  },
+  {
+    id: "interactive-flashcards-4",
+    category: "Interactive",
+    title: "Four-card key terms",
+    description: "Start a four-term vocabulary or concept review.",
+    type: "flipCard",
+    flipCard: { cards: [
+      { id: "card-1", frontLabel: "Term 1", front: { type: "text", text: "Add the first key term." }, backLabel: "Meaning", back: { type: "text", text: "Write a clear definition or explanation." } },
+      { id: "card-2", frontLabel: "Term 2", front: { type: "text", text: "Add the second key term." }, backLabel: "Meaning", back: { type: "text", text: "Write a clear definition or explanation." } },
+      { id: "card-3", frontLabel: "Term 3", front: { type: "text", text: "Add the third key term." }, backLabel: "Meaning", back: { type: "text", text: "Write a clear definition or explanation." } },
+      { id: "card-4", frontLabel: "Term 4", front: { type: "text", text: "Add the fourth key term." }, backLabel: "Meaning", back: { type: "text", text: "Write a clear definition or explanation." } },
+    ] },
+    width: "full",
+    preview: "flip-card",
+  },
+  {
+    id: "interactive-accordion",
+    category: "Interactive",
+    title: "Accordion explanations",
+    description: "Let learners open one explanation at a time.",
+    type: "accordion",
+    accordion: { layout: "accordion", items: [
+      { id: "section-1", title: "What is retrieval practice?", body: "Retrieval practice means actively bringing information to mind instead of only rereading it." },
+      { id: "section-2", title: "Why does it help?", body: "Trying to recall an idea strengthens memory and reveals what still needs review." },
+      { id: "section-3", title: "When can I use it?", body: "Pause after reading or watching a lesson and explain the key ideas without looking at your notes." },
+    ] },
+    preview: "accordion",
+  },
+  {
+    id: "interactive-tabs",
+    category: "Interactive",
+    title: "Tabbed explanations",
+    description: "Group related explanations into learner-selectable tabs.",
+    type: "accordion",
+    accordion: { layout: "tabs", items: [
+      { id: "tab-1", title: "Plan", body: "Choose one clear learning goal and decide what success will look like." },
+      { id: "tab-2", title: "Practice", body: "Try the skill in a short, focused activity and notice where you get stuck." },
+      { id: "tab-3", title: "Reflect", body: "Review what worked and choose one next step for continued practice." },
+    ] },
+    preview: "tabs",
+  },
+  {
+    id: "interactive-labeled-graphic",
+    category: "Interactive",
+    title: "Labeled graphic",
+    description: "Add clickable markers that explain parts of an image.",
+    type: "labeledGraphic",
+    labeledGraphic: {
+      src: "https://placehold.co/1200x675?text=Add+a+graphic",
+      alt: "Diagram with interactive labels",
+      markers: [
+        { id: "marker-1", label: "Part one", description: "Explain the first part of the graphic.", x: 30, y: 40 },
+        { id: "marker-2", label: "Part two", description: "Explain how the second part works.", x: 68, y: 62 },
+        { id: "marker-3", label: "Part three", description: "Add one more detail for learners to explore.", x: 52, y: 25 },
+      ],
+    },
+    preview: "labeled-graphic",
+  },
+  {
+    id: "interactive-process-steps",
+    category: "Interactive",
+    title: "Process steps",
+    description: "Guide learners through a sequence one step at a time.",
+    type: "processSteps",
+    processSteps: { steps: [
+      { id: "step-1", title: "Prepare", body: "Gather what you need and identify the goal." },
+      { id: "step-2", title: "Work through the task", body: "Follow the process and focus on one action at a time." },
+      { id: "step-3", title: "Review", body: "Check your result and decide whether any step needs another pass." },
+    ] },
+    preview: "process-steps",
+  },
+  {
+    id: "interactive-knowledge-check",
+    category: "Interactive",
+    title: "Quick knowledge check",
+    description: "Ask a question and give learners feedback on their choice.",
+    type: "knowledgeCheck",
+    knowledgeCheck: { question: "Which practice helps information stick?", options: ["Active recall", "Reading the same page again"], correctOptionIndex: 0, correctFeedback: "Correct! Retrieving information strengthens memory.", incorrectFeedback: "Try again. Choose the option that asks you to remember." },
+    preview: "knowledge",
+  },
+  {
+    id: "interactive-confidence-poll",
+    category: "Interactive",
+    title: "Confidence rating",
+    description: "Give learners a quick way to reflect on their confidence.",
+    type: "survey",
+    survey: { question: "How confident do you feel about this topic?", minLabel: "Not yet", maxLabel: "Very confident" },
+    preview: "survey",
   },
   {
     id: "knowledge-choice",
     category: "Knowledge check",
     title: "Multiple choice question",
     description: "Draft a question and answer options.",
-    type: "richText",
-    html: "<blockquote><p><strong>Check your understanding</strong><br>Which option best describes the key idea?</p><p>○ Answer option one</p><p>○ Answer option two</p><p>○ Answer option three</p></blockquote>",
+    type: "knowledgeCheck",
+    knowledgeCheck: { question: "Which option best describes the key idea?", options: ["It takes practice", "It happens instantly", "It needs no feedback"], correctOptionIndex: 0, correctFeedback: "Correct! Practice helps make learning stick.", incorrectFeedback: "Not quite. Think about what helps a new skill improve." },
     preview: "knowledge",
   },
   {
@@ -273,8 +532,8 @@ export const blockTemplates: BlockTemplate[] = [
     category: "Survey",
     title: "Rating scale",
     description: "Ask learners to rate their confidence.",
-    type: "richText",
-    html: "<blockquote><p><strong>Quick survey</strong><br>How confident do you feel about this topic?</p><p>○ 1 &nbsp; ○ 2 &nbsp; ○ 3 &nbsp; ○ 4 &nbsp; ○ 5</p></blockquote>",
+    type: "survey",
+    survey: { question: "How confident do you feel?", minLabel: "Not yet", maxLabel: "Very confident" },
     preview: "survey",
   },
   {
@@ -282,9 +541,125 @@ export const blockTemplates: BlockTemplate[] = [
     category: "Chart",
     title: "Bar chart starter",
     description: "Show a simple comparison with bar lengths.",
-    type: "richText",
-    html: "<blockquote><p><strong>Course progress</strong><br>Completed &nbsp; ▰ ▰ ▰ ▰ ▰ ▰ &nbsp; 80%<br>In progress &nbsp; ▰ ▰ ▰ &nbsp; 40%<br>Not started &nbsp; ▰ &nbsp; 15%</p></blockquote>",
+    type: "chart",
+    chart: {
+      chartType: "bar",
+      title: "Course progress",
+      description: "Compare learner progress across the course.",
+      color: "#4f46e5",
+      fields: [
+        { id: "completed", label: "Completed", value: 80 },
+        { id: "in-progress", label: "In progress", value: 40 },
+        { id: "not-started", label: "Not started", value: 15 },
+      ],
+    },
+    width: "medium",
     preview: "chart",
+  },
+  {
+    id: "chart-horizontal-comparison",
+    category: "Chart",
+    title: "Horizontal comparison",
+    description: "Compare several categories with clear horizontal bars.",
+    type: "chart",
+    chart: {
+      chartType: "bar",
+      title: "Compare the results",
+      description: "Compare values across three groups.",
+      color: "#4f46e5",
+      fields: [
+        { id: "group-a", label: "Group A", value: 80 },
+        { id: "group-b", label: "Group B", value: 60 },
+        { id: "group-c", label: "Group C", value: 40 },
+      ],
+    },
+    width: "medium",
+    preview: "chart-horizontal",
+  },
+  {
+    id: "chart-columns-quarterly",
+    category: "Chart",
+    title: "Quarterly columns",
+    description: "Show values over time with a compact column chart.",
+    type: "chart",
+    chart: {
+      chartType: "column",
+      title: "Quarterly results",
+      description: "Compare results across the year.",
+      color: "#4f46e5",
+      fields: [
+        { id: "q1", label: "Q1", value: 34 },
+        { id: "q2", label: "Q2", value: 52 },
+        { id: "q3", label: "Q3", value: 68 },
+        { id: "q4", label: "Q4", value: 91 },
+      ],
+    },
+    width: "medium",
+    preview: "chart-columns",
+  },
+  {
+    id: "chart-line-trend",
+    category: "Chart",
+    title: "Line trend",
+    description: "Illustrate a trend across a sequence of dates or stages.",
+    type: "chart",
+    chart: {
+      chartType: "line",
+      title: "Weekly engagement",
+      description: "Track how engagement changes over time.",
+      color: "#0f766e",
+      fields: [
+        { id: "week-1", label: "Week 1", value: 18 },
+        { id: "week-2", label: "Week 2", value: 30 },
+        { id: "week-3", label: "Week 3", value: 27 },
+        { id: "week-4", label: "Week 4", value: 52 },
+        { id: "week-5", label: "Week 5", value: 44 },
+        { id: "week-6", label: "Week 6", value: 68 },
+        { id: "week-7", label: "Week 7", value: 82 },
+      ],
+    },
+    width: "medium",
+    preview: "chart-line",
+  },
+  {
+    id: "chart-donut-share",
+    category: "Chart",
+    title: "Donut share",
+    description: "Highlight one percentage and explain the remaining share.",
+    type: "chart",
+    chart: {
+      chartType: "donut",
+      title: "Completion rate",
+      description: "Show how much of the course has been completed.",
+      color: "#4f46e5",
+      fields: [
+        { id: "completed", label: "Completed", value: 72 },
+        { id: "remaining", label: "Remaining", value: 28 },
+      ],
+    },
+    width: "medium",
+    preview: "chart-donut",
+  },
+  {
+    id: "chart-stacked-distribution",
+    category: "Chart",
+    title: "Stacked distribution",
+    description: "Show how several groups combine into one total.",
+    type: "chart",
+    chart: {
+      chartType: "stacked",
+      title: "Response distribution",
+      description: "Show how responses contribute to the overall total.",
+      color: "#4f46e5",
+      fields: [
+        { id: "strong", label: "Strong", value: 6 },
+        { id: "good", label: "Good", value: 4 },
+        { id: "fair", label: "Fair", value: 3 },
+        { id: "support", label: "Needs support", value: 2 },
+      ],
+    },
+    width: "medium",
+    preview: "chart-stacked",
   },
   {
     id: "divider-line",
@@ -379,7 +754,7 @@ const categoryIcons = {
   Image: ImageIcon,
   Gallery: Images,
   Multimedia: Video,
-  Interactive: MousePointerClick,
+  Interactive: RotateCcw,
   "Knowledge check": CheckCircle2,
   Survey: CheckCircle2,
   Chart: BarChart3,
@@ -403,35 +778,35 @@ export function createBlocksFromTemplate(
   template: BlockTemplate,
   id: string,
 ): ContentBlock[] {
-  const blockType = template.id === "knowledge-choice" ? "knowledgeCheck" : template.id === "survey-rating" ? "survey" : template.type;
-  const base = commonBlock(id, blockType);
-  if (template.id === "knowledge-choice")
-    return [
-      {
-        ...base,
-        type: "knowledgeCheck",
-        data: {
-          question: "Which option best describes the key idea?",
-          options: [
-            "It takes practice",
-            "It happens instantly",
-            "It needs no feedback",
-          ],
-        },
-      },
-    ];
-  if (template.id === "survey-rating")
-    return [
-      {
-        ...base,
-        type: "survey",
-        data: {
-          question: "How confident do you feel?",
-          minLabel: "Not yet",
-          maxLabel: "Very confident",
-        },
-      },
-    ];
+  const base = { ...commonBlock(id, template.type), ...(template.width ? { width: template.width } : {}) };
+  if (template.type === "knowledgeCheck") {
+    if (!template.knowledgeCheck) throw new Error(`Knowledge check template "${template.id}" is missing its content.`);
+    return [{ ...base, type: "knowledgeCheck", data: template.knowledgeCheck }];
+  }
+  if (template.type === "survey") {
+    if (!template.survey) throw new Error(`Survey template "${template.id}" is missing its content.`);
+    return [{ ...base, type: "survey", data: template.survey }];
+  }
+  if (template.type === "flipCard") {
+    if (!template.flipCard) throw new Error(`Flip card template "${template.id}" is missing its content.`);
+    return [{ ...base, type: "flipCard", data: template.flipCard }];
+  }
+  if (template.type === "accordion") {
+    if (!template.accordion) throw new Error(`Accordion template "${template.id}" is missing its content.`);
+    return [{ ...base, type: "accordion", data: template.accordion }];
+  }
+  if (template.type === "labeledGraphic") {
+    if (!template.labeledGraphic) throw new Error(`Labeled graphic template "${template.id}" is missing its content.`);
+    return [{ ...base, type: "labeledGraphic", data: template.labeledGraphic }];
+  }
+  if (template.type === "processSteps") {
+    if (!template.processSteps) throw new Error(`Process steps template "${template.id}" is missing its content.`);
+    return [{ ...base, type: "processSteps", data: template.processSteps }];
+  }
+  if (template.type === "chart") {
+    if (!template.chart) throw new Error(`Chart template "${template.id}" is missing its data.`);
+    return [{ ...base, type: "chart", data: template.chart }];
+  }
   if (template.type === "statement") {
     if (!template.statement) {
       throw new Error(`Statement template "${template.id}" is missing its content.`);
@@ -450,7 +825,10 @@ export function createBlocksFromTemplate(
         data: {
           src: "https://placehold.co/1200x675?text=Add+an+image",
           alt: "",
-          caption: "",
+          ...(template.imageLayout === "full" ? { caption: "" } : {}),
+          ...(template.imageLayout ? { layout: template.imageLayout } : {}),
+          ...(template.imageTitle ? { title: template.imageTitle } : {}),
+          ...(template.imageBody ? { body: template.imageBody } : {}),
         },
       },
     ];
@@ -513,10 +891,145 @@ function ListTemplatePreview({ style }: { style: ListPreviewStyle }) {
   </div>;
 }
 
-function TemplatePreview({ template }: { template: BlockTemplate }) {
+function MiniLandscape({ className = "" }: { className?: string }) {
+  return <div className={`relative overflow-hidden bg-gradient-to-br from-sky-200 via-cyan-100 to-emerald-200 ${className}`}>
+    <div className="absolute bottom-0 h-1/2 w-full bg-gradient-to-t from-emerald-700/40 to-transparent" />
+    <div className="absolute left-7 top-5 size-8 rounded-full bg-amber-200" />
+    <div className="absolute bottom-0 h-1/2 w-full [clip-path:polygon(0_100%,34%_20%,56%_70%,76%_10%,100%_100%)] bg-emerald-600/70" />
+    <ImageIcon size={18} className="absolute right-2 top-2 z-10 text-white drop-shadow" />
+  </div>;
+}
+
+function ImageTemplatePreview({ layout }: { layout: ImageLayout }) {
+  if (layout === "text-left" || layout === "text-right") {
+    const text = <div className="space-y-2"><span className="block h-2 w-3/4 rounded bg-slate-800" /><span className="block h-1.5 w-full rounded bg-slate-300" /><span className="block h-1.5 w-5/6 rounded bg-slate-300" /><span className="block h-1.5 w-2/3 rounded bg-slate-300" /></div>;
+    const image = <MiniLandscape className="aspect-[4/3] rounded-md" />;
+    return <div className="grid grid-cols-2 items-center gap-2">{layout === "text-left" ? <>{text}{image}</> : <>{image}{text}</>}</div>;
+  }
+  if (layout === "text-overlay")
+    return <div className="relative"><MiniLandscape className="aspect-video rounded-lg" /><div className="absolute inset-0 flex flex-col justify-end rounded-lg bg-gradient-to-t from-slate-950/80 via-slate-900/10 to-transparent p-3"><span className="text-[11px] font-semibold text-white">A visual introduction</span><span className="mt-1 text-[8px] text-white/80">Set the scene for this lesson.</span></div></div>;
+  if (layout === "card")
+    return <div className="overflow-hidden rounded-lg border border-slate-200 bg-white"><MiniLandscape className="aspect-video" /><div className="space-y-1.5 p-2"><span className="block h-2 w-2/3 rounded bg-slate-800" /><span className="block h-1.5 w-full rounded bg-slate-300" /><span className="block h-1.5 w-4/5 rounded bg-slate-300" /></div></div>;
+  return <MiniLandscape className={layout === "banner" ? "aspect-[21/9] min-h-24 rounded-lg" : "h-24 rounded-md"} />;
+}
+
+function FlipCardTemplatePreview({ cards }: { cards: NonNullable<BlockTemplate["flipCard"]>["cards"] }) {
+  const columns = cards.length === 3 ? "grid-cols-3" : "grid-cols-2";
+
+  return (
+    <div className={`grid ${columns} gap-1.5`}>
+      {cards.map((card, index) => (
+        <div
+          key={card.id}
+          data-template-preview-card={card.id}
+          className="relative flex min-h-24 min-w-0 flex-col items-center justify-center rounded-lg border border-indigo-200 bg-gradient-to-br from-indigo-50 to-white p-1.5 text-center shadow-sm sm:p-2"
+        >
+          <RotateCcw size={10} className="absolute right-1 top-1 text-indigo-500" aria-hidden="true" />
+          <span className="mb-1 max-w-full break-words text-[7px] font-semibold uppercase tracking-wide text-indigo-600 sm:text-[8px]">
+            {card.frontLabel || `Card ${index + 1}`}
+          </span>
+          {card.front.type === "image" ? (
+            <ImageIcon size={16} className="text-indigo-400" aria-hidden="true" />
+          ) : (
+            <span className="line-clamp-3 max-w-full break-words text-[8px] font-semibold leading-3 text-slate-800 sm:text-[9px]">
+              {card.front.text || "Add a prompt"}
+            </span>
+          )}
+          <span className="mt-1.5 text-[7px] text-slate-400 sm:text-[8px]">
+            {card.backLabel || "Flip to reveal"}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function AccordionTemplatePreview({ data }: { data: NonNullable<BlockTemplate["accordion"]> }) {
+  if (data.layout === "tabs") {
+    return (
+      <div className="space-y-2">
+        <div className="flex gap-1 border-b border-slate-200">
+          {data.items.map((item, index) => (
+            <span key={item.id} className={`border-b-2 px-2 py-1 text-[8px] font-medium ${index === 0 ? "border-indigo-600 text-indigo-700" : "border-transparent text-slate-400"}`}>
+              {item.title}
+            </span>
+          ))}
+        </div>
+        <div className="min-h-14 rounded-b-md border border-t-0 border-slate-200 bg-white p-2 text-[8px] leading-3 text-slate-600">
+          {data.items[0]?.body}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1.5">
+      {data.items.map((item, index) => (
+        <div key={item.id} className="overflow-hidden rounded-md border border-slate-200 bg-white">
+          <div className="flex items-center justify-between gap-1 px-2 py-1.5 text-[8px] font-semibold text-slate-700">
+            <span className="line-clamp-1">{item.title}</span>
+            <span className="text-xs text-slate-400">{index === 0 ? "−" : "+"}</span>
+          </div>
+          {index === 0 && <p className="border-t border-slate-100 px-2 py-1.5 text-[7px] leading-3 text-slate-500">{item.body}</p>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function LabeledGraphicTemplatePreview({ data }: { data: NonNullable<BlockTemplate["labeledGraphic"]> }) {
+  return (
+    <div className="relative overflow-hidden rounded-lg">
+      <MiniLandscape className="aspect-video" />
+      {data.markers.map((marker, index) => (
+        <span
+          key={marker.id}
+          className="absolute grid size-5 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-white bg-indigo-600 text-[8px] font-bold text-white shadow"
+          style={{ left: `${marker.x}%`, top: `${marker.y}%` }}
+        >
+          {index + 1}
+        </span>
+      ))}
+      <span className="absolute bottom-1 left-1 rounded bg-white/90 px-1.5 py-0.5 text-[7px] font-medium text-slate-600">
+        Select a marker to explore
+      </span>
+    </div>
+  );
+}
+
+function ProcessStepsTemplatePreview({ data }: { data: NonNullable<BlockTemplate["processSteps"]> }) {
+  const firstStep = data.steps[0];
+  return (
+    <div className="space-y-2 rounded-lg border border-slate-200 bg-white p-2.5">
+      <div className="flex items-center justify-between gap-2 text-[8px] font-semibold uppercase tracking-wide text-slate-500">
+        <span>Step 1 of {data.steps.length}</span>
+        <span className="h-1.5 w-12 overflow-hidden rounded-full bg-slate-100">
+          <span className="block h-full w-1/3 rounded-full bg-indigo-600" />
+        </span>
+      </div>
+      <p className="m-0 text-[10px] font-semibold text-slate-800">{firstStep?.title}</p>
+      <p className="m-0 line-clamp-2 text-[8px] leading-3 text-slate-500">{firstStep?.body}</p>
+      <div className="flex justify-end">
+        <span className="rounded-full bg-indigo-600 px-2 py-1 text-[7px] font-semibold text-white">Next step →</span>
+      </div>
+    </div>
+  );
+}
+
+export function TemplatePreview({ template }: { template: BlockTemplate }) {
   const kind = template.preview;
   if (template.type === "statement" && template.statement)
     return <StatementBlockPreview {...template.statement} />;
+  if (template.type === "flipCard" && template.flipCard)
+    return <FlipCardTemplatePreview cards={template.flipCard.cards} />;
+  if (template.type === "accordion" && template.accordion)
+    return <AccordionTemplatePreview data={template.accordion} />;
+  if (template.type === "labeledGraphic" && template.labeledGraphic)
+    return <LabeledGraphicTemplatePreview data={template.labeledGraphic} />;
+  if (template.type === "processSteps" && template.processSteps)
+    return <ProcessStepsTemplatePreview data={template.processSteps} />;
+  if (template.type === "chart" && template.chart)
+    return <ChartBlockPreview data={template.chart} />;
   if (kind === "knowledge")
     return (
       <InputBlockPreview
@@ -540,14 +1053,9 @@ function TemplatePreview({ template }: { template: BlockTemplate }) {
     );
   if (kind === "title")
     return (
-      <div className="text-slate-700">
-        <p className="my-2 leading-normal">
-          <strong>
-            <span className="text-4xl tracking-tight">Section heading</span>
-          </strong>
-          <br />
-          <span className="text-xs">Write your paragraph here.</span>
-        </p>
+      <div className="space-y-2 text-slate-700">
+        <p className="m-0 leading-tight"><strong><span className="text-2xl tracking-tight">Section heading</span></strong></p>
+        <p className="m-0 text-xs leading-5">Write your paragraph here.</p>
       </div>
     );
   if (kind === "text")
@@ -559,6 +1067,18 @@ function TemplatePreview({ template }: { template: BlockTemplate }) {
         </p>
       </article>
     );
+  if (kind === "text-lead")
+    return <p className="m-0 text-sm leading-5 text-slate-600">Introduce the main idea with a clear, welcoming explanation.</p>;
+  if (kind === "text-large-body")
+    return <p className="m-0 text-base font-medium leading-6 text-slate-800">Explain one important idea in a few concise sentences.</p>;
+  if (kind === "text-small-note")
+    return <p className="m-0 text-[10px] leading-4 text-slate-500">Note: Add a short reminder or supporting detail here.</p>;
+  if (kind === "text-centered-intro")
+    return <div className="space-y-1 text-center"><p className="m-0 text-sm font-semibold leading-5 text-slate-900">A new way to think about this topic</p><p className="m-0 text-[10px] leading-4 text-slate-600">Add a sentence that sets up the lesson below.</p></div>;
+  if (kind === "text-subheading")
+    return <div className="space-y-1"><p className="m-0 text-base font-semibold leading-5 text-slate-900">A clear subheading</p><p className="m-0 text-[10px] leading-4 text-slate-600">Use the paragraph below to explain the idea or add an example.</p></div>;
+  if (kind === "text-color-emphasis")
+    return <p className="m-0 text-[10px] leading-4 text-slate-600"><strong className="text-sm text-indigo-600">Key idea</strong><br />Explain why this idea matters to the learner.</p>;
   if (kind === "quote")
     return (
       <blockquote className="border-l-2 border-slate-300 pl-3 text-[11px] italic leading-4 text-slate-700">
@@ -578,16 +1098,6 @@ function TemplatePreview({ template }: { template: BlockTemplate }) {
     return <blockquote className="border-l-2 border-emerald-500 pl-3 text-[11px] leading-4 text-slate-700"><p>“Add a sourced quotation to support this lesson.”</p><footer className="mt-2 text-[10px] text-slate-500">Source title, author, year</footer></blockquote>;
   if (kind === "quote-testimonial")
     return <blockquote className="border-l-2 border-violet-400 pl-3 text-[11px] italic leading-4 text-slate-700"><p>“This course helped me put the ideas into practice.”</p><footer className="mt-2 text-[10px] not-italic font-semibold text-slate-600">Learner name <span className="font-normal text-slate-400">· Role or organization</span></footer></blockquote>;
-  if (kind === "interactive")
-    return (
-      <div className="rounded-lg border border-indigo-100 bg-indigo-50 p-3 text-[11px] text-slate-700">
-        <p className="font-semibold text-slate-900">Take a moment to reflect</p>
-        <p className="mt-1 leading-4">What would you do in this situation?</p>
-        <span className="mt-2 inline-flex rounded-md bg-indigo-600 px-2.5 py-1 text-[10px] font-medium text-white">
-          Reveal answer
-        </span>
-      </div>
-    );
   if (kind === "list") return <ListTemplatePreview style="disc" />;
   if (kind === "numbered") return <ListTemplatePreview style="numbered" />;
   if (kind === "lettered") return <ListTemplatePreview style="lettered" />;
@@ -596,15 +1106,7 @@ function TemplatePreview({ template }: { template: BlockTemplate }) {
   if (kind === "square-bullets") return <ListTemplatePreview style="square" />;
   if (kind === "checklist") return <ListTemplatePreview style="check" />;
   if (kind === "dash-list") return <ListTemplatePreview style="dash" />;
-  if (kind === "image")
-    return (
-      <div className="relative grid h-24 place-items-center overflow-hidden rounded-md bg-gradient-to-br from-sky-200 via-cyan-100 to-emerald-200">
-        <div className="absolute bottom-0 h-1/2 w-full bg-gradient-to-t from-emerald-700/40 to-transparent" />
-        <div className="absolute left-7 top-5 size-8 rounded-full bg-amber-200" />
-        <div className="absolute bottom-0 h-10 w-full [clip-path:polygon(0_100%,34%_20%,56%_70%,76%_10%,100%_100%)] bg-emerald-600/70" />
-        <ImageIcon size={18} className="relative z-10 text-white drop-shadow" />
-      </div>
-    );
+  if (kind.startsWith("image")) return <ImageTemplatePreview layout={template.imageLayout ?? "full"} />;
   if (kind === "gallery")
     return (
       <div className="grid grid-cols-3 gap-1.5">
@@ -634,29 +1136,6 @@ function TemplatePreview({ template }: { template: BlockTemplate }) {
         <span className="absolute left-2 top-2 text-[9px] font-medium text-white/90">
           Course introduction
         </span>
-      </div>
-    );
-  if (kind === "chart")
-    return (
-      <div className="space-y-2 text-[9px] text-slate-600">
-        {[
-          ["Completed", "80%", "w-4/5"],
-          ["In progress", "40%", "w-2/5"],
-          ["Not started", "15%", "w-1/6"],
-        ].map(([label, value, width]) => (
-          <div
-            key={label}
-            className="grid grid-cols-[58px_minmax(0,1fr)_24px] items-center gap-1.5"
-          >
-            <span>{label}</span>
-            <span className="h-2 overflow-hidden rounded-full bg-slate-100">
-              <span
-                className={`block h-full rounded-full bg-indigo-500 ${width}`}
-              />
-            </span>
-            <span className="text-right">{value}</span>
-          </div>
-        ))}
       </div>
     );
   if (kind === "divider")

@@ -1,6 +1,5 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element -- This client view is also bundled into standalone HTML5 exports. */
 import {
   type CSSProperties,
   useCallback,
@@ -17,17 +16,20 @@ import {
   ChevronDown,
   CirclePlay,
   ClipboardList,
-  Download,
   FileText,
   Lightbulb,
+  LockKeyhole,
   Menu,
   Monitor,
   PanelLeftClose,
   PanelLeftOpen,
   Smartphone,
   Tablet,
+  UnlockKeyhole,
   X,
 } from "lucide-react";
+import { PreviewImage } from "./preview-image";
+import { InteractiveAccordion, InteractiveFlipCard, InteractiveKnowledgeCheck, InteractiveLabeledGraphic, InteractiveProcessSteps, InteractiveSurvey } from "./interactive-blocks";
 import type { EditorSnapshotInput } from "@/lib/editor/schemas";
 import {
   defaultBlockPadding,
@@ -37,16 +39,31 @@ import {
 import { getCourseProgress } from "@/lib/editor/preview";
 import {
   canCompleteLesson,
+  getFlipCardProgressId,
+  getInitiallyViewedInteractionIds,
+  getInteractiveItemProgressId,
+  getPendingInteractiveProgressIds,
   getLessonReadingProgress,
   hasReachedContentEnd,
   type LearnerProgressAdapter,
-} from "@/lib/player/progress";
+  type LearnerProgressSnapshot,
+} from "@/lib/export/progress";
 import { Button } from "@/components/ui/button";
+import { PublishMenu } from "@/components/publish-menu";
+import { ImageBlockLayout } from "../edit/_components/image-block-layout";
 import { StatementBlockPreview } from "../edit/_components/statement-block-preview";
 import { StatementTextPreview } from "../edit/_components/statement-text-preview";
+import { ChartBlockPreview } from "./chart-block";
 import type { QuizQuestion } from "@/lib/schemas/quiz";
+import { courseThemeFontFamilies, normalizeCourseTheme } from "@/lib/editor/theme";
+import {
+  evaluateQuizAttempt,
+  isQuizAnswerCorrect,
+  type QuizAnswers,
+  type QuizAttemptResult,
+} from "@/lib/interactive/quiz-assessment";
 
-export type PreviewData = { courseId: string } & Omit<EditorSnapshotInput, "revision">;
+export type PreviewData = { courseId: string; theme?: EditorSnapshotInput["theme"] } & Omit<EditorSnapshotInput, "revision" | "theme">;
 type PreviewMode = "course" | "learn";
 type PreviewDevice = "desktop" | "tablet" | "mobile";
 
@@ -78,7 +95,7 @@ function LessonProgressIndicator({
   complete: boolean;
 }) {
   if (complete) {
-    return <Check aria-label="Lesson complete" size={15} className="mt-0.5 shrink-0 text-blue-700" />;
+    return <Check aria-label="Lesson complete" size={15} className="mt-0.5 shrink-0" style={{ color: "var(--course-primary, #2f5f9f)" }} />;
   }
   const circumference = 2 * Math.PI * 7;
   return (
@@ -96,7 +113,7 @@ function LessonProgressIndicator({
         cy="9"
         r="7"
         fill="none"
-        stroke="#2563eb"
+        stroke="var(--course-primary, #2f5f9f)"
         strokeWidth="2"
         strokeLinecap="round"
         strokeDasharray={circumference}
@@ -134,36 +151,51 @@ function safeImageSource(value: string) {
     : "";
 }
 
+function blockWidthClass(block: ContentBlock) {
+  const contentWidth = block.widthCustom ? block.width : defaultBlockWidth(block.type);
+  return contentWidth === "small"
+    ? "max-w-[520px]"
+    : contentWidth === "medium"
+      ? "max-w-[720px]"
+      : "max-w-[920px]";
+}
+
+function blockSurfaceStyle(block: ContentBlock): CSSProperties {
+  const blockPadding = block.blockPadding ?? defaultBlockPadding(block.type);
+  return {
+    backgroundColor: block.backgroundColor,
+    color: contrastTextColor(block.backgroundColor),
+    paddingTop: `${blockPadding}px`,
+    paddingBottom: `${blockPadding}px`,
+  };
+}
+
 function QuizQuestionPreview({
   question,
   index,
+  selectedChoiceIds,
+  answerState,
+  onSelectionChange,
+  onCheck,
 }: {
   question: QuizQuestion;
   index: number;
+  selectedChoiceIds: string[];
+  answerState: boolean | null;
+  onSelectionChange: (choiceIds: string[]) => void;
+  onCheck: () => void;
 }) {
-  const [selectedChoiceIds, setSelectedChoiceIds] = useState<string[]>([]);
-  const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const hasAnswerKey = question.correctChoiceIds.length > 0;
 
   function toggleChoice(choiceId: string, selected: boolean) {
-    setSelectedChoiceIds((previous) =>
+    onSelectionChange(
       question.selectionMode === "single"
         ? selected
           ? [choiceId]
           : []
         : selected
-          ? [...previous, choiceId]
-          : previous.filter((id) => id !== choiceId),
-    );
-    setIsCorrect(null);
-  }
-
-  function checkAnswer() {
-    const selected = new Set(selectedChoiceIds);
-    const correct = new Set(question.correctChoiceIds);
-    setIsCorrect(
-      selected.size === correct.size &&
-        [...selected].every((id) => correct.has(id)),
+          ? [...selectedChoiceIds, choiceId]
+          : selectedChoiceIds.filter((id) => id !== choiceId),
     );
   }
 
@@ -174,7 +206,7 @@ function QuizQuestionPreview({
       aria-labelledby={`quiz-question-${question.id}`}
       className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7"
     >
-      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-indigo-700">
+      <p className="text-xs font-semibold uppercase tracking-[0.12em]" style={{ color: "var(--course-primary, #2f5f9f)" }}>
         Question {index + 1}
       </p>
       <h2
@@ -184,11 +216,9 @@ function QuizQuestionPreview({
         {question.prompt || "Question prompt"}
       </h2>
       {questionImage && (
-        <img
+        <PreviewImage
           src={questionImage}
           alt={question.imageAlt}
-          width={960}
-          height={540}
           className="mt-4 max-h-[420px] w-auto rounded-xl object-contain"
         />
       )}
@@ -201,47 +231,52 @@ function QuizQuestionPreview({
         {question.choices.map((choice, choiceIndex) => {
           const choiceImage = safeImageSource(choice.imageSrc);
           return (
-            <label
+            <div
               key={choice.id}
-              className={`flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 text-sm transition-colors ${selectedChoiceIds.includes(choice.id) ? "border-indigo-400 bg-indigo-50" : "border-slate-200 hover:border-indigo-300"}`}
+              className="rounded-xl border transition-colors"
+              style={selectedChoiceIds.includes(choice.id) ? { borderColor: "var(--course-primary, #2f5f9f)", backgroundColor: "color-mix(in srgb, var(--course-primary, #2f5f9f) 9%, white)" } : undefined}
             >
-              <input
-                type={
-                  question.selectionMode === "single" ? "radio" : "checkbox"
-                }
-                name={`answer-${question.id}`}
-                checked={selectedChoiceIds.includes(choice.id)}
-                onChange={(event) =>
-                  toggleChoice(choice.id, event.target.checked)
-                }
-                className="mt-0.5 size-4 shrink-0 accent-indigo-600"
-              />
-              <span className="min-w-0 flex-1">
-                {choice.text && <span className="block">{choice.text}</span>}
-                {choiceImage && (
-                  <img
+              <label className="flex cursor-pointer items-start gap-3 px-4 py-3 text-sm">
+                <input
+                  type={
+                    question.selectionMode === "single" ? "radio" : "checkbox"
+                  }
+                  name={`answer-${question.id}`}
+                  value={choice.id}
+                  checked={selectedChoiceIds.includes(choice.id)}
+                  onChange={(event) =>
+                    toggleChoice(choice.id, event.target.checked)
+                  }
+                  className="mt-0.5 size-4 shrink-0"
+                  style={{ accentColor: "var(--course-primary, #2f5f9f)" }}
+                />
+                <span className="min-w-0 flex-1">
+                  {choice.text || (
+                    <span className="text-slate-400">
+                      Answer {choiceIndex + 1}
+                    </span>
+                  )}
+                </span>
+              </label>
+              {choiceImage && (
+                <div className="pb-3 pl-11 pr-4">
+                  <PreviewImage
                     src={choiceImage}
                     alt={choice.imageAlt}
-                    width={640}
-                    height={420}
-                    className={`${choice.text ? "mt-2" : ""} max-h-56 w-auto rounded-lg object-contain`}
+                    className="max-h-56 w-auto rounded-lg object-contain"
                   />
-                )}
-                {!choice.text && !choiceImage && (
-                  <span className="text-slate-400">
-                    Answer {choiceIndex + 1}
-                  </span>
-                )}
-              </span>
-            </label>
+                </div>
+              )}
+            </div>
           );
         })}
       </fieldset>
       <Button
         type="button"
-        onClick={checkAnswer}
+        onClick={onCheck}
         disabled={!selectedChoiceIds.length || !hasAnswerKey}
         className="mt-5"
+        style={{ backgroundColor: "var(--course-primary, #2f5f9f)" }}
       >
         Check answer
       </Button>
@@ -250,12 +285,12 @@ function QuizQuestionPreview({
           The answer key has not been set for this question.
         </p>
       )}
-      {isCorrect !== null && (
+      {answerState !== null && (
         <p
           role="status"
-          className={`mt-4 rounded-lg px-4 py-3 text-sm font-medium ${isCorrect ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-800"}`}
+          className={`mt-4 rounded-lg px-4 py-3 text-sm font-medium ${answerState ? "bg-emerald-50 text-emerald-800" : "bg-rose-50 text-rose-800"}`}
         >
-          {isCorrect
+          {answerState
             ? question.correctFeedback || "Correct!"
             : question.incorrectFeedback ||
               "That answer is not correct. Try again."}
@@ -265,39 +300,158 @@ function QuizQuestionPreview({
   );
 }
 
+export function QuizAssessmentPreview({
+  questions,
+  passingScore,
+  savedScore,
+  wasPassed,
+  onResult,
+}: {
+  questions: QuizQuestion[];
+  passingScore: number;
+  savedScore?: number;
+  wasPassed: boolean;
+  onResult: (result: QuizAttemptResult) => void;
+}) {
+  const [activeQuestionIndex, setActiveQuestionIndex] = useState(0);
+  const [answers, setAnswers] = useState<QuizAnswers>({});
+  const [gradedAnswers, setGradedAnswers] = useState<Record<string, boolean>>({});
+  const [result, setResult] = useState<QuizAttemptResult | null>(null);
+  const activeQuestion = questions[activeQuestionIndex];
+
+  function updateAnswer(questionId: string, choiceIds: string[]) {
+    setAnswers((previous) => ({ ...previous, [questionId]: choiceIds }));
+    setGradedAnswers((previous) => {
+      const next = { ...previous };
+      delete next[questionId];
+      return next;
+    });
+    setResult(null);
+  }
+
+  function checkQuestion(question: QuizQuestion) {
+    const answerState = isQuizAnswerCorrect(question, answers[question.id] ?? []);
+    const nextGrades = { ...gradedAnswers, [question.id]: answerState };
+    setGradedAnswers(nextGrades);
+    if (questions.every((item) => Object.hasOwn(nextGrades, item.id))) {
+      const attempt = evaluateQuizAttempt(questions, answers, passingScore);
+      if (attempt) {
+        setResult(attempt);
+        onResult(attempt);
+      }
+    }
+  }
+
+  function retry() {
+    setActiveQuestionIndex(0);
+    setAnswers({});
+    setGradedAnswers({});
+    setResult(null);
+  }
+
+  return (
+    <div className="mx-auto mt-10 w-full max-w-[720px] space-y-6 px-4">
+      {wasPassed && result === null && (
+        <p role="status" className="rounded-lg bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+          Quiz passed{savedScore === undefined ? "." : ` · Best score ${savedScore}%.`}
+        </p>
+      )}
+      {!wasPassed && savedScore !== undefined && result === null && (
+        <p className="text-sm text-slate-500">Best score: {savedScore}%</p>
+      )}
+      <div className="flex items-center justify-between gap-4 text-xs font-medium text-slate-500">
+        <span>Question {activeQuestionIndex + 1} of {questions.length}</span>
+        <div
+          role="progressbar"
+          aria-label="Quiz question progress"
+          aria-valuemin={1}
+          aria-valuemax={questions.length}
+          aria-valuenow={activeQuestionIndex + 1}
+          className="h-1.5 w-32 overflow-hidden rounded-full bg-slate-200"
+        >
+          <div className="h-full rounded-full transition-[width]" style={{ width: `${((activeQuestionIndex + 1) / questions.length) * 100}%`, backgroundColor: "var(--course-primary, #2f5f9f)" }} />
+        </div>
+      </div>
+      {activeQuestion && (
+        <QuizQuestionPreview
+          key={activeQuestion.id}
+          question={activeQuestion}
+          index={activeQuestionIndex}
+          selectedChoiceIds={answers[activeQuestion.id] ?? []}
+          answerState={gradedAnswers[activeQuestion.id] ?? null}
+          onSelectionChange={(choiceIds) => updateAnswer(activeQuestion.id, choiceIds)}
+          onCheck={() => checkQuestion(activeQuestion)}
+        />
+      )}
+      <div className="flex items-center justify-between gap-3">
+        <Button
+          type="button"
+          variant="outline"
+          disabled={activeQuestionIndex === 0}
+          onClick={() => setActiveQuestionIndex((index) => Math.max(0, index - 1))}
+        >
+          Previous question
+        </Button>
+        {activeQuestionIndex < questions.length - 1 && (
+          <Button
+            type="button"
+            onClick={() => setActiveQuestionIndex((index) => Math.min(questions.length - 1, index + 1))}
+            disabled={!activeQuestion || gradedAnswers[activeQuestion.id] === undefined}
+          style={{ backgroundColor: "var(--course-primary, #2f5f9f)" }}
+          >
+            Next question
+          </Button>
+        )}
+      </div>
+      {result && activeQuestionIndex === questions.length - 1 && (
+        <section
+          aria-live="polite"
+          className={`rounded-2xl border p-5 sm:p-7 ${result.passed ? "border-emerald-200 bg-emerald-50" : "border-rose-200 bg-rose-50"}`}
+        >
+          <p className={`text-xl font-semibold ${result.passed ? "text-emerald-900" : "text-rose-900"}`}>
+            {result.passed ? "Assessment passed" : "Keep trying"}
+          </p>
+          <p className="mt-2 text-sm text-slate-700">
+            Score: {result.score}% ({result.correctCount} of {result.questionCount} correct). Passing score: {result.passingScore}%.
+          </p>
+          <Button type="button" onClick={retry} className="mt-4">
+            {result.passed ? "Retake quiz" : "Try again"}
+          </Button>
+        </section>
+      )}
+    </div>
+  );
+}
+
 function PreviewBlock({
   block,
   device,
   animateListItems = false,
+  interactedContentIds,
+  onInteractiveProgress,
 }: {
   block: ContentBlock;
   device: PreviewDevice;
   animateListItems?: boolean;
+  interactedContentIds?: ReadonlySet<string>;
+  onInteractiveProgress?: (progressId: string) => void;
 }) {
+  const widthClass = blockWidthClass(block);
+  const style = blockSurfaceStyle(block);
+
   if (block.type === "divider") {
-    return block.data.style === "line" ? (
-      <hr className="border-0 border-t border-slate-300" />
-    ) : (
-      <div aria-hidden="true" className="h-10" />
+    return (
+      <div className="w-full" style={style}>
+        <div className={`mx-auto w-full ${widthClass} px-4`}>
+          {block.data.style === "line" ? (
+            <hr className="border-0 border-t border-slate-300" />
+          ) : (
+            <div aria-hidden="true" className="h-8" />
+          )}
+        </div>
+      </div>
     );
   }
-
-  const contentWidth = block.widthCustom
-    ? block.width
-    : defaultBlockWidth(block.type);
-  const widthClass =
-    contentWidth === "small"
-      ? "max-w-[520px]"
-      : contentWidth === "medium"
-        ? "max-w-[720px]"
-        : "max-w-[920px]";
-  const blockPadding = block.blockPadding ?? defaultBlockPadding(block.type);
-  const style = {
-    backgroundColor: block.backgroundColor,
-    color: contrastTextColor(block.backgroundColor),
-    paddingTop: `${blockPadding}px`,
-    paddingBottom: `${blockPadding}px`,
-  };
 
   let content: React.ReactNode;
   if (block.type === "heading") {
@@ -328,22 +482,21 @@ function PreviewBlock({
         bodyHtml={block.data.bodyHtml}
       />
     );
+  } else if (block.type === "chart") {
+    content = <ChartBlockPreview data={block.data} />;
   } else if (block.type === "image") {
+    const imageLayout = block.data.layout ?? "full";
+    const imageClassName = imageLayout === "full"
+      ? "max-h-[640px] w-full rounded-lg object-contain"
+      : "h-full w-full object-cover";
     content = (
-      <figure>
-        <img
-          src={block.data.src}
-          alt={block.data.alt}
-          width={1200}
-          height={675}
-          className="max-h-[640px] w-full rounded-lg object-contain"
-        />
-        {block.data.caption && (
-          <figcaption className="mt-3 text-center text-sm text-slate-500">
-            {block.data.caption}
-          </figcaption>
-        )}
-      </figure>
+      <ImageBlockLayout
+        layout={imageLayout}
+        title={block.data.title}
+        body={block.data.body}
+        caption={block.data.caption}
+        image={<PreviewImage src={block.data.src} alt={block.data.alt} className={imageClassName} caption={block.data.caption} />}
+      />
     );
   } else if (block.type === "gallery") {
     const columns =
@@ -357,12 +510,10 @@ function PreviewBlock({
     content = (
       <div className={`grid ${columns} gap-3`}>
         {block.data.images.map((image, index) => (
-          <img
+          <PreviewImage
             key={`${block.id}-${index}`}
             src={image.src}
             alt={image.alt}
-            width={640}
-            height={480}
             className="aspect-[4/3] w-full rounded-lg object-cover"
           />
         ))}
@@ -377,6 +528,7 @@ function PreviewBlock({
         controls
         className="aspect-video w-full rounded-xl bg-black"
         src={block.data.src}
+        onEnded={() => onInteractiveProgress?.(`${block.id}:watched`)}
       >
         {block.data.captions && (
           <track
@@ -392,6 +544,7 @@ function PreviewBlock({
         href={block.data.src}
         target="_blank"
         rel="noreferrer"
+        onClick={() => onInteractiveProgress?.(`${block.id}:watched`)}
         className="flex aspect-video w-full items-center justify-center gap-3 rounded-xl bg-slate-950 text-white hover:bg-slate-900"
       >
         <span className="grid size-14 place-items-center rounded-full bg-white/15">
@@ -400,52 +553,75 @@ function PreviewBlock({
         <span className="text-sm font-medium">Open video</span>
       </a>
     );
+  } else if (block.type === "flipCard") {
+    content = (
+      <InteractiveFlipCard
+        blockId={block.id}
+        cards={block.data.cards}
+        interactedCardIds={interactedContentIds}
+        onCardReveal={onInteractiveProgress}
+      />
+    );
+  } else if (block.type === "accordion") {
+    content = (
+      <InteractiveAccordion
+        blockId={block.id}
+        layout={block.data.layout}
+        items={block.data.items}
+        onItemInteract={(itemId) =>
+          onInteractiveProgress?.(
+            getInteractiveItemProgressId(block.id, "section", itemId),
+          )
+        }
+      />
+    );
+  } else if (block.type === "labeledGraphic") {
+    content = (
+      <InteractiveLabeledGraphic
+        blockId={block.id}
+        src={block.data.src}
+        alt={block.data.alt}
+        markers={block.data.markers}
+        onMarkerInteract={(markerId) =>
+          onInteractiveProgress?.(
+            getInteractiveItemProgressId(block.id, "marker", markerId),
+          )
+        }
+      />
+    );
+  } else if (block.type === "processSteps") {
+    content = (
+      <InteractiveProcessSteps
+        blockId={block.id}
+        steps={block.data.steps}
+        onStepInteract={(stepId) =>
+          onInteractiveProgress?.(
+            getInteractiveItemProgressId(block.id, "step", stepId),
+          )
+        }
+      />
+    );
   } else if (block.type === "knowledgeCheck") {
     content = (
-      <fieldset className="space-y-3">
-        <legend className="text-lg font-semibold">{block.data.question}</legend>
-        <div className="space-y-2">
-          {block.data.options.map((option, index) => (
-            <label
-              key={`${block.id}-${index}`}
-              className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm hover:border-indigo-300"
-            >
-              <input
-                type="radio"
-                name={`preview-${block.id}`}
-                className="mt-0.5 accent-indigo-600"
-              />
-              <span>{option}</span>
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      <InteractiveKnowledgeCheck
+        blockId={block.id}
+        question={block.data.question}
+        options={block.data.options}
+        correctOptionIndex={block.data.correctOptionIndex ?? 0}
+        correctFeedback={block.data.correctFeedback ?? "Correct!"}
+        incorrectFeedback={block.data.incorrectFeedback ?? "Not quite. Try again."}
+        onAnswerChecked={() => onInteractiveProgress?.(`${block.id}:answer`)}
+      />
     );
   } else {
     content = (
-      <fieldset className="space-y-4">
-        <legend className="text-lg font-semibold">{block.data.question}</legend>
-        <div className="flex flex-wrap items-center gap-3">
-          {[1, 2, 3, 4, 5].map((rating) => (
-            <label
-              key={rating}
-              className="flex cursor-pointer flex-col items-center gap-1 text-sm"
-            >
-              <input
-                type="radio"
-                name={`preview-${block.id}`}
-                value={rating}
-                className="size-5 accent-indigo-600"
-              />
-              <span>{rating}</span>
-            </label>
-          ))}
-        </div>
-        <div className="flex max-w-sm justify-between text-xs text-slate-500">
-          <span>{block.data.minLabel}</span>
-          <span>{block.data.maxLabel}</span>
-        </div>
-      </fieldset>
+      <InteractiveSurvey
+        blockId={block.id}
+        question={block.data.question}
+        minLabel={block.data.minLabel}
+        maxLabel={block.data.maxLabel}
+        onSubmit={() => onInteractiveProgress?.(`${block.id}:submitted`)}
+      />
     );
   }
 
@@ -462,14 +638,22 @@ function LessonBlocksPreview({
   animate,
   revealedDividerIds,
   completedDividerIds,
+  unlockingDividerIds,
+  interactedContentIds,
   onReveal,
+  onUnlockAnimationEnd,
+  onInteractiveProgress,
 }: {
   blocks: ContentBlock[];
   device: PreviewDevice;
   animate: boolean;
   revealedDividerIds: Set<string>;
   completedDividerIds: Set<string>;
+  unlockingDividerIds: Set<string>;
+  interactedContentIds: Set<string>;
   onReveal: (dividerId: string, nextBlockId?: string) => void;
+  onUnlockAnimationEnd: (dividerId: string) => void;
+  onInteractiveProgress: (progressId: string) => void;
 }) {
   const firstHiddenDividerIndex = blocks.findIndex(
     (block) =>
@@ -492,7 +676,7 @@ function LessonBlocksPreview({
   );
 
   return (
-    <div className="mt-10 space-y-8">
+    <div className="mt-10">
       {visibleBlocks.map((block, index) => {
         const blockDelay = Math.min(
           2100,
@@ -508,35 +692,56 @@ function LessonBlocksPreview({
           if (revealedDividerIds.has(block.id)) return null;
           const requiresCompletion =
             block.data.completionType === "completeAbove";
-          const isDisabled =
-            requiresCompletion && !completedDividerIds.has(block.id);
+          const hasPendingInteractiveContent = requiresCompletion && getPendingInteractiveProgressIds(
+            blocks,
+            interactedContentIds,
+            index,
+          ).length > 0;
+          const isDisabled = requiresCompletion && (
+            hasPendingInteractiveContent || !completedDividerIds.has(block.id)
+          );
+          const widthClass = blockWidthClass(block);
           return (
             <div
               key={block.id}
               data-lesson-block-id={block.id}
-              className={`pb-8 ${animate ? "lesson-block-enter" : ""}`}
+              className={animate ? "lesson-block-enter" : undefined}
               style={animationStyle}
             >
-              <div className="flex flex-col items-center gap-2 text-center">
-                <Button
-                  type="button"
-                  disabled={isDisabled}
-                  aria-describedby={
-                    isDisabled ? `continue-hint-${block.id}` : undefined
-                  }
-                  onClick={() => onReveal(block.id, blocks[index + 1]?.id)}
-                  className="min-w-36 rounded-full px-6"
-                >
-                  {block.data.label.trim() || "Continue"}
-                </Button>
-                {isDisabled && (
-                  <p
-                    id={`continue-hint-${block.id}`}
-                    className="text-xs text-slate-500"
-                  >
-                    Scroll to the end of the content above to continue.
-                  </p>
-                )}
+              <div className="w-full" style={blockSurfaceStyle(block)}>
+                <div className={`mx-auto w-full ${widthClass} px-4`}>
+                  <div className="flex flex-col items-center gap-2 text-center">
+                    <Button
+                      type="button"
+                      disabled={isDisabled}
+                      aria-describedby={
+                        isDisabled ? `continue-hint-${block.id}` : undefined
+                      }
+                      onClick={() => onReveal(block.id, blocks[index + 1]?.id)}
+                      className="min-w-36 rounded-full px-6"
+                      style={{ backgroundColor: "var(--course-primary)" }}
+                    >
+                      {requiresCompletion && (
+                        <ContinueLockIndicator
+                          locked={isDisabled}
+                          unlocking={unlockingDividerIds.has(block.id)}
+                          onUnlockAnimationEnd={() => onUnlockAnimationEnd(block.id)}
+                        />
+                      )}
+                      {block.data.label.trim() || "Continue"}
+                    </Button>
+                    {isDisabled && (
+                      <p
+                        id={`continue-hint-${block.id}`}
+                        className="text-xs text-slate-500"
+                      >
+                        {hasPendingInteractiveContent
+                          ? "Complete each interactive activity above to continue."
+                          : "Scroll to the end of the content above to continue."}
+                      </p>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           );
@@ -552,6 +757,8 @@ function LessonBlocksPreview({
               block={block}
               device={device}
               animateListItems={animate}
+              interactedContentIds={interactedContentIds}
+              onInteractiveProgress={onInteractiveProgress}
             />
           </div>
         );
@@ -560,28 +767,47 @@ function LessonBlocksPreview({
   );
 }
 
+function ContinueLockIndicator({
+  locked,
+  unlocking,
+  onUnlockAnimationEnd,
+}: {
+  locked: boolean;
+  unlocking: boolean;
+  onUnlockAnimationEnd: () => void;
+}) {
+  if (!locked && !unlocking) return null;
+
+  return (
+    <span
+      className="relative inline-grid size-4 shrink-0 place-items-center"
+      aria-hidden="true"
+    >
+      {unlocking && (
+        <UnlockKeyhole className="lesson-lock-open absolute inset-0 size-4" />
+      )}
+      <LockKeyhole
+        className={`absolute inset-0 size-4 ${unlocking ? "lesson-lock-release" : ""}`}
+        onAnimationEnd={onUnlockAnimationEnd}
+      />
+    </span>
+  );
+}
+
 export function CoursePreview({
   initialData,
   authorName,
   standalone = false,
   onEdit,
-  onPublishHtml5,
-  onPublishScorm12,
-  publishing = false,
-  publishingScorm12 = false,
-  publishError = null,
   progressAdapter,
+  persistLocalProgress = true,
 }: {
   initialData: PreviewData;
   authorName: string;
   standalone?: boolean;
   onEdit?: () => void;
-  onPublishHtml5?: () => void;
-  onPublishScorm12?: () => void;
-  publishing?: boolean;
-  publishingScorm12?: boolean;
-  publishError?: string | null;
   progressAdapter?: LearnerProgressAdapter;
+  persistLocalProgress?: boolean;
 }) {
   const [mode, setMode] = useState<PreviewMode>("course");
   const [device, setDevice] = useState<PreviewDevice>("desktop");
@@ -593,6 +819,8 @@ export function CoursePreview({
   const [lessonScrollProgress, setLessonScrollProgress] = useState<
     Record<string, number>
   >({});
+  const [quizScores, setQuizScores] = useState<Record<string, number>>({});
+  const [passedQuizIds, setPassedQuizIds] = useState<Set<string>>(new Set());
   const [progressLoadedCourseId, setProgressLoadedCourseId] = useState<
     string | null
   >(null);
@@ -602,12 +830,23 @@ export function CoursePreview({
   const [completedDividerIds, setCompletedDividerIds] = useState<Set<string>>(
     () => new Set(),
   );
+  const [unlockingDividerIds, setUnlockingDividerIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [interactedContentIds, setInteractedContentIds] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [pendingContinueScroll, setPendingContinueScroll] = useState<{
     lessonId: string;
     blockId: string;
   } | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const courseTheme = normalizeCourseTheme(initialData.theme);
+  const themeStyle = {
+    "--course-primary": courseTheme.primaryColor,
+    "--course-accent": courseTheme.accentColor,
+  } as CSSProperties;
   const lessonContentScrollRef = useRef<HTMLDivElement>(null);
   const lessonArticleRefs = useRef<Map<string, HTMLElement>>(new Map());
   const lessonBodyScrollRefs = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -624,6 +863,21 @@ export function CoursePreview({
       ),
     [initialData.lessons, sections],
   );
+  const flipCardProgressIds = useMemo(
+    () =>
+      new Set(
+        lessons.flatMap((lesson) =>
+          lesson.blocks.flatMap((block) =>
+            block.type === "flipCard"
+              ? block.data.cards.map((card) =>
+                  getFlipCardProgressId(block.id, card.id),
+                )
+              : [],
+          ),
+        ),
+      ),
+    [lessons],
+  );
   const selectedLesson =
     lessons.find((lesson) => lesson.id === selectedLessonId) ?? null;
   const lessonIndex = selectedLesson
@@ -636,6 +890,19 @@ export function CoursePreview({
   const visitedLessonCount = lessons.filter((lesson) =>
     visitedLessonIds.has(lesson.id),
   ).length;
+  const pendingInteractiveIdsByLesson = useMemo(
+    () =>
+      new Map(
+        lessons.map((lesson) => [
+          lesson.id,
+          getPendingInteractiveProgressIds(
+            lesson.blocks,
+            interactedContentIds,
+          ),
+        ]),
+      ),
+    [interactedContentIds, lessons],
+  );
   const initials = authorInitials(authorName);
   const useMobileMenu = device === "mobile" || isMobileViewport;
 
@@ -653,36 +920,53 @@ export function CoursePreview({
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
       try {
-        let snapshot = progressAdapter?.load(initialData.courseId) ?? null;
-        if (!progressAdapter) {
+        let snapshot: LearnerProgressSnapshot | null = progressAdapter?.load(initialData.courseId) ?? null;
+        if (!progressAdapter && persistLocalProgress) {
           const stored = window.localStorage.getItem(
             `coursecraft-progress-v2-${initialData.courseId}`,
           );
-          snapshot = {
-            visitedLessonIds: stored ? (JSON.parse(stored) as string[]) : [],
-            lessonScrollProgress: {},
-            revealedDividerIds: [],
-            completedDividerIds: [],
-            selectedLessonId: null,
-          };
+          const parsed = stored ? JSON.parse(stored) as LearnerProgressSnapshot | string[] : null;
+          snapshot = Array.isArray(parsed)
+            ? { visitedLessonIds: parsed, lessonScrollProgress: {}, revealedDividerIds: [], completedDividerIds: [], selectedLessonId: null }
+            : parsed;
         }
         setVisitedLessonIds(new Set(snapshot?.visitedLessonIds ?? []));
         setLessonScrollProgress(snapshot?.lessonScrollProgress ?? {});
+        setQuizScores(snapshot?.quizScores ?? {});
+        const restoredPassedQuizIds = snapshot?.passedQuizIds ?? lessons
+          .filter((lesson) => lesson.lessonType === "quiz" && snapshot?.visitedLessonIds?.includes(lesson.id))
+          .map((lesson) => lesson.id);
+        setPassedQuizIds(new Set(restoredPassedQuizIds));
         setRevealedDividerIds(new Set(snapshot?.revealedDividerIds ?? []));
         setCompletedDividerIds(new Set(snapshot?.completedDividerIds ?? []));
+        const resumedLesson = lessons.find(
+          (lesson) => lesson.id === snapshot?.selectedLessonId,
+        );
+        setInteractedContentIds(
+          new Set([
+            ...(snapshot?.interactedContentIds ?? []),
+            ...(snapshot?.interactedFlipCardIds ?? []),
+            ...(resumedLesson && resumedLesson.lessonType !== "quiz"
+              ? getInitiallyViewedInteractionIds(resumedLesson.blocks)
+              : []),
+          ]),
+        );
         setSelectedLessonId(snapshot?.selectedLessonId ?? null);
       } catch {
         setVisitedLessonIds(new Set());
         setLessonScrollProgress({});
+        setQuizScores({});
+        setPassedQuizIds(new Set());
         setRevealedDividerIds(new Set());
         setCompletedDividerIds(new Set());
+        setInteractedContentIds(new Set());
         setSelectedLessonId(null);
       } finally {
         setProgressLoadedCourseId(initialData.courseId);
       }
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [initialData.courseId, progressAdapter]);
+  }, [initialData.courseId, lessons, persistLocalProgress, progressAdapter]);
 
   useEffect(() => {
     if (progressLoadedCourseId !== initialData.courseId) return;
@@ -694,16 +978,35 @@ export function CoursePreview({
           lessonScrollProgress,
           revealedDividerIds: [...revealedDividerIds],
           completedDividerIds: [...completedDividerIds],
+          interactedFlipCardIds: [...interactedContentIds].filter((id) =>
+            flipCardProgressIds.has(id),
+          ),
+          interactedContentIds: [...interactedContentIds],
           selectedLessonId,
+          quizScores,
+          passedQuizIds: [...passedQuizIds],
         },
         progress === 100,
       );
       return;
     }
+    if (!persistLocalProgress) return;
     try {
       window.localStorage.setItem(
         `coursecraft-progress-v2-${initialData.courseId}`,
-        JSON.stringify([...visitedLessonIds]),
+        JSON.stringify({
+          visitedLessonIds: [...visitedLessonIds],
+          lessonScrollProgress,
+          revealedDividerIds: [...revealedDividerIds],
+          completedDividerIds: [...completedDividerIds],
+          interactedFlipCardIds: [...interactedContentIds].filter((id) =>
+            flipCardProgressIds.has(id),
+          ),
+          interactedContentIds: [...interactedContentIds],
+          selectedLessonId,
+          quizScores,
+          passedQuizIds: [...passedQuizIds],
+        }),
       );
     } catch {
       // Standalone file URLs may not allow local storage.
@@ -711,17 +1014,29 @@ export function CoursePreview({
   }, [
     initialData.courseId,
     progress,
+    persistLocalProgress,
     progressAdapter,
     progressLoadedCourseId,
     visitedLessonIds,
     lessonScrollProgress,
+    quizScores,
+    passedQuizIds,
     revealedDividerIds,
     completedDividerIds,
+    interactedContentIds,
+    flipCardProgressIds,
     selectedLessonId,
   ]);
 
   const markContentAboveComplete = useCallback(
     (lesson: (typeof lessons)[number], element: HTMLDivElement) => {
+      if (lesson.lessonType === "quiz") {
+        if (passedQuizIds.has(lesson.id)) {
+          setLessonScrollProgress((previous) => previous[lesson.id] === 100 ? previous : { ...previous, [lesson.id]: 100 });
+          setVisitedLessonIds((previous) => previous.has(lesson.id) ? previous : new Set(previous).add(lesson.id));
+        }
+        return;
+      }
       const divider = lesson.blocks.find(
         (block) =>
           block.type === "divider" &&
@@ -735,6 +1050,10 @@ export function CoursePreview({
         revealedDividerIds.has(block.id),
       ).length;
       const reachedEnd = hasReachedContentEnd(element);
+      const hasPendingInteractiveContent = getPendingInteractiveProgressIds(
+        lesson.blocks,
+        interactedContentIds,
+      ).length > 0;
       const readingProgress = getLessonReadingProgress({
         scrollHeight: element.scrollHeight,
         clientHeight: element.clientHeight,
@@ -742,18 +1061,33 @@ export function CoursePreview({
         revealedContinueCount,
         totalContinueCount: continueDividers.length,
       });
+      const trackedProgress = hasPendingInteractiveContent
+        ? Math.min(readingProgress, 99)
+        : readingProgress;
       setLessonScrollProgress((previous) =>
-        previous[lesson.id] === readingProgress
+        previous[lesson.id] === trackedProgress
           ? previous
-          : { ...previous, [lesson.id]: readingProgress },
+          : { ...previous, [lesson.id]: trackedProgress },
       );
       if (!reachedEnd) return;
       if (divider?.type === "divider") {
+        const dividerIndex = lesson.blocks.findIndex(
+          (block) => block.id === divider.id,
+        );
+        const hasPendingInteractiveContentAboveDivider = getPendingInteractiveProgressIds(
+          lesson.blocks,
+          interactedContentIds,
+          dividerIndex,
+        ).length > 0;
         if (
           divider.data.completionType === "completeAbove" &&
+          !hasPendingInteractiveContentAboveDivider &&
           !completedDividerIds.has(divider.id)
         ) {
           setCompletedDividerIds((previous) =>
+            new Set(previous).add(divider.id),
+          );
+          setUnlockingDividerIds((previous) =>
             new Set(previous).add(divider.id),
           );
         }
@@ -764,7 +1098,7 @@ export function CoursePreview({
           scrollHeight: element.scrollHeight,
           clientHeight: element.clientHeight,
           scrollTop: element.scrollTop,
-          hasPendingContinue: false,
+          hasPendingContinue: hasPendingInteractiveContent,
         })
       ) {
         setVisitedLessonIds((previous) =>
@@ -772,7 +1106,7 @@ export function CoursePreview({
         );
       }
     },
-    [completedDividerIds, revealedDividerIds],
+    [completedDividerIds, interactedContentIds, passedQuizIds, revealedDividerIds],
   );
 
   useEffect(() => {
@@ -781,7 +1115,7 @@ export function CoursePreview({
       ? lessonBodyScrollRefs.current.get(lesson.id)
       : undefined;
     if (lesson && element) markContentAboveComplete(lesson, element);
-  }, [selectedLessonId, revealedDividerIds, lessons, markContentAboveComplete]);
+  }, [selectedLessonId, revealedDividerIds, interactedContentIds, lessons, markContentAboveComplete]);
 
   useEffect(() => {
     if (!pendingContinueScroll) return;
@@ -825,6 +1159,17 @@ export function CoursePreview({
   }, [mode, selectedLessonId]);
 
   function selectLesson(lessonId: string) {
+    const lesson = lessons.find((item) => item.id === lessonId);
+    if (lesson && lesson.lessonType !== "quiz") {
+      const initiallyViewedIds = getInitiallyViewedInteractionIds(lesson.blocks);
+      if (initiallyViewedIds.length) {
+        setInteractedContentIds((previous) => {
+          const next = new Set(previous);
+          initiallyViewedIds.forEach((id) => next.add(id));
+          return next;
+        });
+      }
+    }
     setSelectedLessonId(lessonId);
     setMode("learn");
     setMobileMenuOpen(false);
@@ -844,7 +1189,7 @@ export function CoursePreview({
       <aside
         className={`flex min-h-0 flex-col bg-white ${mobile ? "relative z-10 h-full overflow-hidden" : "overflow-y-auto"} ${menuWidth}`}
       >
-        <div className="shrink-0 bg-[#2c5d96] px-4 py-5 text-white sm:px-5">
+        <div className="shrink-0 px-4 py-5 text-white sm:px-5" style={{ backgroundColor: "var(--course-primary)" }}>
           <div className="flex items-start justify-between gap-2">
             <p className="line-clamp-3 text-lg font-semibold leading-tight">
               {initialData.title}
@@ -905,7 +1250,8 @@ export function CoursePreview({
                           type="button"
                           onClick={() => selectLesson(lesson.id)}
                           aria-current={active ? "page" : undefined}
-                          className={`flex min-h-20 w-full items-start gap-2.5 px-4 py-4 text-left ${active ? "bg-indigo-50" : "hover:bg-slate-50"}`}
+                          className={`flex min-h-20 w-full items-start gap-2.5 px-4 py-4 text-left ${active ? "" : "hover:bg-slate-50"}`}
+                          style={active ? { backgroundColor: "color-mix(in srgb, var(--course-primary) 10%, white)" } : undefined}
                         >
                           <Icon
                             size={14}
@@ -913,7 +1259,8 @@ export function CoursePreview({
                           />
                           <span className="min-w-0 flex-1">
                             <span
-                              className={`block break-words text-sm leading-5 [overflow-wrap:anywhere] ${active ? "font-semibold text-indigo-800" : "font-medium text-slate-800"}`}
+                              className={`block break-words text-sm leading-5 [overflow-wrap:anywhere] ${active ? "font-semibold" : "font-medium text-slate-800"}`}
+                              style={active ? { color: "var(--course-primary)" } : undefined}
                             >
                               {lesson.title}
                             </span>
@@ -946,7 +1293,7 @@ export function CoursePreview({
         : "w-full max-w-[390px] border-x border-slate-300 shadow-2xl";
 
   return (
-    <main className="flex h-dvh min-h-0 flex-col overflow-hidden bg-slate-100 text-slate-900">
+    <main style={themeStyle} className="flex h-dvh min-h-0 flex-col overflow-hidden bg-slate-100 text-slate-900">
       {!standalone && (
       <header className="relative z-50 flex min-h-14 shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-200 bg-white px-3 py-2 sm:px-5">
         <div className="flex items-center gap-2">
@@ -1031,58 +1378,26 @@ export function CoursePreview({
           >
             Edit
           </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={publishing}
-            onClick={onPublishHtml5}
-            className="h-8 px-2.5 text-xs sm:px-3"
-          >
-            {publishing ? (
-              "Preparing…"
-            ) : (
-              <>
-                <Download size={14} className="mr-1.5" />
-                HTML5
-              </>
-            )}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            disabled={publishingScorm12}
-            onClick={onPublishScorm12}
-            className="h-8 px-2.5 text-xs sm:px-3"
-          >
-            {publishingScorm12 ? "Preparing…" : "SCORM 1.2"}
-          </Button>
+          <PublishMenu courseId={initialData.courseId} title={initialData.title} className="h-8 px-2.5 text-xs sm:px-3" />
         </div>
       </header>
-      )}
-      {!standalone && publishError && (
-        <p
-          role="alert"
-          className="absolute right-4 top-16 z-[60] max-w-md rounded-lg border border-rose-200 bg-white px-4 py-3 text-sm text-rose-800 shadow-lg"
-        >
-          {publishError}
-        </p>
       )}
 
       <div className="min-h-0 flex-1 overflow-hidden">
         <div
+          style={{ fontFamily: courseThemeFontFamilies[courseTheme.fontFamily] }}
           className={`mx-auto h-full overflow-hidden bg-white transition-[max-width] duration-200 ${viewportClass}`}
         >
           {mode === "course" ? (
             <div className="h-full overflow-y-auto">
               <section
-                className={`bg-gradient-to-br from-[#102e53] via-[#0b2444] to-[#06152d] px-5 text-center text-white sm:px-10 ${device === "mobile" ? "py-12" : "py-16 sm:py-24"}`}
+                className={`px-5 text-center text-white sm:px-10 ${device === "mobile" ? "py-12" : "py-16 sm:py-24"}`}
+                style={{ backgroundImage: "linear-gradient(135deg, color-mix(in srgb, var(--course-primary) 72%, #0f172a), color-mix(in srgb, var(--course-primary) 18%, #020617))" }}
               >
                 <div className="mx-auto max-w-5xl">
                   {initialData.authorVisible && (
                     <div className="mb-6 inline-flex items-center gap-2.5 text-sm font-medium text-white/90">
-                      <span className="grid size-9 place-items-center rounded-full bg-[#ff876c] text-xs font-semibold">
+                      <span className="grid size-9 place-items-center rounded-full text-xs font-semibold" style={{ backgroundColor: "var(--course-accent)" }}>
                         {initials}
                       </span>
                       <span>{authorName}</span>
@@ -1127,7 +1442,7 @@ export function CoursePreview({
                 >
                   <div className="mb-5 flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-3">
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-indigo-700">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em]" style={{ color: "var(--course-primary)" }}>
                         Course outline
                       </p>
                       <h2
@@ -1275,7 +1590,7 @@ export function CoursePreview({
                             lessonArticleRefs.current.set(lesson.id, node);
                           else lessonArticleRefs.current.delete(lesson.id);
                         }}
-                        className="mx-auto flex h-full w-full flex-col overflow-hidden"
+                        className="mx-auto flex h-full min-h-0 w-full flex-col overflow-hidden"
                       >
                         <div
                           ref={(node) => {
@@ -1289,7 +1604,7 @@ export function CoursePreview({
                               event.currentTarget,
                             )
                           }
-                          className="min-h-0 w-full flex-1 overflow-y-auto overscroll-contain"
+                          className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto overscroll-contain"
                         >
                           <nav
                             aria-label={`Previous section from content ${index + 1}`}
@@ -1303,14 +1618,20 @@ export function CoursePreview({
                                 lessons[index - 1] &&
                                 selectLesson(lessons[index - 1].id)
                               }
-                              className="w-full justify-between rounded-none border-0 bg-slate-100 px-4 text-slate-700 hover:bg-slate-200"
+                              className="relative h-auto min-h-20 w-full justify-center rounded-none border-0 bg-slate-100 px-14 py-4 text-center text-slate-700 hover:bg-slate-200"
                             >
-                              <span className="inline-flex items-center gap-2">
-                                <ArrowLeft size={15} />
-                                Previous section
-                              </span>
-                              <span className="text-xs font-medium text-slate-500">
-                                Content {Math.max(1, index)} / {lessons.length}
+                              <span className="flex min-w-0 flex-col items-center whitespace-normal leading-tight">
+                                <span className="text-[11px] font-medium tracking-wide text-slate-500">
+                                  {Math.max(index, 1)}/{lessons.length}
+                                </span>
+                                <span className="mt-1 inline-flex max-w-full items-center justify-center gap-2 text-base font-semibold sm:text-lg">
+                                  <ArrowLeft
+                                    size={18}
+                                    aria-hidden="true"
+                                    className="shrink-0"
+                                  />
+                                  {lessons[index - 1]?.title || "Start of course"}
+                                </span>
                               </span>
                             </Button>
                           </nav>
@@ -1323,7 +1644,7 @@ export function CoursePreview({
                             />
                             {initialData.authorVisible && (
                               <div className="mt-4 flex items-center gap-2.5 text-xs font-medium text-slate-500">
-                                <span className="grid size-8 place-items-center rounded-full bg-[#ff876c] text-[10px] font-semibold text-white">
+                                <span className="grid size-8 place-items-center rounded-full text-[10px] font-semibold text-white" style={{ backgroundColor: "var(--course-accent)" }}>
                                   {initials}
                                 </span>
                                 <span>{authorName}</span>
@@ -1335,17 +1656,23 @@ export function CoursePreview({
                           </div>
                           {lesson.lessonType === "quiz" ? (
                             lesson.quizQuestions.length ? (
-                              <div className="mt-10 space-y-6">
-                                {lesson.quizQuestions.map(
-                                  (question, questionIndex) => (
-                                    <QuizQuestionPreview
-                                      key={question.id}
-                                      question={question}
-                                      index={questionIndex}
-                                    />
-                                  ),
-                                )}
-                              </div>
+                              <QuizAssessmentPreview
+                                questions={lesson.quizQuestions}
+                                passingScore={lesson.passingScore ?? 70}
+                                savedScore={quizScores[lesson.id]}
+                                wasPassed={passedQuizIds.has(lesson.id)}
+                                onResult={(result) => {
+                                  setQuizScores((previous) => ({
+                                    ...previous,
+                                    [lesson.id]: Math.max(previous[lesson.id] ?? 0, result.score),
+                                  }));
+                                  if (result.passed) {
+                                    setPassedQuizIds((previous) => new Set(previous).add(lesson.id));
+                                    setLessonScrollProgress((previous) => ({ ...previous, [lesson.id]: 100 }));
+                                    setVisitedLessonIds((previous) => new Set(previous).add(lesson.id));
+                                  }
+                                }}
+                              />
                             ) : (
                               <div className="mt-10 rounded-xl border border-dashed border-slate-300 px-5 py-8 text-center text-sm text-slate-500">
                                 This quiz has no questions yet.
@@ -1358,6 +1685,8 @@ export function CoursePreview({
                               animate={lesson.id === selectedLessonId}
                               revealedDividerIds={revealedDividerIds}
                               completedDividerIds={completedDividerIds}
+                              unlockingDividerIds={unlockingDividerIds}
+                              interactedContentIds={interactedContentIds}
                               onReveal={(dividerId, nextBlockId) => {
                                 setRevealedDividerIds((previous) =>
                                   new Set(previous).add(dividerId),
@@ -1368,6 +1697,20 @@ export function CoursePreview({
                                     blockId: nextBlockId,
                                   });
                               }}
+                              onUnlockAnimationEnd={(dividerId) => {
+                                setUnlockingDividerIds((previous) => {
+                                  if (!previous.has(dividerId)) return previous;
+                                  const next = new Set(previous);
+                                  next.delete(dividerId);
+                                  return next;
+                                });
+                              }}
+                              onInteractiveProgress={(progressId) => {
+                                setInteractedContentIds((previous) => {
+                                  if (previous.has(progressId)) return previous;
+                                  return new Set(previous).add(progressId);
+                                });
+                              }}
                             />
                           ) : (
                             <div className="mt-10 rounded-xl border border-dashed border-slate-300 px-5 py-8 text-center text-sm text-slate-500">
@@ -1376,31 +1719,49 @@ export function CoursePreview({
                           )}
                           <nav
                             aria-label={`Next section from content ${index + 1}`}
-                            className="w-full shrink-0"
+                            className="mt-auto w-full shrink-0"
                           >
-                            {(lesson.lessonType === "quiz" ||
-                              lesson.blocks.every(
+                            {((lesson.lessonType === "quiz"
+                              ? passedQuizIds.has(lesson.id)
+                              : lesson.blocks.every(
                                 (block) =>
                                   block.type !== "divider" ||
                                   block.data.style !== "continue" ||
                                   revealedDividerIds.has(block.id),
-                              )) && (
-                              <Button
-                                type="button"
-                                variant="default"
-                                disabled={index >= lessons.length - 1}
-                                onClick={() =>
-                                  lessons[index + 1] &&
-                                  selectLesson(lessons[index + 1].id)
-                                }
-                                className="w-full justify-between rounded-none border-0 bg-indigo-600 px-4 text-white hover:bg-indigo-700"
-                              >
-                                Next section
-                                <span className="ml-auto text-xs font-medium text-white/80">
-                                  Content {Math.min(index + 2, lessons.length)} / {lessons.length}
-                                </span>
-                                <ArrowRight size={15} />
-                              </Button>
+                              ))) && (
+                              <>
+                                <Button
+                                  type="button"
+                                  variant="default"
+                                  disabled={index >= lessons.length - 1 || (pendingInteractiveIdsByLesson.get(lesson.id)?.length ?? 0) > 0}
+                                  aria-describedby={(pendingInteractiveIdsByLesson.get(lesson.id)?.length ?? 0) > 0 ? `interactive-hint-${lesson.id}` : undefined}
+                                  onClick={() =>
+                                    lessons[index + 1] &&
+                                    selectLesson(lessons[index + 1].id)
+                                  }
+                                  className="relative h-auto min-h-20 w-full justify-center rounded-none border-0 px-14 py-4 text-center text-white"
+                                  style={{ backgroundColor: "var(--course-primary)" }}
+                                >
+                                  <span className="flex min-w-0 flex-col items-center whitespace-normal leading-tight">
+                                    <span className="text-[11px] font-medium tracking-wide text-white/75">
+                                      {Math.min(index + 2, lessons.length)}/{lessons.length}
+                                    </span>
+                                    <span className="mt-1 inline-flex max-w-full items-center justify-center gap-2 text-base font-semibold sm:text-lg">
+                                      {lessons[index + 1]?.title || "End of course"}
+                                      <ArrowRight
+                                        size={18}
+                                        aria-hidden="true"
+                                        className="shrink-0"
+                                      />
+                                    </span>
+                                  </span>
+                                </Button>
+                                {(pendingInteractiveIdsByLesson.get(lesson.id)?.length ?? 0) > 0 && (
+                                  <p id={`interactive-hint-${lesson.id}`} className="px-4 py-2 text-center text-xs text-slate-500">
+                                    Complete each interactive activity in this lesson before continuing.
+                                  </p>
+                                )}
+                              </>
                             )}
                           </nav>
                         </div>
@@ -1411,7 +1772,8 @@ export function CoursePreview({
                       <div className="max-w-sm">
                         <BookOpen
                           size={34}
-                          className="mx-auto text-indigo-600"
+                          className="mx-auto"
+                          style={{ color: "var(--course-primary)" }}
                         />
                         <h2 className="mt-4 text-xl font-semibold">
                           Your course is ready to explore

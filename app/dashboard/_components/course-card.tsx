@@ -1,14 +1,16 @@
 ﻿"use client";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, type FormEvent } from "react";
-import { BookOpen, Clock3, MoreHorizontal } from "lucide-react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { BookOpen, Clock3, ImagePlus, MoreHorizontal, Trash2 } from "lucide-react";
 import type { DashboardCourse, DashboardData } from "@/lib/dashboard/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { PublishMenu } from "@/components/publish-menu";
+import { MediaLibraryDialog, type MediaLibraryAsset } from "@/app/courses/[courseId]/edit/_components/media-library-dialog";
 
 function dateLabel(value: string) {
   const date = new Date(value);
@@ -45,11 +47,14 @@ export function CourseCard({
         ? "secondary"
         : "default";
   const menuRef = useRef<HTMLDetailsElement>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [coverLibraryOpen, setCoverLibraryOpen] = useState(false);
 
   useEffect(() => {
     function closeWhenClickingOutside(event: PointerEvent) {
       if (event.target instanceof Node && !menuRef.current?.contains(event.target)) {
         menuRef.current?.removeAttribute("open");
+        setMenuOpen(false);
       }
     }
 
@@ -58,8 +63,9 @@ export function CourseCard({
   }, []);
 
   return (
-    <Card className="overflow-hidden rounded-2xl shadow-[0_2px_8px_rgba(15,23,42,0.03)] transition hover:border-indigo-200 hover:shadow-md">
-      <div className="relative flex h-28 items-center justify-center bg-gradient-to-br from-indigo-100 via-violet-50 to-cyan-50">
+    <>
+    <Card className={`relative rounded-2xl overflow-visible shadow-[0_2px_8px_rgba(15,23,42,0.03)] transition hover:border-indigo-200 hover:shadow-md ${menuOpen ? "z-30" : "z-0"}`}>
+      <div className="relative flex aspect-video w-full items-center justify-center overflow-hidden rounded-t-2xl bg-gradient-to-br from-indigo-100 via-violet-50 to-cyan-50">
         {course.coverImage ? (
           <Image
             src={course.coverImage}
@@ -67,7 +73,7 @@ export function CourseCard({
             width={640}
             height={224}
             unoptimized
-            className="h-full w-full object-cover"
+            className="absolute inset-0 h-full w-full object-cover"
           />
         ) : (
           <BookOpen
@@ -90,14 +96,15 @@ export function CourseCard({
               {course.description || "Start building your learning experience."}
             </p>
           </div>
-          <details ref={menuRef} className="relative shrink-0">
+          <details ref={menuRef} onToggle={(event) => setMenuOpen(event.currentTarget.open)} className="relative shrink-0">
             <summary
               aria-label={`Manage ${course.title}`}
+              onClick={() => setMenuOpen((open) => !open)}
               className="grid size-8 cursor-pointer list-none place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 [&::-webkit-details-marker]:hidden"
             >
               <MoreHorizontal size={18} />
             </summary>
-            <div className="absolute right-0 z-10 mt-1 flex w-60 flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-xl">
+            <div className="absolute right-0 top-full z-50 mt-1 flex max-h-[min(72vh,560px)] w-60 flex-col gap-3 overflow-y-auto rounded-xl border border-slate-200 bg-white p-3 shadow-xl">
               <form
                 onSubmit={(event) =>
                   onSubmit(event, `/api/courses/${course.id}`, "PATCH")
@@ -122,36 +129,38 @@ export function CourseCard({
                   Save title
                 </Button>
               </form>
-              <form
-                onSubmit={(event) =>
-                  onSubmit(event, `/api/courses/${course.id}`, "PATCH")
-                }
-                className="space-y-2"
-              >
-                <label className="text-xs font-semibold text-slate-500">
-                  Cover image URL
-                  <Input
-                    name="coverImage"
-                    type="url"
-                    defaultValue={course.coverImage ?? ""}
-                    placeholder="https://â€¦"
-                    className="mt-1 h-9 px-2 text-sm font-normal"
-                  />
-                </label>
+              <div className="space-y-2">
+                <div className="text-xs font-semibold text-slate-500">
+                  Course image
+                </div>
                 <Button
-                  type="submit"
+                  type="button"
                   size="sm"
                   variant="outline"
+                  disabled={disabled || busy}
+                  onClick={() => setCoverLibraryOpen(true)}
                   className="w-full text-xs"
                 >
-                  Save cover
+                  <ImagePlus size={14} />Choose or upload image
                 </Button>
-              </form>
+                {course.coverImage && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    disabled={disabled || busy}
+                    onClick={() => void onRequest(`/api/courses/${course.id}`, "PATCH", { coverImage: null })}
+                    className="w-full justify-start text-xs text-rose-700 hover:bg-rose-50 hover:text-rose-800"
+                  >
+                    <Trash2 size={14} />Remove course image
+                  </Button>
+                )}
+              </div>
               <form
                 onSubmit={(event) =>
                   onSubmit(event, `/api/courses/${course.id}`, "PATCH")
                 }
-                className="space-y-2"
+                className="flex flex-col gap-2"
               >
                 <label className="text-xs font-semibold text-slate-500">
                   Move course
@@ -204,6 +213,17 @@ export function CourseCard({
               >
                 Duplicate course
               </Button>
+              <PublishMenu
+                courseId={course.id}
+                title={course.title}
+                disabled={disabled || busy}
+                className="h-9 w-full justify-start px-2 text-xs"
+                openUpward
+                onPublished={() => {
+                  menuRef.current?.removeAttribute("open");
+                  setMenuOpen(false);
+                }}
+              />
               <Button
                 variant="ghost"
                 disabled={disabled || busy}
@@ -239,5 +259,17 @@ export function CourseCard({
         </div>
       </div>
     </Card>
+    <MediaLibraryDialog
+      courseId={course.id}
+      kind="image"
+      open={coverLibraryOpen}
+      onClose={() => setCoverLibraryOpen(false)}
+      onSelect={(asset: MediaLibraryAsset) => {
+        void onRequest(`/api/courses/${course.id}`, "PATCH", { coverImage: asset.fileUrl });
+        menuRef.current?.removeAttribute("open");
+        setMenuOpen(false);
+      }}
+    />
+    </>
   );
 }

@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { blockSchema } from "@/lib/schemas/block";
 import { quizQuestionsSchema } from "@/lib/schemas/quiz";
+import { courseThemeSchema, defaultCourseTheme } from "./theme";
 
 export const editorSectionSchema = z.object({
   id: z.string().min(1).max(64),
@@ -14,6 +15,7 @@ export const editorLessonSchema = z.object({
   title: z.string().trim().min(1).max(160),
   icon: z.enum(["file", "book", "video", "quiz", "idea"]).optional(),
   lessonType: z.enum(["content", "quiz"]).default("content"),
+  passingScore: z.number().int().min(0).max(100).optional(),
   titleHtml: z.string().max(100_000).optional(),
   quizQuestions: quizQuestionsSchema.default([]),
   order: z.number().int().min(0).max(500),
@@ -25,6 +27,7 @@ export const editorSnapshotSchema = z.object({
   description: z.string().max(5_000),
   descriptionHtml: z.string().max(100_000).optional(),
   authorVisible: z.boolean().default(true),
+  theme: courseThemeSchema.default(() => ({ ...defaultCourseTheme })),
   revision: z.number().int().min(0),
   sections: z.array(editorSectionSchema).min(1).max(100),
   lessons: z.array(editorLessonSchema).max(500),
