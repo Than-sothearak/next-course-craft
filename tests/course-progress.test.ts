@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canCompleteLesson, getCourseProgress, getFlipCardProgressId, getInitiallyViewedInteractionIds, getInteractiveBlockProgressIds, getInteractiveItemProgressId, getLessonReadingProgress, getPendingFlipCardIds, getPendingInteractiveProgressIds, hasReachedContentEnd, subscribeToScroll } from "../lib/export/progress";
+import { canCompleteLesson, canNavigateToLesson, getCourseProgress, getFlipCardProgressId, getInitiallyViewedInteractionIds, getInteractiveBlockProgressIds, getInteractiveItemProgressId, getLessonReadingProgress, getPendingFlipCardIds, getPendingInteractiveProgressIds, getPendingRequiredContinueDividerIds, hasReachedContentEnd, subscribeToScroll } from "../lib/export/progress";
 import type { ContentBlock } from "../lib/schemas/block";
 
 describe("standalone learner progress", () => {
@@ -32,6 +32,68 @@ describe("standalone learner progress", () => {
     expect(canCompleteLesson({ ...atEnd, hasPendingContinue: false })).toBe(true);
     expect(canCompleteLesson({ ...atEnd, hasPendingContinue: true })).toBe(false);
     expect(canCompleteLesson({ scrollHeight: 1200, clientHeight: 600, scrollTop: 300, hasPendingContinue: false })).toBe(false);
+  });
+
+  it("locks forward lesson navigation until activities are complete and lessons are visited in order", () => {
+    expect(canNavigateToLesson(0, 1, false)).toBe(false);
+    expect(canNavigateToLesson(0, 1, true)).toBe(true);
+    expect(canNavigateToLesson(0, 2, true)).toBe(false);
+    expect(canNavigateToLesson(0, 2, true, true)).toBe(true);
+    expect(canNavigateToLesson(0, 2, false, true)).toBe(false);
+    expect(canNavigateToLesson(1, 0, false)).toBe(true);
+    expect(canNavigateToLesson(1, 1, false)).toBe(true);
+    expect(canNavigateToLesson(-1, 0, true)).toBe(true);
+    expect(canNavigateToLesson(-1, 1, true)).toBe(false);
+  });
+
+  it("applies the selected free, sequential, or restricted progression rule", () => {
+    expect(canNavigateToLesson(0, 2, false, false, "free")).toBe(true);
+
+    // Sequential navigation passes the current lesson's completion state.
+    expect(canNavigateToLesson(0, 1, false, false, "sequential")).toBe(false);
+    expect(canNavigateToLesson(0, 1, true, false, "sequential")).toBe(true);
+
+    // Restricted navigation passes the required-activities completion state.
+    expect(canNavigateToLesson(0, 1, false, false, "restricted")).toBe(false);
+    expect(canNavigateToLesson(0, 1, true, false, "restricted")).toBe(true);
+    expect(canNavigateToLesson(0, 2, true, false, "restricted")).toBe(false);
+  });
+
+  it("tracks only Continue gates configured to require completion above", () => {
+    const blocks: ContentBlock[] = [
+      {
+        id: "activity",
+        version: 1,
+        type: "knowledgeCheck",
+        width: "small",
+        widthCustom: false,
+        backgroundColor: "#ffffff",
+        blockPadding: 20,
+        data: { question: "Question?", options: ["A", "B"], correctOptionIndex: 0, correctFeedback: "Correct", incorrectFeedback: "Try again" },
+      },
+      {
+        id: "optional-continue",
+        version: 1,
+        type: "divider",
+        width: "small",
+        widthCustom: false,
+        backgroundColor: "#ffffff",
+        blockPadding: 20,
+        data: { style: "continue", label: "Continue", completionType: "none" },
+      },
+      {
+        id: "required-continue",
+        version: 1,
+        type: "divider",
+        width: "small",
+        widthCustom: false,
+        backgroundColor: "#ffffff",
+        blockPadding: 20,
+        data: { style: "continue", label: "Continue", completionType: "completeAbove" },
+      },
+    ];
+    expect(getPendingRequiredContinueDividerIds(blocks, new Set(), new Set(), new Set())).toEqual(["required-continue"]);
+    expect(getPendingRequiredContinueDividerIds(blocks, new Set(["required-continue"]), new Set(["required-continue"]), new Set(["activity:answer"]))).toEqual([]);
   });
 
   it("keeps each flip card pending until that card has been opened", () => {

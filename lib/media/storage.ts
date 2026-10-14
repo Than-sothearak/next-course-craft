@@ -2,6 +2,7 @@ import {
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
 import { createPresignedPost } from "@aws-sdk/s3-presigned-post";
@@ -66,6 +67,26 @@ export async function inspectMediaObject(objectKey: string) {
 export async function deleteMediaObject(objectKey: string) {
   const { client, bucket } = getStorage();
   await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: objectKey }));
+}
+
+export async function storeGeneratedImage({
+  objectKey,
+  assetId,
+  body,
+}: {
+  objectKey: string;
+  assetId: string;
+  body: Buffer;
+}) {
+  const { client, bucket } = getStorage();
+  await client.send(new PutObjectCommand({
+    Bucket: bucket,
+    Key: objectKey,
+    Body: body,
+    ContentType: "image/png",
+    CacheControl: "private, max-age=300",
+    Metadata: { "asset-id": assetId, source: "ai-course-generation" },
+  }));
 }
 
 export async function createMediaReadUrl({ objectKey, contentType }: { objectKey: string; contentType: string }) {

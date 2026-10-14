@@ -61,7 +61,7 @@ async function saveWithoutTransactions(
     revision: snapshot.revision,
   })
     .select(
-      "title description descriptionHtml authorVisible theme sections revision __v",
+      "title description descriptionHtml authorVisible theme navigationMode sections revision __v",
     )
     .lean();
   if (!before) {
@@ -97,6 +97,7 @@ async function saveWithoutTransactions(
         descriptionHtml: snapshot.descriptionHtml ?? null,
         authorVisible: snapshot.authorVisible,
         theme: snapshot.theme,
+        navigationMode: snapshot.navigationMode,
         sections: snapshot.sections,
         editorSaveLock: lockId,
         editorSaveLockAt: new Date(),
@@ -147,6 +148,7 @@ async function saveWithoutTransactions(
             descriptionHtml: before.descriptionHtml ?? null,
             authorVisible: before.authorVisible,
             theme: before.theme,
+            navigationMode: before.navigationMode,
             sections: before.sections,
             revision: snapshot.revision,
             __v: before.__v,
@@ -194,6 +196,7 @@ export async function saveCourseEditor(
               descriptionHtml: snapshot.descriptionHtml ?? null,
               authorVisible: snapshot.authorVisible,
               theme: snapshot.theme,
+              navigationMode: snapshot.navigationMode,
               sections: snapshot.sections,
             },
             $inc: { revision: 1, __v: 1 },

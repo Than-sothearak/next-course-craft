@@ -24,6 +24,7 @@ const CourseSchema = new Schema({
   sections: { type: [SectionSchema], default: [] },
   language: { type: String, default: "en" },
   theme: { type: CourseThemeSchema, default: () => ({}) },
+  navigationMode: { type: String, enum: ["free", "sequential", "restricted"], default: "sequential" },
   status: { type: String, enum: ["draft", "published", "archived"], default: "draft" },
   revision: { type: Number, default: 0, min: 0 },
   editorSaveLock: { type: String, default: null, select: false },

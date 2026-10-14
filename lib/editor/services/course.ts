@@ -9,6 +9,7 @@ import {
 } from "@/lib/schemas/block";
 import { defaultSection, ownerObjectId } from "./shared";
 import { normalizeCourseTheme } from "../theme";
+import { normalizeCourseNavigationMode } from "../navigation";
 
 export async function getCourseEditor(ownerId: string, courseId: string) {
   ownerObjectId(ownerId);
@@ -37,6 +38,7 @@ export async function getCourseEditor(ownerId: string, courseId: string) {
     descriptionHtml: course.descriptionHtml ?? undefined,
     authorVisible: course.authorVisible ?? true,
     theme: normalizeCourseTheme(course.theme),
+    navigationMode: normalizeCourseNavigationMode(course.navigationMode),
     revision: course.revision,
     sections,
     lessons: lessons.map((lesson) => {

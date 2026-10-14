@@ -128,6 +128,7 @@ export async function duplicateCourse(ownerId: string, courseId: string) {
     coverImage: source.coverImage,
     language: source.language,
     theme: structuredClone(source.theme),
+    navigationMode: source.navigationMode ?? "sequential",
     status: "draft",
     revision: 0,
     completionSettings: structuredClone(source.completionSettings),

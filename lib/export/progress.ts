@@ -1,4 +1,5 @@
 import type { ContentBlock } from "@/lib/schemas/block";
+import type { CourseNavigationMode } from "@/lib/editor/navigation";
 
 export type LearnerProgressSnapshot = {
   visitedLessonIds: string[];
@@ -82,6 +83,45 @@ export function getPendingInteractiveProgressIds(
     .slice(0, endIndex)
     .flatMap((block) => getInteractiveBlockProgressIds(block))
     .filter((id) => !interactedContentIds.has(id));
+}
+
+export function getPendingRequiredContinueDividerIds(
+  blocks: readonly ContentBlock[],
+  revealedDividerIds: ReadonlySet<string>,
+  completedDividerIds: ReadonlySet<string>,
+  interactedContentIds: ReadonlySet<string>,
+) {
+  return blocks.flatMap((block, index) => {
+    if (
+      block.type !== "divider" ||
+      block.data.style !== "continue" ||
+      block.data.completionType !== "completeAbove"
+    ) return [];
+    const hasPendingInteractiveContent = getPendingInteractiveProgressIds(
+      blocks,
+      interactedContentIds,
+      index,
+    ).length > 0;
+    const hasCompletedAndRevealed =
+      completedDividerIds.has(block.id) && revealedDividerIds.has(block.id);
+    return hasPendingInteractiveContent || !hasCompletedAndRevealed
+      ? [block.id]
+      : [];
+  });
+}
+
+export function canNavigateToLesson(
+  currentIndex: number,
+  targetIndex: number,
+  canContinueFromCurrentLesson: boolean,
+  targetLessonIsVisited = false,
+  navigationMode: CourseNavigationMode = "sequential",
+) {
+  if (targetIndex < 0) return false;
+  if (navigationMode === "free") return true;
+  if (targetIndex <= currentIndex) return true;
+  if (!canContinueFromCurrentLesson) return false;
+  return targetIndex === currentIndex + 1 || targetLessonIsVisited;
 }
 
 export function getPendingFlipCardIds(

@@ -43,6 +43,7 @@ import {
   Plus,
   Redo2,
   Save,
+  Sparkles,
   Trash2,
   Undo2,
 } from "lucide-react";
@@ -52,6 +53,7 @@ import {
   type ContentBlock,
 } from "@/lib/schemas/block";
 import type { EditorSnapshotInput } from "@/lib/editor/schemas";
+import { defaultCourseNavigationMode } from "@/lib/editor/navigation";
 import { applyListTemplateToHtml } from "@/lib/editor/list-template";
 import { Button } from "@/components/ui/button";
 import { PublishMenu } from "@/components/publish-menu";
@@ -73,7 +75,10 @@ import {
 } from "./block-template-picker";
 import { QuizEditor } from "./quiz-editor";
 import { CourseThemeSettings } from "./course-theme-settings";
+import { CourseNavigationSettings } from "./course-navigation-settings";
 import { courseThemeFontFamilies } from "@/lib/editor/theme";
+import type { GeneratedCourseDraft } from "@/lib/ai/course-generation-schemas";
+import { CourseGenerationDialog } from "./course-generation-dialog";
 
 type InitialData = { courseId: string } & EditorSnapshotInput;
 type Draft = Omit<EditorSnapshotInput, "revision">;
@@ -137,6 +142,7 @@ export function EditorClient({
     descriptionHtml: initialData.descriptionHtml,
     authorVisible: initialData.authorVisible,
     theme: initialData.theme,
+    navigationMode: initialData.navigationMode ?? defaultCourseNavigationMode,
     sections: initialData.sections,
     lessons: initialData.lessons,
   };
@@ -166,6 +172,7 @@ export function EditorClient({
   const courseTitleRef = useRef<HTMLTextAreaElement>(null);
   const [templatePicker, setTemplatePicker] =
     useState<TemplatePickerState | null>(null);
+  const [courseGenerationOpen, setCourseGenerationOpen] = useState(false);
   const activeLesson =
     draft.lessons.find((lesson) => lesson.id === activeLessonId) ?? null;
   const orderedSections = useMemo(
@@ -207,6 +214,43 @@ export function EditorClient({
 
   function updateDraft(update: (current: Draft) => Draft) {
     commit(update(draftRef.current));
+  }
+
+  function applyGeneratedCourse(
+    course: GeneratedCourseDraft,
+    mode: "append" | "replace",
+  ) {
+    const append = mode === "append" && draftRef.current.lessons.length > 0;
+    updateDraft((current) => {
+      if (!append) {
+        return {
+          ...current,
+          title: course.title,
+          description: course.description,
+          descriptionHtml: undefined,
+          sections: course.sections,
+          lessons: course.lessons,
+        };
+      }
+      const sectionOffset = current.sections.length;
+      return {
+        ...current,
+        sections: [
+          ...current.sections,
+          ...course.sections.map((section, index) => ({
+            ...section,
+            order: sectionOffset + index,
+          })),
+        ],
+        lessons: [...current.lessons, ...course.lessons],
+      };
+    });
+    if (!append) {
+      titleValidRef.current = true;
+      setTitleValid(true);
+    }
+    setCourseGenerationOpen(false);
+    void saveLatest();
   }
 
   useEffect(() => {
@@ -770,10 +814,28 @@ export function EditorClient({
           }
           primaryAction={
             <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                aria-label="Generate content"
+                title="Generate content"
+                onClick={() => setCourseGenerationOpen(true)}
+              >
+                <Sparkles size={15} />
+                <span className="hidden sm:inline">Generate content</span>
+                <span className="sm:hidden">Generate</span>
+              </Button>
               <CourseThemeSettings
                 theme={draft.theme}
                 onChange={(theme) =>
                   updateDraft((current) => ({ ...current, theme }))
+                }
+              />
+              <CourseNavigationSettings
+                navigationMode={draft.navigationMode}
+                onChange={(navigationMode) =>
+                  updateDraft((current) => ({ ...current, navigationMode }))
                 }
               />
               <PublishMenu
@@ -852,6 +914,12 @@ export function EditorClient({
                 theme={draft.theme}
                 onChange={(theme) =>
                   updateDraft((current) => ({ ...current, theme }))
+                }
+              />
+              <CourseNavigationSettings
+                navigationMode={draft.navigationMode}
+                onChange={(navigationMode) =>
+                  updateDraft((current) => ({ ...current, navigationMode }))
                 }
               />
               <Button
@@ -1397,6 +1465,15 @@ export function EditorClient({
           onSelect={applyTemplate}
         />
       )}
+      <CourseGenerationDialog
+        open={courseGenerationOpen}
+        onClose={() => setCourseGenerationOpen(false)}
+        courseId={initialData.courseId}
+        courseTitle={draft.title}
+        courseDescription={draft.description}
+        existingLessonCount={draft.lessons.length}
+        onApply={applyGeneratedCourse}
+      />
       {activeLesson && activeLesson.lessonType !== "quiz" && (
         <BlockManagerSidebar
           open={blockManagerOpen}

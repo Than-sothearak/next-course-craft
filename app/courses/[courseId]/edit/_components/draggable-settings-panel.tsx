@@ -1,10 +1,12 @@
 "use client";
 
 import {
+  useLayoutEffect,
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
+  type RefObject,
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
@@ -16,6 +18,7 @@ export function DraggableSettingsPanel({
   id,
   title,
   side,
+  anchorRef,
   panelClassName = "w-[min(380px,calc(100vw-2rem))]",
   bodyClassName = "",
   children,
@@ -23,6 +26,7 @@ export function DraggableSettingsPanel({
   id: string;
   title: string;
   side: "left" | "right";
+  anchorRef?: RefObject<HTMLElement | null>;
   panelClassName?: string;
   bodyClassName?: string;
   children: ReactNode;
@@ -34,6 +38,26 @@ export function DraggableSettingsPanel({
     offsetY: number;
   } | null>(null);
   const [position, setPosition] = useState<FloatingPosition | null>(null);
+
+  useLayoutEffect(() => {
+    const anchor = anchorRef?.current;
+    const panel = panelRef.current;
+    if (!anchor || !panel) return;
+    const anchorRect = anchor.getBoundingClientRect();
+    const panelRect = panel.getBoundingClientRect();
+    const gutter = 8;
+    const gap = 12;
+    const maxLeft = Math.max(gutter, window.innerWidth - panelRect.width - gutter);
+    const maxTop = Math.max(gutter, window.innerHeight - panelRect.height - gutter);
+    const leftOfAnchor = anchorRect.left - panelRect.width - gap;
+    const rightOfAnchor = anchorRect.right + gap;
+    const preferredLeft = leftOfAnchor >= gutter ? leftOfAnchor : rightOfAnchor;
+    const top = anchorRect.top + anchorRect.height / 2 - panelRect.height / 2;
+    setPosition({
+      left: Math.min(maxLeft, Math.max(gutter, preferredLeft)),
+      top: Math.min(maxTop, Math.max(gutter, top)),
+    });
+  }, [anchorRef]);
 
   function startDrag(event: ReactPointerEvent<HTMLDivElement>) {
     if (event.button !== 0) return;

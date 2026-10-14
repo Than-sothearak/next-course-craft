@@ -12,10 +12,10 @@ Work one phase at a time; stop after the requested phase.
 8. **Quizzes and assessments:** author-set passing scores, graded attempts and retry, persisted assessment results, course navigation gating, SCORM score reporting, and focused tests.
 9. **Themes and branding:** saved course palettes, custom brand and accent colors, typography options, themed course and lesson previews, and export parity.
 10. Templates.
-11. Advanced navigation.
+11. **Advanced navigation:** searchable and collapsible learner course outline, per-section completion summaries, and course-level free, sequential, or restricted lesson progression across preview and standalone export.
 12. Additional publishing formats.
 13. Team collaboration.
-14. Optional AI features.
+14. **AI generation:** prompt and document ingestion, structured course drafts using existing blocks, optional generated images, and author review/apply.
 15. Production hardening.
 
-Current status: Phases 1 through 9 are complete. Phase 10 is next.
+Current status: Phases 1 through 9 and Phase 11 are complete. Phase 14 AI generation is in progress by request; Phases 10, 12, and 13 remain unstarted.

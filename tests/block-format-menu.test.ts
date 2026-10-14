@@ -23,6 +23,46 @@ describe("block format menu", () => {
     Reflect.deleteProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT");
   });
 
+  it("offers larger block padding values and saves the selected value", () => {
+    const block: ContentBlock = {
+      id: "text-padding",
+      version: 1,
+      type: "richText",
+      width: "medium",
+      widthCustom: false,
+      backgroundColor: "#ffffff",
+      blockPadding: 20,
+      data: { html: "<p>Text</p>" },
+    };
+    const onChange = vi.fn();
+
+    act(() => root.render(createElement(BlockFormatMenu, { block, onChange })));
+    act(() => container.querySelector<HTMLButtonElement>('[aria-label="Format block"]')?.click());
+
+    const paddingSelect = document.querySelector<HTMLSelectElement>(
+      '[aria-label="Block padding"]',
+    );
+    expect(paddingSelect).not.toBeNull();
+    expect(Array.from(paddingSelect?.options ?? [], (option) => option.value)).toEqual([
+      "0",
+      "20",
+      "40",
+      "60",
+      "80",
+      "100",
+      "120",
+    ]);
+
+    act(() => {
+      Object.getOwnPropertyDescriptor(
+        window.HTMLSelectElement.prototype,
+        "value",
+      )?.set?.call(paddingSelect, "80");
+      paddingSelect?.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    expect(onChange).toHaveBeenCalledWith({ ...block, blockPadding: 80 });
+  });
+
   it("renders above the icon layer and closes outside the format popup", () => {
     const block: ContentBlock = {
       id: "text-1",

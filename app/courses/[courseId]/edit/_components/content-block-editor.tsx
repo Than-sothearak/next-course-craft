@@ -182,6 +182,7 @@ export function ContentBlockEditor({
           id={settingsPanelId}
           title="Content settings"
           side="left"
+          anchorRef={settingsButtonRef}
           panelClassName="w-[min(280px,calc(100vw-3rem))]"
         >
           {replaceTemplateAction()}
@@ -378,6 +379,7 @@ export function ContentBlockEditor({
           id={settingsPanelId}
           title="Content settings"
           side="left"
+          anchorRef={settingsButtonRef}
           panelClassName="w-[min(380px,calc(100vw-3rem))]"
         >
           {replaceTemplateAction()}
@@ -873,9 +875,9 @@ export function ContentBlockEditor({
                     }
                     className="h-9 w-full"
                   >
-                    <option value="none">None</option>
+                    <option value="none">No completion lock</option>
                     <option value="completeAbove">
-                      Complete the content above before moving on
+                      Complete content above to unlock
                     </option>
                   </Select>
                 </>

@@ -10,6 +10,7 @@ import {
   Image as ImageIcon,
   Images,
   List,
+  LockKeyhole,
   Minus,
   Quote,
   RotateCcw,
@@ -1167,6 +1168,9 @@ export function TemplatePreview({ template }: { template: BlockTemplate }) {
     return (
       <div className="flex justify-center">
         <span className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-[10px] font-semibold text-white shadow-sm">
+          {kind === "continue-required" && (
+            <LockKeyhole size={11} aria-hidden="true" />
+          )}
           {kind === "continue-reading" ? "Continue reading" : "Continue"}
         </span>
       </div>

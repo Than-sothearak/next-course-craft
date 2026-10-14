@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Extension, Mark, type Editor } from "@tiptap/core";
+import { Extension, Mark, Node, mergeAttributes, type Editor } from "@tiptap/core";
 import { useEditorState } from "@tiptap/react";
 import Document from "@tiptap/extension-document";
 import StarterKit from "@tiptap/starter-kit";
@@ -141,8 +141,51 @@ const SingleElementEditing = Extension.create({
   },
 });
 
+const CourseOverviewTable = Node.create({
+  name: "courseOverviewTable",
+  group: "block",
+  content: "courseOverviewRow+",
+  isolating: true,
+  parseHTML: () => [{ tag: "table" }],
+  renderHTML: ({ HTMLAttributes }) => ["table", mergeAttributes(HTMLAttributes, {
+    class: "w-full border-collapse text-left text-sm",
+  }), 0],
+});
+
+const CourseOverviewRow = Node.create({
+  name: "courseOverviewRow",
+  content: "(courseOverviewHeader | courseOverviewCell)+",
+  parseHTML: () => [{ tag: "tr" }],
+  renderHTML: ({ HTMLAttributes }) => ["tr", HTMLAttributes, 0],
+});
+
+const CourseOverviewHeader = Node.create({
+  name: "courseOverviewHeader",
+  content: "block+",
+  isolating: true,
+  parseHTML: () => [{ tag: "th" }],
+  renderHTML: ({ HTMLAttributes }) => ["th", mergeAttributes(HTMLAttributes, {
+    scope: "col",
+    class: "border border-slate-300 bg-slate-50 px-3 py-2 text-left font-semibold align-top",
+  }), 0],
+});
+
+const CourseOverviewCell = Node.create({
+  name: "courseOverviewCell",
+  content: "block+",
+  isolating: true,
+  parseHTML: () => [{ tag: "td" }],
+  renderHTML: ({ HTMLAttributes }) => ["td", mergeAttributes(HTMLAttributes, {
+    class: "border border-slate-300 px-3 py-2 align-top",
+  }), 0],
+});
+
 export const textEditorExtensions = [
   StarterKit.configure({ document: false, heading: { levels: [1, 2, 3] } }),
+  CourseOverviewTable,
+  CourseOverviewRow,
+  CourseOverviewHeader,
+  CourseOverviewCell,
   SingleElementDocument,
   SingleElementEditing,
   Underline,

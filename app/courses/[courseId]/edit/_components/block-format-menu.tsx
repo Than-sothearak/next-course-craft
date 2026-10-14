@@ -18,7 +18,7 @@ const spacingOptions = [
   { value: "medium", label: "Medium" },
   { value: "large", label: "Large" },
 ] as const;
-const blockPaddingOptions = [0, 20, 40, 60] as const;
+const blockPaddingOptions = [0, 20, 40, 60, 80, 100, 120] as const;
 const backgroundColors = ["#ffffff", "#f1f5f9", "#dbeafe", "#bfdbfe", "#dcfce7", "#bbf7d0", "#fef3c7", "#fde68a", "#fee2e2", "#fecaca", "#ede9fe", "#1e293b"];
 
 export function BlockFormatMenu({ block, onChange }: { block: ContentBlock; onChange: (block: ContentBlock) => void }) {

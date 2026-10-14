@@ -2,6 +2,10 @@ import { z } from "zod";
 import { blockSchema } from "@/lib/schemas/block";
 import { quizQuestionsSchema } from "@/lib/schemas/quiz";
 import { courseThemeSchema, defaultCourseTheme } from "./theme";
+import {
+  courseNavigationModeSchema,
+  defaultCourseNavigationMode,
+} from "./navigation";
 
 export const editorSectionSchema = z.object({
   id: z.string().min(1).max(64),
@@ -28,6 +32,7 @@ export const editorSnapshotSchema = z.object({
   descriptionHtml: z.string().max(100_000).optional(),
   authorVisible: z.boolean().default(true),
   theme: courseThemeSchema.default(() => ({ ...defaultCourseTheme })),
+  navigationMode: courseNavigationModeSchema.default(defaultCourseNavigationMode),
   revision: z.number().int().min(0),
   sections: z.array(editorSectionSchema).min(1).max(100),
   lessons: z.array(editorLessonSchema).max(500),

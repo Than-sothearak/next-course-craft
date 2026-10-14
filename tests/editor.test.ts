@@ -24,6 +24,14 @@ const validSnapshot = {
 describe("course editor snapshot", () => {
   it("accepts a versioned course, lesson, and block snapshot", () => {
     expect(editorSnapshotSchema.parse(validSnapshot)).toMatchObject({ title: "Onboarding", revision: 2, theme: { preset: "ocean", primaryColor: "#2f5f9f" } });
+    expect(editorSnapshotSchema.parse(validSnapshot).navigationMode).toBe("sequential");
+  });
+
+  it("validates and preserves the course lesson progression option", () => {
+    for (const navigationMode of ["free", "sequential", "restricted"] as const) {
+      expect(editorSnapshotSchema.parse({ ...validSnapshot, navigationMode }).navigationMode).toBe(navigationMode);
+    }
+    expect(editorSnapshotSchema.safeParse({ ...validSnapshot, navigationMode: "unrestricted" }).success).toBe(false);
   });
 
   it("accepts formatted course and lesson titles, author visibility, and content icons", () => {

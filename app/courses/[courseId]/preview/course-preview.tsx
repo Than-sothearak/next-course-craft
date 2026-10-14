@@ -24,6 +24,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   RotateCw,
+  Search,
   Smartphone,
   Tablet,
   UnlockKeyhole,
@@ -33,23 +34,31 @@ import { PreviewImage } from "./preview-image";
 import { InteractiveAccordion, InteractiveFlipCard, InteractiveKnowledgeCheck, InteractiveLabeledGraphic, InteractiveProcessSteps, InteractiveSurvey } from "./interactive-blocks";
 import type { EditorSnapshotInput } from "@/lib/editor/schemas";
 import {
+  defaultCourseNavigationMode,
+  courseNavigationModeOptions,
+  type CourseNavigationMode,
+} from "@/lib/editor/navigation";
+import {
   defaultBlockPaddingForBlock,
   defaultBlockWidthForBlock,
   type ContentBlock,
 } from "@/lib/schemas/block";
 import { getCourseProgress } from "@/lib/editor/preview";
 import {
+  canNavigateToLesson,
   canCompleteLesson,
   getFlipCardProgressId,
   getInitiallyViewedInteractionIds,
   getInteractiveItemProgressId,
   getPendingInteractiveProgressIds,
+  getPendingRequiredContinueDividerIds,
   getLessonReadingProgress,
   hasReachedContentEnd,
   type LearnerProgressAdapter,
   type LearnerProgressSnapshot,
 } from "@/lib/export/progress";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { PublishMenu } from "@/components/publish-menu";
 import { ImageBlockLayout } from "../edit/_components/image-block-layout";
 import { StatementBlockPreview } from "../edit/_components/statement-block-preview";
@@ -64,7 +73,11 @@ import {
   type QuizAttemptResult,
 } from "@/lib/interactive/quiz-assessment";
 
-export type PreviewData = { courseId: string; theme?: EditorSnapshotInput["theme"] } & Omit<EditorSnapshotInput, "revision" | "theme">;
+export type PreviewData = {
+  courseId: string;
+  theme?: EditorSnapshotInput["theme"];
+  navigationMode?: CourseNavigationMode;
+} & Omit<EditorSnapshotInput, "revision" | "theme" | "navigationMode">;
 type PreviewMode = "course" | "learn";
 type PreviewDevice = "desktop" | "tablet" | "mobile";
 type PreviewOrientation = "portrait" | "landscape";
@@ -352,7 +365,7 @@ export function QuizAssessmentPreview({
   }
 
   return (
-    <div className="mx-auto mt-10 w-full max-w-[720px] space-y-6 px-4">
+    <div className="mx-auto mt-10 mb-16 w-full max-w-[720px] space-y-6 px-4">
       {wasPassed && result === null && (
         <p role="status" className="rounded-lg bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
           Quiz passed{savedScore === undefined ? "." : ` · Best score ${savedScore}%.`}
@@ -645,6 +658,31 @@ function PreviewBlock({
   );
 }
 
+function ContinueLockIndicator({
+  unlocking,
+  onAnimationEnd,
+}: {
+  unlocking: boolean;
+  onAnimationEnd: () => void;
+}) {
+  return (
+    <span className="relative inline-flex h-4 w-4 shrink-0 items-center justify-center" aria-hidden="true">
+      {unlocking ? (
+        <>
+          <LockKeyhole
+            size={15}
+            className="absolute lesson-lock-release"
+            onAnimationEnd={onAnimationEnd}
+          />
+          <UnlockKeyhole size={15} className="absolute lesson-lock-open" />
+        </>
+      ) : (
+        <LockKeyhole size={15} />
+      )}
+    </span>
+  );
+}
+
 function LessonBlocksPreview({
   blocks,
   device,
@@ -674,7 +712,9 @@ function LessonBlocksPreview({
     (block) =>
       block.type === "divider" &&
       block.data.style === "continue" &&
-      !revealedDividerIds.has(block.id),
+      (!revealedDividerIds.has(block.id) ||
+        (block.data.completionType === "completeAbove" &&
+          !completedDividerIds.has(block.id))),
   );
   const visibleBlocks =
     firstHiddenDividerIndex < 0
@@ -704,18 +744,24 @@ function LessonBlocksPreview({
             } as CSSProperties)
           : undefined;
         if (block.type === "divider" && block.data.style === "continue") {
-          if (revealedDividerIds.has(block.id)) return null;
-          const requiresCompletion =
-            block.data.completionType === "completeAbove";
-          const hasPendingInteractiveContent = requiresCompletion && getPendingInteractiveProgressIds(
-            blocks,
-            interactedContentIds,
-            index,
-          ).length > 0;
-          const isDisabled = requiresCompletion && (
-            hasPendingInteractiveContent || !completedDividerIds.has(block.id)
-          );
+          const requiresCompletion = block.data.completionType === "completeAbove";
+          if (
+            revealedDividerIds.has(block.id) &&
+            (!requiresCompletion || completedDividerIds.has(block.id))
+          ) return null;
           const widthClass = blockWidthClass(block);
+          const hasPendingInteractiveContent = requiresCompletion &&
+            getPendingInteractiveProgressIds(
+              blocks,
+              interactedContentIds,
+              index,
+            ).length > 0;
+          const isLocked = requiresCompletion &&
+            (hasPendingInteractiveContent || !completedDividerIds.has(block.id));
+          const lockHint = hasPendingInteractiveContent
+            ? "Complete the interactive activities above to unlock Continue."
+            : "Read to the end of the content above to unlock Continue.";
+          const isUnlocking = unlockingDividerIds.has(block.id);
           return (
             <div
               key={block.id}
@@ -728,33 +774,31 @@ function LessonBlocksPreview({
                   <div className="flex flex-col items-center gap-2 text-center">
                     <Button
                       type="button"
-                      disabled={isDisabled}
-                      aria-describedby={
-                        isDisabled ? `continue-hint-${block.id}` : undefined
-                      }
+                      disabled={isLocked}
                       onClick={() => onReveal(block.id, blocks[index + 1]?.id)}
                       className="min-w-36 rounded-full px-6"
                       style={{ backgroundColor: "var(--course-primary)" }}
+                      aria-label={isLocked ? `${block.data.label.trim() || "Continue"} (locked). ${lockHint}` : block.data.label.trim() || "Continue"}
+                      title={isLocked ? lockHint : undefined}
                     >
-                      {requiresCompletion && (
+                      {isLocked || isUnlocking ? (
                         <ContinueLockIndicator
-                          locked={isDisabled}
-                          unlocking={unlockingDividerIds.has(block.id)}
-                          onUnlockAnimationEnd={() => onUnlockAnimationEnd(block.id)}
+                          unlocking={isUnlocking}
+                          onAnimationEnd={() => onUnlockAnimationEnd(block.id)}
                         />
-                      )}
+                      ) : null}
                       {block.data.label.trim() || "Continue"}
                     </Button>
-                    {isDisabled && (
+                    {isLocked ? (
                       <p
-                        id={`continue-hint-${block.id}`}
-                        className="text-xs text-slate-500"
+                        role="status"
+                        className="max-w-sm text-xs leading-relaxed text-slate-500"
                       >
                         {hasPendingInteractiveContent
-                          ? "Complete each interactive activity above to continue."
-                          : "Scroll to the end of the content above to continue."}
+                          ? "Complete the interactive activities above to unlock Continue."
+                          : "Read to the end of the content above to unlock Continue."}
                       </p>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -780,33 +824,6 @@ function LessonBlocksPreview({
         );
       })}
     </div>
-  );
-}
-
-function ContinueLockIndicator({
-  locked,
-  unlocking,
-  onUnlockAnimationEnd,
-}: {
-  locked: boolean;
-  unlocking: boolean;
-  onUnlockAnimationEnd: () => void;
-}) {
-  if (!locked && !unlocking) return null;
-
-  return (
-    <span
-      className="relative inline-grid size-4 shrink-0 place-items-center"
-      aria-hidden="true"
-    >
-      {unlocking && (
-        <UnlockKeyhole className="lesson-lock-open absolute inset-0 size-4" />
-      )}
-      <LockKeyhole
-        className={`absolute inset-0 size-4 ${unlocking ? "lesson-lock-release" : ""}`}
-        onAnimationEnd={onUnlockAnimationEnd}
-      />
-    </span>
   );
 }
 
@@ -859,6 +876,12 @@ export function CoursePreview({
   } | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [lessonSearch, setLessonSearch] = useState("");
+  const [collapsedSectionIds, setCollapsedSectionIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const navigationMode =
+    initialData.navigationMode ?? defaultCourseNavigationMode;
   const courseTheme = normalizeCourseTheme(initialData.theme);
   const themeStyle = {
     "--course-primary": courseTheme.primaryColor,
@@ -907,19 +930,6 @@ export function CoursePreview({
   const visitedLessonCount = lessons.filter((lesson) =>
     visitedLessonIds.has(lesson.id),
   ).length;
-  const pendingInteractiveIdsByLesson = useMemo(
-    () =>
-      new Map(
-        lessons.map((lesson) => [
-          lesson.id,
-          getPendingInteractiveProgressIds(
-            lesson.blocks,
-            interactedContentIds,
-          ),
-        ]),
-      ),
-    [interactedContentIds, lessons],
-  );
   const initials = authorInitials(authorName);
   const useMobileMenu = device === "mobile" || isMobileViewport;
 
@@ -956,6 +966,7 @@ export function CoursePreview({
         setPassedQuizIds(new Set(restoredPassedQuizIds));
         setRevealedDividerIds(new Set(snapshot?.revealedDividerIds ?? []));
         setCompletedDividerIds(new Set(snapshot?.completedDividerIds ?? []));
+        setUnlockingDividerIds(new Set());
         const resumedLesson = lessons.find(
           (lesson) => lesson.id === snapshot?.selectedLessonId,
         );
@@ -968,7 +979,9 @@ export function CoursePreview({
               : []),
           ]),
         );
-        setSelectedLessonId(snapshot?.selectedLessonId ?? null);
+        setSelectedLessonId(
+          (current) => current ?? snapshot?.selectedLessonId ?? null,
+        );
       } catch {
         setVisitedLessonIds(new Set());
         setLessonScrollProgress({});
@@ -977,7 +990,6 @@ export function CoursePreview({
         setRevealedDividerIds(new Set());
         setCompletedDividerIds(new Set());
         setInteractedContentIds(new Set());
-        setSelectedLessonId(null);
       } finally {
         setProgressLoadedCourseId(initialData.courseId);
       }
@@ -1054,11 +1066,12 @@ export function CoursePreview({
         }
         return;
       }
-      const divider = lesson.blocks.find(
-        (block) =>
-          block.type === "divider" &&
-          block.data.style === "continue" &&
-          !revealedDividerIds.has(block.id),
+      const divider = lesson.blocks.find((block) =>
+        block.type === "divider" &&
+        block.data.style === "continue" &&
+        (!revealedDividerIds.has(block.id) ||
+          (block.data.completionType === "completeAbove" &&
+            !completedDividerIds.has(block.id))),
       );
       const continueDividers = lesson.blocks.filter(
         (block) => block.type === "divider" && block.data.style === "continue",
@@ -1104,9 +1117,7 @@ export function CoursePreview({
           setCompletedDividerIds((previous) =>
             new Set(previous).add(divider.id),
           );
-          setUnlockingDividerIds((previous) =>
-            new Set(previous).add(divider.id),
-          );
+          setUnlockingDividerIds((previous) => new Set(previous).add(divider.id));
         }
         return;
       }
@@ -1176,7 +1187,17 @@ export function CoursePreview({
   }, [mode, selectedLessonId]);
 
   function selectLesson(lessonId: string) {
+    if (getLessonNavigationLockMessage(lessonId)) return;
     const lesson = lessons.find((item) => item.id === lessonId);
+    setLessonSearch("");
+    if (lesson) {
+      setCollapsedSectionIds((previous) => {
+        if (!previous.has(lesson.sectionId)) return previous;
+        const next = new Set(previous);
+        next.delete(lesson.sectionId);
+        return next;
+      });
+    }
     if (lesson && lesson.lessonType !== "quiz") {
       const initiallyViewedIds = getInitiallyViewedInteractionIds(lesson.blocks);
       if (initiallyViewedIds.length) {
@@ -1192,6 +1213,86 @@ export function CoursePreview({
     setMobileMenuOpen(false);
   }
 
+  function getLessonNavigationLockMessage(lessonId: string) {
+    if (navigationMode === "free") return null;
+    const targetIndex = lessons.findIndex((lesson) => lesson.id === lessonId);
+    if (!selectedLesson) {
+      return targetIndex === 0
+        ? null
+        : "Start with the first lesson before continuing.";
+    }
+    const completionLockMessage = navigationMode === "sequential"
+      ? getSequentialNavigationLockMessage(selectedLesson)
+      : getRestrictedNavigationLockMessage(selectedLesson);
+    const canContinue = !completionLockMessage;
+    if (canNavigateToLesson(
+      lessonIndex,
+      targetIndex,
+      canContinue,
+      visitedLessonIds.has(lessonId),
+      navigationMode,
+    )) return null;
+    if (completionLockMessage) return completionLockMessage;
+    return navigationMode === "sequential"
+      ? "Complete lessons in order. Continue with the next lesson."
+      : "Complete required activities before opening the next lesson.";
+  }
+
+  function getSequentialNavigationLockMessage(
+    lesson: (typeof lessons)[number],
+  ) {
+    if (lesson.lessonType === "quiz") {
+      if (!passedQuizIds.has(lesson.id))
+        return "Pass the current quiz before opening the next lesson.";
+      return null;
+    }
+    return visitedLessonIds.has(lesson.id)
+      ? null
+      : "Complete the current lesson before opening the next one.";
+  }
+
+  function getRestrictedNavigationLockMessage(
+    lesson: (typeof lessons)[number],
+  ) {
+    if (lesson.lessonType === "quiz") {
+      return passedQuizIds.has(lesson.id)
+        ? null
+        : "Pass the quiz in the current lesson before continuing.";
+    }
+    const pendingDividerIds = getPendingRequiredContinueDividerIds(
+      lesson.blocks,
+      revealedDividerIds,
+      completedDividerIds,
+      interactedContentIds,
+    );
+    const dividerId = pendingDividerIds[0];
+    if (dividerId) {
+      const dividerIndex = lesson.blocks.findIndex(
+        (block) => block.id === dividerId,
+      );
+      if (
+        getPendingInteractiveProgressIds(
+          lesson.blocks,
+          interactedContentIds,
+          dividerIndex,
+        ).length > 0
+      ) {
+        return "Complete each interactive activity above the Continue button before moving on.";
+      }
+      if (!completedDividerIds.has(dividerId))
+        return "Read through the content above the Continue button to unlock it.";
+      return "Use the Continue button to unlock the next content.";
+    }
+
+    const pendingInteractiveIds = getPendingInteractiveProgressIds(
+      lesson.blocks,
+      interactedContentIds,
+    );
+    if (pendingInteractiveIds.length)
+      return "Complete each required activity in this lesson before continuing.";
+    return null;
+  }
+
   function startLearning() {
     setMode("learn");
     if (!selectedLesson && lessons[0]) selectLesson(lessons[0].id);
@@ -1202,6 +1303,23 @@ export function CoursePreview({
     const menuWidth = mobile
       ? "w-[min(84%,320px)] shrink-0 shadow-2xl"
       : `${device === "tablet" ? "w-[220px]" : "w-[270px]"} shrink-0 border-r border-slate-200`;
+    const normalizedLessonSearch = lessonSearch.trim().toLocaleLowerCase();
+    const menuSections = sections.flatMap((section) => {
+      const sectionLessons = lessons.filter(
+        (lesson) => lesson.sectionId === section.id,
+      );
+      const sectionMatches = section.title
+        .toLocaleLowerCase()
+        .includes(normalizedLessonSearch);
+      const visibleLessons = !normalizedLessonSearch || sectionMatches
+        ? sectionLessons
+        : sectionLessons.filter((lesson) =>
+            lesson.title.toLocaleLowerCase().includes(normalizedLessonSearch),
+          );
+      return visibleLessons.length
+        ? [{ section, sectionLessons, visibleLessons }]
+        : [];
+    });
     return (
       <aside
         className={`flex min-h-0 flex-col bg-white ${mobile ? "relative z-10 h-full overflow-hidden" : "overflow-y-auto"} ${menuWidth}`}
@@ -1245,29 +1363,94 @@ export function CoursePreview({
           </div>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto py-2">
-          {sections.map((section) => {
-            const sectionLessons = lessons.filter(
-              (lesson) => lesson.sectionId === section.id,
+          <div className="px-3 pb-3 pt-1">
+            <div className="relative">
+              <Search
+                size={15}
+                aria-hidden="true"
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+              />
+              <Input
+                type="search"
+                aria-label="Search lessons and quizzes"
+                placeholder="Search course content"
+                value={lessonSearch}
+                onChange={(event) => setLessonSearch(event.target.value)}
+                className="h-9 pl-9 text-xs"
+              />
+            </div>
+          </div>
+          {menuSections.map(({ section, sectionLessons, visibleLessons }) => {
+            const completedCount = sectionLessons.filter((lesson) =>
+              visitedLessonIds.has(lesson.id),
+            ).length;
+            const sectionProgress = Math.round(
+              (completedCount / sectionLessons.length) * 100,
             );
-            if (!sectionLessons.length) return null;
+            const isCollapsed =
+              !normalizedLessonSearch && collapsedSectionIds.has(section.id);
+            const sectionListId = `lesson-nav-section-${section.id}`;
             return (
               <section key={section.id}>
-                <h2 className="flex items-center justify-between bg-slate-50 px-4 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-600">
-                  <span>{section.title}</span>
-                  <ChevronDown size={13} />
+                <h2 className="bg-slate-50 px-4 py-2 text-[10px] font-bold uppercase tracking-wide text-slate-600">
+                  <button
+                    type="button"
+                    aria-label={`Toggle section ${section.title}`}
+                    aria-expanded={!isCollapsed}
+                    aria-controls={sectionListId}
+                    onClick={() =>
+                      setCollapsedSectionIds((previous) => {
+                        const next = new Set(previous);
+                        if (next.has(section.id)) next.delete(section.id);
+                        else next.add(section.id);
+                        return next;
+                      })
+                    }
+                    className="flex w-full items-center justify-between gap-2 text-left"
+                  >
+                    <span className="min-w-0 truncate">{section.title}</span>
+                    <span className="flex shrink-0 items-center gap-2">
+                      <span className="text-[9px] font-medium normal-case tracking-normal text-slate-500">
+                        {completedCount}/{sectionLessons.length} complete
+                      </span>
+                      <ChevronDown
+                        size={13}
+                        aria-hidden="true"
+                        className={`transition-transform ${isCollapsed ? "-rotate-90" : ""}`}
+                      />
+                    </span>
+                  </button>
                 </h2>
-                <ul className="divide-y divide-slate-100">
-                  {sectionLessons.map((lesson) => {
+                <div
+                  role="progressbar"
+                  aria-label={`${section.title} progress`}
+                  aria-valuemin={0}
+                  aria-valuemax={sectionLessons.length}
+                  aria-valuenow={completedCount}
+                  className="h-0.5 bg-slate-100"
+                >
+                  <div
+                    className="h-full transition-[width]"
+                    style={{ width: `${sectionProgress}%`, backgroundColor: "var(--course-primary)" }}
+                  />
+                </div>
+                <ul id={sectionListId} hidden={isCollapsed} className="divide-y divide-slate-100">
+                  {visibleLessons.map((lesson) => {
                     const Icon = lessonIcons[lesson.icon ?? "file"];
                     const active = selectedLesson?.id === lesson.id;
                     const visited = visitedLessonIds.has(lesson.id);
+                    const lockMessage = getLessonNavigationLockMessage(lesson.id);
+                    const locked = Boolean(lockMessage);
                     return (
                       <li key={lesson.id}>
                         <button
                           type="button"
+                          disabled={locked}
                           onClick={() => selectLesson(lesson.id)}
                           aria-current={active ? "page" : undefined}
-                          className={`flex min-h-20 w-full items-start gap-2.5 px-4 py-4 text-left ${active ? "" : "hover:bg-slate-50"}`}
+                          aria-label={`${lesson.title}${lockMessage ? `. Locked. ${lockMessage}` : ""}`}
+                          title={lockMessage ?? undefined}
+                          className={`flex min-h-20 w-full items-start gap-2.5 px-4 py-4 text-left ${locked ? "cursor-not-allowed opacity-50" : active ? "" : "hover:bg-slate-50"}`}
                           style={active ? { backgroundColor: "color-mix(in srgb, var(--course-primary) 10%, white)" } : undefined}
                         >
                           <Icon
@@ -1283,12 +1466,17 @@ export function CoursePreview({
                             </span>
                             <span className="mt-1 block text-[11px] text-slate-500">
                               {lesson.lessonType === "quiz" ? "Quiz" : "Lesson"}
+                              {locked ? " · Locked until current lesson is complete" : ""}
                             </span>
                           </span>
-                          <LessonProgressIndicator
-                            progress={lessonScrollProgress[lesson.id] ?? 0}
-                            complete={visited}
-                          />
+                          {locked ? (
+                            <LockKeyhole size={14} aria-hidden="true" className="mt-1 shrink-0 text-slate-400" />
+                          ) : (
+                            <LessonProgressIndicator
+                              progress={lessonScrollProgress[lesson.id] ?? 0}
+                              complete={visited}
+                            />
+                          )}
                         </button>
                       </li>
                     );
@@ -1297,6 +1485,11 @@ export function CoursePreview({
               </section>
             );
           })}
+          {normalizedLessonSearch && menuSections.length === 0 && (
+            <p className="px-4 py-6 text-center text-xs text-slate-500">
+              No lessons or quizzes match that search.
+            </p>
+          )}
         </div>
       </aside>
     );
@@ -1557,12 +1750,17 @@ export function CoursePreview({
                             <div className="divide-y divide-slate-200 border-y border-slate-200">
                               {sectionLessons.map((lesson) => {
                                 const Icon = lessonIcons[lesson.icon ?? "file"];
+                                const lockMessage = getLessonNavigationLockMessage(lesson.id);
+                                const locked = Boolean(lockMessage);
                                 return (
                                   <button
                                     key={lesson.id}
                                     type="button"
+                                    disabled={locked}
                                     onClick={() => selectLesson(lesson.id)}
-                                    className="flex min-h-16 w-full items-start gap-3 px-2 py-3 text-left hover:bg-slate-50"
+                                    aria-label={`${lesson.title}${lockMessage ? `. Locked. ${lockMessage}` : ""}`}
+                                    title={lockMessage ?? undefined}
+                                    className={`flex min-h-16 w-full items-start gap-3 px-2 py-3 text-left ${locked ? "cursor-not-allowed opacity-50" : "hover:bg-slate-50"}`}
                                   >
                                     <Icon
                                       size={17}
@@ -1578,10 +1776,14 @@ export function CoursePreview({
                                           : "Lesson"}
                                       </span>
                                     </span>
-                                    <ArrowRight
-                                      size={16}
-                                      className="shrink-0 text-slate-400"
-                                    />
+                                    {locked ? (
+                                      <LockKeyhole size={15} aria-hidden="true" className="shrink-0 text-slate-400" />
+                                    ) : (
+                                      <ArrowRight
+                                        size={16}
+                                        className="shrink-0 text-slate-400"
+                                      />
+                                    )}
                                   </button>
                                 );
                               })}
@@ -1783,18 +1985,18 @@ export function CoursePreview({
                                     blockId: nextBlockId,
                                   });
                               }}
+                              onInteractiveProgress={(progressId) => {
+                                setInteractedContentIds((previous) => {
+                                  if (previous.has(progressId)) return previous;
+                                  return new Set(previous).add(progressId);
+                                });
+                              }}
                               onUnlockAnimationEnd={(dividerId) => {
                                 setUnlockingDividerIds((previous) => {
                                   if (!previous.has(dividerId)) return previous;
                                   const next = new Set(previous);
                                   next.delete(dividerId);
                                   return next;
-                                });
-                              }}
-                              onInteractiveProgress={(progressId) => {
-                                setInteractedContentIds((previous) => {
-                                  if (previous.has(progressId)) return previous;
-                                  return new Set(previous).add(progressId);
                                 });
                               }}
                             />
@@ -1807,33 +2009,59 @@ export function CoursePreview({
                             aria-label={`Next section from content ${index + 1}`}
                             className="mt-auto w-full shrink-0"
                           >
-                            {((lesson.lessonType === "quiz"
-                              ? passedQuizIds.has(lesson.id)
-                              : lesson.blocks.every(
-                                (block) =>
-                                  block.type !== "divider" ||
-                                  block.data.style !== "continue" ||
-                                  revealedDividerIds.has(block.id),
-                              ))) && (
-                              <>
+                            {(() => {
+                              const nextLesson = lessons[index + 1];
+                              if (!nextLesson) return null;
+                              const navigationLockMessage =
+                                getLessonNavigationLockMessage(nextLesson.id);
+                              if (navigationLockMessage) {
+                                const hasPendingContinueGate =
+                                  lesson.lessonType !== "quiz" &&
+                                  getPendingRequiredContinueDividerIds(
+                                    lesson.blocks,
+                                    revealedDividerIds,
+                                    completedDividerIds,
+                                    interactedContentIds,
+                                  ).length > 0;
+                                const navigationNote =
+                                  courseNavigationModeOptions.find(
+                                    (option) => option.value === navigationMode,
+                                  )?.description;
+                                if (
+                                  lesson.id !== selectedLessonId ||
+                                  hasPendingContinueGate ||
+                                  !navigationNote
+                                ) return null;
+                                return (
+                                  <p
+                                    role="note"
+                                    className="flex min-h-20 items-center justify-center gap-2 border-t border-slate-200 bg-slate-50 px-6 py-4 text-center text-sm text-slate-600"
+                                  >
+                                    <LockKeyhole
+                                      size={15}
+                                      aria-hidden="true"
+                                      className="shrink-0 text-slate-400"
+                                    />
+                                    <span>{navigationNote}</span>
+                                  </p>
+                                );
+                              }
+                              return (
                                 <Button
                                   type="button"
                                   variant="default"
-                                  disabled={index >= lessons.length - 1 || (pendingInteractiveIdsByLesson.get(lesson.id)?.length ?? 0) > 0}
-                                  aria-describedby={(pendingInteractiveIdsByLesson.get(lesson.id)?.length ?? 0) > 0 ? `interactive-hint-${lesson.id}` : undefined}
                                   onClick={() =>
-                                    lessons[index + 1] &&
-                                    selectLesson(lessons[index + 1].id)
+                                    selectLesson(nextLesson.id)
                                   }
                                   className="relative h-auto min-h-20 w-full justify-center rounded-none border-0 px-14 py-4 text-center text-white"
                                   style={{ backgroundColor: "var(--course-primary)" }}
                                 >
                                   <span className="flex min-w-0 flex-col items-center whitespace-normal leading-tight">
                                     <span className="text-[11px] font-medium tracking-wide text-white/75">
-                                      {Math.min(index + 2, lessons.length)}/{lessons.length}
+                                      {index + 2}/{lessons.length}
                                     </span>
                                     <span className="mt-1 inline-flex max-w-full items-center justify-center gap-2 text-base font-semibold sm:text-lg">
-                                      {lessons[index + 1]?.title || "End of course"}
+                                      {nextLesson.title}
                                       <ArrowRight
                                         size={18}
                                         aria-hidden="true"
@@ -1842,13 +2070,8 @@ export function CoursePreview({
                                     </span>
                                   </span>
                                 </Button>
-                                {(pendingInteractiveIdsByLesson.get(lesson.id)?.length ?? 0) > 0 && (
-                                  <p id={`interactive-hint-${lesson.id}`} className="px-4 py-2 text-center text-xs text-slate-500">
-                                    Complete each interactive activity in this lesson before continuing.
-                                  </p>
-                                )}
-                              </>
-                            )}
+                              );
+                            })()}
                           </nav>
                         </div>
                       </article>
