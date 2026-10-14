@@ -741,7 +741,7 @@ export const blockTemplates: BlockTemplate[] = [
     title: "Code snippet",
     description: "Add an editable code example.",
     type: "richText",
-    html: '<pre><code>function greetLearner() {\n  return "Welcome to the course";\n}</code></pre>',
+    html: '<pre><code>// Greet the learner\nfunction greetLearner() {\n  return "Welcome!";\n}</code></pre>',
     preview: "code",
   },
 ];
@@ -778,7 +778,13 @@ export function createBlocksFromTemplate(
   template: BlockTemplate,
   id: string,
 ): ContentBlock[] {
-  const base = { ...commonBlock(id, template.type), ...(template.width ? { width: template.width } : {}) };
+  const isLineDivider =
+    template.type === "divider" && (template.dividerStyle ?? "line") === "line";
+  const base = {
+    ...commonBlock(id, template.type),
+    ...(isLineDivider ? { width: "full" as const, blockPadding: 60 } : {}),
+    ...(template.width ? { width: template.width } : {}),
+  };
   if (template.type === "knowledgeCheck") {
     if (!template.knowledgeCheck) throw new Error(`Knowledge check template "${template.id}" is missing its content.`);
     return [{ ...base, type: "knowledgeCheck", data: template.knowledgeCheck }];
@@ -861,6 +867,9 @@ export function createBlocksFromTemplate(
         style: template.dividerStyle ?? "line",
         label: template.dividerLabel ?? "Continue",
         completionType: template.dividerCompletionType ?? "none",
+        ...(isLineDivider
+          ? { lineWeight: 1, lineColor: "#cbd5e1", lineStyle: "solid" as const }
+          : {}),
       },
     },
   ];
@@ -1170,13 +1179,27 @@ export function TemplatePreview({ template }: { template: BlockTemplate }) {
     );
   if (kind === "code")
     return (
-      <div className="rounded-md bg-slate-900 p-3 font-mono text-[9px] leading-4 text-emerald-300">
-        <span className="text-slate-500">{"// greet the learner"}</span>
-        <br />
-        function greetLearner() &#123;
-        <br />
-        &nbsp; return <span className="text-amber-200">&quot;Welcome!&quot;</span>;<br />
-        &#125;
+      <div data-template-code-preview className="overflow-hidden rounded-lg border border-slate-700 bg-slate-950 shadow-sm">
+        <div className="flex items-center justify-between border-b border-white/10 bg-slate-900 px-3 py-2">
+          <div className="flex items-center gap-1.5" aria-hidden="true">
+            <span className="size-1.5 rounded-full bg-rose-400" />
+            <span className="size-1.5 rounded-full bg-amber-300" />
+            <span className="size-1.5 rounded-full bg-emerald-400" />
+          </div>
+          <span className="text-[8px] font-medium text-slate-400">greeting.js</span>
+          <span className="rounded bg-slate-800 px-1.5 py-0.5 text-[7px] font-semibold uppercase tracking-wide text-indigo-200">JavaScript</span>
+        </div>
+        <pre className="m-0 overflow-x-auto px-3 py-3 font-mono text-[9px] leading-4 text-slate-200">
+          <code>
+            <span className="text-slate-500">{"// Greet the learner"}</span>
+            <br />
+            <span className="text-violet-300">function</span>{" "}<span className="text-sky-300">greetLearner</span>() {"{"}
+            <br />
+            {"  "}<span className="text-violet-300">return</span>{" "}<span className="text-amber-200">&quot;Welcome!&quot;</span>;
+            <br />
+            {"}"}
+          </code>
+        </pre>
       </div>
     );
   return <div className="h-12 rounded-md bg-slate-100" />;

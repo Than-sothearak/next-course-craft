@@ -124,6 +124,9 @@ export const dividerBlockSchema = z.object({
     style: z.enum(["line", "space", "continue"]),
     label: z.string().max(100).default("Continue"),
     completionType: dividerCompletionTypeSchema.default("none"),
+    lineWeight: z.number().int().min(1).max(16).optional(),
+    lineColor: z.string().regex(/^#[\da-fA-F]{6}$/).optional(),
+    lineStyle: z.enum(["solid", "dashed", "dotted"]).optional(),
   }),
 });
 export const knowledgeCheckBlockSchema = z.object({
@@ -310,7 +313,7 @@ export const statementBlockSchema = z.object({
   }),
 });
 
-export const blockSchema = z.discriminatedUnion("type", [
+const contentBlockSchema = z.discriminatedUnion("type", [
   headingBlockSchema,
   richTextBlockSchema,
   imageBlockSchema,
@@ -326,6 +329,25 @@ export const blockSchema = z.discriminatedUnion("type", [
   processStepsBlockSchema,
   chartBlockSchema,
 ]);
+export const blockSchema = z.preprocess((value) => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const candidate = value as Record<string, unknown>;
+  if (candidate.type !== "divider" || !candidate.data || typeof candidate.data !== "object")
+    return value;
+  const data = candidate.data as Record<string, unknown>;
+  if (data.style !== "line") return value;
+  return {
+    ...candidate,
+    width: candidate.width ?? "full",
+    blockPadding: candidate.blockPadding ?? 60,
+    data: {
+      ...data,
+      lineWeight: data.lineWeight ?? 1,
+      lineColor: data.lineColor ?? "#cbd5e1",
+      lineStyle: data.lineStyle ?? "solid",
+    },
+  };
+}, contentBlockSchema);
 export type ContentBlock = z.infer<typeof blockSchema>;
 
 /** Normalize persisted flip cards written before cards were stored as a collection. */
@@ -345,9 +367,19 @@ export function defaultBlockWidth(
   return "small";
 }
 
+export function defaultBlockWidthForBlock(block: ContentBlock): ContentBlock["width"] {
+  if (block.type === "divider" && block.data.style === "line") return "full";
+  return defaultBlockWidth(block.type);
+}
+
 export function defaultBlockPadding(_type: ContentBlock["type"]): number {
   void _type;
   return 20;
+}
+
+export function defaultBlockPaddingForBlock(block: ContentBlock): number {
+  if (block.type === "divider" && block.data.style === "line") return 60;
+  return defaultBlockPadding(block.type);
 }
 
 export function normalizeBlockPadding(
@@ -365,6 +397,17 @@ export function normalizeBlockPadding(
   )
     return value;
   return defaultBlockPadding(type);
+}
+
+export function normalizeBlockPaddingForBlock(
+  value: unknown,
+  block: ContentBlock,
+): number {
+  const validNumber =
+    typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= 200;
+  const validLegacy = typeof value === "string" && value in legacyPaddingPixels;
+  if (validNumber || validLegacy) return normalizeBlockPadding(value, block.type);
+  return defaultBlockPaddingForBlock(block);
 }
 
 export const lessonContentSchema = z.object({

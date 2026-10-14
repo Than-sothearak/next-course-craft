@@ -15,6 +15,7 @@ import { StatementContentEditor } from "./statement-content-editor";
 import { InteractiveAccordion, InteractiveFlipCard, InteractiveLabeledGraphic, InteractiveProcessSteps } from "../../preview/interactive-blocks";
 import { ImageBlockLayout } from "./image-block-layout";
 import { ChartBlockPreview } from "../../preview/chart-block";
+import { DraggableSettingsPanel } from "./draggable-settings-panel";
 import {
   MediaLibraryDialog,
   type MediaLibraryAsset,
@@ -50,7 +51,7 @@ export function ContentBlockEditor({
     number | null
   >(null);
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
-  const settingsPanelRef = useRef<HTMLDivElement>(null);
+  const settingsPanelId = `content-settings-${block.id}`;
   useEffect(() => {
     if (!editing) return;
     function closeOnOutsidePointerDown(event: PointerEvent) {
@@ -58,7 +59,7 @@ export function ContentBlockEditor({
       if (!(target instanceof Node)) return;
       if (
         settingsButtonRef.current?.contains(target) ||
-        settingsPanelRef.current?.contains(target)
+        document.getElementById(settingsPanelId)?.contains(target)
       )
         return;
       setEditing(false);
@@ -66,7 +67,7 @@ export function ContentBlockEditor({
     document.addEventListener("pointerdown", closeOnOutsidePointerDown);
     return () =>
       document.removeEventListener("pointerdown", closeOnOutsidePointerDown);
-  }, [editing]);
+  }, [editing, settingsPanelId]);
 
   function selectMedia(asset: MediaLibraryAsset) {
     if (block.type === "image")
@@ -160,7 +161,6 @@ export function ContentBlockEditor({
         aria-label={
           editing ? "Close content settings" : "Open content settings"
         }
-        title="Content settings"
         aria-expanded={editing}
         aria-controls={`content-settings-${block.id}`}
         onClick={() => setEditing((current) => !current)}
@@ -178,21 +178,14 @@ export function ContentBlockEditor({
   function styleSettingsPanel() {
     return (
       editing && (
-        <div
-          ref={settingsPanelRef}
-          id={`content-settings-${block.id}`}
-          style={{
-            left: "max(-40px, calc((100% - 100vw) / 2 + 48px))",
-            top: "4px",
-          }}
-          className="absolute z-40 w-[min(280px,calc(100vw-4rem))] rounded-xl border border-slate-200 bg-white p-4 text-slate-700 shadow-xl"
+        <DraggableSettingsPanel
+          id={settingsPanelId}
+          title="Content settings"
+          side="left"
+          panelClassName="w-[min(280px,calc(100vw-3rem))]"
         >
-          <div className="mb-3 flex items-center gap-2 text-xs font-medium text-slate-500">
-            <Settings2 size={14} />
-            Content settings
-          </div>
           {replaceTemplateAction()}
-        </div>
+        </DraggableSettingsPanel>
       )
     );
   }
@@ -304,7 +297,14 @@ export function ContentBlockEditor({
       )
     ) : block.type === "divider" ? (
       block.data.style === "line" ? (
-        <hr className="border-0 border-t border-slate-300" />
+        <hr
+          className="m-0 w-full border-0"
+          style={{
+            borderTopWidth: `${block.data.lineWeight ?? 1}px`,
+            borderTopStyle: block.data.lineStyle ?? "solid",
+            borderTopColor: block.data.lineColor ?? "#cbd5e1",
+          }}
+        />
       ) : block.data.style === "space" ? (
         <div aria-hidden="true" className="h-8" />
       ) : (
@@ -374,19 +374,12 @@ export function ContentBlockEditor({
       {settingsButton()}
       <div className="block w-full rounded-md text-left">{preview}</div>
       {editing && (
-        <div
-          ref={settingsPanelRef}
-          id={`content-settings-${block.id}`}
-          style={{
-            left: "max(-40px, calc((100% - 100vw) / 2 + 48px))",
-            top: "4px",
-          }}
-          className="absolute z-40 max-h-[min(78vh,680px)] w-[min(380px,calc(100vw-4rem))] overflow-y-auto overscroll-contain rounded-xl border border-slate-200 bg-white p-4 text-slate-700 shadow-xl"
+        <DraggableSettingsPanel
+          id={settingsPanelId}
+          title="Content settings"
+          side="left"
+          panelClassName="w-[min(380px,calc(100vw-3rem))]"
         >
-          <div className="mb-3 flex items-center gap-2 text-xs font-medium text-slate-500">
-            <Settings2 size={14} />
-            Content settings
-          </div>
           {replaceTemplateAction()}
           {block.type === "chart" && (
             <div className="space-y-3">
@@ -783,6 +776,72 @@ export function ContentBlockEditor({
                 <option value="space">Space</option>
                 <option value="continue">Continue button</option>
               </Select>
+              {block.data.style === "line" && (
+                <>
+                  <label className="block text-xs font-medium text-slate-600">
+                    Line weight
+                    <Select
+                      aria-label="Divider line weight"
+                      value={String(block.data.lineWeight ?? 1)}
+                      onChange={(event) =>
+                        onChange({
+                          ...block,
+                          data: {
+                            ...block.data,
+                            lineWeight: Number(event.target.value),
+                          },
+                        })
+                      }
+                      className="mt-1 h-9 w-full"
+                    >
+                      {[1, 2, 3, 4, 6, 8, 12, 16].map((weight) => (
+                        <option key={weight} value={weight}>
+                          {weight} px
+                        </option>
+                      ))}
+                    </Select>
+                  </label>
+                  <label className="block text-xs font-medium text-slate-600">
+                    Line color
+                    <input
+                      type="color"
+                      aria-label="Divider line color"
+                      value={block.data.lineColor ?? "#cbd5e1"}
+                      onChange={(event) =>
+                        onChange({
+                          ...block,
+                          data: { ...block.data, lineColor: event.target.value },
+                        })
+                      }
+                      className="mt-1 h-9 w-full cursor-pointer rounded-md border border-slate-200 bg-white p-1"
+                    />
+                  </label>
+                  <label className="block text-xs font-medium text-slate-600">
+                    Line style
+                    <Select
+                      aria-label="Divider line style"
+                      value={block.data.lineStyle ?? "solid"}
+                      onChange={(event) =>
+                        onChange({
+                          ...block,
+                          data: {
+                            ...block.data,
+                            lineStyle: event.target.value as
+                              | "solid"
+                              | "dashed"
+                              | "dotted",
+                          },
+                        })
+                      }
+                      className="mt-1 h-9 w-full"
+                    >
+                      <option value="solid">Solid</option>
+                      <option value="dashed">Dashed</option>
+                      <option value="dotted">Dotted</option>
+                    </Select>
+                  </label>
+                </>
+              )}
               {block.data.style === "continue" && (
                 <>
                   <Input
@@ -1339,7 +1398,7 @@ export function ContentBlockEditor({
               </div>
             </div>
           )}
-        </div>
+        </DraggableSettingsPanel>
       )}
       <MediaLibraryDialog
         courseId={courseId}

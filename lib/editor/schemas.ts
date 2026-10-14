@@ -23,7 +23,7 @@ export const editorLessonSchema = z.object({
 });
 
 export const editorSnapshotSchema = z.object({
-  title: z.string().trim().min(1).max(160),
+  title: z.string().trim().min(1, "Enter a course title before saving.").max(160),
   description: z.string().max(5_000),
   descriptionHtml: z.string().max(100_000).optional(),
   authorVisible: z.boolean().default(true),

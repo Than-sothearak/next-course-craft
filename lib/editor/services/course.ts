@@ -2,9 +2,9 @@ import { Types } from "mongoose";
 import { Course, Lesson } from "@/models";
 import { DashboardError } from "@/lib/dashboard/rules";
 import {
-  defaultBlockWidth,
+  defaultBlockWidthForBlock,
   normalizeStoredFlipCardBlock,
-  normalizeBlockPadding,
+  normalizeBlockPaddingForBlock,
   type ContentBlock,
 } from "@/lib/schemas/block";
 import { defaultSection, ownerObjectId } from "./shared";
@@ -61,10 +61,10 @@ export async function getCourseEditor(ownerId: string, courseId: string) {
             ...block,
             width: block.widthCustom
               ? block.width
-              : defaultBlockWidth(block.type),
+              : defaultBlockWidthForBlock(block),
             widthCustom: block.widthCustom ?? false,
             backgroundColor: block.backgroundColor ?? "#ffffff",
-            blockPadding: normalizeBlockPadding(block.blockPadding, block.type),
+            blockPadding: normalizeBlockPaddingForBlock(block.blockPadding, block),
           };
         }),
       };

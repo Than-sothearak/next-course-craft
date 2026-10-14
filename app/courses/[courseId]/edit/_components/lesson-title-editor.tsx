@@ -50,7 +50,7 @@ export function LessonTitleEditor({ title, html, onChange, onValidityChange }: {
   const error = titleError(editor);
 
   return <div ref={rootRef} className="relative mx-auto w-full max-w-[720px] px-4 py-10">
-    <EditorContent editor={editor} className="min-h-12 cursor-text break-words rounded-md [&_.tiptap]:min-h-12 [&_.tiptap]:outline-none [&_h1]:text-4xl [&_h1]:font-semibold [&_h1]:tracking-tight [&_h2]:text-3xl [&_h2]:font-semibold [&_h3]:text-2xl [&_h3]:font-semibold [&_p]:text-base [&_p]:font-normal" />
+    <EditorContent editor={editor} className="min-h-12 cursor-text break-words rounded-md [&_.tiptap]:min-h-12 [&_.tiptap]:outline-none [&_h1]:text-3xl sm:[&_h1]:text-4xl [&_h1]:font-semibold [&_h1]:tracking-tight [&_h2]:text-2xl sm:[&_h2]:text-3xl [&_h2]:font-semibold [&_h3]:text-xl sm:[&_h3]:text-2xl [&_h3]:font-semibold [&_p]:text-base [&_p]:font-normal" />
     {error && <p role="alert" className="mt-2 text-xs text-rose-700">{error}</p>}
     {isTextSelected && <div className="mt-3 rounded-xl border border-slate-200 bg-white p-2.5 text-slate-700 shadow-sm"><TextFormattingToolbar editor={editor} allowLists={false} /></div>}
   </div>;

@@ -44,6 +44,26 @@ describe("prebuilt lesson text templates", () => {
   });
 });
 
+describe("prebuilt code snippet template", () => {
+  it("creates an editable code block with a matching editor-style preview", () => {
+    const template = blockTemplates.find((item) => item.id === "code-snippet");
+    expect(template).toBeDefined();
+    const [block] = createBlocksFromTemplate(template!, "code-example");
+    const parsed = blockSchema.parse(block);
+
+    expect(parsed).toMatchObject({
+      type: "richText",
+      data: { html: expect.stringContaining("<pre><code>") },
+    });
+    const preview = renderToStaticMarkup(
+      createElement(TemplatePreview, { template: template! }),
+    );
+    expect(preview).toContain('data-template-code-preview=""');
+    expect(preview).toContain("greeting.js");
+    expect(preview).toContain("JavaScript");
+  });
+});
+
 describe("prebuilt chart templates", () => {
   it("offers real editable bar, column, line, donut, and stacked chart presets", () => {
     const chartTemplates = blockTemplates.filter(

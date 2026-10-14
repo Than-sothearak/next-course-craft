@@ -13,7 +13,16 @@ describe("shared authoring schemas", () => {
 
   it("keeps legacy dividers valid and adds defaults for continue controls", () => {
     expect(blockSchema.parse({ id: "b1", version: 1, type: "divider", data: { style: "line" } })).toMatchObject({
-      data: { style: "line", label: "Continue", completionType: "none" },
+      width: "full",
+      blockPadding: 60,
+      data: {
+        style: "line",
+        label: "Continue",
+        completionType: "none",
+        lineWeight: 1,
+        lineColor: "#cbd5e1",
+        lineStyle: "solid",
+      },
     });
     expect(blockSchema.parse({ id: "b2", version: 1, type: "divider", data: { style: "continue" } })).toMatchObject({
       data: { style: "continue", label: "Continue", completionType: "none" },

@@ -112,8 +112,8 @@ export function CourseOutline(props: Props) {
                 const icon = contentIcons.find((item) => item.id === (lesson.icon ?? "file")) ?? contentIcons[0];
                 const Icon = icon.Icon;
                 return <SortableItem key={lesson.id} id={`lesson-${lesson.id}`} className="group/content-row" alwaysShowHandle>
-                  <div className={`flex min-h-[88px] min-w-0 flex-1 items-center gap-3 px-2 py-4 ${props.activeLessonId === lesson.id ? "bg-blue-50/50" : "bg-white"}`}>
-                    <span className="grid size-8 shrink-0 place-items-center text-slate-700"><Icon size={17} /></span>
+                  <div className={`flex min-h-[88px] min-w-0 flex-1 items-start gap-3 px-2 py-4 ${props.activeLessonId === lesson.id ? "bg-blue-50/50" : "bg-white"}`}>
+                    <span className="mt-0.5 grid size-5 shrink-0 place-items-center text-slate-700"><Icon size={17} /></span>
                     <button type="button" onClick={() => props.onSelectLesson(lesson.id)} className="min-w-0 flex-1 truncate text-left text-[15px] font-semibold text-[#171717]">{lesson.title}<span className="mt-2 block text-sm font-normal text-[#858585]">{lesson.lessonType === "quiz" ? "Quiz" : "Lesson"}</span></button>
                     <Button type="button" variant="outline" size="sm" onClick={() => props.onSelectLesson(lesson.id)} className="min-h-9 rounded-full border-[#333] px-4 text-sm text-black">Edit Content</Button>
                     <details className="relative opacity-40 transition-opacity group-hover/content-row:opacity-100 group-focus-within/content-row:opacity-100"><summary aria-label={`Content actions for ${lesson.title}`} className="grid size-8 cursor-pointer list-none place-items-center rounded text-slate-500 hover:bg-slate-100 [&::-webkit-details-marker]:hidden"><MoreHorizontal size={15} /></summary><div className="absolute right-0 z-30 mt-1 w-48 rounded-lg border border-slate-200 bg-white p-1.5 shadow-lg">

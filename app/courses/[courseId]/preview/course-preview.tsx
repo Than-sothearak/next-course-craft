@@ -23,6 +23,7 @@ import {
   Monitor,
   PanelLeftClose,
   PanelLeftOpen,
+  RotateCw,
   Smartphone,
   Tablet,
   UnlockKeyhole,
@@ -32,8 +33,8 @@ import { PreviewImage } from "./preview-image";
 import { InteractiveAccordion, InteractiveFlipCard, InteractiveKnowledgeCheck, InteractiveLabeledGraphic, InteractiveProcessSteps, InteractiveSurvey } from "./interactive-blocks";
 import type { EditorSnapshotInput } from "@/lib/editor/schemas";
 import {
-  defaultBlockPadding,
-  defaultBlockWidth,
+  defaultBlockPaddingForBlock,
+  defaultBlockWidthForBlock,
   type ContentBlock,
 } from "@/lib/schemas/block";
 import { getCourseProgress } from "@/lib/editor/preview";
@@ -66,6 +67,7 @@ import {
 export type PreviewData = { courseId: string; theme?: EditorSnapshotInput["theme"] } & Omit<EditorSnapshotInput, "revision" | "theme">;
 type PreviewMode = "course" | "learn";
 type PreviewDevice = "desktop" | "tablet" | "mobile";
+type PreviewOrientation = "portrait" | "landscape";
 
 const lessonIcons = {
   file: FileText,
@@ -152,7 +154,7 @@ function safeImageSource(value: string) {
 }
 
 function blockWidthClass(block: ContentBlock) {
-  const contentWidth = block.widthCustom ? block.width : defaultBlockWidth(block.type);
+  const contentWidth = block.widthCustom ? block.width : defaultBlockWidthForBlock(block);
   return contentWidth === "small"
     ? "max-w-[520px]"
     : contentWidth === "medium"
@@ -161,7 +163,7 @@ function blockWidthClass(block: ContentBlock) {
 }
 
 function blockSurfaceStyle(block: ContentBlock): CSSProperties {
-  const blockPadding = block.blockPadding ?? defaultBlockPadding(block.type);
+  const blockPadding = block.blockPadding ?? defaultBlockPaddingForBlock(block);
   return {
     backgroundColor: block.backgroundColor,
     color: contrastTextColor(block.backgroundColor),
@@ -426,12 +428,14 @@ export function QuizAssessmentPreview({
 function PreviewBlock({
   block,
   device,
+  orientation,
   animateListItems = false,
   interactedContentIds,
   onInteractiveProgress,
 }: {
   block: ContentBlock;
   device: PreviewDevice;
+  orientation: PreviewOrientation;
   animateListItems?: boolean;
   interactedContentIds?: ReadonlySet<string>;
   onInteractiveProgress?: (progressId: string) => void;
@@ -444,7 +448,14 @@ function PreviewBlock({
       <div className="w-full" style={style}>
         <div className={`mx-auto w-full ${widthClass} px-4`}>
           {block.data.style === "line" ? (
-            <hr className="border-0 border-t border-slate-300" />
+            <hr
+              className="m-0 w-full border-0"
+              style={{
+                borderTopWidth: `${block.data.lineWeight ?? 1}px`,
+                borderTopStyle: block.data.lineStyle ?? "solid",
+                borderTopColor: block.data.lineColor ?? "#cbd5e1",
+              }}
+            />
           ) : (
             <div aria-hidden="true" className="h-8" />
           )}
@@ -455,21 +466,23 @@ function PreviewBlock({
 
   let content: React.ReactNode;
   if (block.type === "heading") {
+    const compactText = device === "mobile" && orientation === "portrait";
     content = (
       <StatementTextPreview
         tag="h3"
         text={block.data.text}
         html={block.data.html}
-        className="text-3xl font-semibold tracking-tight [&_h1]:my-0 [&_h1]:text-4xl [&_h2]:my-0 [&_h2]:text-3xl [&_h3]:my-0 [&_h3]:text-2xl [&_p]:my-0 [&_p]:text-3xl [&_p]:font-semibold"
+        className={`${compactText ? "text-2xl [&_h1]:text-3xl [&_h2]:text-2xl [&_h3]:text-xl [&_p]:text-2xl" : "text-3xl [&_h1]:text-4xl [&_h2]:text-3xl [&_h3]:text-2xl [&_p]:text-3xl"} font-semibold tracking-tight [&_h1]:my-0 [&_h2]:my-0 [&_h3]:my-0 [&_p]:my-0 [&_p]:font-semibold`}
       />
     );
   } else if (block.type === "richText") {
+    const compactText = device === "mobile" && orientation === "portrait";
     content = (
       <StatementTextPreview
         tag="p"
         text=""
         html={block.data.html}
-        className={`prose max-w-none leading-7 [&_p]:my-3 [&_h1]:my-5 [&_h2]:my-4 [&_h3]:my-3 ${animateListItems ? "lesson-list-enter" : ""}`}
+        className={`prose max-w-none ${compactText ? "text-sm leading-6" : "text-base leading-7"} [&_p]:my-3 [&_h1]:my-5 [&_h2]:my-4 [&_h3]:my-3 ${animateListItems ? "lesson-list-enter" : ""}`}
       />
     );
   } else if (block.type === "statement") {
@@ -635,6 +648,7 @@ function PreviewBlock({
 function LessonBlocksPreview({
   blocks,
   device,
+  orientation,
   animate,
   revealedDividerIds,
   completedDividerIds,
@@ -646,6 +660,7 @@ function LessonBlocksPreview({
 }: {
   blocks: ContentBlock[];
   device: PreviewDevice;
+  orientation: PreviewOrientation;
   animate: boolean;
   revealedDividerIds: Set<string>;
   completedDividerIds: Set<string>;
@@ -756,6 +771,7 @@ function LessonBlocksPreview({
             <PreviewBlock
               block={block}
               device={device}
+              orientation={orientation}
               animateListItems={animate}
               interactedContentIds={interactedContentIds}
               onInteractiveProgress={onInteractiveProgress}
@@ -811,6 +827,7 @@ export function CoursePreview({
 }) {
   const [mode, setMode] = useState<PreviewMode>("course");
   const [device, setDevice] = useState<PreviewDevice>("desktop");
+  const [orientation, setOrientation] = useState<PreviewOrientation>("portrait");
   const [isMobileViewport, setIsMobileViewport] = useState(false);
   const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
   const [visitedLessonIds, setVisitedLessonIds] = useState<Set<string>>(
@@ -1259,7 +1276,7 @@ export function CoursePreview({
                           />
                           <span className="min-w-0 flex-1">
                             <span
-                              className={`block break-words text-sm leading-5 [overflow-wrap:anywhere] ${active ? "font-semibold" : "font-medium text-slate-800"}`}
+                              className={`block truncate whitespace-nowrap text-sm leading-5 ${active ? "font-semibold" : "font-medium text-slate-800"}`}
                               style={active ? { color: "var(--course-primary)" } : undefined}
                             >
                               {lesson.title}
@@ -1285,12 +1302,29 @@ export function CoursePreview({
     );
   }
 
-  const viewportClass =
-    device === "desktop"
-      ? "w-full"
+  const isLandscape = orientation === "landscape";
+  const deviceFrameStyle: CSSProperties | undefined =
+    device === "mobile"
+      ? {
+          width: isLandscape
+            ? "min(844px, 182dvh, calc(100vw - 2rem))"
+            : "min(390px, 38.8dvh, calc(100vw - 2rem))",
+          aspectRatio: isLandscape ? "19.5 / 9" : "9 / 19.5",
+        }
       : device === "tablet"
-        ? "w-full max-w-[900px] border-x border-slate-200 shadow-xl"
-        : "w-full max-w-[390px] border-x border-slate-300 shadow-2xl";
+        ? {
+            width: isLandscape
+              ? "min(1024px, 112dvh, calc(100vw - 2rem))"
+              : "min(768px, 63dvh, calc(100vw - 2rem))",
+            aspectRatio: isLandscape ? "4 / 3" : "3 / 4",
+          }
+        : undefined;
+  const deviceFrameClass =
+    device === "mobile"
+      ? `rounded-[3rem] border-[10px] border-slate-800 bg-slate-800 shadow-[0_24px_70px_-18px_rgba(15,23,42,0.55)] ${isLandscape ? "p-2 pl-7" : "p-2 pt-7"}`
+      : `rounded-[2rem] border-[10px] border-slate-700 bg-slate-700 shadow-[0_24px_70px_-18px_rgba(15,23,42,0.45)] ${isLandscape ? "p-2 pl-5" : "p-2 pt-5"}`;
+  const deviceScreenClass =
+    device === "mobile" ? "rounded-[2.25rem]" : "rounded-[1.25rem]";
 
   return (
     <main style={themeStyle} className="flex h-dvh min-h-0 flex-col overflow-hidden bg-slate-100 text-slate-900">
@@ -1343,7 +1377,7 @@ export function CoursePreview({
         <div
           className="ml-auto flex items-center gap-1"
           role="group"
-          aria-label="Preview device size"
+          aria-label="Preview device controls"
         >
           {(
             [
@@ -1366,9 +1400,41 @@ export function CoursePreview({
               }}
               className="size-8"
             >
-              <Icon size={16} />
+              <Icon
+                size={16}
+                className={
+                  device === id && id !== "desktop" && isLandscape
+                    ? "rotate-90 transition-transform"
+                    : "transition-transform"
+                }
+              />
             </Button>
           ))}
+          {device !== "desktop" && (
+            <div
+              className="ml-1 flex h-8 items-center gap-0.5 rounded-lg bg-slate-100 p-0.5"
+              role="group"
+              aria-label="Device orientation"
+            >
+              <span className="px-1.5 text-[11px] font-medium text-slate-500">
+                {isLandscape ? "Landscape" : "Portrait"}
+              </span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                aria-label={`Flip device to ${isLandscape ? "portrait" : "landscape"}`}
+                title={`Flip device to ${isLandscape ? "portrait" : "landscape"}`}
+                onClick={() =>
+                  setOrientation(isLandscape ? "portrait" : "landscape")
+                }
+                className="h-7 gap-1 px-2 text-[11px]"
+              >
+                <RotateCw size={14} />
+                Flip
+              </Button>
+            </div>
+          )}
           <Button
             type="button"
             variant="default"
@@ -1383,11 +1449,30 @@ export function CoursePreview({
       </header>
       )}
 
-      <div className="min-h-0 flex-1 overflow-hidden">
+      <div
+        className={`min-h-0 flex-1 ${device === "desktop" ? "overflow-hidden bg-white" : "overflow-auto bg-slate-200 p-3 sm:p-6"}`}
+      >
         <div
-          style={{ fontFamily: courseThemeFontFamilies[courseTheme.fontFamily] }}
-          className={`mx-auto h-full overflow-hidden bg-white transition-[max-width] duration-200 ${viewportClass}`}
+          className={
+            device === "desktop"
+              ? "h-full"
+              : "grid min-h-full w-full place-items-center"
+          }
         >
+          <div
+            style={{
+              fontFamily: courseThemeFontFamilies[courseTheme.fontFamily],
+              ...(deviceFrameStyle ?? {}),
+            }}
+            className={
+              device === "desktop"
+                ? "mx-auto h-full w-full overflow-hidden bg-white"
+                : `relative mx-auto box-border shrink-0 border-solid transition-[width] duration-300 ${deviceFrameClass}`
+            }
+          >
+            <div
+              className={`h-full overflow-hidden bg-white ${device === "desktop" ? "" : deviceScreenClass}`}
+            >
           {mode === "course" ? (
             <div className="h-full overflow-y-auto">
               <section
@@ -1477,11 +1562,11 @@ export function CoursePreview({
                                     key={lesson.id}
                                     type="button"
                                     onClick={() => selectLesson(lesson.id)}
-                                    className="flex min-h-16 w-full items-center gap-3 px-2 py-3 text-left hover:bg-slate-50"
+                                    className="flex min-h-16 w-full items-start gap-3 px-2 py-3 text-left hover:bg-slate-50"
                                   >
                                     <Icon
                                       size={17}
-                                      className="shrink-0 text-slate-500"
+                                      className="mt-0.5 shrink-0 text-slate-500"
                                     />
                                     <span className="min-w-0 flex-1">
                                       <span className="block truncate text-sm font-semibold text-slate-900">
@@ -1682,6 +1767,7 @@ export function CoursePreview({
                             <LessonBlocksPreview
                               blocks={lesson.blocks}
                               device={device}
+                              orientation={orientation}
                               animate={lesson.id === selectedLessonId}
                               revealedDividerIds={revealedDividerIds}
                               completedDividerIds={completedDividerIds}
@@ -1789,6 +1875,21 @@ export function CoursePreview({
               </div>
             </div>
           )}
+            </div>
+            {device === "mobile" ? (
+              <span
+                aria-hidden="true"
+                className={`absolute z-20 flex items-center justify-end rounded-full border border-slate-700 bg-slate-950 px-1.5 ${isLandscape ? "left-[9px] top-1/2 h-[74px] w-4 -translate-y-1/2 flex-col" : "left-1/2 top-[9px] h-4 w-[74px] -translate-x-1/2"}`}
+              >
+                <span className="size-1.5 rounded-full bg-slate-600" />
+              </span>
+            ) : device === "tablet" ? (
+              <span
+                aria-hidden="true"
+                className={`absolute z-20 size-1.5 rounded-full bg-slate-950 ring-1 ring-slate-600 ${isLandscape ? "left-[9px] top-1/2 -translate-y-1/2" : "left-1/2 top-[9px] -translate-x-1/2"}`}
+              />
+            ) : null}
+          </div>
         </div>
       </div>
     </main>

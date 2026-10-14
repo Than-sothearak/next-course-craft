@@ -80,6 +80,35 @@ describe("content block settings access", () => {
     expect(markup).toContain("background-color:var(--course-primary, #2f5f9f)");
   });
 
+  it("exposes weight, color, and line style controls for line dividers", () => {
+    const onChange = vi.fn();
+    act(() => root.render(createElement(ContentBlockEditor, {
+      block: blocks.find((block) => block.type === "divider")!,
+      courseId: "course-1",
+      onChange,
+    })));
+
+    act(() => document.querySelector<HTMLButtonElement>('[aria-label="Open content settings"]')!.click());
+    const settingsPanel = document.querySelector<HTMLDivElement>('[id="content-settings-divider"]')!;
+    expect(settingsPanel.style.position).toBe("fixed");
+    expect(settingsPanel.style.left).toBe("24px");
+    expect(settingsPanel.style.top).toBe("50%");
+    expect(settingsPanel.style.transform).toBe("translateY(-50%)");
+    expect(settingsPanel.style.zIndex).toBe("9999");
+    expect(document.querySelector('[aria-label="Divider line weight"]')).not.toBeNull();
+    expect(document.querySelector('[aria-label="Divider line color"]')).not.toBeNull();
+    expect(document.querySelector('[aria-label="Divider line style"]')).not.toBeNull();
+
+    const weight = document.querySelector<HTMLSelectElement>('[aria-label="Divider line weight"]')!;
+    act(() => {
+      weight.value = "4";
+      weight.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
+      data: expect.objectContaining({ lineWeight: 4 }),
+    }));
+  });
+
   it("opens the style replacement action from a block's own settings", () => {
     const onReplaceTemplate = vi.fn();
     act(() => root.render(createElement(ContentBlockEditor, {
@@ -89,8 +118,8 @@ describe("content block settings access", () => {
       onReplaceTemplate,
     })));
 
-    act(() => container.querySelector<HTMLButtonElement>('[aria-label="Open content settings"]')!.click());
-    const changeStyleButton = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes("Change block style"));
+    act(() => document.querySelector<HTMLButtonElement>('[aria-label="Open content settings"]')!.click());
+    const changeStyleButton = [...document.querySelectorAll("button")].find((button) => button.textContent?.includes("Change block style"));
     expect(changeStyleButton).toBeDefined();
     act(() => changeStyleButton!.click());
     expect(onReplaceTemplate).toHaveBeenCalledOnce();
@@ -104,18 +133,18 @@ describe("content block settings access", () => {
       onChange,
     })));
 
-    act(() => container.querySelector<HTMLButtonElement>('[aria-label="Open content settings"]')!.click());
-    expect(container.querySelector('[aria-label="Card 1 front label"]')).not.toBeNull();
-    expect(container.querySelector('[aria-label="Card 1 front text"]')).not.toBeNull();
-    expect(container.querySelector('[aria-label="Card 1 back label"]')).not.toBeNull();
-    expect(container.querySelector('[aria-label="Card 1 back text"]')).not.toBeNull();
-    const addCardButton = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes("Add card"));
+    act(() => document.querySelector<HTMLButtonElement>('[aria-label="Open content settings"]')!.click());
+    expect(document.querySelector('[aria-label="Card 1 front label"]')).not.toBeNull();
+    expect(document.querySelector('[aria-label="Card 1 front text"]')).not.toBeNull();
+    expect(document.querySelector('[aria-label="Card 1 back label"]')).not.toBeNull();
+    expect(document.querySelector('[aria-label="Card 1 back text"]')).not.toBeNull();
+    const addCardButton = [...document.querySelectorAll("button")].find((button) => button.textContent?.includes("Add card"));
     expect(addCardButton).toBeDefined();
     act(() => addCardButton!.click());
     expect(onChange.mock.lastCall?.[0]).toMatchObject({
       data: { cards: [{ id: "card-a" }, { frontLabel: "Question", backLabel: "Answer", front: { type: "text" }, back: { type: "text" } }] },
     });
-    const frontType = container.querySelector<HTMLSelectElement>('[aria-label="Card 1 front content type"]')!;
+    const frontType = document.querySelector<HTMLSelectElement>('[aria-label="Card 1 front content type"]')!;
     act(() => {
       frontType.value = "image";
       frontType.dispatchEvent(new Event("change", { bubbles: true }));
@@ -133,16 +162,16 @@ describe("content block settings access", () => {
       onChange,
     })));
 
-    act(() => container.querySelector<HTMLButtonElement>('[aria-label="Open content settings"]')!.click());
-    expect(container.querySelector('[aria-label="Reveal section 1 title"]')).not.toBeNull();
-    expect(container.querySelector('[aria-label="Reveal section 1 explanation"]')).not.toBeNull();
-    const layout = container.querySelector<HTMLSelectElement>('[aria-label="Reveal layout"]')!;
+    act(() => document.querySelector<HTMLButtonElement>('[aria-label="Open content settings"]')!.click());
+    expect(document.querySelector('[aria-label="Reveal section 1 title"]')).not.toBeNull();
+    expect(document.querySelector('[aria-label="Reveal section 1 explanation"]')).not.toBeNull();
+    const layout = document.querySelector<HTMLSelectElement>('[aria-label="Reveal layout"]')!;
     act(() => {
       layout.value = "tabs";
       layout.dispatchEvent(new Event("change", { bubbles: true }));
     });
     expect(onChange.mock.lastCall?.[0]).toMatchObject({ type: "accordion", data: { layout: "tabs" } });
-    const addSection = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes("Add section"));
+    const addSection = [...document.querySelectorAll("button")].find((button) => button.textContent?.includes("Add section"));
     act(() => addSection?.click());
     expect(onChange.mock.lastCall?.[0].data.items).toHaveLength(3);
   });
@@ -154,15 +183,15 @@ describe("content block settings access", () => {
       courseId: "course-1",
       onChange: graphicChange,
     })));
-    act(() => container.querySelector<HTMLButtonElement>('[aria-label="Open content settings"]')!.click());
-    expect(container.querySelector('[aria-label="Graphic marker 1 horizontal position"]')).toBeNull();
-    expect(container.querySelector('[aria-label="Graphic marker 1 vertical position"]')).toBeNull();
-    expect(container.querySelector('[aria-label="Graphic marker 1 color"]')).toBeNull();
-    expect(container.querySelector('[aria-label="Graphic marker color"]')).not.toBeNull();
-    expect(container.querySelector('[aria-label="Graphic marker text color"]')).not.toBeNull();
-    expect(container.querySelector('[aria-label="Graphic marker radar color"]')).not.toBeNull();
-    expect(container.textContent).toContain("Drag a point on the image to position it.");
-    const colorInput = container.querySelector<HTMLInputElement>('[aria-label="Graphic marker color"]')!;
+    act(() => document.querySelector<HTMLButtonElement>('[aria-label="Open content settings"]')!.click());
+    expect(document.querySelector('[aria-label="Graphic marker 1 horizontal position"]')).toBeNull();
+    expect(document.querySelector('[aria-label="Graphic marker 1 vertical position"]')).toBeNull();
+    expect(document.querySelector('[aria-label="Graphic marker 1 color"]')).toBeNull();
+    expect(document.querySelector('[aria-label="Graphic marker color"]')).not.toBeNull();
+    expect(document.querySelector('[aria-label="Graphic marker text color"]')).not.toBeNull();
+    expect(document.querySelector('[aria-label="Graphic marker radar color"]')).not.toBeNull();
+    expect(document.body.textContent).toContain("Drag a point on the image to position it.");
+    const colorInput = document.querySelector<HTMLInputElement>('[aria-label="Graphic marker color"]')!;
     act(() => {
       const valueSetter = Object.getOwnPropertyDescriptor(
         HTMLInputElement.prototype,
@@ -172,21 +201,21 @@ describe("content block settings access", () => {
       colorInput.dispatchEvent(new Event("change", { bubbles: true }));
     });
     expect(graphicChange.mock.lastCall?.[0].data.markerColor).toBe("#cc3344");
-    const textColorInput = container.querySelector<HTMLInputElement>('[aria-label="Graphic marker text color"]')!;
+    const textColorInput = document.querySelector<HTMLInputElement>('[aria-label="Graphic marker text color"]')!;
     act(() => {
       const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
       valueSetter?.call(textColorInput, "#111827");
       textColorInput.dispatchEvent(new Event("change", { bubbles: true }));
     });
     expect(graphicChange.mock.lastCall?.[0].data.textColor).toBe("#111827");
-    const radarColorInput = container.querySelector<HTMLInputElement>('[aria-label="Graphic marker radar color"]')!;
+    const radarColorInput = document.querySelector<HTMLInputElement>('[aria-label="Graphic marker radar color"]')!;
     act(() => {
       const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
       valueSetter?.call(radarColorInput, "#f97316");
       radarColorInput.dispatchEvent(new Event("change", { bubbles: true }));
     });
     expect(graphicChange.mock.lastCall?.[0].data.radarColor).toBe("#f97316");
-    const addMarker = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes("Add marker"));
+    const addMarker = [...document.querySelectorAll("button")].find((button) => button.textContent?.includes("Add marker"));
     act(() => addMarker?.click());
     expect(graphicChange.mock.lastCall?.[0].data.markers).toHaveLength(2);
     expect(graphicChange.mock.lastCall?.[0].data.markers[1]).toMatchObject({ x: 50, y: 50 });
@@ -198,9 +227,9 @@ describe("content block settings access", () => {
       courseId: "course-1",
       onChange: stepsChange,
     })));
-    act(() => container.querySelector<HTMLButtonElement>('[aria-label="Open content settings"]')!.click());
-    expect(container.querySelector('[aria-label="Process step 1 instructions"]')).not.toBeNull();
-    const addStep = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes("Add step"));
+    act(() => document.querySelector<HTMLButtonElement>('[aria-label="Open content settings"]')!.click());
+    expect(document.querySelector('[aria-label="Process step 1 instructions"]')).not.toBeNull();
+    const addStep = [...document.querySelectorAll("button")].find((button) => button.textContent?.includes("Add step"));
     act(() => addStep?.click());
     expect(stepsChange.mock.lastCall?.[0].data.steps).toHaveLength(3);
   });
@@ -212,39 +241,39 @@ describe("content block settings access", () => {
       courseId: "course-1",
       onChange,
     })));
-    act(() => container.querySelector<HTMLButtonElement>('[aria-label="Open content settings"]')!.click());
+    act(() => document.querySelector<HTMLButtonElement>('[aria-label="Open content settings"]')!.click());
 
-    expect(container.querySelector('[aria-label="Chart field 1 label"]')).not.toBeNull();
-    expect(container.querySelector('[aria-label="Chart field 1 value"]')).not.toBeNull();
-    const fieldLabel = container.querySelector<HTMLInputElement>('[aria-label="Chart field 1 label"]')!;
+    expect(document.querySelector('[aria-label="Chart field 1 label"]')).not.toBeNull();
+    expect(document.querySelector('[aria-label="Chart field 1 value"]')).not.toBeNull();
+    const fieldLabel = document.querySelector<HTMLInputElement>('[aria-label="Chart field 1 label"]')!;
     act(() => {
       const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
       valueSetter?.call(fieldLabel, "New group");
       fieldLabel.dispatchEvent(new Event("change", { bubbles: true }));
     });
     expect(onChange.mock.lastCall?.[0].data.fields[0].label).toBe("New group");
-    const fieldValue = container.querySelector<HTMLInputElement>('[aria-label="Chart field 1 value"]')!;
+    const fieldValue = document.querySelector<HTMLInputElement>('[aria-label="Chart field 1 value"]')!;
     act(() => {
       const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
       valueSetter?.call(fieldValue, "17");
       fieldValue.dispatchEvent(new Event("change", { bubbles: true }));
     });
     expect(onChange.mock.lastCall?.[0].data.fields[0].value).toBe(17);
-    const addField = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes("Add data field"));
+    const addField = [...document.querySelectorAll("button")].find((button) => button.textContent?.includes("Add data field"));
     expect(addField).toBeDefined();
     act(() => addField!.click());
     expect(onChange.mock.lastCall?.[0]).toMatchObject({
       data: { fields: [{ label: "Group one", value: 5 }, { label: "Field 2", value: 0 }] },
     });
 
-    const chartType = container.querySelector<HTMLSelectElement>('[aria-label="Chart type"]')!;
+    const chartType = document.querySelector<HTMLSelectElement>('[aria-label="Chart type"]')!;
     act(() => {
       chartType.value = "donut";
       chartType.dispatchEvent(new Event("change", { bubbles: true }));
     });
     expect(onChange.mock.lastCall?.[0].data.chartType).toBe("donut");
 
-    const colorInput = container.querySelector<HTMLInputElement>('[aria-label="Chart color picker"]')!;
+    const colorInput = document.querySelector<HTMLInputElement>('[aria-label="Chart color picker"]')!;
     act(() => {
       const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
       valueSetter?.call(colorInput, "#cc3344");
@@ -252,7 +281,7 @@ describe("content block settings access", () => {
     });
     expect(onChange.mock.lastCall?.[0].data.color).toBe("#cc3344");
 
-    const colorCodeInput = container.querySelector<HTMLInputElement>('[aria-label="Chart color hex code"]')!;
+    const colorCodeInput = document.querySelector<HTMLInputElement>('[aria-label="Chart color hex code"]')!;
     act(() => {
       const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
       valueSetter?.call(colorCodeInput, "#285f90");

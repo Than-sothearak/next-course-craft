@@ -47,8 +47,8 @@ import {
   Undo2,
 } from "lucide-react";
 import {
-  defaultBlockPadding,
-  defaultBlockWidth,
+  defaultBlockPaddingForBlock,
+  defaultBlockWidthForBlock,
   type ContentBlock,
 } from "@/lib/schemas/block";
 import type { EditorSnapshotInput } from "@/lib/editor/schemas";
@@ -705,8 +705,11 @@ export function EditorClient({
     ) : (
       <Check size={15} />
     );
+  const isCourseOverview = !focusedLessonId && !activeLesson;
   const stateLabel = !titleValid
-    ? "Check lesson title"
+    ? isCourseOverview
+      ? "Check course title"
+      : "Check lesson title"
     : saveState === "saving"
       ? "Saving changes"
       : saveState === "error"
@@ -714,7 +717,6 @@ export function EditorClient({
         : saveState === "conflict"
           ? "Conflict"
           : "All changes saved";
-  const isCourseOverview = !focusedLessonId && !activeLesson;
   const isQuizLesson = activeLesson?.lessonType === "quiz";
   const isDraftSaved =
     saveState === "saved" && titleValid && !hasUnsavedChanges;
@@ -998,18 +1000,40 @@ export function EditorClient({
                     <Textarea
                       ref={courseTitleRef}
                       aria-label="Course title"
+                      aria-invalid={!titleValid}
+                      aria-describedby={
+                        !titleValid ? "course-title-error" : undefined
+                      }
                       rows={1}
                       value={draft.title}
-                      onChange={(event) =>
+                      onChange={(event) => {
+                        const title = event.target.value;
+                        const valid = title.trim().length > 0;
+                        titleValidRef.current = valid;
+                        setTitleValid(valid);
+                        if (saveState === "error") {
+                          setSaveState("saved");
+                          setSaveMessage("");
+                        }
                         updateDraft((current) => ({
                           ...current,
-                          title: event.target.value,
-                        }))
-                      }
+                          title,
+                        }));
+                      }}
+                      placeholder="Enter your course title"
                       maxLength={160}
                       className="h-auto min-h-0 w-full resize-none overflow-hidden whitespace-pre-wrap break-words rounded-none border-0 bg-transparent px-0 py-0 text-[36px] font-bold leading-[1.08] tracking-[-0.035em] text-black shadow-none outline-none placeholder:text-slate-300 focus-visible:ring-0 [overflow-wrap:anywhere] sm:text-[44px]"
                     />
                   </label>
+                  {!titleValid && (
+                    <p
+                      id="course-title-error"
+                      role="alert"
+                      className="mt-2 text-sm text-rose-700"
+                    >
+                      Enter a course title before saving.
+                    </p>
+                  )}
                   <div className="mt-6 flex min-h-11 items-center gap-2.5">
                     {draft.authorVisible ? (
                       <>
@@ -1075,6 +1099,7 @@ export function EditorClient({
                       id="course-description"
                       label="Edit course description"
                       tag="p"
+                      placeholder="Describe what learners will learn and who this course is for…"
                       html={draft.descriptionHtml}
                       text={draft.description}
                       className="text-[16px] leading-[2.2]"
@@ -1156,7 +1181,7 @@ export function EditorClient({
                             {activeLesson.blocks.map((block, index) => {
                               const contentWidth = block.widthCustom
                                 ? block.width
-                                : defaultBlockWidth(block.type);
+                                : defaultBlockWidthForBlock(block);
                               const widthClass =
                                 contentWidth === "small"
                                   ? "max-w-[520px]"
@@ -1165,7 +1190,7 @@ export function EditorClient({
                                     : "max-w-[920px]";
                               const blockPadding =
                                 block.blockPadding ??
-                                defaultBlockPadding(block.type);
+                                defaultBlockPaddingForBlock(block);
                               const headingPaddingClass = {
                                 none: "",
                                 small: "px-2 py-1",
@@ -1200,7 +1225,7 @@ export function EditorClient({
                                       aria-hidden="true"
                                       className="pointer-events-none absolute inset-0 z-10 border border-dashed border-slate-400 opacity-0 transition-opacity group-hover/block-content:opacity-100 group-focus-within/block-content:opacity-100"
                                     />
-                                    <div className="absolute right-4 top-3 z-20 flex items-center gap-1 opacity-0 transition-opacity group-hover/block-content:opacity-100 group-focus-within/block-content:opacity-100">
+                                    <div className="absolute right-4 top-3 z-40 flex items-center gap-1 opacity-0 transition-opacity group-hover/block-content:opacity-100 group-focus-within/block-content:opacity-100">
                                       <Button
                                         variant="ghost"
                                         size="icon"

@@ -26,6 +26,7 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 body { margin: 0; min-height: 100vh; background: #f8fafc; color: #0f172a; font-family: Arial, Helvetica, sans-serif; }
+.course-description-editor .tiptap p.is-editor-empty:first-child::before { color: #94a3b8; content: attr(data-placeholder); float: left; height: 0; pointer-events: none; }
 
 @keyframes dialog-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes dialog-panel-in { from { opacity: 0; transform: translateY(10px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
@@ -94,6 +95,62 @@ body { margin: 0; min-height: 100vh; background: #f8fafc; color: #0f172a; font-f
 .lesson-rich-text li { margin-block: 0.35rem; }
 .lesson-rich-text li::marker { color: var(--course-primary, #2f5f9f); font-size: inherit; }
 .lesson-rich-text li > p { margin-block: 0; }
+.lesson-rich-text .tiptap pre {
+  position: relative;
+  overflow-x: auto;
+  margin: 1rem 0;
+  border: 1px solid #334155;
+  border-radius: 0.875rem;
+  background: #0b1220;
+  padding: 3rem 1rem 1rem;
+  color: #e2e8f0;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 5%), 0 12px 28px rgb(15 23 42 / 12%);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.875rem;
+  line-height: 1.7;
+  tab-size: 2;
+  white-space: pre;
+}
+.lesson-rich-text .tiptap pre::before {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2.25rem;
+  border-bottom: 1px solid rgb(148 163 184 / 15%);
+  background-image:
+    radial-gradient(circle, #fb7185 0 3px, transparent 3.5px),
+    radial-gradient(circle, #fbbf24 0 3px, transparent 3.5px),
+    radial-gradient(circle, #34d399 0 3px, transparent 3.5px);
+  background-repeat: no-repeat;
+  background-position: 1rem 0.85rem, 2rem 0.85rem, 3rem 0.85rem;
+  content: "";
+  pointer-events: none;
+}
+.lesson-rich-text .tiptap pre::after {
+  position: absolute;
+  top: 0.7rem;
+  right: 1rem;
+  color: #94a3b8;
+  content: "CODE";
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  pointer-events: none;
+}
+.lesson-rich-text .tiptap pre code {
+  display: block;
+  min-width: max-content;
+  background: transparent;
+  padding: 0;
+  color: #e2e8f0;
+  font: inherit;
+  white-space: pre;
+}
+@media (max-width: 640px) {
+  .lesson-rich-text .tiptap pre { padding-inline: 0.875rem; font-size: 0.75rem; }
+  .lesson-rich-text .tiptap pre::before { background-position: 0.875rem 0.85rem, 1.875rem 0.85rem, 2.875rem 0.85rem; }
+  .lesson-rich-text .tiptap pre::after { right: 0.875rem; }
+}
 @media (prefers-reduced-motion: reduce) {
   .dialog-backdrop-in, .dialog-panel-in, .course-learn-enter, .lesson-block-enter, .lesson-list-enter ul > li, .lesson-list-enter ol > li { animation: none; }
   .lesson-lock-release, .lesson-lock-open { animation-duration: 1ms; }
