@@ -2,8 +2,8 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/db/mongodb";
 import { DashboardError } from "@/lib/dashboard/rules";
-import { getCourseEditor } from "@/lib/editor/service";
-import { CoursePreview } from "./course-preview";
+import { getCourseEditor } from "@/lib/editor/services/course";
+import { CoursePreviewRoute } from "./course-preview-route";
 
 export default async function CoursePreviewPage({ params }: { params: Promise<{ courseId: string }> }) {
   const session = await auth();
@@ -18,5 +18,5 @@ export default async function CoursePreviewPage({ params }: { params: Promise<{ 
     throw error;
   }
   const authorName = session.user.name?.trim() || session.user.email || "Course author";
-  return <CoursePreview initialData={initialData} authorName={authorName} />;
+  return <CoursePreviewRoute initialData={initialData} authorName={authorName} />;
 }

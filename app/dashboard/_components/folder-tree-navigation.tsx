@@ -1,6 +1,6 @@
 ﻿"use client";
 import { ChevronDown, ChevronRight, Folder } from "lucide-react";
-import type { FolderTreeNode } from "@/lib/dashboard/service";
+import type { FolderTreeNode } from "@/lib/dashboard/types";
 import { Button } from "@/components/ui/button";
 
 export function FolderTreeNavigation({ nodes, currentFolderId, expanded, onToggle, onOpen }: { nodes: FolderTreeNode[]; currentFolderId: string | null; expanded: Set<string>; onToggle: (id: string) => void; onOpen: (id: string) => void }) {

@@ -3,7 +3,8 @@ import { connectToDatabase } from "@/lib/db/mongodb";
 import { dashboardErrorResponse, readJson, requireOwnerId } from "@/lib/dashboard/http";
 import { objectIdSchema } from "@/lib/dashboard/schemas";
 import { mediaUploadInputSchema } from "@/lib/media/schemas";
-import { assertCourseOwner, beginMediaUpload, listCourseMedia } from "@/lib/media/service";
+import { assertCourseOwner, listCourseMedia } from "@/lib/media/services/course-assets";
+import { beginMediaUpload } from "@/lib/media/services/uploads";
 import { DashboardError } from "@/lib/dashboard/rules";
 
 export const runtime = "nodejs";

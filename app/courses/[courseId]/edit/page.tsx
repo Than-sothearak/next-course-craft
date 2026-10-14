@@ -2,7 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/db/mongodb";
 import { DashboardError } from "@/lib/dashboard/rules";
-import { getCourseEditor } from "@/lib/editor/service";
+import { getCourseEditor } from "@/lib/editor/services/course";
 import { EditorClient } from "./_components/editor-client";
 
 export default async function CoursePage({ params }: { params: Promise<{ courseId: string }> }) {

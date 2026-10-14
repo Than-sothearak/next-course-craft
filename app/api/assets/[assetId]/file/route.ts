@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db/mongodb";
 import { dashboardErrorResponse, requireOwnerId } from "@/lib/dashboard/http";
 import { objectIdSchema } from "@/lib/dashboard/schemas";
-import { getOwnedMediaAsset } from "@/lib/media/service";
+import { getOwnedMediaAsset } from "@/lib/media/services/assets";
 import { createMediaReadUrl } from "@/lib/media/storage";
 import { DashboardError } from "@/lib/dashboard/rules";
 

@@ -77,7 +77,7 @@ export function ContentBlockEditor({ block, courseId, onChange }: { block: Conte
       <Settings2 size={16} />
     </Button>
     <div className="block w-full rounded-md text-left">{preview}</div>
-    {editing && <div ref={settingsPanelRef} id={`content-settings-${block.id}`} style={{ left: "44px", top: "4px" }} className="absolute z-50 w-[min(380px,calc(100vw-4rem))] rounded-xl border border-slate-200 bg-white p-4 text-slate-700 shadow-xl">
+    {editing && <div ref={settingsPanelRef} id={`content-settings-${block.id}`} style={{ left: "44px", top: "4px" }} className="absolute z-40 w-[min(380px,calc(100vw-4rem))] rounded-xl border border-slate-200 bg-white p-4 text-slate-700 shadow-xl">
       <div className="mb-2 flex items-center gap-2 text-xs font-medium text-slate-500"><Settings2 size={14} />Edit content</div>
       {block.type === "image" && <div className="space-y-2">
         <Button type="button" variant="outline" size="sm" onClick={() => setMediaLibraryTarget("image")}>Choose from media library</Button>

@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { connectToDatabase } from "@/lib/db/mongodb";
 import { DashboardError } from "@/lib/dashboard/rules";
-import { getDashboardData } from "@/lib/dashboard/service";
+import { getDashboardData } from "@/lib/dashboard/services/list";
 import DashboardClient from "./dashboard-client";
 
 type SearchParams = Promise<{

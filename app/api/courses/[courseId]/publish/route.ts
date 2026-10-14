@@ -1,0 +1,63 @@
+import { NextRequest, NextResponse } from "next/server";
+import { readFile, readdir } from "node:fs/promises";
+import { join } from "node:path";
+import { z } from "zod";
+import { auth } from "@/lib/auth";
+import { connectToDatabase } from "@/lib/db/mongodb";
+import { dashboardErrorResponse, requireOwnerId } from "@/lib/dashboard/http";
+import { DashboardError } from "@/lib/dashboard/rules";
+import { getCourseEditor } from "@/lib/editor/services/course";
+import { Asset } from "@/models/Asset";
+import { createMediaReadUrl } from "@/lib/media/storage";
+
+export const runtime = "nodejs";
+const paramsSchema = z.object({ courseId: z.string().regex(/^[\da-f]{24}$/i) });
+const dataUriPattern = /\/api\/assets\/([\da-f]{24})\/file/g;
+
+function replaceAssetSources(value: unknown, assets: Map<string, string>): unknown {
+  if (typeof value === "string") return value.replace(dataUriPattern, (match, id: string) => assets.get(id) ?? match);
+  if (Array.isArray(value)) return value.map((item) => replaceAssetSources(item, assets));
+  if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, replaceAssetSources(item, assets)]));
+  return value;
+}
+
+export async function POST(_request: NextRequest, context: { params: Promise<{ courseId: string }> }) {
+  try {
+    const ownerId = await requireOwnerId();
+    const session = await auth();
+    const parsed = paramsSchema.safeParse(await context.params);
+    if (!parsed.success) throw new DashboardError("Course not found.", 404);
+    await connectToDatabase();
+    const course = await getCourseEditor(ownerId, parsed.data.courseId);
+    const playerDir = join(process.cwd(), "public", "course-player");
+    let files: string[];
+    try { files = await readdir(join(playerDir, "assets")); }
+    catch { throw new DashboardError("Build the standalone player before publishing (npm run build:player).", 503); }
+    const jsName = files.find((name) => name.endsWith(".js"));
+    const cssName = files.find((name) => name.endsWith(".css"));
+    if (!jsName || !cssName) throw new DashboardError("The standalone player build is incomplete. Rebuild it before publishing.", 503);
+
+    const referencedAssetIds = new Set<string>();
+    const serialized = JSON.stringify(course);
+    for (const match of serialized.matchAll(dataUriPattern)) referencedAssetIds.add(match[1]);
+    const media = referencedAssetIds.size ? await Asset.find({ _id: { $in: [...referencedAssetIds] }, ownerId, courseId: parsed.data.courseId, status: "ready" }).lean() : [];
+    if (media.length !== referencedAssetIds.size) throw new DashboardError("One or more course media files could not be included. Check that they still belong to this course.", 409);
+    const embeddedAssets = new Map<string, string>();
+    await Promise.all(media.map(async (asset) => {
+      const readUrl = await createMediaReadUrl({ objectKey: asset.objectKey, contentType: asset.mimeType });
+      const response = await fetch(readUrl);
+      if (!response.ok) throw new DashboardError(`Could not include media file ${asset.originalName} in the HTML5 package.`, 502);
+      const bytes = Buffer.from(await response.arrayBuffer());
+      embeddedAssets.set(String(asset._id), `data:${asset.mimeType};base64,${bytes.toString("base64")}`);
+    }));
+    const courseData = replaceAssetSources({ ...course, authorName: session?.user?.name?.trim() || session?.user?.email || "Course author" }, embeddedAssets);
+    const js = await readFile(join(playerDir, "assets", jsName), "utf8");
+    const css = await readFile(join(playerDir, "assets", cssName), "utf8");
+    const safeJson = JSON.stringify(courseData).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
+    const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="${course.description.replace(/[&<>"']/g, " ").slice(0, 300)}"><title>${course.title.replace(/[&<>"']/g, " ")}</title><style>${css}</style></head><body><div id="player-root"></div><script>window.COURSE_PLAYER_DATA=${safeJson}</script><script>${js}</script></body></html>`;
+    const filename = `${course.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "course"}.html`;
+    return new NextResponse(html, { headers: { "Content-Type": "text/html; charset=utf-8", "Content-Disposition": `attachment; filename="${filename}"`, "Cache-Control": "private, no-store" } });
+  } catch (error) {
+    return dashboardErrorResponse(error);
+  }
+}

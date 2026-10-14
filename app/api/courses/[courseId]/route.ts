@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db/mongodb";
-import { duplicateCourse, getCourseCopyDestinations, softDeleteCourse, updateCourse } from "@/lib/dashboard/service";
+import { duplicateCourse, getCourseCopyDestinations, softDeleteCourse, updateCourse } from "@/lib/dashboard/services/courses";
 import { deleteCourseSchema, objectIdSchema, updateCourseSchema } from "@/lib/dashboard/schemas";
 import { dashboardErrorResponse, readJson, requireOwnerId } from "@/lib/dashboard/http";
 import { DashboardError } from "@/lib/dashboard/rules";

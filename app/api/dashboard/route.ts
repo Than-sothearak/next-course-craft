@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db/mongodb";
-import { getDashboardData } from "@/lib/dashboard/service";
+import { getDashboardData } from "@/lib/dashboard/services/list";
 import { DashboardError } from "@/lib/dashboard/rules";
 import { dashboardErrorResponse, requireOwnerId } from "@/lib/dashboard/http";
 import { objectIdSchema } from "@/lib/dashboard/schemas";

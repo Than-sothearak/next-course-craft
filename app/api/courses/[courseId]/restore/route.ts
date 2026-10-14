@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db/mongodb";
 import { dashboardErrorResponse, requireOwnerId } from "@/lib/dashboard/http";
-import { restoreCourse } from "@/lib/dashboard/service";
+import { restoreCourse } from "@/lib/dashboard/services/courses";
 import { objectIdSchema } from "@/lib/dashboard/schemas";
 import { DashboardError } from "@/lib/dashboard/rules";
 

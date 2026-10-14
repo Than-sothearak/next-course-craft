@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { getSchema } from "@tiptap/core";
 import { editorSnapshotSchema } from "../lib/editor/schemas";
-import { transactionUnsupported } from "../lib/editor/service";
+import { transactionUnsupported } from "../lib/editor/services/save";
 import { getCourseProgress } from "../lib/editor/preview";
 import { normalizeFontSize, normalizeHexColor } from "../lib/editor/text-format";
 import { blockSchema, defaultBlockPadding, defaultBlockWidth, normalizeBlockPadding } from "../lib/schemas/block";

@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db/mongodb";
 import { dashboardErrorResponse, requireOwnerId } from "@/lib/dashboard/http";
 import { objectIdSchema } from "@/lib/dashboard/schemas";
-import { completeMediaUpload, assertCourseOwner } from "@/lib/media/service";
+import { assertCourseOwner } from "@/lib/media/services/course-assets";
+import { completeMediaUpload } from "@/lib/media/services/uploads";
 import { DashboardError } from "@/lib/dashboard/rules";
 
 export const runtime = "nodejs";

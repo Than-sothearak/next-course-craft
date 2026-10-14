@@ -1,7 +1,7 @@
 ﻿"use client";
 import { useEffect, useRef, type FormEvent } from "react";
 import { Folder, MoreHorizontal } from "lucide-react";
-import type { DashboardData, DashboardFolder } from "@/lib/dashboard/service";
+import type { DashboardData, DashboardFolder } from "@/lib/dashboard/types";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";

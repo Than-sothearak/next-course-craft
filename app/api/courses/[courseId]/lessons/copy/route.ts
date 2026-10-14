@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { connectToDatabase } from "@/lib/db/mongodb";
 import { dashboardErrorResponse, readJson, requireOwnerId } from "@/lib/dashboard/http";
-import { copyCourseLesson } from "@/lib/editor/service";
+import { copyCourseLesson } from "@/lib/editor/services/lessons";
 import { editorLessonSchema } from "@/lib/editor/schemas";
 
 export const runtime = "nodejs";

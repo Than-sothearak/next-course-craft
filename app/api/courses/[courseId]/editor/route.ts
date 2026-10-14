@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db/mongodb";
 import { dashboardErrorResponse, readJson, requireOwnerId } from "@/lib/dashboard/http";
-import { getCourseEditor, saveCourseEditor } from "@/lib/editor/service";
+import { getCourseEditor } from "@/lib/editor/services/course";
+import { saveCourseEditor } from "@/lib/editor/services/save";
 import { editorSnapshotSchema } from "@/lib/editor/schemas";
 
 export const runtime = "nodejs";

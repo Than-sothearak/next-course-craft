@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db/mongodb";
-import { deleteFolder, updateFolder } from "@/lib/dashboard/service";
+import { deleteFolder, updateFolder } from "@/lib/dashboard/services/folders";
 import { objectIdSchema, updateFolderSchema } from "@/lib/dashboard/schemas";
 import { dashboardErrorResponse, readJson, requireOwnerId } from "@/lib/dashboard/http";
 import { DashboardError } from "@/lib/dashboard/rules";

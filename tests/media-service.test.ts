@@ -12,7 +12,7 @@ vi.mock("@/lib/media/storage", async (importOriginal) => ({
   deleteMediaObject: mocks.deleteMediaObject,
 }));
 
-import { deleteCourseMediaAsset } from "@/lib/media/service";
+import { deleteCourseMediaAsset } from "@/lib/media/services/course-assets";
 
 describe("course media deletion", () => {
   beforeEach(() => {

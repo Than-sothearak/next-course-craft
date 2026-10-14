@@ -11,11 +11,14 @@ Coursecraft is one Next.js App Router application. Server routes and server comp
 - `lib/schemas/`: versioned, runtime-validated content contracts shared by authoring, preview, and export.
 - `lib/player/`: shared player-domain logic and progress interfaces.
 - `lib/dashboard/`: validated folder/course operations, ownership-scoped queries, and dashboard request helpers.
+- `lib/<domain>/services/`: server-side operations grouped by the dashboard, editor, and media page/API areas that use them.
 - `player/`: standalone static player entry point and build configuration. It must not import Next.js server code, MongoDB, Auth.js, or private storage credentials.
 - `models/`: Mongoose models; lessons and assets are independent documents rather than a giant course document.
 - `tests/`: Vitest unit tests and Playwright end-to-end tests.
 
-The standalone player is bundled separately by Vite as a build tool inside this repository. Its distributable consists only of static HTML, CSS, and JavaScript and can later be copied into HTML5 or SCORM packages by server-side export services. Phase 1 establishes the boundary only; it does not implement an exporter.
+The standalone player is bundled separately by Vite as a build tool inside this repository. Its build output consists only of static HTML, CSS, and JavaScript. The authenticated HTML5 publishing route embeds that bundle, the validated course snapshot, and owner-scoped course media in one downloadable HTML file. The SCORM 1.2 publishing route packages the same compiled player with a validated snapshot, owner-scoped media, the root-level `imsmanifest.xml`, and the referenced schema files. The browser-only player checks for the SCORM 1.2 `API` runtime and persists resume and completion state through the LMS when available; without an LMS it falls back to browser storage.
+
+The browser-only learner view lives in `app/courses/[courseId]/preview/course-preview.tsx` and is shared by the authenticated preview route and the standalone Vite entry point. App-only navigation and publishing actions are supplied by the preview route wrapper, so the static player bundle does not depend on Next.js APIs. The SCORM runtime adapter lives in `player/src/scorm-runtime.ts` and depends only on browser APIs and the shared player progress contract. Both outputs use `app/globals.css` for matching layout, typography, and animations.
 
 ## Persistence and security
 

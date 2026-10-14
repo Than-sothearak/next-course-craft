@@ -2,7 +2,7 @@
 
 import type { FormEvent } from "react";
 import { X } from "lucide-react";
-import type { DashboardData } from "@/lib/dashboard/service";
+import type { DashboardData } from "@/lib/dashboard/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";

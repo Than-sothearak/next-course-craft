@@ -1,6 +1,6 @@
 ﻿"use client";
 import { BookOpen, FolderPlus, Sparkles } from "lucide-react";
-import type { DashboardData } from "@/lib/dashboard/service";
+import type { DashboardData } from "@/lib/dashboard/types";
 import { Button } from "@/components/ui/button";
 import { FolderTreeNavigation } from "./folder-tree-navigation";
 

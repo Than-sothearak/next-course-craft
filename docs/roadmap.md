@@ -7,7 +7,7 @@ Work one phase at a time; stop after the requested phase.
 3. **Lesson editor:** sections, lessons, block editing, ordering, autosave, and persistence.
 4. **Core blocks and media:** content rendering, media library, validation, and storage.
 5. **Standalone player:** learner navigation, progress, preview, and HTML5 publishing.
-6. **SCORM 1.2:** snapshot, validation, manifest, LMS runtime, tracking, and package tests.
+6. **SCORM 1.2:** validated snapshot, manifest and schema files, shared standalone player, LMS runtime, resume/completion tracking, media packaging, and focused tests.
 7. Interactive blocks.
 8. Quizzes and assessments.
 9. Themes and branding.
@@ -18,4 +18,4 @@ Work one phase at a time; stop after the requested phase.
 14. Optional AI features.
 15. Production hardening.
 
-Current status: Phases 1, 2, 3, and 4 are complete. Phase 5 is next.
+Current status: Phases 1, 2, 3, 4, 5, and 6 are complete. Phase 7 is next.

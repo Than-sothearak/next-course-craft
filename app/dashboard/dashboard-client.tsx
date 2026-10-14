@@ -9,7 +9,7 @@ import {
   Search,
   X,
 } from "lucide-react";
-import type { DashboardData, FolderTreeNode } from "@/lib/dashboard/service";
+import type { DashboardData, FolderTreeNode } from "@/lib/dashboard/types";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { DashboardDialogs } from "./_components/dashboard-dialogs";

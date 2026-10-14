@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, type FormEvent } from "react";
 import { BookOpen, Clock3, MoreHorizontal } from "lucide-react";
-import type { DashboardCourse, DashboardData } from "@/lib/dashboard/service";
+import type { DashboardCourse, DashboardData } from "@/lib/dashboard/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
