@@ -3077,11 +3077,11 @@ export async function cancelSourceGenerationJob({
 }) {
   const job = await findOwnedGenerationJob(ownerId, courseId, jobId);
   if (job.status !== "completed") {
-    await GenerationJob.updateOne(
-      { _id: job._id, ownerId, courseId },
+    const cancelled = await GenerationJob.updateOne(
+      { _id: job._id, ownerId, courseId, status: { $ne: "completed" } },
       { $set: { status: "cancelled", sourceBytes: null, errorMessage: null, leaseUntil: null } },
     );
-    await GenerationCheckpoint.deleteMany({ jobId: job._id, ownerId, courseId });
+    if (cancelled.matchedCount > 0) await GenerationCheckpoint.deleteMany({ jobId: job._id, ownerId, courseId });
   }
   return getSourceGenerationJob({ ownerId, courseId, jobId });
 }
@@ -3467,7 +3467,9 @@ export async function advanceSourceGenerationJob({
   } finally {
     await GenerationJob.updateOne({ _id, ownerId, courseId }, { $set: { leaseUntil: null } });
   }
-  return getSourceGenerationJob({ ownerId, courseId, jobId });
+  const finalJob = await getSourceGenerationJob({ ownerId, courseId, jobId });
+  if (finalJob.status === "cancelled") await GenerationCheckpoint.deleteMany({ jobId: _id, ownerId, courseId });
+  return finalJob;
 }
 
 async function findOwnedGenerationJob(ownerId: string, courseId: string, jobId: string) {

@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "../app/api/courses/[courseId]/generate/route";
-import { generateCourseDraft, getSourceGenerationJob } from "../lib/ai/course-generation";
+import { cancelSourceGenerationJob, generateCourseDraft, getSourceGenerationJob } from "../lib/ai/course-generation";
 import { assertCourseOwner } from "../lib/media/services/course-assets";
 import { DashboardError } from "../lib/dashboard/rules";
 
@@ -78,5 +78,21 @@ describe("prompt-only course generation requests", () => {
     const response = await submit();
     expect(response.status).toBe(404);
     expect(generateCourseDraft).not.toHaveBeenCalled();
+  });
+
+  it("cancels an owned job without validating generation settings or invoking AI", async () => {
+    vi.mocked(cancelSourceGenerationJob).mockResolvedValue({ jobId: "saved-job", status: "cancelled" } as Awaited<ReturnType<typeof cancelSourceGenerationJob>>);
+    const response = await submit({ action: "cancelGeneration", jobId: "saved-job", lessonCount: "invalid" });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ status: "cancelled" });
+    expect(cancelSourceGenerationJob).toHaveBeenCalledWith({ ownerId: "507f1f77bcf86cd799439011", courseId, jobId: "saved-job" });
+    expect(generateCourseDraft).not.toHaveBeenCalled();
+  });
+
+  it("rejects cancellation when the caller does not own the course", async () => {
+    vi.mocked(assertCourseOwner).mockRejectedValueOnce(new DashboardError("Course not found.", 404));
+    const response = await submit({ action: "cancelGeneration", jobId: "saved-job" });
+    expect(response.status).toBe(404);
+    expect(cancelSourceGenerationJob).not.toHaveBeenCalled();
   });
 });

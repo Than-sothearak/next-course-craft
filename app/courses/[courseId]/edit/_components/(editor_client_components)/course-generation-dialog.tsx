@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Select } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import {
   courseGenerationModelOptions,
   defaultCourseGenerationModel,
@@ -16,6 +15,9 @@ import {
   type GeneratedCourseDraft,
   type SourceGenerationJobSnapshot,
 } from "@/lib/ai/course-generation-schemas";
+
+import { advanceSourceGenerationJobUntil, isMissingGenerationJob, postSourceGenerationAction, responseError } from "./(course_generation_dialog_components)/generation-job-request";
+import { GenerationPromptInput, starterGenerationPrompt } from "./(course_generation_dialog_components)/generation-prompt-input";
 
 const maximumSourceBytes = 12 * 1024 * 1024;
 type ApplyMode = "append" | "replace";
@@ -178,6 +180,13 @@ export type CourseGenerationProgressStage = {
   detail: string;
 };
 
+export function getPromptCourseGenerationProgressStages(): [CourseGenerationProgressStage, CourseGenerationProgressStage] {
+  return [
+    { step: 1, title: "Prepare prompt", status: "complete", completed: 1, total: 1, detail: "Your prompt and generation settings are ready" },
+    { step: 2, title: "Generate course", status: "active", completed: 0, total: null, detail: "Creating sections, lessons, and interactive blocks from your prompt" },
+  ];
+}
+
 export function getCourseGenerationProgressStages(
   progress: Pick<SourceGenerationJobSnapshot, "status" | "sourcePageCount" | "completedWorkUnits" | "totalWorkUnits" | "learnProgress">,
 ): [CourseGenerationProgressStage, CourseGenerationProgressStage] {
@@ -252,50 +261,6 @@ export function getCourseGenerationProgressStages(
   ];
 }
 
-async function responseError(response: Response) {
-  try {
-    const body = (await response.json()) as { error?: unknown };
-    if (typeof body.error === "string") return body.error;
-  } catch {
-    // Use a stable message if the server did not return JSON.
-  }
-  return "Course generation failed. Please try again.";
-}
-
-async function postSourceGenerationAction(
-  courseId: string,
-  action: "advanceGeneration" | "getGeneration" | "cancelGeneration" | "generate",
-  jobId: string,
-  body?: FormData,
-) {
-  const formData = body ?? new FormData();
-  formData.set("action", action);
-  formData.set("jobId", jobId);
-  const response = await fetch(`/api/courses/${courseId}/generate`, { method: "POST", body: formData });
-  if (!response.ok) throw new Error(await responseError(response));
-  return await response.json() as SourceGenerationJobSnapshot;
-}
-
-async function advanceSourceGenerationJobUntil(
-  courseId: string,
-  jobId: string,
-  stopStatuses: string[],
-  onProgress: (job: SourceGenerationJobSnapshot) => void,
-) {
-  let job = await postSourceGenerationAction(courseId, "getGeneration", jobId);
-  onProgress(job);
-  let workCount = 0;
-  while (!stopStatuses.includes(job.status)) {
-    if (job.status === "failed" || job.status === "cancelled")
-      throw new Error(job.errorMessage || "Course generation stopped. Retry this stage to continue.");
-    if (workCount >= 1_000) throw new Error("Course generation exceeded its work-unit limit. Retry the job.");
-    job = await postSourceGenerationAction(courseId, "advanceGeneration", jobId);
-    onProgress(job);
-    workCount += 1;
-  }
-  return job;
-}
-
 export function CourseGenerationDialog({
   open,
   onClose,
@@ -313,7 +278,7 @@ export function CourseGenerationDialog({
   existingLessonCount: number;
   onApply: (course: GeneratedCourseDraft, mode: ApplyMode) => void;
 }) {
-  const [prompt, setPrompt] = useState("");
+  const [prompt, setPrompt] = useState(starterGenerationPrompt);
   const [template, setTemplate] = useState<CourseGenerationInput["template"]>("preLearnPost");
   const [previewTemplate, setPreviewTemplate] = useState<StructurePreviewTemplate | null>(null);
   const [audience, setAudience] = useState("");
@@ -333,6 +298,9 @@ export function CourseGenerationDialog({
   const [result, setResult] = useState<GeneratedCourseDraft | null>(null);
   const [applyMode, setApplyMode] = useState<ApplyMode>("append");
   const [generating, setGenerating] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [generationNotice, setGenerationNotice] = useState<string | null>(null);
+  const [generationKind, setGenerationKind] = useState<"prompt" | "source">("prompt");
   const [loadingSavedDraft, setLoadingSavedDraft] = useState(false);
   const [generationStartedAt, setGenerationStartedAt] = useState<number | null>(null);
   const [generationElapsedSeconds, setGenerationElapsedSeconds] = useState(0);
@@ -341,6 +309,8 @@ export function CourseGenerationDialog({
   const promptRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const structurePreviewTimerRef = useRef<number | null>(null);
+  const generationControllerRef = useRef<AbortController | null>(null);
+  const activeJobIdRef = useRef<string | null>(null);
 
   function showStructurePreview(value: StructurePreviewTemplate) {
     if (structurePreviewTimerRef.current !== null) {
@@ -360,6 +330,7 @@ export function CourseGenerationDialog({
 
   useEffect(() => () => {
     if (structurePreviewTimerRef.current !== null) window.clearTimeout(structurePreviewTimerRef.current);
+    generationControllerRef.current?.abort();
   }, []);
 
   useEffect(() => {
@@ -372,14 +343,18 @@ export function CourseGenerationDialog({
 
   useEffect(() => {
     if (!open) return;
-    const savedJobId = window.localStorage.getItem(`course-generation:${courseId}`);
-    setGenerationJobId(savedJobId);
+    const frame = window.requestAnimationFrame(() => {
+      const savedJobId = window.localStorage.getItem(`course-generation:${courseId}`);
+      activeJobIdRef.current = savedJobId;
+      setGenerationJobId(savedJobId);
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, [open, courseId]);
 
   useEffect(() => {
     if (!open) return;
     function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape" && !generating) {
+      if (event.key === "Escape" && !generating && !cancelling) {
         setResult(null);
         setError(null);
         onClose();
@@ -388,9 +363,47 @@ export function CourseGenerationDialog({
     window.addEventListener("keydown", closeOnEscape);
     promptRef.current?.focus();
     return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [open, generating, onClose]);
+  }, [open, generating, cancelling, onClose]);
 
   if (!open) return null;
+
+  function clearGenerationJob(jobId: string) {
+    if (window.localStorage.getItem(`course-generation:${courseId}`) === jobId) window.localStorage.removeItem(`course-generation:${courseId}`);
+    if (activeJobIdRef.current === jobId) activeJobIdRef.current = null;
+    setGenerationJobId((current) => current === jobId ? null : current);
+    setSourceJobProgress(null);
+  }
+
+  async function cancelGeneration() {
+    if (cancelling) return;
+    const jobId = activeJobIdRef.current ?? generationJobId;
+    generationControllerRef.current?.abort();
+    generationControllerRef.current = null;
+    setGenerating(false);
+    setGenerationStartedAt(null);
+    setGenerationInfo(null);
+    setCancelling(true);
+    setError(null);
+    try {
+      const job = jobId ? await postSourceGenerationAction(courseId, "cancelGeneration", jobId) : null;
+      if (jobId) clearGenerationJob(jobId);
+      if (job?.status === "completed" && job.course) {
+        setResult(job.course);
+        setGenerationNotice("This job had already completed. Its draft is ready to review.");
+      } else {
+        setGenerationNotice("Generation cancelled. You can start a new run. An AI request already sent may finish.");
+      }
+    } catch (cancelError) {
+      if (isMissingGenerationJob(cancelError)) {
+        if (jobId) clearGenerationJob(jobId);
+        setGenerationNotice("The saved job is no longer available. Its reference was cleared; you can start a new run.");
+      } else {
+        setError(cancelError instanceof Error ? cancelError.message : "Could not cancel the saved job. Try Cancel job again.");
+      }
+    } finally {
+      setCancelling(false);
+    }
+  }
 
   function buildGenerationFormData(action: "analyzeSource" | "generate", sourceFile?: File) {
     const formData = new FormData();
@@ -418,7 +431,9 @@ export function CourseGenerationDialog({
 
   async function generate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (generating || cancelling) return;
     setError(null);
+    setGenerationNotice(null);
     if (!prompt.trim() && !file && !generationJobId) {
       setError("Write a course prompt or attach a PDF or PowerPoint file.");
       return;
@@ -429,8 +444,14 @@ export function CourseGenerationDialog({
     }
     const startedAt = Date.now();
     const model = selectedModel;
+    const controller = new AbortController();
+    const signal = controller.signal;
+    generationControllerRef.current = controller;
+    activeJobIdRef.current = generationJobId;
     let completed = false;
     setGenerating(true);
+    setGenerationKind(file || generationJobId ? "source" : "prompt");
+    setSourceJobProgress(null);
     setGenerationStartedAt(startedAt);
     setGenerationElapsedSeconds(0);
     setGenerationInfo(null);
@@ -442,39 +463,44 @@ export function CourseGenerationDialog({
         const response = await fetch(`/api/courses/${courseId}/generate`, {
           method: "POST",
           body: buildGenerationFormData("generate", file),
+          signal,
         });
         if (!response.ok) throw new Error(await responseError(response));
         const created = await response.json() as SourceGenerationJobSnapshot;
+        if (signal.aborted && created.jobId) {
+          void postSourceGenerationAction(courseId, "cancelGeneration", created.jobId).catch(() => undefined);
+        }
+        signal.throwIfAborted();
         jobId = created.jobId;
+        activeJobIdRef.current = jobId;
         setGenerationJobId(jobId);
         window.localStorage.setItem(`course-generation:${courseId}`, jobId);
         setSourceJobProgress(created);
         await advanceSourceGenerationJobUntil(courseId, jobId, ["awaitingPrompt"], (progress) => {
           setSourceJobProgress(progress);
-        });
+        }, signal);
         sourceIsIndexed = true;
       }
       if (jobId) {
         let current = sourceIsIndexed
           ? null
-          : await postSourceGenerationAction(courseId, "getGeneration", jobId);
+          : await postSourceGenerationAction(courseId, "getGeneration", jobId, undefined, signal);
         if (current) setSourceJobProgress(current);
         if (current?.status === "completed") {
           if (!current.course) throw new Error("Generation completed without a saved course draft.");
           setResult(current.course);
           completed = true;
-          window.localStorage.removeItem(`course-generation:${courseId}`);
-          setGenerationJobId(null);
+          clearGenerationJob(jobId);
           return;
         }
         if (current?.status === "failed") {
-          current = await postSourceGenerationAction(courseId, "advanceGeneration", jobId);
+          current = await postSourceGenerationAction(courseId, "advanceGeneration", jobId, undefined, signal);
           setSourceJobProgress(current);
         }
         if (current?.status === "indexing" || current?.status === "extracting") {
           current = await advanceSourceGenerationJobUntil(courseId, jobId, ["awaitingPrompt"], (progress) => {
             setSourceJobProgress(progress);
-          });
+          }, signal);
         }
         if (current?.status === "cancelled" || current?.status === "failed")
           throw new Error(current.errorMessage || "Course generation stopped. Retry this stage to continue.");
@@ -483,6 +509,7 @@ export function CourseGenerationDialog({
           "generate",
           jobId,
           buildGenerationFormData("generate"),
+          signal,
         );
         setSourceJobProgress(configured);
         const completedJob = configured.status === "completed"
@@ -492,29 +519,44 @@ export function CourseGenerationDialog({
               jobId,
               ["completed"],
               (progress) => setSourceJobProgress(progress),
+              signal,
             );
         if (!completedJob.course) throw new Error("Generation completed without a saved course draft.");
         setResult(completedJob.course);
-        window.localStorage.removeItem(`course-generation:${courseId}`);
-        setGenerationJobId(null);
+        clearGenerationJob(jobId);
       } else {
         const formData = buildGenerationFormData("generate", file ?? undefined);
         const response = await fetch(`/api/courses/${courseId}/generate`, {
           method: "POST",
           body: formData,
+          signal,
         });
         if (!response.ok) throw new Error(await responseError(response));
-        setResult((await response.json()) as GeneratedCourseDraft);
+        const generated = await response.json() as GeneratedCourseDraft;
+        signal.throwIfAborted();
+        setResult(generated);
       }
       completed = true;
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : "Course generation failed. Please try again.");
+      if (signal.aborted) return;
+      if (isMissingGenerationJob(requestError)) {
+        const missingId = activeJobIdRef.current;
+        if (missingId) clearGenerationJob(missingId);
+        setError(file
+          ? "The saved generation job expired or was removed. Click Generate draft to restart with the selected file."
+          : "The saved generation job expired or was removed. Upload the source again, or use your prompt to start a new run.");
+      } else {
+        setError(requestError instanceof Error ? requestError.message : "Course generation failed. Please try again.");
+      }
     } finally {
-      const elapsedSeconds = Math.floor((Date.now() - startedAt) / 1_000);
-      setGenerationElapsedSeconds(elapsedSeconds);
-      setGenerationStartedAt(null);
-      if (completed) setGenerationInfo({ model, elapsedSeconds });
-      setGenerating(false);
+      if (generationControllerRef.current === controller) {
+        generationControllerRef.current = null;
+        const elapsedSeconds = Math.floor((Date.now() - startedAt) / 1_000);
+        setGenerationElapsedSeconds(elapsedSeconds);
+        setGenerationStartedAt(null);
+        if (completed) setGenerationInfo({ model, elapsedSeconds });
+        setGenerating(false);
+      }
     }
   }
 
@@ -537,6 +579,11 @@ export function CourseGenerationDialog({
   }
 
   const canApply = Boolean(result);
+  const generationStages = sourceJobProgress
+    ? getCourseGenerationProgressStages(sourceJobProgress)
+    : generationKind === "prompt"
+      ? getPromptCourseGenerationProgressStages()
+      : getCourseGenerationProgressStages({ status: "indexing", sourcePageCount: null, completedWorkUnits: 0, totalWorkUnits: 0 });
   function closeDialog() {
     setResult(null);
     setError(null);
@@ -547,16 +594,16 @@ export function CourseGenerationDialog({
     <div
       className="dialog-backdrop-in fixed inset-0 z-[80] grid place-items-center bg-slate-950/40 p-3 sm:p-6"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !generating) closeDialog();
+        if (event.target === event.currentTarget && !generating && !cancelling) closeDialog();
       }}
     >
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby="course-generation-title"
-        className="dialog-panel-in flex max-h-[min(900px,calc(100dvh-24px))] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl sm:max-h-[min(900px,calc(100dvh-48px))]"
+        className="dialog-panel-in flex max-h-[min(900px,calc(100dvh-24px))] w-full max-w-4xl flex-col overflow-clip rounded-2xl border border-slate-200 bg-white shadow-2xl sm:max-h-[min(900px,calc(100dvh-48px))]"
       >
-        <header className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-100 px-5 py-4 sm:px-6">
+        <header className="flex shrink-0 flex-col items-start justify-between gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:gap-4 sm:px-6">
           <div>
             <h2 id="course-generation-title" className="flex items-center gap-2 text-lg font-semibold text-slate-900">
               <Sparkles size={18} className="text-indigo-600" /> Generate course with AI
@@ -565,24 +612,78 @@ export function CourseGenerationDialog({
               Turn a prompt, course outline, PDF, or PowerPoint into editable lessons and blocks.
             </p>
           </div>
-          <Button type="button" variant="ghost" size="icon" aria-label="Close course generation" disabled={generating} onClick={closeDialog}>
-            <X size={18} />
-          </Button>
+          <div className="flex shrink-0 items-center gap-2 self-end sm:self-auto">
+            {(generating || generationJobId || cancelling) && <Button type="button" variant="outline" size="sm" disabled={cancelling} onClick={() => void cancelGeneration()}>{cancelling ? "Cancelling…" : generationKind === "source" || generationJobId ? "Cancel job" : "Cancel generation"}</Button>}
+            <Button type="button" variant="ghost" size="icon" aria-label="Close course generation" disabled={generating || cancelling} onClick={closeDialog}>
+              <X size={18} />
+            </Button>
+          </div>
         </header>
 
-        <div className="grid min-h-0 flex-1 overflow-y-auto lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.85fr)] lg:overflow-hidden">
+        <div className="grid min-h-0 flex-1 overflow-y-auto lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.85fr)] lg:overflow-clip">
           <form onSubmit={generate} className="space-y-4 border-b border-slate-100 p-5 sm:p-6 lg:overflow-y-auto lg:border-b-0 lg:border-r">
+            <GenerationPromptInput value={prompt} onChange={setPrompt} inputRef={promptRef} disabled={generating || cancelling} />
+
             <label className="block text-sm font-medium text-slate-700">
-              What should this course teach?
-              <Textarea
-                ref={promptRef}
-                value={prompt}
-                onChange={(event) => setPrompt(event.target.value)}
-                maxLength={5_000}
-                placeholder="Describe the subject, key skills, or paste a lesson outline. You can leave this blank when uploading a source file."
-                className="mt-1.5 min-h-32 resize-y"
-              />
+              Source slides (optional)
+              <span className="mt-1.5 flex items-center gap-2 rounded-lg border border-dashed border-slate-300 px-3 py-3 text-sm font-normal text-slate-600 hover:border-indigo-300">
+                <Upload size={16} className="shrink-0 text-indigo-600" />
+                <span className="min-w-0 flex-1 truncate">{file?.name ?? "Choose PDF or PowerPoint"}</span>
+                <Input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.ppt,.pptx,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+                  aria-label="Upload PDF or PowerPoint source"
+                  className="sr-only"
+                  disabled={generating || cancelling}
+                  onChange={(event) => {
+                    const selected = event.target.files?.[0] ?? null;
+                    if (generationJobId) {
+                      void postSourceGenerationAction(courseId, "cancelGeneration", generationJobId).catch(() => undefined);
+                      window.localStorage.removeItem(`course-generation:${courseId}`);
+                    }
+                    setGenerationJobId(null);
+                    activeJobIdRef.current = null;
+                    setSourceJobProgress(null);
+                    setFile(selected);
+                    setResult(null);
+                    setGenerationInfo(null);
+                    setError(null);
+                    if (!selected) return;
+                    if (selected.size > maximumSourceBytes) {
+                      setError("Source files must be 12 MB or smaller.");
+                      return;
+                    }
+                  }}
+                />
+              </span>
+              <span className="mt-1 block text-xs font-normal leading-5 text-slate-500">
+                PDF or PPTX up to 12 MB. The file is processed when you generate the course. Convert legacy PPT files to PDF or PPTX first.
+              </span>
             </label>
+            {file && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={generating || cancelling}
+                onClick={() => {
+                  setFile(null);
+                  if (generationJobId) {
+                    void postSourceGenerationAction(courseId, "cancelGeneration", generationJobId).catch(() => undefined);
+                    window.localStorage.removeItem(`course-generation:${courseId}`);
+                  }
+                  setGenerationJobId(null);
+                  activeJobIdRef.current = null;
+                  setSourceJobProgress(null);
+                  setResult(null);
+                  if (fileInputRef.current) fileInputRef.current.value = "";
+                }}
+                className="-mt-3 px-1 text-xs text-slate-500"
+              >
+                Remove source file
+              </Button>
+            )}
 
             <fieldset>
               <legend className="text-sm font-medium text-slate-700">Course structure</legend>
@@ -645,7 +746,7 @@ export function CourseGenerationDialog({
               <Select
                 value={selectedModel}
                 onChange={(event) => setSelectedModel(event.target.value as CourseGenerationModel)}
-                disabled={generating}
+                disabled={generating || cancelling}
                 className="mt-1.5"
               >
                 {courseGenerationModelOptions.map((modelOption) => (
@@ -658,63 +759,6 @@ export function CourseGenerationDialog({
                 Choose the model for course writing. Generated images use the configured image model.
               </span>
             </label>
-
-            <label className="block text-sm font-medium text-slate-700">
-              Source slides (optional)
-              <span className="mt-1.5 flex items-center gap-2 rounded-lg border border-dashed border-slate-300 px-3 py-3 text-sm font-normal text-slate-600 hover:border-indigo-300">
-                <Upload size={16} className="shrink-0 text-indigo-600" />
-                <span className="min-w-0 flex-1 truncate">{file?.name ?? "Choose PDF or PowerPoint"}</span>
-                <Input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".pdf,.ppt,.pptx,application/pdf,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation"
-                  aria-label="Upload PDF or PowerPoint source"
-                  className="sr-only"
-                  onChange={(event) => {
-                    const selected = event.target.files?.[0] ?? null;
-                    if (generationJobId) {
-                      void postSourceGenerationAction(courseId, "cancelGeneration", generationJobId).catch(() => undefined);
-                      window.localStorage.removeItem(`course-generation:${courseId}`);
-                    }
-                    setGenerationJobId(null);
-                    setSourceJobProgress(null);
-                    setFile(selected);
-                    setResult(null);
-                    setGenerationInfo(null);
-                    setError(null);
-                    if (!selected) return;
-                    if (selected.size > maximumSourceBytes) {
-                      setError("Source files must be 12 MB or smaller.");
-                      return;
-                    }
-                  }}
-                />
-              </span>
-              <span className="mt-1 block text-xs font-normal leading-5 text-slate-500">
-                PDF or PPTX up to 12 MB. The file is processed when you generate the course. Convert legacy PPT files to PDF or PPTX first.
-              </span>
-            </label>
-            {file && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setFile(null);
-                  if (generationJobId) {
-                    void postSourceGenerationAction(courseId, "cancelGeneration", generationJobId).catch(() => undefined);
-                    window.localStorage.removeItem(`course-generation:${courseId}`);
-                  }
-                  setGenerationJobId(null);
-                  setSourceJobProgress(null);
-                  setResult(null);
-                  if (fileInputRef.current) fileInputRef.current.value = "";
-                }}
-                className="-mt-3 px-1 text-xs text-slate-500"
-              >
-                Remove source file
-              </Button>
-            )}
 
             <label className="block text-sm font-medium text-slate-700">
               Learner audience (optional)
@@ -835,11 +879,13 @@ export function CourseGenerationDialog({
             </label>
 
             {error && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">{error}</p>}
+            {generationNotice && <p role="status" className="rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2 text-sm text-indigo-800">{generationNotice}</p>}
+            {generationJobId && !generating && !cancelling && <p className="text-xs leading-5 text-slate-500">A saved generation is available. Generate draft resumes it; Cancel job starts fresh.</p>}
 
-            <Button type="submit" disabled={generating || loadingSavedDraft} className="w-full justify-center">
+            <Button type="submit" disabled={generating || loadingSavedDraft || cancelling} className="w-full justify-center">
               {generating ? <><LoaderCircle size={16} className="animate-spin" /> Building course draft…</> : <><Sparkles size={16} /> Generate draft</>}
             </Button>
-            <Button type="button" variant="outline" disabled={generating || loadingSavedDraft} onClick={() => void loadLastCompletedDraft()} className="w-full justify-center">
+            <Button type="button" variant="outline" disabled={generating || loadingSavedDraft || cancelling} onClick={() => void loadLastCompletedDraft()} className="w-full justify-center">
               {loadingSavedDraft ? <LoaderCircle size={16} className="animate-spin" /> : <FileText size={16} />}
               {loadingSavedDraft ? "Loading saved draft…" : "Load last completed draft"}
             </Button>
@@ -856,7 +902,7 @@ export function CourseGenerationDialog({
             onMouseLeave={scheduleStructurePreviewClose}
           >
             {generating ? (
-              <div className="grid h-full min-h-72 content-center justify-items-center overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-50 via-white to-violet-50 px-5 py-8 text-center">
+              <div className="grid min-h-full content-center justify-items-center overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-50 via-white to-violet-50 px-5 py-8 text-center">
                 <div className="relative mb-5 grid size-28 place-items-center" aria-hidden="true">
                   <span className="absolute inset-1 rounded-full border border-indigo-200/70" />
                   <span className="absolute inset-1 rounded-full border-2 border-transparent border-t-indigo-500 motion-safe:animate-spin" />
@@ -869,7 +915,7 @@ export function CourseGenerationDialog({
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-indigo-600">AI course generation</p>
                 <h3 className="mt-2 text-lg font-semibold text-slate-900">Building your course draft</h3>
                 <p className="mt-1 max-w-xs text-sm leading-6 text-slate-500">
-                  Reading your material and shaping it into lessons and interactive blocks.
+                  {generationKind === "prompt" ? "Turning your prompt into lessons and interactive blocks." : "Reading your material and shaping it into lessons and interactive blocks."}
                 </p>
                 <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
                   <span className="rounded-full border border-indigo-100 bg-white/90 px-3 py-1.5 text-xs font-medium tabular-nums text-slate-700">
@@ -879,9 +925,8 @@ export function CourseGenerationDialog({
                     {courseGenerationModelOptions.find((option) => option.value === selectedModel)?.label ?? selectedModel}
                   </span>
                 </div>
-                {sourceJobProgress && (
                   <ol aria-label="Course generation progress" className="mt-5 w-full max-w-sm space-y-3 text-left">
-                    {getCourseGenerationProgressStages(sourceJobProgress).map((stage) => {
+                    {generationStages.map((stage) => {
                       const progressValue = stage.total === null
                         ? null
                         : stage.total === 0
@@ -914,7 +959,7 @@ export function CourseGenerationDialog({
                           {stage.status !== "upcoming" && (
                             <div className="ml-9 mt-2.5">
                               <div className="mb-1.5 flex items-center justify-between text-[10px] font-medium text-slate-500">
-                                <span>{stage.total === null ? "Planning course steps" : `${stage.completed} of ${stage.total} steps`}</span>
+                                <span>{stage.total === null ? generationKind === "prompt" ? "Writing course content" : "Planning course steps" : `${stage.completed} of ${stage.total} steps`}</span>
                                 {stage.total !== null && <span>{Math.round(progressValue ?? 0)}%</span>}
                               </div>
                               <Progress value={progressValue} aria-label={`${stage.title} progress`} />
@@ -924,7 +969,6 @@ export function CourseGenerationDialog({
                       );
                     })}
                   </ol>
-                )}
                 <p role="status" className="mt-4 text-xs leading-5 text-slate-400">
                   This can take a few minutes when image generation is enabled. Keep this window open.
                 </p>
@@ -1038,7 +1082,7 @@ export function CourseGenerationDialog({
                     setResult(null);
                     setError(null);
                   }}
-                  disabled={!canApply || generating || loadingSavedDraft}
+                  disabled={!canApply || generating || loadingSavedDraft || cancelling}
                   className="mt-4 w-full justify-center"
                 >
                   {applyMode === "replace" && existingLessonCount > 0 ? "Replace and save course" : existingLessonCount > 0 ? "Add lessons and save" : "Use generated course and save"}

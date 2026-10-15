@@ -1,4 +1,5 @@
 import {
+  CopyObjectCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   HeadObjectCommand,
@@ -67,6 +68,24 @@ export async function inspectMediaObject(objectKey: string) {
 export async function deleteMediaObject(objectKey: string) {
   const { client, bucket } = getStorage();
   await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: objectKey }));
+}
+
+export async function copyMediaObject({ sourceKey, objectKey, assetId, contentType }: {
+  sourceKey: string;
+  objectKey: string;
+  assetId: string;
+  contentType: string;
+}) {
+  const { client, bucket } = getStorage();
+  await client.send(new CopyObjectCommand({
+    Bucket: bucket,
+    Key: objectKey,
+    CopySource: `${bucket}/${sourceKey.split("/").map(encodeURIComponent).join("/")}`,
+    MetadataDirective: "REPLACE",
+    Metadata: { "asset-id": assetId },
+    ContentType: contentType,
+    CacheControl: "private, max-age=300",
+  }));
 }
 
 export async function storeGeneratedImage({

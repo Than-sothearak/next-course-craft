@@ -17,6 +17,7 @@ import {
 import {
   addSourceVisualBlocks,
   advanceSourceGenerationJob,
+  cancelSourceGenerationJob,
   generateCourseDraft,
   generateSourceInventoryPageBatch,
   getLastCompletedSourceGenerationJob,
@@ -323,6 +324,89 @@ afterEach(() => {
 });
 
 describe("AI course generation contracts", () => {
+  it.each([false, true])("cancels only an owned unfinished job and preserves a racing completed draft: %s", async (completedDuringCancel) => {
+    const ownerId = "507f1f77bcf86cd799439011";
+    const courseId = "507f1f77bcf86cd799439012";
+    const jobId = "507f1f77bcf86cd799439013";
+    const job = new GenerationJob({ _id: jobId, ownerId, courseId, status: "planning", sourceFileName: "slides.pdf" });
+    const find = vi.spyOn(GenerationJob, "findOne").mockImplementation((async () => job) as never);
+    const update = vi.spyOn(GenerationJob, "updateOne").mockImplementation((async () => {
+      job.status = completedDuringCancel ? "completed" : "cancelled";
+      return { matchedCount: completedDuringCancel ? 0 : 1 };
+    }) as never);
+    const remove = vi.spyOn(GenerationCheckpoint, "deleteMany").mockResolvedValue({ deletedCount: 1 } as never);
+    const savedCourse = { title: "Completed draft", sections: [], lessons: [] };
+    vi.spyOn(GenerationCheckpoint, "findOne").mockReturnValue({ lean: async () => ({ payload: savedCourse }) } as never);
+
+    const result = await cancelSourceGenerationJob({ ownerId, courseId, jobId });
+
+    expect(find).toHaveBeenCalledWith({ _id: jobId, ownerId, courseId });
+    expect(update).toHaveBeenCalledWith(
+      { _id: job._id, ownerId, courseId, status: { $ne: "completed" } },
+      { $set: { status: "cancelled", sourceBytes: null, errorMessage: null, leaseUntil: null } },
+    );
+    if (completedDuringCancel) {
+      expect(remove).not.toHaveBeenCalled();
+      expect(result).toMatchObject({ status: "completed", course: savedCourse });
+    } else {
+      expect(remove).toHaveBeenCalledWith({ jobId: job._id, ownerId, courseId });
+      expect(result.status).toBe("cancelled");
+    }
+  });
+
+  it("does not change or delete an already completed job when cancelling", async () => {
+    const ownerId = "507f1f77bcf86cd799439011";
+    const courseId = "507f1f77bcf86cd799439012";
+    const jobId = "507f1f77bcf86cd799439013";
+    vi.spyOn(GenerationJob, "findOne").mockResolvedValue(new GenerationJob({ _id: jobId, ownerId, courseId, status: "completed", sourceFileName: "slides.pdf" }));
+    const update = vi.spyOn(GenerationJob, "updateOne");
+    const remove = vi.spyOn(GenerationCheckpoint, "deleteMany");
+    vi.spyOn(GenerationCheckpoint, "findOne").mockReturnValue({ lean: async () => ({ payload: { title: "Saved draft" } }) } as never);
+    expect(await cancelSourceGenerationJob({ ownerId, courseId, jobId })).toMatchObject({ status: "completed", course: { title: "Saved draft" } });
+    expect(update).not.toHaveBeenCalled();
+    expect(remove).not.toHaveBeenCalled();
+  });
+
+  it("rejects cancellation when the owned job does not exist without changing data", async () => {
+    vi.spyOn(GenerationJob, "findOne").mockResolvedValue(null);
+    const update = vi.spyOn(GenerationJob, "updateOne");
+    const remove = vi.spyOn(GenerationCheckpoint, "deleteMany");
+    await expect(cancelSourceGenerationJob({ ownerId: "507f1f77bcf86cd799439011", courseId: "507f1f77bcf86cd799439012", jobId: "507f1f77bcf86cd799439013" })).rejects.toMatchObject({ message: "Generation job was not found.", status: 404 });
+    expect(update).not.toHaveBeenCalled();
+    expect(remove).not.toHaveBeenCalled();
+  });
+
+  it("cleans checkpoints written by an in-flight source stage after cancellation", async () => {
+    const ownerId = "507f1f77bcf86cd799439011";
+    const courseId = "507f1f77bcf86cd799439012";
+    const jobId = "507f1f77bcf86cd799439013";
+    const job = new GenerationJob({
+      _id: jobId, ownerId, courseId, status: "indexing", sourceFileName: "slides.pdf",
+      sourceContentType: "application/pdf", sourceBytes: await blankPdf(1),
+      input: courseGenerationInputSchema.parse(input), expiresAt: new Date(Date.now() + 60_000),
+    });
+    vi.spyOn(GenerationJob, "findOneAndUpdate").mockResolvedValue(job);
+    vi.spyOn(GenerationJob, "findOne").mockResolvedValue(job);
+    vi.spyOn(GenerationJob, "updateOne").mockImplementation((async (filter: { status?: string }, update: { $set: Record<string, unknown> }) => {
+      if (!filter.status || filter.status === job.status) Object.assign(job, update.$set);
+      return {};
+    }) as never);
+    const checkpointWrite = vi.spyOn(GenerationCheckpoint, "updateOne").mockImplementation((async () => {
+      // Cancellation completes while the already-running index stage is writing its output.
+      job.status = "cancelled";
+      return {};
+    }) as never);
+    vi.spyOn(GenerationCheckpoint, "updateMany").mockResolvedValue({} as never);
+    const remove = vi.spyOn(GenerationCheckpoint, "deleteMany").mockResolvedValue({ deletedCount: 1 } as never);
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    expect(await advanceSourceGenerationJob({ ownerId, courseId, jobId })).toMatchObject({ status: "cancelled" });
+    expect(checkpointWrite).toHaveBeenCalled();
+    expect(remove).toHaveBeenCalledWith({ jobId: job._id, ownerId, courseId });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("recovers the latest unexpired completed draft scoped to its owner and course", async () => {
     const ownerId = "507f1f77bcf86cd799439011";
     const courseId = "507f1f77bcf86cd799439012";

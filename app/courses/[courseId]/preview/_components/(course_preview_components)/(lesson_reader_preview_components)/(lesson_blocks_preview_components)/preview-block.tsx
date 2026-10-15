@@ -183,6 +183,9 @@ export function PreviewBlock({
         src={block.data.src}
         alt={block.data.alt}
         markers={block.data.markers}
+        markerColor={block.data.markerColor}
+        textColor={block.data.textColor}
+        radarColor={block.data.radarColor}
         onMarkerInteract={(markerId) =>
           onInteractiveProgress?.(
             getInteractiveItemProgressId(block.id, "marker", markerId),

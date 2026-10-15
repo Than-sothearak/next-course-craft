@@ -4,6 +4,8 @@ import type { CreateCourseInput, UpdateCourseInput } from "../schemas";
 import { DashboardError } from "../rules";
 import { assertFolderOwned, objectId, ownerObjectId } from "./internal";
 
+export { duplicateCourse } from "./course-duplication";
+
 export async function createCourse(ownerId: string, input: CreateCourseInput) {
   const owner = ownerObjectId(ownerId);
   await assertFolderOwned(ownerId, input.folderId);
@@ -107,37 +109,6 @@ export async function updateCourse(
     folderId: course.folderId?.toString() ?? null,
     status: course.status,
     revision: course.revision,
-  };
-}
-
-export async function duplicateCourse(ownerId: string, courseId: string) {
-  const owner = ownerObjectId(ownerId);
-  const source = await Course.findOne({
-    _id: courseId,
-    ownerId,
-    deletedAt: null,
-  }).lean();
-  if (!source) throw new DashboardError("Course not found.", 404);
-  const copy = await Course.create({
-    ownerId: owner,
-    folderId: source.folderId,
-    title: `${source.title} (copy)`.slice(0, 160),
-    description: source.description,
-    descriptionHtml: source.descriptionHtml,
-    authorVisible: source.authorVisible ?? true,
-    coverImage: source.coverImage,
-    language: source.language,
-    theme: structuredClone(source.theme),
-    navigationMode: source.navigationMode ?? "sequential",
-    status: "draft",
-    revision: 0,
-    completionSettings: structuredClone(source.completionSettings),
-  });
-  return {
-    id: copy._id.toString(),
-    title: copy.title,
-    folderId: copy.folderId?.toString() ?? null,
-    status: copy.status,
   };
 }
 
