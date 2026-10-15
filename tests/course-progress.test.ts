@@ -142,7 +142,7 @@ describe("standalone learner progress", () => {
         widthCustom: false,
         backgroundColor: "#ffffff",
         blockPadding: 20,
-        data: { layout: "tabs", items: [{ id: "one", title: "One", body: "First" }, { id: "two", title: "Two", body: "Second" }] },
+        data: { layout: "tabs", displayMode: "oneByOne", items: [{ id: "one", title: "One", body: "First" }, { id: "two", title: "Two", body: "Second" }] },
       },
       {
         id: "graphic",
@@ -208,6 +208,30 @@ describe("standalone learner progress", () => {
     expect(allIds).toContain("video:watched");
     expect(pending).toHaveLength(allIds.length - visibleAtStart.length);
     expect(getPendingInteractiveProgressIds(blocks, new Set(allIds))).toEqual([]);
+  });
+
+  it("marks only the initially open explanation as viewed in show-all mode", () => {
+    const block: ContentBlock = {
+      id: "accordion-all",
+      version: 1,
+      type: "accordion",
+      width: "medium",
+      widthCustom: false,
+      backgroundColor: "#ffffff",
+      blockPadding: 20,
+      data: {
+        layout: "accordion",
+        displayMode: "all",
+        items: [
+          { id: "one", title: "One", body: "First" },
+          { id: "two", title: "Two", body: "Second" },
+        ],
+      },
+    };
+
+    expect(getInitiallyViewedInteractionIds([block])).toEqual([
+      getInteractiveItemProgressId("accordion-all", "section", "one"),
+    ]);
   });
 
   it("keeps the lesson ring below complete at Continue gates and reaches 100 after the final section", () => {

@@ -76,8 +76,11 @@ describe("interactive flip card", () => {
 
     const flipButtons = container.querySelectorAll<HTMLButtonElement>('button[aria-pressed="false"]');
     expect(flipButtons).toHaveLength(2);
-    expect(container.firstElementChild?.className).toContain("grid-cols-1");
-    expect(container.firstElementChild?.className).toContain("sm:grid-cols-2");
+    expect(container.firstElementChild?.className).toContain("@container/flip-cards");
+    const grid = container.firstElementChild?.firstElementChild;
+    expect(grid?.className).toContain("grid-cols-1");
+    expect(grid?.className).toContain("@min-[36rem]/flip-cards:grid-cols-2");
+    expect(grid?.className).not.toContain("sm:grid-cols-2");
     expect(flipButtons[0].className).toContain("min-w-0");
     expect(container.querySelector('img[alt="A simple diagram"]')).not.toBeNull();
     expect(flipButtons[0].getAttribute("aria-label")).toBe("Flip card 1 to reveal the back");
@@ -88,6 +91,44 @@ describe("interactive flip card", () => {
 
     act(() => container.querySelector<HTMLButtonElement>('button[aria-pressed="true"]')!.click());
     expect(container.querySelectorAll('button[aria-pressed="false"]')).toHaveLength(2);
+  });
+
+  it("uses the card container for three-column layouts and lets long content grow on both faces", () => {
+    const longLabel = "LongLabel".repeat(30);
+    const longText = "A complete explanation.\n".repeat(40);
+    const cards = Array.from({ length: 3 }, (_, index) => ({
+      id: `card-${index}`,
+      frontLabel: longLabel,
+      front: { type: "text" as const, text: "A question" },
+      backLabel: "Answer",
+      back: { type: "text" as const, text: longText },
+    }));
+    act(() => root.render(createElement(InteractiveFlipCard, { blockId: "long-cards", cards })));
+    const grid = container.firstElementChild?.firstElementChild;
+    expect(grid?.className).toContain("@min-[56rem]/flip-cards:grid-cols-3");
+    expect(grid?.className).not.toContain("xl:grid-cols-3");
+    const faces = container.querySelectorAll('span[aria-hidden]');
+    expect(faces).toHaveLength(6);
+    for (const face of faces) {
+      expect(face.className).toContain("min-w-0");
+      expect(face.className).toContain("@min-[36rem]/flip-cards:p-6");
+      expect(face.className).not.toContain("overflow-hidden");
+    }
+    expect(faces[0].firstElementChild?.className).toContain("[overflow-wrap:anywhere]");
+    act(() => container.querySelector<HTMLButtonElement>("button")!.click());
+    expect(faces[1].getAttribute("aria-hidden")).toBe("false");
+    expect(faces[1].textContent).toContain(longText);
+  });
+
+  it("also gives single image cards a responsive container", () => {
+    act(() => root.render(createElement(InteractiveFlipCard, {
+      blockId: "image-card",
+      cards: [{ id: "image", frontLabel: "Image", front: { type: "image", src: "/wide.png", alt: "Wide diagram" }, backLabel: "Explanation", back: { type: "text", text: "An explanation" } }],
+    })));
+    expect(container.firstElementChild?.className).toContain("@container/flip-cards");
+    expect(container.querySelectorAll("button")).toHaveLength(1);
+    expect(container.querySelector("img")?.className).toContain("max-w-full");
+    expect(container.querySelector("img")?.className).toContain("h-auto");
   });
 });
 
@@ -101,6 +142,7 @@ describe("interactive reveal blocks", () => {
     act(() => root.render(createElement(InteractiveAccordion, {
       blockId: "accordion-1",
       layout: "accordion",
+      displayMode: "oneByOne",
       items,
       onItemInteract,
     })));
@@ -116,6 +158,7 @@ describe("interactive reveal blocks", () => {
       key: "tabs-version",
       blockId: "tabs-1",
       layout: "tabs",
+      displayMode: "oneByOne",
       items,
       onItemInteract,
     })));
@@ -124,6 +167,28 @@ describe("interactive reveal blocks", () => {
     expect(onItemInteract).toHaveBeenCalledWith("two");
     expect(container.querySelector('[role="tab"][aria-selected="true"]')?.textContent).toBe("Second section");
     expect(container.querySelector('[role="tabpanel"]')?.textContent).toBe("Second explanation");
+  });
+
+  it("keeps previously opened accordion explanations visible in show-all mode", () => {
+    act(() => root.render(createElement(InteractiveAccordion, {
+      blockId: "accordion-all",
+      layout: "accordion",
+      displayMode: "all",
+      items: [
+        { id: "one", title: "First section", body: "First explanation" },
+        { id: "two", title: "Second section", body: "Second explanation" },
+      ],
+    })));
+
+    expect(container.textContent).toContain("First explanation");
+    expect(container.textContent).not.toContain("Second explanation");
+
+    const secondSection = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes("Second section"));
+    act(() => secondSection?.click());
+
+    expect(container.textContent).toContain("First explanation");
+    expect(container.textContent).toContain("Second explanation");
+    expect(container.querySelectorAll('button[aria-expanded="true"]')).toHaveLength(2);
   });
 
   it("reveals image explanations from labeled markers", () => {

@@ -18,7 +18,7 @@ export const courseNavigationModeOptions: {
   {
     value: "free",
     title: "Free navigation",
-    description: "Students can open any lesson from the sidebar.",
+    description: "Students can open any lesson. Reading completes content lessons; required Continue activities still apply.",
   },
   {
     value: "sequential",

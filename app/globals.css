@@ -95,21 +95,60 @@ body { margin: 0; min-height: 100vh; background: #f8fafc; color: #0f172a; font-f
 .lesson-rich-text li { margin-block: 0.35rem; }
 .lesson-rich-text li::marker { color: var(--course-primary, #2f5f9f); font-size: inherit; }
 .lesson-rich-text li > p { margin-block: 0; }
+[data-preview-screen] .lesson-rich-text { min-width: 0; overflow-wrap: anywhere; }
+[data-preview-screen] .lesson-rich-text .tiptap table { display: block; max-width: 100%; overflow-x: auto; }
+.lesson-rich-text .tiptap h2 { margin-block: 0 0.75rem; font-size: 24px; font-weight: 700; line-height: 1.3; }
 .lesson-rich-text .tiptap pre {
+  --code-background: #0b1220;
+  --code-border: #334155;
+  --code-text: #e2e8f0;
+  --code-muted: #94a3b8;
+  --code-comment: #94a3b8;
+  --code-keyword: #c4b5fd;
+  --code-string: #fde68a;
+  --code-number: #fdba74;
+  --code-tag: #7dd3fc;
+  --code-property: #f9a8d4;
+  --code-function: #6ee7b7;
   position: relative;
   overflow-x: auto;
   margin: 1rem 0;
-  border: 1px solid #334155;
+  border: 1px solid var(--code-border);
   border-radius: 0.875rem;
-  background: #0b1220;
+  background: var(--code-background);
   padding: 3rem 1rem 1rem;
-  color: #e2e8f0;
+  color: var(--code-text);
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 5%), 0 12px 28px rgb(15 23 42 / 12%);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   font-size: 0.875rem;
   line-height: 1.7;
   tab-size: 2;
   white-space: pre;
+}
+.lesson-rich-text .tiptap pre[data-code-theme="paper"] {
+  --code-background: #f8fafc; --code-border: #cbd5e1; --code-text: #1e293b; --code-muted: #475569;
+  --code-comment: #64748b; --code-keyword: #7c3aed; --code-string: #047857; --code-number: #c2410c;
+  --code-tag: #0369a1; --code-property: #be185d; --code-function: #1d4ed8;
+}
+.lesson-rich-text .tiptap pre[data-code-theme="ocean"] {
+  --code-background: #082f49; --code-border: #0e7490; --code-text: #e0f2fe; --code-muted: #a5d8ef;
+  --code-comment: #94b8cb; --code-keyword: #f0abfc; --code-string: #a7f3d0; --code-number: #fde68a;
+  --code-tag: #67e8f9; --code-property: #fdba74; --code-function: #93c5fd;
+}
+.lesson-rich-text .tiptap pre[data-code-theme="forest"] {
+  --code-background: #052e24; --code-border: #047857; --code-text: #ecfdf5; --code-muted: #a7d7c5;
+  --code-comment: #8ab9a6; --code-keyword: #c4b5fd; --code-string: #bef264; --code-number: #fdba74;
+  --code-tag: #67e8f9; --code-property: #f9a8d4; --code-function: #fde68a;
+}
+.lesson-rich-text .tiptap pre[data-code-theme="plum"] {
+  --code-background: #2e1065; --code-border: #7c3aed; --code-text: #f5f3ff; --code-muted: #d8b4fe;
+  --code-comment: #bca7dc; --code-keyword: #f9a8d4; --code-string: #a7f3d0; --code-number: #fde68a;
+  --code-tag: #7dd3fc; --code-property: #fdba74; --code-function: #c4b5fd;
+}
+.lesson-rich-text .tiptap pre[data-code-theme="amber"] {
+  --code-background: #fffbeb; --code-border: #fcd34d; --code-text: #422006; --code-muted: #92400e;
+  --code-comment: #78716c; --code-keyword: #7c3aed; --code-string: #047857; --code-number: #b91c1c;
+  --code-tag: #0369a1; --code-property: #be185d; --code-function: #1d4ed8;
 }
 .lesson-rich-text .tiptap pre::before {
   position: absolute;
@@ -121,6 +160,7 @@ body { margin: 0; min-height: 100vh; background: #f8fafc; color: #0f172a; font-f
     radial-gradient(circle, #fbbf24 0 3px, transparent 3.5px),
     radial-gradient(circle, #34d399 0 3px, transparent 3.5px);
   background-repeat: no-repeat;
+  background-size: 7px 7px;
   background-position: 1rem 0.85rem, 2rem 0.85rem, 3rem 0.85rem;
   content: "";
   pointer-events: none;
@@ -129,7 +169,7 @@ body { margin: 0; min-height: 100vh; background: #f8fafc; color: #0f172a; font-f
   position: absolute;
   top: 0.7rem;
   right: 1rem;
-  color: #94a3b8;
+  color: var(--code-muted);
   content: "CODE";
   font-family: Arial, Helvetica, sans-serif;
   font-size: 0.625rem;
@@ -142,10 +182,23 @@ body { margin: 0; min-height: 100vh; background: #f8fafc; color: #0f172a; font-f
   min-width: max-content;
   background: transparent;
   padding: 0;
-  color: #e2e8f0;
+  color: var(--code-text);
   font: inherit;
   white-space: pre;
 }
+.lesson-rich-text .tiptap pre[data-code-language]::after { content: attr(data-code-language); text-transform: uppercase; }
+.lesson-rich-text .tiptap pre[data-code-language="auto"]::after { content: "CODE"; }
+.lesson-rich-text .tiptap pre .cc-code-token-comment { color: var(--code-comment); font-style: italic; }
+.lesson-rich-text .tiptap pre .cc-code-token-keyword { color: var(--code-keyword); }
+.lesson-rich-text .tiptap pre .cc-code-token-string { color: var(--code-string); }
+.lesson-rich-text .tiptap pre .cc-code-token-number { color: var(--code-number); }
+.lesson-rich-text .tiptap pre .cc-code-token-tag { color: var(--code-tag); }
+.lesson-rich-text .tiptap pre .cc-code-token-property { color: var(--code-property); }
+.lesson-rich-text .tiptap pre .cc-code-token-function { color: var(--code-function); }
+.code-template-thumbnail .tiptap pre { margin-block: 0.5rem; padding: 2.5rem 0.75rem 0.75rem; font-size: 9px; line-height: 1.6; box-shadow: none; }
+.code-template-thumbnail .tiptap pre::before { background-position: 0.75rem 0.85rem, 1.75rem 0.85rem, 2.75rem 0.85rem; }
+.code-template-thumbnail .tiptap h2 { margin-block: 0.5rem; font-size: 13px; }
+.code-template-thumbnail .tiptap p { margin-block: 0.5rem; font-size: 10px; line-height: 1.6; }
 @media (max-width: 640px) {
   .lesson-rich-text .tiptap pre { padding-inline: 0.875rem; font-size: 0.75rem; }
   .lesson-rich-text .tiptap pre::before { background-position: 0.875rem 0.85rem, 1.875rem 0.85rem, 2.875rem 0.85rem; }

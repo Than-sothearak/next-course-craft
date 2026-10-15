@@ -1,24 +1,18 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import {
-  ChevronRight,
-  LayoutGrid,
-  List,
-  Search,
-  X,
-} from "lucide-react";
+import { ChevronRight, LayoutGrid, List, Search, X } from "lucide-react";
 import type { DashboardData, FolderTreeNode } from "@/lib/dashboard/types";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { DashboardDialogs } from "./_components/dashboard-dialogs";
-import { CourseCard } from "./_components/course-card";
-import { DashboardActions } from "./_components/dashboard-actions";
+import { DashboardDialogs } from "./_components/(dashboard_client_components)/dashboard-dialogs";
+import { CourseCard } from "./_components/(dashboard_client_components)/course-card";
+import { DashboardActions } from "./_components/(dashboard_client_components)/dashboard-actions";
 import { DashboardNavbar } from "./_components/dashboard-navbar";
-import { DashboardSidebar } from "./_components/dashboard-sidebar";
-import { EmptyState } from "./_components/empty-state";
-import { FolderCard } from "./_components/folder-card";
+import { DashboardSidebar } from "./_components/(dashboard_client_components)/dashboard-sidebar";
+import { EmptyState } from "./_components/(dashboard_client_components)/empty-state";
+import { FolderCard } from "./_components/(dashboard_client_components)/folder-card";
 import { useDismissDetailsOnOutsideClick } from "@/lib/ui/use-dismiss-details";
 
 type Props = {
@@ -170,7 +164,23 @@ export default function DashboardClient({
       <DashboardNavbar userName={userName} />
 
       <div className="grid flex-1 lg:grid-cols-[260px_minmax(0,1fr)]">
-        <DashboardSidebar data={data} currentFolderId={currentFolderId} expandedFolders={expandedFolders} disabled={disabled} onToggleFolder={(id) => setExpandedFolders((previous) => { const next = new Set(previous); if (next.has(id)) next.delete(id); else next.add(id); return next; })} onOpenFolder={navigateToFolder} onNewFolder={() => setShowNewFolder(true)} onNewCourse={() => setShowNewCourse(true)} />
+        <DashboardSidebar
+          data={data}
+          currentFolderId={currentFolderId}
+          expandedFolders={expandedFolders}
+          disabled={disabled}
+          onToggleFolder={(id) =>
+            setExpandedFolders((previous) => {
+              const next = new Set(previous);
+              if (next.has(id)) next.delete(id);
+              else next.add(id);
+              return next;
+            })
+          }
+          onOpenFolder={navigateToFolder}
+          onNewFolder={() => setShowNewFolder(true)}
+          onNewCourse={() => setShowNewCourse(true)}
+        />
 
         <section className="min-w-0 px-5 py-7 sm:px-8 lg:px- xl:p-4">
           <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
@@ -182,7 +192,11 @@ export default function DashboardClient({
                 Organize your workspace and pick up where you left off.
               </p>
             </div>
-            <DashboardActions disabled={disabled} onNewFolder={() => setShowNewFolder(true)} onNewCourse={() => setShowNewCourse(true)} />
+            <DashboardActions
+              disabled={disabled}
+              onNewFolder={() => setShowNewFolder(true)}
+              onNewCourse={() => setShowNewCourse(true)}
+            />
           </div>
 
           {error && (
@@ -358,7 +372,7 @@ export default function DashboardClient({
               <div
                 className={
                   folderView === "grid"
-                  ? "grid gap-3 sm:grid-cols-2 xl:grid-cols-5 2xl:grid-cols-6"
+                    ? "grid gap-3 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
                     : "grid gap-2"
                 }
               >
@@ -416,5 +430,3 @@ export default function DashboardClient({
     </main>
   );
 }
-
-

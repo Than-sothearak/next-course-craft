@@ -3,7 +3,7 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import { BlockManagerSidebar } from "../app/courses/[courseId]/edit/_components/block-manager-sidebar";
+import { BlockManagerSidebar } from "../app/courses/[courseId]/edit/_components/(editor_client_components)/block-manager-sidebar";
 import type { ContentBlock } from "../lib/schemas/block";
 
 const blocks: ContentBlock[] = [

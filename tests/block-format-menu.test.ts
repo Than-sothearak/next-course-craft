@@ -3,7 +3,7 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { BlockFormatMenu } from "../app/courses/[courseId]/edit/_components/block-format-menu";
+import { BlockFormatMenu } from "../app/courses/[courseId]/edit/_components/(editor_client_components)/block-format-menu";
 import type { ContentBlock } from "../lib/schemas/block";
 
 describe("block format menu", () => {

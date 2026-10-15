@@ -222,6 +222,7 @@ export const accordionBlockSchema = z.object({
   type: z.literal("accordion"),
   data: z.object({
     layout: z.enum(["accordion", "tabs"]).default("accordion"),
+    displayMode: z.enum(["all", "oneByOne"]).default("all"),
     items: z
       .array(
         z.object({
@@ -258,10 +259,15 @@ export const labeledGraphicBlockSchema = z.object({
       .max(20),
   }),
 });
+export const processStepsStyleSchema = z.enum(["cards", "numbered", "timeline", "spotlight", "minimal"]);
+export type ProcessStepsStyle = z.infer<typeof processStepsStyleSchema>;
 export const processStepsBlockSchema = z.object({
   ...blockBase("medium", 20),
   type: z.literal("processSteps"),
   data: z.object({
+    style: processStepsStyleSchema.optional(),
+    accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+    showNumbers: z.boolean().optional(),
     steps: z
       .array(
         z.object({
@@ -335,6 +341,9 @@ export const blockSchema = z.preprocess((value) => {
   if (candidate.type !== "divider" || !candidate.data || typeof candidate.data !== "object")
     return value;
   const data = candidate.data as Record<string, unknown>;
+  if (data.style === "continue") {
+    return { ...candidate, blockPadding: candidate.blockPadding ?? 100 };
+  }
   if (data.style !== "line") return value;
   return {
     ...candidate,
@@ -379,6 +388,7 @@ export function defaultBlockPadding(_type: ContentBlock["type"]): number {
 
 export function defaultBlockPaddingForBlock(block: ContentBlock): number {
   if (block.type === "divider" && block.data.style === "line") return 60;
+  if (block.type === "divider" && block.data.style === "continue") return 100;
   return defaultBlockPadding(block.type);
 }
 

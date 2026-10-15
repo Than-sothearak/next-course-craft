@@ -11,7 +11,6 @@ import type { ContentBlock } from "@/lib/schemas/block";
 type FlipCard = Extract<ContentBlock, { type: "flipCard" }>['data']['cards'][number];
 type AccordionItem = Extract<ContentBlock, { type: "accordion" }>['data']['items'][number];
 type GraphicMarker = Extract<ContentBlock, { type: "labeledGraphic" }>['data']['markers'][number];
-type ProcessStep = Extract<ContentBlock, { type: "processSteps" }>['data']['steps'][number];
 
 export function InteractiveFlipCard({
   blockId,
@@ -25,20 +24,22 @@ export function InteractiveFlipCard({
   onCardReveal?: (progressId: string) => void;
 }) {
   const gridColumns = cards.length === 3
-    ? "sm:grid-cols-2 xl:grid-cols-3"
-    : "sm:grid-cols-2";
+    ? "@min-[36rem]/flip-cards:grid-cols-2 @min-[56rem]/flip-cards:grid-cols-3"
+    : "@min-[36rem]/flip-cards:grid-cols-2";
 
   return (
-    <div className={cards.length > 1 ? `grid min-w-0 grid-cols-1 gap-3 sm:gap-4 ${gridColumns}` : "mx-auto w-full"}>
-      {cards.map((card, index) => (
-        <InteractiveFlipCardItem
-          key={card.id}
-          card={card}
-          cardNumber={index + 1}
-          initiallyRevealed={interactedCardIds.has(getFlipCardProgressId(blockId, card.id))}
-          onReveal={() => onCardReveal?.(getFlipCardProgressId(blockId, card.id))}
-        />
-      ))}
+    <div className="@container/flip-cards mx-auto w-full min-w-0">
+      <div className={cards.length > 1 ? `grid min-w-0 grid-cols-1 gap-3 @min-[36rem]/flip-cards:gap-4 ${gridColumns}` : "w-full min-w-0"}>
+        {cards.map((card, index) => (
+          <InteractiveFlipCardItem
+            key={card.id}
+            card={card}
+            cardNumber={index + 1}
+            initiallyRevealed={interactedCardIds.has(getFlipCardProgressId(blockId, card.id))}
+            onReveal={() => onCardReveal?.(getFlipCardProgressId(blockId, card.id))}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -48,15 +49,15 @@ function FlipCardFace({ card, side }: { card: FlipCard; side: "front" | "back" }
   const face = side === "front" ? card.front : card.back;
   return (
     <>
-      <span className="mb-3 max-w-full break-words text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{label || (side === "front" ? "Question" : "Answer")}</span>
+      <span className="mb-3 min-w-0 max-w-full whitespace-pre-wrap [overflow-wrap:anywhere] text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{label || (side === "front" ? "Question" : "Answer")}</span>
       {face.type === "image" ? (
-        <img src={face.src} alt={face.alt} className="max-h-56 max-w-full rounded-lg object-contain" />
+        <img src={face.src} alt={face.alt} className="h-auto w-auto max-h-56 max-w-full rounded-lg object-contain" />
       ) : (
-        <span className={`min-w-0 max-w-full whitespace-pre-wrap break-words [overflow-wrap:anywhere] ${side === "front" ? "text-lg font-semibold text-slate-900 sm:text-xl" : "text-base text-slate-800 sm:text-lg"}`}>
+        <span className={`min-w-0 max-w-full whitespace-pre-wrap break-words [overflow-wrap:anywhere] ${side === "front" ? "text-lg font-semibold text-slate-900 @min-[36rem]/flip-cards:text-xl" : "text-base text-slate-800 @min-[36rem]/flip-cards:text-lg"}`}>
           {face.text || (side === "front" ? "Add a prompt for your learner." : "Add the answer or explanation here.")}
         </span>
       )}
-      <span className="mt-4 text-xs font-medium sm:mt-5" style={{ color: "var(--course-primary, #2f5f9f)" }}>
+      <span className="mt-4 text-xs font-medium @min-[36rem]/flip-cards:mt-5" style={{ color: "var(--course-primary, #2f5f9f)" }}>
         {side === "front" ? "Click to flip" : "Click to flip back"}
       </span>
     </>
@@ -92,17 +93,17 @@ function InteractiveFlipCardItem({
       className="group w-full min-w-0 rounded-2xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-4"
       style={{ perspective: "1000px" }}
     >
-      <span className="grid min-h-52 w-full transition-transform duration-700 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none" style={{ transform: flipped ? "rotateY(180deg)" : undefined, transformStyle: "preserve-3d" }}>
+      <span className="grid min-h-52 w-full min-w-0 transition-transform duration-700 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none" style={{ transform: flipped ? "rotateY(180deg)" : undefined, transformStyle: "preserve-3d" }}>
         <span
           aria-hidden={flipped}
-          className="col-start-1 row-start-1 flex min-h-48 min-w-0 flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm transition-colors group-hover:border-slate-300 sm:min-h-52 sm:p-6"
+          className="col-start-1 row-start-1 flex min-h-48 min-w-0 flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white p-4 text-center shadow-sm transition-colors group-hover:border-slate-300 @min-[36rem]/flip-cards:min-h-52 @min-[36rem]/flip-cards:p-6"
           style={{ backfaceVisibility: "hidden" }}
         >
           <FlipCardFace card={card} side="front" />
         </span>
         <span
           aria-hidden={!flipped}
-          className="col-start-1 row-start-1 flex min-h-48 min-w-0 flex-col items-center justify-center rounded-2xl border p-4 text-center shadow-sm sm:min-h-52 sm:p-6"
+          className="col-start-1 row-start-1 flex min-h-48 min-w-0 flex-col items-center justify-center rounded-2xl border p-4 text-center shadow-sm @min-[36rem]/flip-cards:min-h-52 @min-[36rem]/flip-cards:p-6"
           style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)", borderColor: "color-mix(in srgb, var(--course-primary, #2f5f9f) 28%, white)", backgroundColor: "color-mix(in srgb, var(--course-primary, #2f5f9f) 7%, white)" }}
         >
           <FlipCardFace card={card} side="back" />
@@ -244,15 +245,20 @@ export function InteractiveSurvey({
 export function InteractiveAccordion({
   blockId,
   layout,
+  displayMode,
   items,
   onItemInteract,
 }: {
   blockId: string;
   layout: "accordion" | "tabs";
+  displayMode: "all" | "oneByOne";
   items: AccordionItem[];
   onItemInteract?: (itemId: string) => void;
 }) {
   const [activeItemId, setActiveItemId] = useState(items[0]?.id ?? "");
+  const [expandedItemIds, setExpandedItemIds] = useState<Set<string>>(
+    () => new Set(items[0] ? [items[0].id] : []),
+  );
   const activeItem = items.find((item) => item.id === activeItemId) ?? items[0];
 
   if (layout === "tabs") {
@@ -294,14 +300,28 @@ export function InteractiveAccordion({
   return (
     <div className="space-y-2">
       {items.map((item) => {
-        const expanded = item.id === activeItemId;
+        const expanded = displayMode === "all"
+          ? expandedItemIds.has(item.id)
+          : item.id === activeItemId;
         return (
           <section key={item.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white">
             <button
               type="button"
               aria-expanded={expanded}
               aria-controls={`${blockId}-panel-${item.id}`}
-              onClick={() => { setActiveItemId(expanded ? "" : item.id); onItemInteract?.(item.id); }}
+              onClick={() => {
+                if (displayMode === "all") {
+                  setExpandedItemIds((current) => {
+                    const next = new Set(current);
+                    if (next.has(item.id)) next.delete(item.id);
+                    else next.add(item.id);
+                    return next;
+                  });
+                } else {
+                  setActiveItemId(expanded ? "" : item.id);
+                }
+                onItemInteract?.(item.id);
+              }}
               className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 sm:px-5"
             >
               <span>{item.title || "Untitled section"}</span>
@@ -486,45 +506,4 @@ export function InteractiveLabeledGraphic({
   );
 }
 
-export function InteractiveProcessSteps({
-  blockId,
-  steps,
-  onStepInteract,
-}: {
-  blockId: string;
-  steps: ProcessStep[];
-  onStepInteract?: (stepId: string) => void;
-}) {
-  const [activeIndex, setActiveIndex] = useState(0);
-  const currentIndex = Math.min(activeIndex, steps.length - 1);
-  const activeStep = steps[currentIndex];
-  if (!activeStep) return null;
-
-  return (
-    <section aria-label="Process steps" className="mx-auto w-full max-w-3xl space-y-5">
-      <div className="flex items-center justify-between gap-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-        <span>Step {currentIndex + 1} of {steps.length}</span>
-        <div role="progressbar" aria-label="Process step progress" aria-valuemin={1} aria-valuemax={steps.length} aria-valuenow={currentIndex + 1} className="h-1.5 min-w-20 flex-1 overflow-hidden rounded-full bg-slate-200 sm:max-w-48">
-          <div className="h-full rounded-full transition-[width] duration-300" style={{ width: `${((currentIndex + 1) / steps.length) * 100}%`, backgroundColor: "var(--course-primary, #2f5f9f)" }} />
-        </div>
-      </div>
-      <article key={`${blockId}-${activeStep.id}`} aria-live="polite" className="min-h-40 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
-        <span className="grid size-9 place-items-center rounded-full text-sm font-bold text-white" style={{ backgroundColor: "var(--course-primary, #2f5f9f)" }}>
-          {currentIndex + 1}
-        </span>
-        <h3 className="mt-4 text-lg font-semibold text-slate-900">{activeStep.title || `Step ${currentIndex + 1}`}</h3>
-        <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{activeStep.body || "Add instructions for this step."}</p>
-      </article>
-      <div className="flex items-center justify-between gap-3">
-        <Button type="button" variant="outline" disabled={currentIndex === 0} onClick={() => { const nextIndex = Math.max(0, currentIndex - 1); setActiveIndex(nextIndex); onStepInteract?.(steps[nextIndex].id); }}>
-          Previous step
-        </Button>
-        {currentIndex < steps.length - 1 && (
-          <Button type="button" onClick={() => { const nextIndex = Math.min(steps.length - 1, currentIndex + 1); setActiveIndex(nextIndex); onStepInteract?.(steps[nextIndex].id); }} style={{ backgroundColor: "var(--course-primary, #2f5f9f)" }}>
-            Next step
-          </Button>
-        )}
-      </div>
-    </section>
-  );
-}
+export { InteractiveProcessSteps } from "./_components/(interactive_blocks_components)/interactive-process-steps";

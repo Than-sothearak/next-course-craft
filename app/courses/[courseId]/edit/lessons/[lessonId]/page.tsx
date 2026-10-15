@@ -5,10 +5,14 @@ import { DashboardError } from "@/lib/dashboard/rules";
 import { getCourseEditor } from "@/lib/editor/services/course";
 import { EditorClient } from "../../_components/editor-client";
 
-export default async function LessonEditPage({ params }: { params: Promise<{ courseId: string; lessonId: string }> }) {
+export default async function LessonEditPage({ params, searchParams }: {
+  params: Promise<{ courseId: string; lessonId: string }>;
+  searchParams?: Promise<{ blockId?: string | string[] }>;
+}) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
   const { courseId, lessonId } = await params;
+  const query = await searchParams;
   let initialData: Awaited<ReturnType<typeof getCourseEditor>>;
   try {
     await connectToDatabase();
@@ -19,5 +23,8 @@ export default async function LessonEditPage({ params }: { params: Promise<{ cou
     throw error;
   }
   const authorName = session.user.name?.trim() || session.user.email || "Course author";
-  return <EditorClient initialData={initialData} focusedLessonId={lessonId} authorName={authorName} />;
+  const lesson = initialData.lessons.find((item) => item.id === lessonId)!;
+  const focusedBlockId = typeof query?.blockId === "string" && lesson.blocks.some((block: { id: string }) => block.id === query.blockId)
+    ? query.blockId : undefined;
+  return <EditorClient key={lessonId} initialData={initialData} focusedLessonId={lessonId} focusedBlockId={focusedBlockId} authorName={authorName} />;
 }

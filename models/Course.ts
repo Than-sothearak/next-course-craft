@@ -11,6 +11,16 @@ const CourseThemeSchema = new Schema({
   primaryColor: { type: String, match: /^#[\da-fA-F]{6}$/, default: "#2f5f9f" },
   accentColor: { type: String, match: /^#[\da-fA-F]{6}$/, default: "#ff876c" },
   fontFamily: { type: String, enum: ["sans", "serif", "rounded"], default: "sans" },
+  cover: { type: new Schema({
+    template: { type: String, enum: ["gradient", "solid", "image", "waves", "geometric", "editorial"], default: "gradient" },
+    backgroundColor: { type: String, match: /^#[\da-fA-F]{6}$/ },
+    textColor: { type: String, match: /^#[\da-fA-F]{6}$/, default: "#ffffff" },
+    alignment: { type: String, enum: ["left", "center"], default: "center" },
+    imageSrc: { type: String, default: "" },
+    imageAlt: { type: String, maxlength: 500, default: "" },
+    imagePosition: { type: String, enum: ["center", "top", "bottom"], default: "center" },
+    overlayOpacity: { type: Number, min: 0, max: 90, default: 55 },
+  }, { _id: false }), default: undefined },
 }, { _id: false });
 
 const CourseSchema = new Schema({

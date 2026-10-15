@@ -27,64 +27,65 @@ API files are located under `app/api/`; each directory's `route.ts` exports the 
 
 Most authenticated handlers use three shared helpers from `lib/dashboard/http.ts`:
 
-| Function | What it does |
-|---|---|
-| `requireOwnerId()` | Reads the Auth.js session and returns the signed-in user ID, or raises a 401 error. |
-| `readJson(request, schema)` | Parses a JSON request body with the supplied Zod schema and returns a clear 400 error for invalid input. |
+| Function                        | What it does                                                                                                                           |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `requireOwnerId()`              | Reads the Auth.js session and returns the signed-in user ID, or raises a 401 error.                                                    |
+| `readJson(request, schema)`     | Parses a JSON request body with the supplied Zod schema and returns a clear 400 error for invalid input.                               |
 | `dashboardErrorResponse(error)` | Converts known `DashboardError` and Zod errors to JSON and status codes; hides unexpected server errors behind a generic 500 response. |
 
 Handlers also call `connectToDatabase()` from `lib/db/mongodb.ts`. `lib/dashboard/services/internal.ts` provides owner/ObjectId conversion and folder ownership/uniqueness helpers. `lib/dashboard/rules.ts` contains shared domain errors and rules. The Auth.js callback route is the exception: it delegates directly to the handlers in `lib/auth/`.
 
 ### Dashboard, courses, and folders
 
-| HTTP route | Route file | Library functions and behavior |
-|---|---|---|
-| `GET /api/dashboard` | `app/api/dashboard/route.ts` | Calls `getDashboardData()` in `lib/dashboard/services/list.ts`. Query parameters can filter by `folderId`, search with `q`, filter by `status`, and sort. Returns dashboard folders, courses, counts, breadcrumbs, and folder choices. |
-| `GET /api/courses` | `app/api/courses/route.ts` | Calls `getDashboardData()` and returns its course list, with optional `folderId` and `q`. |
-| `POST /api/courses` | `app/api/courses/route.ts` | Validates `createCourseSchema`, then calls `createCourse()` in `lib/dashboard/services/courses.ts`. Creates a draft course and its initial section. |
-| `PATCH /api/courses/[courseId]` | `app/api/courses/[courseId]/route.ts` | Validates `updateCourseSchema`, then calls `updateCourse()` to change course metadata, folder, or status. It checks ownership and conflicts with editor saves. |
-| `GET /api/courses/[courseId]` | `app/api/courses/[courseId]/route.ts` | Calls `getCourseCopyDestinations()`; this endpoint supplies the list of other courses available when copying content. |
-| `POST /api/courses/[courseId]` | `app/api/courses/[courseId]/route.ts` | Calls `duplicateCourse()` to create a new draft course based on the selected course. |
-| `DELETE /api/courses/[courseId]` | `app/api/courses/[courseId]/route.ts` | Validates the confirmation title, then calls `softDeleteCourse()`. It marks the course deleted instead of immediately removing its records. |
-| `POST /api/courses/[courseId]/restore` | `app/api/courses/[courseId]/restore/route.ts` | Calls `restoreCourse()` to clear the course's `deletedAt` field. |
-| `GET /api/folders` | `app/api/folders/route.ts` | Calls `getDashboardData()` and returns folders under the optional `parentId`. |
-| `POST /api/folders` | `app/api/folders/route.ts` | Validates `createFolderSchema`, then calls `createFolder()`. The service checks parent ownership and unique names. |
-| `PATCH /api/folders/[folderId]` | `app/api/folders/[folderId]/route.ts` | Validates `updateFolderSchema`, then calls `updateFolder()` to rename or move a folder while checking for circular ancestry. |
-| `DELETE /api/folders/[folderId]` | `app/api/folders/[folderId]/route.ts` | Calls `deleteFolder()`. The service refuses to delete a folder while it contains courses or subfolders. |
+| HTTP route                             | Route file                                    | Library functions and behavior                                                                                                                                                                                                         |
+| -------------------------------------- | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/dashboard`                   | `app/api/dashboard/route.ts`                  | Calls `getDashboardData()` in `lib/dashboard/services/list.ts`. Query parameters can filter by `folderId`, search with `q`, filter by `status`, and sort. Returns dashboard folders, courses, counts, breadcrumbs, and folder choices. |
+| `GET /api/courses`                     | `app/api/courses/route.ts`                    | Calls `getDashboardData()` and returns its course list, with optional `folderId` and `q`.                                                                                                                                              |
+| `POST /api/courses`                    | `app/api/courses/route.ts`                    | Validates `createCourseSchema`, then calls `createCourse()` in `lib/dashboard/services/courses.ts`. Creates a draft course and its initial section.                                                                                    |
+| `PATCH /api/courses/[courseId]`        | `app/api/courses/[courseId]/route.ts`         | Validates `updateCourseSchema`, then calls `updateCourse()` to change course metadata, folder, or status. It checks ownership and conflicts with editor saves.                                                                         |
+| `GET /api/courses/[courseId]`          | `app/api/courses/[courseId]/route.ts`         | Calls `getCourseCopyDestinations()`; this endpoint supplies the list of other courses available when copying content.                                                                                                                  |
+| `POST /api/courses/[courseId]`         | `app/api/courses/[courseId]/route.ts`         | Calls `duplicateCourse()` to create a new draft course based on the selected course.                                                                                                                                                   |
+| `DELETE /api/courses/[courseId]`       | `app/api/courses/[courseId]/route.ts`         | Validates the confirmation title, then calls `softDeleteCourse()`. It marks the course deleted instead of immediately removing its records.                                                                                            |
+| `POST /api/courses/[courseId]/restore` | `app/api/courses/[courseId]/restore/route.ts` | Calls `restoreCourse()` to clear the course's `deletedAt` field.                                                                                                                                                                       |
+| `GET /api/folders`                     | `app/api/folders/route.ts`                    | Calls `getDashboardData()` and returns folders under the optional `parentId`.                                                                                                                                                          |
+| `POST /api/folders`                    | `app/api/folders/route.ts`                    | Validates `createFolderSchema`, then calls `createFolder()`. The service checks parent ownership and unique names.                                                                                                                     |
+| `PATCH /api/folders/[folderId]`        | `app/api/folders/[folderId]/route.ts`         | Validates `updateFolderSchema`, then calls `updateFolder()` to rename or move a folder while checking for circular ancestry.                                                                                                           |
+| `DELETE /api/folders/[folderId]`       | `app/api/folders/[folderId]/route.ts`         | Calls `deleteFolder()`. The service refuses to delete a folder while it contains courses or subfolders.                                                                                                                                |
 
 The course and folder functions live in `lib/dashboard/services/courses.ts` and `lib/dashboard/services/folders.ts`; the shared listing/tree logic is in `lib/dashboard/services/list.ts`. Request schemas and ObjectId validation are in `lib/dashboard/schemas.ts`.
 
 ### Course editor and lesson content
 
-| HTTP route | Route file | Library functions and behavior |
-|---|---|---|
-| `GET /api/courses/[courseId]/editor` | `app/api/courses/[courseId]/editor/route.ts` | Calls `getCourseEditor()` in `lib/editor/services/course.ts`. Returns course metadata, ordered sections, lessons, blocks, and the current revision. |
-| `PUT /api/courses/[courseId]/editor` | `app/api/courses/[courseId]/editor/route.ts` | Validates the full snapshot with `editorSnapshotSchema`, then calls `saveCourseEditor()` in `lib/editor/services/save.ts`. Saves course and lesson documents together, using a MongoDB transaction when supported and a revision lock/rollback fallback otherwise. |
-| `POST /api/courses/[courseId]/lessons` | `app/api/courses/[courseId]/lessons/route.ts` | Calls `addCourseLesson()` in `lib/editor/services/lessons.ts`. Adds a new lesson to the first section and advances the course revision. |
-| `POST /api/courses/[courseId]/lessons/copy` | `app/api/courses/[courseId]/lessons/copy/route.ts` | Validates a destination course and lesson with `editorLessonSchema`, then calls `copyCourseLesson()`. The service checks ownership of both courses and creates fresh IDs for the copied lesson, blocks, quiz questions, and choices. |
+| HTTP route                                  | Route file                                         | Library functions and behavior                                                                                                                                                                                                                                     |
+| ------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GET /api/courses/[courseId]/editor`        | `app/api/courses/[courseId]/editor/route.ts`       | Calls `getCourseEditor()` in `lib/editor/services/course.ts`. Returns course metadata, ordered sections, lessons, blocks, and the current revision.                                                                                                                |
+| `PUT /api/courses/[courseId]/editor`        | `app/api/courses/[courseId]/editor/route.ts`       | Validates the full snapshot with `editorSnapshotSchema`, then calls `saveCourseEditor()` in `lib/editor/services/save.ts`. Saves course and lesson documents together, using a MongoDB transaction when supported and a revision lock/rollback fallback otherwise. |
+| `POST /api/courses/[courseId]/lessons`      | `app/api/courses/[courseId]/lessons/route.ts`      | Calls `addCourseLesson()` in `lib/editor/services/lessons.ts`. Adds a new lesson to the first section and advances the course revision.                                                                                                                            |
+| `POST /api/courses/[courseId]/lessons/copy` | `app/api/courses/[courseId]/lessons/copy/route.ts` | Validates a destination course and lesson with `editorLessonSchema`, then calls `copyCourseLesson()`. The service checks ownership of both courses and creates fresh IDs for the copied lesson, blocks, quiz questions, and choices.                               |
 
 Content and quiz shapes are defined in `lib/schemas/block.ts`, `lib/schemas/quiz.ts`, and `lib/editor/schemas.ts`. When adding a field to editable content, update the schema and the editor/preview that reads it; autosave and exports consume the same snapshot shape.
 
 ### Media library and S3
 
-| HTTP route | Route file | Library functions and behavior |
-|---|---|---|
-| `GET /api/courses/[courseId]/assets` | `app/api/courses/[courseId]/assets/route.ts` | Calls `assertCourseOwner()` and `listCourseMedia()` in `lib/media/services/course-assets.ts`. Returns ready assets with authenticated file URLs. |
-| `POST /api/courses/[courseId]/assets` | `app/api/courses/[courseId]/assets/route.ts` | Validates `mediaUploadInputSchema`, then calls `beginMediaUpload()` in `lib/media/services/uploads.ts`. Creates a pending Mongo record and returns an S3 presigned POST URL and fields. |
-| `POST /api/courses/[courseId]/assets/[assetId]/complete` | `app/api/courses/[courseId]/assets/[assetId]/complete/route.ts` | Calls `assertCourseOwner()` and `completeMediaUpload()`. The service checks the uploaded S3 object's type, size, and metadata before marking the asset ready. |
-| `DELETE /api/courses/[courseId]/assets/[assetId]` | `app/api/courses/[courseId]/assets/[assetId]/route.ts` | Calls `assertCourseOwner()` and `deleteCourseMediaAsset()`. The service removes the private S3 object and then its Mongo record. |
-| `GET /api/assets/[assetId]/file` | `app/api/assets/[assetId]/file/route.ts` | Calls `getOwnedMediaAsset()` and `createMediaReadUrl()`, then redirects to a short-lived S3 read URL. |
+| HTTP route                                               | Route file                                                      | Library functions and behavior                                                                                                                                                          |
+| -------------------------------------------------------- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/courses/[courseId]/assets`                     | `app/api/courses/[courseId]/assets/route.ts`                    | Calls `assertCourseOwner()` and `listCourseMedia()` in `lib/media/services/course-assets.ts`. Returns ready assets with authenticated file URLs.                                        |
+| `POST /api/courses/[courseId]/assets`                    | `app/api/courses/[courseId]/assets/route.ts`                    | Validates `mediaUploadInputSchema`, then calls `beginMediaUpload()` in `lib/media/services/uploads.ts`. Creates a pending Mongo record and returns an S3 presigned POST URL and fields. |
+| `POST /api/courses/[courseId]/assets/[assetId]/complete` | `app/api/courses/[courseId]/assets/[assetId]/complete/route.ts` | Calls `assertCourseOwner()` and `completeMediaUpload()`. The service checks the uploaded S3 object's type, size, and metadata before marking the asset ready.                           |
+| `DELETE /api/courses/[courseId]/assets/[assetId]`        | `app/api/courses/[courseId]/assets/[assetId]/route.ts`          | Calls `assertCourseOwner()` and `deleteCourseMediaAsset()`. The service removes the private S3 object and then its Mongo record.                                                        |
+| `GET /api/assets/[assetId]/file`                         | `app/api/assets/[assetId]/file/route.ts`                        | Calls `getOwnedMediaAsset()` and `createMediaReadUrl()`, then redirects to a short-lived S3 read URL.                                                                                   |
 
 Upload lifecycle functions are in `lib/media/services/uploads.ts`; course listing/deletion and ownership checks are in `lib/media/services/course-assets.ts`; S3 signing and object operations are in `lib/media/storage.ts`. The UI for this API is `app/courses/[courseId]/edit/_components/media-library-dialog.tsx`.
 
 ### Authentication and publishing
 
-| HTTP route | Route file | Library functions and behavior |
-|---|---|---|
-| `GET` and `POST /api/auth/[...nextauth]` | `app/api/auth/[...nextauth]/route.ts` | Re-exports the Auth.js handlers from `lib/auth/`. |
-| `POST /api/courses/[courseId]/publish` | `app/api/courses/[courseId]/publish/route.ts` | Calls `getCourseEditor()`, reads only owner/course-scoped `Asset` records, and uses `createMediaReadUrl()` to embed media. Its local `replaceAssetSources()` helper rewrites authenticated asset URLs to data URLs; it then embeds the built JS/CSS and returns one `.html` download. |
-| `POST /api/courses/[courseId]/publish/scorm12` | `app/api/courses/[courseId]/publish/scorm12/route.ts` | Calls `buildScorm12Package()` in `lib/scorm/package.ts`, then returns the generated ZIP. |
-| `POST /api/courses/[courseId]/publish/scorm2004` | `app/api/courses/[courseId]/publish/scorm2004/route.ts` | Calls `buildScorm2004Package()` in `lib/scorm/package.ts`, then returns the generated ZIP. |
+| HTTP route                                       | Route file                                              | Library functions and behavior                                                                                                                                                                                                                                                        |
+| ------------------------------------------------ | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET` and `POST /api/auth/[...nextauth]`         | `app/api/auth/[...nextauth]/route.ts`                   | Re-exports the Auth.js handlers from `lib/auth/`.                                                                                                                                                                                                                                     |
+| `POST /api/courses/[courseId]/publish`           | `app/api/courses/[courseId]/publish/route.ts`           | Calls `getCourseEditor()`, reads only owner/course-scoped `Asset` records, and uses `createMediaReadUrl()` to embed media. Its local `replaceAssetSources()` helper rewrites authenticated asset URLs to data URLs; it then embeds the built JS/CSS and returns one `.html` download. |
+| `POST /api/courses/[courseId]/publish/pdf`        | `app/api/courses/[courseId]/publish/pdf/route.ts`       | Calls `buildCourseHandoutPdf()` to validate the course, include owner-scoped PNG/JPEG images, and return a printable `.pdf` handout. |
+| `POST /api/courses/[courseId]/publish/scorm12`   | `app/api/courses/[courseId]/publish/scorm12/route.ts`   | Calls `buildScorm12Package()` in `lib/scorm/package.ts`, then returns the generated ZIP.                                                                                                                                                                                              |
+| `POST /api/courses/[courseId]/publish/scorm2004` | `app/api/courses/[courseId]/publish/scorm2004/route.ts` | Calls `buildScorm2004Package()` in `lib/scorm/package.ts`, then returns the generated ZIP.                                                                                                                                                                                            |
 
 The publish routes check the signed-in owner before loading or packaging a course. `lib/scorm/package.ts` validates the editor snapshot, includes only media records owned by that user and course, copies the export bundle and schemas, builds the selected manifest, and creates the ZIP. The package helpers and SCORM runtime are mapped in the publishing section below.
 
@@ -98,37 +99,38 @@ This creates generated files under `public/course-export/`. That folder is ignor
 
 ## Folder map
 
-| Location | What belongs there |
-|---|---|
-| `app/` | Next.js pages, layouts, client screens, and API routes. Route-specific UI stays next to its page. |
-| `app/courses/[courseId]/edit/_components/` | Course outline, section and lesson editing, content blocks, quiz editor, formatting controls, and media dialog. |
-| `app/courses/[courseId]/preview/` | Shared learner preview, preview route wrapper, interactive knowledge-check/survey controls, and preview-only image behavior. |
-| `app/api/` | Server endpoints. Handlers authenticate/authorize, validate requests, call services, and shape HTTP responses. |
-| `components/ui/` | Shared shadcn-style source primitives: Button, Input, Select, Textarea, Card, and Badge. Extend and reuse these for consistent controls. |
-| `components/` | Reusable application-level components, such as the shared publish dropdown. |
-| `lib/` | Domain logic, validation, database helpers, media operations, and export packaging. Keep business rules out of presentational components. |
-| `models/` | Mongoose models and indexes for courses, lessons, folders, media assets, and users. |
-| `export/` | Browser-only Vite entry point, shared learner view bootstrap, SCORM runtime adapter, and export build config. Do not import server APIs, MongoDB, Auth.js, or private credentials here. |
-| `public/scorm12/schema/` | SCORM 1.2 XML schemas copied into exported packages. |
-| `public/scorm2004/schema/` | SCORM 2004 XML schemas copied into exported packages. |
-| `public/course-export/` | Generated static build output. Do not edit this by hand. |
-| `tests/` | Vitest tests for schemas, editor rules, preview, publishing, and SCORM package behavior. |
-| `docs/` | Architecture, database, media, SCORM, roadmap, and this project guide. |
+| Location                                   | What belongs there                                                                                                                                                                      |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `app/`                                     | Next.js pages, layouts, client screens, and API routes. Route-specific UI stays next to its page.                                                                                       |
+| `app/courses/[courseId]/edit/_components/` | Course outline, section and lesson editing, content blocks, quiz editor, formatting controls, and media dialog.                                                                         |
+| `app/courses/[courseId]/preview/`          | Shared learner preview, preview route wrapper, interactive knowledge-check/survey controls, and preview-only image behavior.                                                            |
+| `app/api/`                                 | Server endpoints. Handlers authenticate/authorize, validate requests, call services, and shape HTTP responses.                                                                          |
+| `components/ui/`                           | Shared shadcn-style source primitives: Button, Input, Select, Textarea, Card, and Badge. Extend and reuse these for consistent controls.                                                |
+| `components/`                              | Reusable application-level components, such as the shared publish dropdown.                                                                                                             |
+| `lib/`                                     | Domain logic, validation, database helpers, media operations, and export packaging. Keep business rules out of presentational components.                                               |
+| `models/`                                  | Mongoose models and indexes for courses, lessons, folders, media assets, and users.                                                                                                     |
+| `export/`                                  | Browser-only Vite entry point, shared learner view bootstrap, SCORM runtime adapter, and export build config. Do not import server APIs, MongoDB, Auth.js, or private credentials here. |
+| `public/scorm12/schema/`                   | SCORM 1.2 XML schemas copied into exported packages.                                                                                                                                    |
+| `public/scorm2004/schema/`                 | SCORM 2004 XML schemas copied into exported packages.                                                                                                                                   |
+| `public/course-export/`                    | Generated static build output. Do not edit this by hand.                                                                                                                                |
+| `tests/`                                   | Vitest tests for schemas, editor rules, preview, publishing, and SCORM package behavior.                                                                                                |
+| `docs/`                                    | Architecture, database, media, SCORM, roadmap, and this project guide.                                                                                                                  |
 
 The main library areas are:
 
-| Library folder | Purpose |
-|---|---|
-| `lib/auth/` | Auth.js configuration and session helpers. |
-| `lib/db/` | MongoDB connection setup. |
-| `lib/dashboard/` | Dashboard request validation, ownership helpers, and course/folder services. |
-| `lib/editor/` | Editor snapshot schemas, course/lesson loading, save logic, and text formatting. |
-| `lib/export/` | Learner progress contracts and progress calculations shared by preview and exports. |
-| `lib/interactive/` | Reusable learner interaction and quiz assessment rules, including answer grading and export validation. |
-| `lib/media/` | Media validation, S3 storage operations, and course-asset services. |
-| `lib/schemas/` | Shared versioned course, block, and quiz content schemas. |
-| `lib/scorm/` | Shared SCORM packaging and the SCORM 2004 manifest. |
-| `lib/scorm12/` | SCORM 1.2 manifest, snapshot validation, and ZIP helper; the snapshot and ZIP helpers are also used by SCORM 2004. |
+| Library folder     | Purpose                                                                                                            |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| `lib/auth/`        | Auth.js configuration and session helpers.                                                                         |
+| `lib/db/`          | MongoDB connection setup.                                                                                          |
+| `lib/dashboard/`   | Dashboard request validation, ownership helpers, and course/folder services.                                       |
+| `lib/editor/`      | Editor snapshot schemas, course/lesson loading, save logic, and text formatting.                                   |
+| `lib/export/`      | Learner progress contracts and progress calculations shared by preview and exports.                                |
+| `lib/interactive/` | Reusable learner interaction and quiz assessment rules, including answer grading and export validation.            |
+| `lib/media/`       | Media validation, S3 storage operations, and course-asset services.                                                |
+| `lib/pdf/`         | PDF handout content conversion, rendering, and licensed Latin/Khmer font files.                                    |
+| `lib/schemas/`     | Shared versioned course, block, and quiz content schemas.                                                          |
+| `lib/scorm/`       | Shared SCORM packaging and the SCORM 2004 manifest.                                                                |
+| `lib/scorm12/`     | SCORM 1.2 manifest, snapshot validation, and ZIP helper; the snapshot and ZIP helpers are also used by SCORM 2004. |
 
 ## UI components and libraries
 
@@ -136,19 +138,19 @@ Use `components/ui/` for common buttons and fields. Use a route's `_components/`
 
 The main libraries are:
 
-| Library | Use in this project |
-|---|---|
-| Next.js App Router and React | Application pages, server routes, and interactive components. |
-| TypeScript | Strict types shared across UI, services, and export code. |
-| Tailwind CSS and local UI primitives | Styling and consistent authoring controls. |
-| Mongoose and MongoDB | Persistent course, lesson, folder, and media metadata. |
-| Auth.js | Sign-in and session identity. Server routes still check record ownership. |
-| Zod | Validation of editor snapshots, API input, and content schemas. |
-| TipTap | Rich text editing and formatted course content. |
-| `@dnd-kit` | Reordering sections, lessons, and blocks. |
-| AWS SDK | Private S3 media uploads, reads, and deletes. |
-| Vite | Builds `export/` into static browser assets. |
-| Vitest and jsdom | Unit and component behavior tests. |
+| Library                              | Use in this project                                                       |
+| ------------------------------------ | ------------------------------------------------------------------------- |
+| Next.js App Router and React         | Application pages, server routes, and interactive components.             |
+| TypeScript                           | Strict types shared across UI, services, and export code.                 |
+| Tailwind CSS and local UI primitives | Styling and consistent authoring controls.                                |
+| Mongoose and MongoDB                 | Persistent course, lesson, folder, and media metadata.                    |
+| Auth.js                              | Sign-in and session identity. Server routes still check record ownership. |
+| Zod                                  | Validation of editor snapshots, API input, and content schemas.           |
+| TipTap                               | Rich text editing and formatted course content.                           |
+| `@dnd-kit`                           | Reordering sections, lessons, and blocks.                                 |
+| AWS SDK                              | Private S3 media uploads, reads, and deletes.                             |
+| Vite                                 | Builds `export/` into static browser assets.                              |
+| Vitest and jsdom                     | Unit and component behavior tests.                                        |
 
 ## Extending the lesson block editor
 
@@ -167,26 +169,26 @@ flowchart LR
   G --> H[HTML and SCORM exports]
 ```
 
-| Concern | Main file | What to change there |
-|---|---|---|
-| Block type name, data shape, allowed values, required fields, defaults | `lib/schemas/block.ts` | Add/update the Zod schema, add it to `blockSchema`, and update `blockTypes`, `defaultBlockWidth()`, or padding helpers as needed. |
-| Whole-editor save validation | `lib/editor/schemas.ts` | `editorLessonSchema` consumes `blockSchema`; add cross-block/course validation here only when it depends on other lessons or sections. |
-| Add/replace templates and picker categories | `app/courses/[courseId]/edit/_components/block-template-picker.tsx` | Update `blockCategories`, the `BlockTemplate` type union, the `blockTemplates` catalog, `createBlocksFromTemplate()`, and `TemplatePreview` for a new preset. |
-| Which template category appears for an existing block | `app/courses/[courseId]/edit/_components/editor-client.tsx` | Update `getTemplateCategory()` when adding a type that should reopen the picker in a matching category. |
-| Insert, update, duplicate, delete, replace, reorder, and autosave block draft | `app/courses/[courseId]/edit/_components/editor-client.tsx` | `applyTemplate()`, `updateBlock()`, `duplicateBlock()`, `deleteBlock()`, `reorderBlocks()`, and `saveLatest()` manage the course draft. |
-| Block-specific editing controls and canvas preview | `app/courses/[courseId]/edit/_components/content-block-editor.tsx` | Add the type-specific editing UI and call `onChange()` with the updated typed block. Image, gallery, and video media selection is also wired here. |
-| Rich text or heading behavior | `heading-block-editor.tsx`, `rich-text-block-editor.tsx`, `text-formatting-toolbar.tsx`, `statement-text-editor.tsx` | Extend the focused editor component and its TipTap extensions/toolbar instead of adding rich-text state to the parent editor. |
-| Statement content style | `statement-content-editor.tsx`, `statement-block-preview.tsx` | Edit the authoring controls and shared statement styles/rendering. |
-| Width, background color, and block padding controls | `block-format-menu.tsx` | Add or change format controls. Keep defaults and accepted values aligned with `lib/schemas/block.ts`. |
-| Drag handle and sortable animation | `sortable-item.tsx` plus the block `DndContext` in `editor-client.tsx` | Change the drag affordance or sorting behavior. `editor-client.tsx` writes the new order into the draft. |
-| Learner-facing block rendering and interactions | `app/courses/[courseId]/preview/course-preview.tsx`, `app/courses/[courseId]/preview/interactive-blocks.tsx` | Add the new type to `PreviewBlock()` and put stateful learner controls in `interactive-blocks.tsx`. If it controls completion or Continue gates, update `LessonBlocksPreview()` and progress handling too. |
-| Knowledge-check answer correctness and fallback feedback | `lib/interactive/knowledge-check.ts` | Keep answer evaluation as a small pure function so it is easy to test and reuse. |
-| Quiz answer scoring and passing outcome | `lib/interactive/quiz-assessment.ts` | Keep exact choice-set grading and pass-score calculations independent from the preview UI. |
-| Quiz authoring, question ordering, media, feedback, and passing score | `app/courses/[courseId]/edit/_components/quiz-editor.tsx` | Extend the question editor and retain lesson-level settings through the editor schema and save service. |
-| Quiz attempt UI, retries, and learner pass state | `app/courses/[courseId]/preview/course-preview.tsx` | Update the shared learner preview; HTML and SCORM exports use this same assessment flow. |
-| Quiz result resume state and SCORM score/status reporting | `lib/export/progress.ts`, `export/src/scorm-runtime.ts` | Store per-quiz best scores and passing IDs, then report aggregate score and pass status through the LMS data model. |
-| Shared editor data loading and legacy defaults | `lib/editor/services/course.ts` | Normalize old saved blocks or fill presentation defaults when loading a course snapshot. |
-| Validation, template, and preview tests | `tests/schemas.test.ts`, `tests/editor.test.ts`, `tests/block-template.test.ts`, `tests/course-preview.test.ts` | Add coverage for valid/invalid data, defaults, template insertion, and the learner rendering/behavior. |
+| Concern                                                                       | Main file                                                                                                            | What to change there                                                                                                                                                                                       |
+| ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Block type name, data shape, allowed values, required fields, defaults        | `lib/schemas/block.ts`                                                                                               | Add/update the Zod schema, add it to `blockSchema`, and update `blockTypes`, `defaultBlockWidth()`, or padding helpers as needed.                                                                          |
+| Whole-editor save validation                                                  | `lib/editor/schemas.ts`                                                                                              | `editorLessonSchema` consumes `blockSchema`; add cross-block/course validation here only when it depends on other lessons or sections.                                                                     |
+| Add/replace templates and picker categories                                   | `app/courses/[courseId]/edit/_components/block-template-picker.tsx`                                                  | Update `blockCategories`, the `BlockTemplate` type union, the `blockTemplates` catalog, `createBlocksFromTemplate()`, and `TemplatePreview` for a new preset.                                              |
+| Which template category appears for an existing block                         | `app/courses/[courseId]/edit/_components/editor-client.tsx`                                                          | Update `getTemplateCategory()` when adding a type that should reopen the picker in a matching category.                                                                                                    |
+| Insert, update, duplicate, delete, replace, reorder, and autosave block draft | `app/courses/[courseId]/edit/_components/editor-client.tsx`                                                          | `applyTemplate()`, `updateBlock()`, `duplicateBlock()`, `deleteBlock()`, `reorderBlocks()`, and `saveLatest()` manage the course draft.                                                                    |
+| Block-specific editing controls and canvas preview                            | `app/courses/[courseId]/edit/_components/content-block-editor.tsx`                                                   | Add the type-specific editing UI and call `onChange()` with the updated typed block. Image, gallery, and video media selection is also wired here.                                                         |
+| Rich text or heading behavior                                                 | `heading-block-editor.tsx`, `rich-text-block-editor.tsx`, `text-formatting-toolbar.tsx`, `statement-text-editor.tsx` | Extend the focused editor component and its TipTap extensions/toolbar instead of adding rich-text state to the parent editor.                                                                              |
+| Statement content style                                                       | `statement-content-editor.tsx`, `statement-block-preview.tsx`                                                        | Edit the authoring controls and shared statement styles/rendering.                                                                                                                                         |
+| Width, background color, and block padding controls                           | `block-format-menu.tsx`                                                                                              | Add or change format controls. Keep defaults and accepted values aligned with `lib/schemas/block.ts`.                                                                                                      |
+| Drag handle and sortable animation                                            | `sortable-item.tsx` plus the block `DndContext` in `editor-client.tsx`                                               | Change the drag affordance or sorting behavior. `editor-client.tsx` writes the new order into the draft.                                                                                                   |
+| Learner-facing block rendering and interactions                               | `app/courses/[courseId]/preview/course-preview.tsx`, `app/courses/[courseId]/preview/interactive-blocks.tsx`         | Add the new type to `PreviewBlock()` and put stateful learner controls in `interactive-blocks.tsx`. If it controls completion or Continue gates, update `LessonBlocksPreview()` and progress handling too. |
+| Knowledge-check answer correctness and fallback feedback                      | `lib/interactive/knowledge-check.ts`                                                                                 | Keep answer evaluation as a small pure function so it is easy to test and reuse.                                                                                                                           |
+| Quiz answer scoring and passing outcome                                       | `lib/interactive/quiz-assessment.ts`                                                                                 | Keep exact choice-set grading and pass-score calculations independent from the preview UI.                                                                                                                 |
+| Quiz authoring, question ordering, media, feedback, and passing score         | `app/courses/[courseId]/edit/_components/quiz-editor.tsx`                                                            | Extend the question editor and retain lesson-level settings through the editor schema and save service.                                                                                                    |
+| Quiz attempt UI, retries, and learner pass state                              | `app/courses/[courseId]/preview/course-preview.tsx`                                                                  | Update the shared learner preview; HTML and SCORM exports use this same assessment flow.                                                                                                                   |
+| Quiz result resume state and SCORM score/status reporting                     | `lib/export/progress.ts`, `export/src/scorm-runtime.ts`                                                              | Store per-quiz best scores and passing IDs, then report aggregate score and pass status through the LMS data model.                                                                                        |
+| Shared editor data loading and legacy defaults                                | `lib/editor/services/course.ts`                                                                                      | Normalize old saved blocks or fill presentation defaults when loading a course snapshot.                                                                                                                   |
+| Validation, template, and preview tests                                       | `tests/schemas.test.ts`, `tests/editor.test.ts`, `tests/block-template.test.ts`, `tests/course-preview.test.ts`      | Add coverage for valid/invalid data, defaults, template insertion, and the learner rendering/behavior.                                                                                                     |
 
 To add a completely new block type, follow this order:
 
@@ -205,23 +207,25 @@ Knowledge-check answers and survey ratings provide interaction and feedback in t
 
 ## Where to edit publishing and SCORM
 
-| Change needed | Edit here |
-|---|---|
-| Publish button, menu labels, or which endpoint is called | `components/publish-menu.tsx` |
-| Downloadable standalone HTML | `app/api/courses/[courseId]/publish/route.ts` |
-| SCORM 1.2 response and ownership/authentication checks | `app/api/courses/[courseId]/publish/scorm12/route.ts` |
-| SCORM 2004 response and ownership/authentication checks | `app/api/courses/[courseId]/publish/scorm2004/route.ts` |
-| Shared ZIP contents, included media, export assets, filenames, or manifest selection | `lib/scorm/package.ts` |
-| Check that a course snapshot is valid and has exportable lessons | `lib/scorm12/snapshot.ts` (shared by both SCORM versions) |
-| SCORM 1.2 manifest XML | `lib/scorm12/manifest.ts` |
-| SCORM 2004 manifest XML | `lib/scorm/manifest-2004.ts` |
-| ZIP file encoding | `lib/scorm12/zip.ts` (used by both versions) |
-| LMS API discovery, progress save/resume, completion, commits, or SCORM data model fields | `export/src/scorm-runtime.ts` |
-| What counts as lesson completion or the learner progress percentage | `lib/export/progress.ts` and `app/courses/[courseId]/preview/course-preview.tsx` |
-| Static export entry point and shared learner view bootstrap | `export/src/main.ts` |
-| Static export build path or bundler settings | `export/vite.config.ts`; the command is `build:export` in `package.json` |
-| SCORM 1.2 schema files in the package | `public/scorm12/schema/` |
-| SCORM 2004 schema files in the package | `public/scorm2004/schema/` |
+| Change needed                                                                            | Edit here                                                                        |
+| ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Publish button, menu labels, or which endpoint is called                                 | `components/publish-menu.tsx`                                                    |
+| Downloadable standalone HTML                                                             | `app/api/courses/[courseId]/publish/route.ts`                                    |
+| PDF handout generation and text conversion                                               | `lib/pdf/course-handout.ts` and `lib/pdf/content.ts`                             |
+| PDF handout response and ownership/authentication checks                                 | `app/api/courses/[courseId]/publish/pdf/route.ts`                                |
+| SCORM 1.2 response and ownership/authentication checks                                   | `app/api/courses/[courseId]/publish/scorm12/route.ts`                            |
+| SCORM 2004 response and ownership/authentication checks                                  | `app/api/courses/[courseId]/publish/scorm2004/route.ts`                          |
+| Shared ZIP contents, included media, export assets, filenames, or manifest selection     | `lib/scorm/package.ts`                                                           |
+| Check that a course snapshot is valid and has exportable lessons                         | `lib/scorm12/snapshot.ts` (shared by both SCORM versions)                        |
+| SCORM 1.2 manifest XML                                                                   | `lib/scorm12/manifest.ts`                                                        |
+| SCORM 2004 manifest XML                                                                  | `lib/scorm/manifest-2004.ts`                                                     |
+| ZIP file encoding                                                                        | `lib/scorm12/zip.ts` (used by both versions)                                     |
+| LMS API discovery, progress save/resume, completion, commits, or SCORM data model fields | `export/src/scorm-runtime.ts`                                                    |
+| What counts as lesson completion or the learner progress percentage                      | `lib/export/progress.ts` and `app/courses/[courseId]/preview/course-preview.tsx` |
+| Static export entry point and shared learner view bootstrap                              | `export/src/main.ts`                                                             |
+| Static export build path or bundler settings                                             | `export/vite.config.ts`; the command is `build:export` in `package.json`         |
+| SCORM 1.2 schema files in the package                                                    | `public/scorm12/schema/`                                                         |
+| SCORM 2004 schema files in the package                                                   | `public/scorm2004/schema/`                                                       |
 
 Both SCORM formats use `lib/scorm/package.ts` and `export/src/scorm-runtime.ts`. The runtime detects the LMS API: `API` for SCORM 1.2 and `API_1484_11` for SCORM 2004. It stores resume details in `cmi.suspend_data` and updates completion status. SCORM 2004 also writes the numeric `cmi.progress_measure`; SCORM 1.2 has no equivalent standard overall percentage field. If changing progress behavior, update the shared progress calculation and LMS adapter, then test each format separately.
 

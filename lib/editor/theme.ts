@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { courseCoverSchema } from "./course-cover";
 
 export const courseThemePresetIds = [
   "ocean",
@@ -16,6 +17,7 @@ export const courseThemeSchema = z.object({
   primaryColor: themeColorSchema.default("#2f5f9f"),
   accentColor: themeColorSchema.default("#ff876c"),
   fontFamily: z.enum(["sans", "serif", "rounded"]).default("sans"),
+  cover: courseCoverSchema.optional(),
 }).strict();
 
 export type CourseTheme = z.infer<typeof courseThemeSchema>;

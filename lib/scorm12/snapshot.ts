@@ -8,7 +8,7 @@ export function parseScorm12Snapshot(value: unknown) {
     throw new DashboardError("The course content is invalid and cannot be exported.", 422);
   }
   if (!result.data.lessons.length) {
-    throw new DashboardError("Add at least one lesson before creating a SCORM package.", 422);
+    throw new DashboardError("Add at least one lesson before exporting this course.", 422);
   }
   const assessmentIssue = validateQuizAssessments(result.data.lessons);
   if (assessmentIssue) throw new DashboardError(assessmentIssue, 422);

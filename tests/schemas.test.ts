@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { blockSchema, normalizeStoredFlipCardBlock, type ContentBlock } from "../lib/schemas/block";
+import { blockSchema, defaultBlockPaddingForBlock, normalizeBlockPaddingForBlock, normalizeStoredFlipCardBlock, type ContentBlock } from "../lib/schemas/block";
+import { blockSurfaceStyle } from "../app/courses/[courseId]/preview/_components/(course_preview_components)/preview-utils";
 import { courseInputSchema } from "../lib/schemas/course";
 
 describe("shared authoring schemas", () => {
@@ -25,8 +26,24 @@ describe("shared authoring schemas", () => {
       },
     });
     expect(blockSchema.parse({ id: "b2", version: 1, type: "divider", data: { style: "continue" } })).toMatchObject({
+      blockPadding: 100,
       data: { style: "continue", label: "Continue", completionType: "none" },
     });
+  });
+
+  it("uses 100px top and bottom padding for Continue blocks and fallback settings", () => {
+    const block = blockSchema.parse({ id: "continue", version: 1, type: "divider", data: { style: "continue" } });
+    expect(defaultBlockPaddingForBlock(block)).toBe(100);
+    expect(normalizeBlockPaddingForBlock(undefined, block)).toBe(100);
+    expect(blockSurfaceStyle(block)).toMatchObject({ paddingTop: "100px", paddingBottom: "100px" });
+    expect(blockSchema.parse({ id: "space", version: 1, type: "divider", data: { style: "space" } }).blockPadding).toBe(20);
+  });
+
+  it.each([0, 20, 80, 120])("preserves custom Continue block padding of %ipx", (padding) => {
+    const block = blockSchema.parse({ id: "continue", version: 1, type: "divider", blockPadding: padding, data: { style: "continue" } });
+    expect(block.blockPadding).toBe(padding);
+    expect(normalizeBlockPaddingForBlock(padding, block)).toBe(padding);
+    expect(blockSurfaceStyle(block)).toMatchObject({ paddingTop: `${padding}px`, paddingBottom: `${padding}px` });
   });
 
   it("adds safe defaults to existing knowledge checks and validates their answer key", () => {
@@ -97,7 +114,7 @@ describe("shared authoring schemas", () => {
     expect(accordion).toMatchObject({
       type: "accordion",
       width: "medium",
-      data: { layout: "accordion", items: [{ title: "First" }, { title: "Second" }] },
+      data: { layout: "accordion", displayMode: "all", items: [{ title: "First" }, { title: "Second" }] },
     });
 
     const graphic = blockSchema.parse({

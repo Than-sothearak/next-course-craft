@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
-import { textEditorExtensions } from "./text-formatting-toolbar";
+import { richTextEditorExtensions } from "./(editor_client_components)/(text_editing_components)/text-formatting-toolbar";
 
 function escapeHtml(value: string) {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
@@ -21,7 +21,7 @@ export function StatementTextPreview({
 }) {
   const content = html ?? `<${tag}>${escapeHtml(text)}</${tag}>`;
   const editor = useEditor({
-    extensions: textEditorExtensions,
+    extensions: richTextEditorExtensions,
     content,
     editable: false,
     immediatelyRender: false,

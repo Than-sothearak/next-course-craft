@@ -25,7 +25,7 @@ describe("publish format menu", () => {
     Reflect.deleteProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT");
   });
 
-  it("offers HTML, SCORM 1.2, and SCORM 2004 exports", () => {
+  it("offers HTML, PDF handout, SCORM 1.2, and SCORM 2004 exports", () => {
     act(() => {
       root.render(createElement(PublishMenu, { courseId: "course-1", title: "Sample course" }));
     });
@@ -36,6 +36,7 @@ describe("publish format menu", () => {
     expect(menu).not.toBeNull();
     expect([...menu!.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent)).toEqual([
       "HTML",
+      "PDF handout",
       "SCORM 1.2",
       "SCORM 2004",
     ]);

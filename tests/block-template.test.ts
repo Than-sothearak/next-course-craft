@@ -2,13 +2,31 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { blockSchema } from "../lib/schemas/block";
-import {
-  blockTemplates,
-  createBlocksFromTemplate,
-  TemplatePreview,
-} from "../app/courses/[courseId]/edit/_components/block-template-picker";
+import { blockTemplates } from "../app/courses/[courseId]/edit/_components/(editor_client_components)/(block_template_picker_components)/block-template-data";
+import { createBlocksFromTemplate } from "../app/courses/[courseId]/edit/_components/(editor_client_components)/(block_template_picker_components)/create-blocks-from-template";
+import { TemplatePreview } from "../app/courses/[courseId]/edit/_components/(editor_client_components)/(block_template_picker_components)/template-preview";
+import { TextTemplatePreview } from "../app/courses/[courseId]/edit/_components/(editor_client_components)/(block_template_picker_components)/(template_preview_components)/text-template-preview";
+import { codeExamplePresets } from "../lib/editor/code-example";
 
 describe("prebuilt lesson text templates", () => {
+  it.each([
+    ["title", "Section heading", "text-2xl"],
+    ["text", "Write a concise explanation", "text-[11px]"],
+    ["text-lead", "Introduce the main idea", "text-sm"],
+    ["text-large-body", "Explain one important idea", "text-base"],
+    ["text-small-note", "Note: Add a short reminder", "text-[10px]"],
+    ["text-centered-intro", "A new way to think", "text-center"],
+    ["text-subheading", "A clear subheading", "font-semibold"],
+    ["text-color-emphasis", "Key idea", "text-indigo-600"],
+  ])("delegates %s to the text preview component with the same content and styles", (kind, text, className) => {
+    const template = blockTemplates.find((item) => item.category === "Text" && item.preview === kind)!;
+    expect(template).toBeDefined();
+    const preview = renderToStaticMarkup(createElement(TextTemplatePreview, { kind }));
+    expect(preview).toContain(text);
+    expect(preview).toContain(className);
+    expect(renderToStaticMarkup(createElement(TemplatePreview, { template }))).toBe(preview);
+  });
+
   it("offers editable text layouts with varied sizes and alignment", () => {
     const textTemplates = blockTemplates.filter(
       (template) => template.category === "Text",
@@ -45,6 +63,21 @@ describe("prebuilt lesson text templates", () => {
 });
 
 describe("prebuilt code snippet template", () => {
+  it("offers every code theme and explanation layout as an editable native text template", () => {
+    const templates = blockTemplates.filter((template) => template.category === "Code");
+    expect(templates).toHaveLength(codeExamplePresets.length);
+    for (const preset of codeExamplePresets) {
+      const template = templates.find((template) => template.codeTemplate === preset.id);
+      expect(template).toBeDefined();
+      const [block] = createBlocksFromTemplate(template!, `code-${preset.id}`);
+      expect(blockSchema.safeParse(block).success).toBe(true);
+      if (block.type !== "richText") throw new Error("Expected editable text block");
+      expect(block.data.html).toContain(`data-code-theme="${preset.theme}"`);
+      if (preset.id !== "midnight-code") expect(block.data.html).toContain("<p>The function returns");
+      expect(renderToStaticMarkup(createElement(TemplatePreview, { template: template! }))).toContain(`data-code-theme="${preset.theme}"`);
+    }
+  });
+
   it("creates an editable code block with a matching editor-style preview", () => {
     const template = blockTemplates.find((item) => item.id === "code-snippet");
     expect(template).toBeDefined();
@@ -53,7 +86,7 @@ describe("prebuilt code snippet template", () => {
 
     expect(parsed).toMatchObject({
       type: "richText",
-      data: { html: expect.stringContaining("<pre><code>") },
+      data: { html: expect.stringContaining('data-code-theme="midnight"') },
     });
     const preview = renderToStaticMarkup(
       createElement(TemplatePreview, { template: template! }),
@@ -222,12 +255,15 @@ describe("prebuilt divider templates", () => {
     ]);
     expect(createBlocksFromTemplate(continueTemplates[0], "continue-block")[0]).toMatchObject({
       type: "divider",
+      blockPadding: 100,
       data: { style: "continue", label: "Continue", completionType: "none" },
     });
     expect(createBlocksFromTemplate(continueTemplates[1], "reading-block")[0]).toMatchObject({
+      blockPadding: 100,
       data: { label: "Continue reading", completionType: "none" },
     });
     expect(createBlocksFromTemplate(continueTemplates[2], "required-block")[0]).toMatchObject({
+      blockPadding: 100,
       data: { completionType: "completeAbove" },
     });
   });
@@ -250,6 +286,10 @@ describe("prebuilt interactive block templates", () => {
       "interactive-tabs",
       "interactive-labeled-graphic",
       "interactive-process-steps",
+      "interactive-process-steps-numbered",
+      "interactive-process-steps-timeline",
+      "interactive-process-steps-spotlight",
+      "interactive-process-steps-minimal",
       "interactive-knowledge-check",
       "interactive-confidence-poll",
     ]);
@@ -280,8 +320,8 @@ describe("prebuilt interactive block templates", () => {
     expect(inserted[7]).toMatchObject({ type: "accordion", data: { layout: "tabs", items: expect.arrayContaining([expect.any(Object), expect.any(Object)]) } });
     expect(inserted[8]).toMatchObject({ type: "labeledGraphic", data: { markers: expect.arrayContaining([expect.any(Object), expect.any(Object), expect.any(Object)]) } });
     expect(inserted[9]).toMatchObject({ type: "processSteps", data: { steps: expect.arrayContaining([expect.any(Object), expect.any(Object), expect.any(Object)]) } });
-    expect(inserted[10]).toMatchObject({ type: "knowledgeCheck" });
-    expect(inserted[11]).toMatchObject({ type: "survey" });
+    expect(inserted[14]).toMatchObject({ type: "knowledgeCheck" });
+    expect(inserted[15]).toMatchObject({ type: "survey" });
   });
 
   it("previews every flip card in the two, three, and four card presets", () => {

@@ -66,4 +66,20 @@ describe("shared course preview experience", () => {
     expect(themed).toContain("--course-accent:#f2a65a");
     expect(themed).toContain("font-family:Georgia, &#x27;Times New Roman&#x27;, serif");
   });
+
+  it("opens directly in the selected lesson when a lesson is requested", () => {
+    const preview = renderToStaticMarkup(
+      createElement(CoursePreview, {
+        initialData,
+        authorName: "Course author",
+        initialLessonId: "lesson-1",
+      }),
+    );
+
+    expect(preview).toContain('aria-label="Preview mode"');
+    expect(preview).toContain('aria-pressed="true"');
+    expect(preview).toContain("1 / 1");
+    expect(preview).toContain("This content has no lesson material yet.");
+    expect(preview).not.toContain("Course outline");
+  });
 });

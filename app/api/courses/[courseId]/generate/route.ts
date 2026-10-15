@@ -4,8 +4,16 @@ import { dashboardErrorResponse, requireOwnerId } from "@/lib/dashboard/http";
 import { objectIdSchema } from "@/lib/dashboard/schemas";
 import { DashboardError } from "@/lib/dashboard/rules";
 import { assertCourseOwner } from "@/lib/media/services/course-assets";
-import { courseGenerationInputSchema } from "@/lib/ai/course-generation-schemas";
-import { generateCourseDraft } from "@/lib/ai/course-generation";
+import { generationSettingsError, parseCourseGenerationForm } from "@/lib/ai/course-generation-request";
+import {
+  advanceSourceGenerationJob,
+  cancelSourceGenerationJob,
+  createSourceGenerationJob,
+  generateCourseDraft,
+  getLastCompletedSourceGenerationJob,
+  getSourceGenerationJob,
+  startSourceGenerationJob,
+} from "@/lib/ai/course-generation";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -66,6 +74,22 @@ function readSourceFile(value: FormDataEntryValue | null) {
   });
 }
 
+export async function GET(_request: NextRequest, context: Context) {
+  try {
+    const ownerId = await requireOwnerId();
+    await connectToDatabase();
+    const { courseId } = await context.params;
+    if (!objectIdSchema.safeParse(courseId).success)
+      throw new DashboardError("Invalid course identifier.", 400);
+    await assertCourseOwner(ownerId, courseId);
+    return NextResponse.json(await getLastCompletedSourceGenerationJob({ ownerId, courseId }), {
+      headers: { "Cache-Control": "no-store" },
+    });
+  } catch (error) {
+    return dashboardErrorResponse(error);
+  }
+}
+
 export async function POST(request: NextRequest, context: Context) {
   try {
     const ownerId = await requireOwnerId();
@@ -76,24 +100,53 @@ export async function POST(request: NextRequest, context: Context) {
     await assertCourseOwner(ownerId, courseId);
 
     const formData = await request.formData();
-    const filePromise = readSourceFile(formData.get("file"));
-    const inputResult = courseGenerationInputSchema.safeParse({
-      prompt: String(formData.get("prompt") ?? ""),
-      audience: String(formData.get("audience") ?? ""),
-      level: String(formData.get("level") ?? "beginner"),
-      lessonCount: Number(formData.get("lessonCount") ?? 5),
-      template: String(formData.get("template") ?? "custom"),
-      includeImages: formData.get("includeImages") === "true",
-      courseTitle: String(formData.get("courseTitle") ?? ""),
-      courseDescription: String(formData.get("courseDescription") ?? ""),
-      model: formData.has("model") ? String(formData.get("model")) : undefined,
-    });
+    const action = String(formData.get("action") ?? "generate");
+    if (![
+      "generate",
+      "analyzeSource",
+      "advanceGeneration",
+      "getGeneration",
+      "cancelGeneration",
+    ].includes(action))
+      throw new DashboardError("Unsupported course generation action.", 400);
+    const jobId = String(formData.get("jobId") ?? "");
+    if (action === "getGeneration") {
+      if (!jobId) throw new DashboardError("A generation job identifier is required.", 400);
+      return NextResponse.json(await getSourceGenerationJob({ ownerId, courseId, jobId }));
+    }
+    if (action === "advanceGeneration") {
+      if (!jobId) throw new DashboardError("A generation job identifier is required.", 400);
+      return NextResponse.json(await advanceSourceGenerationJob({ ownerId, courseId, jobId }));
+    }
+    if (action === "cancelGeneration") {
+      if (!jobId) throw new DashboardError("A generation job identifier is required.", 400);
+      return NextResponse.json(await cancelSourceGenerationJob({ ownerId, courseId, jobId }));
+    }
+    const sourceFile = await readSourceFile(formData.get("file"));
+    if (sourceFile?.contentType === "application/vnd.ms-powerpoint")
+      throw new DashboardError("Legacy .ppt files cannot be page-indexed reliably. Save the presentation as .pptx or PDF, then upload it again.", 400);
+    const inputResult = parseCourseGenerationForm(formData, Boolean(sourceFile || jobId));
     if (!inputResult.success)
-      throw new DashboardError(
-        "Check the generation settings and try again.",
-        400,
-      );
-    const sourceFile = await filePromise;
+      throw new DashboardError(generationSettingsError(inputResult.error.issues), 400);
+    if (action === "analyzeSource" || (action === "generate" && sourceFile && !jobId)) {
+      if (!sourceFile)
+        throw new DashboardError("Upload a PDF or PowerPoint file to generate a course.", 400);
+      const generationJob = await createSourceGenerationJob({
+        ownerId,
+        courseId,
+        input: inputResult.data,
+        sourceFile,
+      });
+      return NextResponse.json(generationJob, { status: 200 });
+    }
+    if (jobId) {
+      return NextResponse.json(await startSourceGenerationJob({
+        ownerId,
+        courseId,
+        jobId,
+        input: inputResult.data,
+      }));
+    }
     if (!inputResult.data.prompt.trim() && !sourceFile)
       throw new DashboardError(
         "Write a course prompt or upload a source file.",

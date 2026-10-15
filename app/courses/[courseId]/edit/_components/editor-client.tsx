@@ -59,26 +59,27 @@ import { Button } from "@/components/ui/button";
 import { PublishMenu } from "@/components/publish-menu";
 import { Textarea } from "@/components/ui/textarea";
 import { DashboardNavbar } from "@/app/dashboard/_components/dashboard-navbar";
-import { CourseOutline } from "./course-outline";
-import { ContentBlockEditor } from "./content-block-editor";
-import { LessonTitleEditor } from "./lesson-title-editor";
-import { StatementTextEditor } from "./statement-text-editor";
-import { SortableItem } from "./sortable-item";
+import { CourseOutline } from "./(editor_client_components)/course-outline";
+import { ContentBlockEditor } from "./(editor_client_components)/content-block-editor";
+import { LessonTitleEditor } from "./(editor_client_components)/(text_editing_components)/lesson-title-editor";
+import { StatementTextEditor } from "./(editor_client_components)/(text_editing_components)/statement-text-editor";
+import { SortableItem } from "./(editor_client_components)/sortable-item";
 import { useDismissDetailsOnOutsideClick } from "@/lib/ui/use-dismiss-details";
-import { BlockFormatMenu } from "./block-format-menu";
-import { BlockManagerSidebar } from "./block-manager-sidebar";
-import {
-  BlockTemplatePicker,
-  createBlocksFromTemplate,
-  type BlockCategory,
-  type BlockTemplate,
-} from "./block-template-picker";
-import { QuizEditor } from "./quiz-editor";
-import { CourseThemeSettings } from "./course-theme-settings";
-import { CourseNavigationSettings } from "./course-navigation-settings";
+import { BlockFormatMenu } from "./(editor_client_components)/block-format-menu";
+import { BlockManagerSidebar } from "./(editor_client_components)/block-manager-sidebar";
+import { BlockTemplatePicker } from "./(editor_client_components)/block-template-picker";
+import { createBlocksFromTemplate } from "./(editor_client_components)/(block_template_picker_components)/create-blocks-from-template";
+import type { BlockCategory, BlockTemplate } from "./(editor_client_components)/(block_template_picker_components)/block-template-data";
+import { QuizEditor } from "./(editor_client_components)/quiz-editor";
+import { CourseThemeSettings } from "./(editor_client_components)/course-theme-settings";
+import { CourseNavigationSettings } from "./(editor_client_components)/course-navigation-settings";
 import { courseThemeFontFamilies } from "@/lib/editor/theme";
 import type { GeneratedCourseDraft } from "@/lib/ai/course-generation-schemas";
-import { CourseGenerationDialog } from "./course-generation-dialog";
+import { CourseGenerationDialog } from "./(editor_client_components)/course-generation-dialog";
+import { editorBlockElementId } from "@/lib/editor/lesson-location";
+import { applyProcessStepsPreset } from "@/lib/editor/process-steps";
+import { useFocusedContentBlock } from "./(editor_client_components)/use-focused-content-block";
+import { duplicateLessonContent, moveLessonToSection } from "@/lib/editor/course-content";
 
 type InitialData = { courseId: string } & EditorSnapshotInput;
 type Draft = Omit<EditorSnapshotInput, "revision">;
@@ -127,10 +128,12 @@ function getTemplateCategory(block: ContentBlock): BlockCategory {
 export function EditorClient({
   initialData,
   focusedLessonId,
+  focusedBlockId,
   authorName,
 }: {
   initialData: InitialData;
   focusedLessonId?: string;
+  focusedBlockId?: string;
   authorName: string;
 }) {
   useDismissDetailsOnOutsideClick();
@@ -175,6 +178,7 @@ export function EditorClient({
   const [courseGenerationOpen, setCourseGenerationOpen] = useState(false);
   const activeLesson =
     draft.lessons.find((lesson) => lesson.id === activeLessonId) ?? null;
+  useFocusedContentBlock(focusedLessonId, activeLessonId, focusedBlockId);
   const orderedSections = useMemo(
     () => [...draft.sections].sort((a, b) => a.order - b.order),
     [draft.sections],
@@ -282,7 +286,9 @@ export function EditorClient({
   }
 
   function openPreview() {
-    openRouteAfterSave(`/courses/${initialData.courseId}/preview`);
+    const lessonId = focusedLessonId ?? activeLessonId;
+    const lessonQuery = lessonId ? `?lessonId=${encodeURIComponent(lessonId)}` : "";
+    openRouteAfterSave(`/courses/${initialData.courseId}/preview${lessonQuery}`);
   }
 
   function undo() {
@@ -519,29 +525,21 @@ export function EditorClient({
     const siblings = draftRef.current.lessons.filter(
       (item) => item.sectionId === source.sectionId,
     );
-    const suffix = source.title.length <= 155 ? " copy" : "";
-    const titleHtml = source.titleHtml?.replace(
-      /((?:<\/[^>]+>\s*)+)$/,
-      `${suffix}$1`,
-    );
     const lesson = {
-      ...source,
-      id: newId(),
-      title: `${source.title}${suffix}`,
-      titleHtml,
+      ...duplicateLessonContent(source, newId),
       order: Math.max(-1, ...siblings.map((item) => item.order)) + 1,
-      blocks: source.blocks.map((block) => ({ ...block, id: newId() })),
-      quizQuestions: source.quizQuestions.map((question) => ({
-        ...question,
-        id: newId(),
-        choices: question.choices.map((choice) => ({ ...choice, id: newId() })),
-      })),
     };
-    pendingRouteRef.current = `/courses/${initialData.courseId}/edit/lessons/${lesson.id}`;
+    pendingRouteRef.current = null;
     updateDraft((current) => ({
       ...current,
       lessons: [...current.lessons, lesson],
     }));
+    void saveLatest();
+  }
+
+  function moveLesson(id: string, sectionId: string) {
+    pendingRouteRef.current = null;
+    updateDraft((current) => moveLessonToSection(current, id, sectionId));
     void saveLatest();
   }
 
@@ -641,6 +639,8 @@ export function EditorClient({
       const replacement =
         existing && createBlocksFromTemplate(template, existing.id)[0];
       if (!existing || !replacement) return;
+      if (existing.type === "processSteps" && replacement.type === "processSteps")
+        replacement.data = applyProcessStepsPreset(existing.data, replacement.data);
       if (
         existing.type === "richText" &&
         replacement.type === "richText" &&
@@ -734,6 +734,7 @@ export function EditorClient({
         onAddLesson={addLesson}
         onAddQuiz={(sectionId) => addLesson(sectionId, "quiz")}
         onDuplicateLesson={duplicateLesson}
+        onMoveLesson={moveLesson}
         onDeleteLesson={deleteLesson}
         onChangeLessonIcon={changeLessonIcon}
         onReorderLessons={reorderLessons}
@@ -827,6 +828,8 @@ export function EditorClient({
                 <span className="sm:hidden">Generate</span>
               </Button>
               <CourseThemeSettings
+                courseId={initialData.courseId}
+                courseTitle={draft.title}
                 theme={draft.theme}
                 onChange={(theme) =>
                   updateDraft((current) => ({ ...current, theme }))
@@ -911,6 +914,8 @@ export function EditorClient({
                 </Button>
               )}
               <CourseThemeSettings
+                courseId={initialData.courseId}
+                courseTitle={draft.title}
                 theme={draft.theme}
                 onChange={(theme) =>
                   updateDraft((current) => ({ ...current, theme }))
@@ -1288,7 +1293,12 @@ export function EditorClient({
                                       <Plus size={14} />
                                     </Button>
                                   </div>
-                                  <div className="group/block-content relative min-w-0 flex-1">
+                                  <div
+                                    id={editorBlockElementId(block.id)}
+                                    data-editor-block-id={block.id}
+                                    tabIndex={-1}
+                                    className="group/block-content relative min-w-0 flex-1 scroll-mt-24 outline-none focus-within:ring-2 focus-within:ring-indigo-200"
+                                  >
                                     <div
                                       aria-hidden="true"
                                       className="pointer-events-none absolute inset-0 z-10 border border-dashed border-slate-400 opacity-0 transition-opacity group-hover/block-content:opacity-100 group-focus-within/block-content:opacity-100"

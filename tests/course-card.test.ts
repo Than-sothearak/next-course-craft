@@ -3,7 +3,7 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { CourseCard } from "@/app/dashboard/_components/course-card";
+import { CourseCard } from "@/app/dashboard/_components/(dashboard_client_components)/course-card";
 import type { DashboardCourse, DashboardData } from "@/lib/dashboard/types";
 
 const course: DashboardCourse = {

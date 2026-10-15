@@ -4,4 +4,6 @@ export { Lesson } from "./Lesson";
 export { Asset } from "./Asset";
 export { Quiz } from "./Quiz";
 export { ExportJob } from "./ExportJob";
+export { GenerationJob } from "./GenerationJob";
+export { GenerationCheckpoint } from "./GenerationCheckpoint";
 export { User } from "./User";

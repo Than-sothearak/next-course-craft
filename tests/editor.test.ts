@@ -5,7 +5,7 @@ import { transactionUnsupported } from "../lib/editor/services/save";
 import { getCourseProgress } from "../lib/editor/preview";
 import { normalizeFontSize, normalizeHexColor } from "../lib/editor/text-format";
 import { blockSchema, defaultBlockPadding, defaultBlockWidth, normalizeBlockPadding } from "../lib/schemas/block";
-import { textEditorExtensions } from "../app/courses/[courseId]/edit/_components/text-formatting-toolbar";
+import { textEditorExtensions } from "../app/courses/[courseId]/edit/_components/(editor_client_components)/(text_editing_components)/text-formatting-toolbar";
 
 const validSnapshot = {
   title: "Onboarding",

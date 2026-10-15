@@ -13,9 +13,9 @@ Work one phase at a time; stop after the requested phase.
 9. **Themes and branding:** saved course palettes, custom brand and accent colors, typography options, themed course and lesson previews, and export parity.
 10. Templates.
 11. **Advanced navigation:** searchable and collapsible learner course outline, per-section completion summaries, and course-level free, sequential, or restricted lesson progression across preview and standalone export.
-12. Additional publishing formats.
+12. **Additional publishing formats:** downloadable PDF course handout with owner-scoped images and learner-safe quiz prompts.
 13. Team collaboration.
 14. **AI generation:** prompt and document ingestion, structured course drafts using existing blocks, optional generated images, and author review/apply.
 15. Production hardening.
 
-Current status: Phases 1 through 9 and Phase 11 are complete. Phase 14 AI generation is in progress by request; Phases 10, 12, and 13 remain unstarted.
+Current status: Phases 1 through 9, 11, and 12 are complete. Phase 14 AI generation is in progress by request; Phases 10 and 13 remain unstarted.

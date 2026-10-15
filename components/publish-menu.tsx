@@ -4,10 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Download, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-type PublishFormat = "html" | "scorm12" | "scorm2004";
+type PublishFormat = "html" | "pdf" | "scorm12" | "scorm2004";
 
 const formats: Array<{ id: PublishFormat; label: string; endpoint: string; extension: string }> = [
   { id: "html", label: "HTML", endpoint: "", extension: "html" },
+  { id: "pdf", label: "PDF handout", endpoint: "/pdf", extension: "pdf" },
   { id: "scorm12", label: "SCORM 1.2", endpoint: "/scorm12", extension: "zip" },
   { id: "scorm2004", label: "SCORM 2004", endpoint: "/scorm2004", extension: "zip" },
 ];

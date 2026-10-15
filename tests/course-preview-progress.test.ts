@@ -4,6 +4,8 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CoursePreview, type PreviewData } from "../app/courses/[courseId]/preview/course-preview";
+import { blockSchema } from "../lib/schemas/block";
+import type { LearnerProgressSnapshot } from "../lib/export/progress";
 
 const courseId = "preview-gate-course";
 const progressKey = `coursecraft-progress-v2-${courseId}`;
@@ -152,6 +154,144 @@ afterEach(() => {
 });
 
 describe("admin course preview progress", () => {
+  it.each([
+    ["free", false], ["free", true], ["sequential", false], ["sequential", true], ["restricted", false], ["restricted", true],
+  ] as const)("uses reading completion with optional interactions only in %s mode (standalone=%s)", async (navigationMode, standalone) => {
+    const data = structuredClone(initialData);
+    data.courseId = `reading-completion-${navigationMode}-${standalone}`;
+    data.navigationMode = navigationMode;
+    const lesson = data.lessons[0];
+    lesson.blocks = [lesson.blocks[0], ...[
+      { type: "accordion", data: { items: [{ id: "one", title: "One", body: "First" }, { id: "two", title: "Two", body: "Second" }] } },
+      { type: "processSteps", data: { steps: [{ id: "one", title: "One", body: "First" }, { id: "two", title: "Two", body: "Second" }] } },
+      { type: "labeledGraphic", data: { src: "/diagram.png", alt: "Diagram", markers: [{ id: "point", label: "Point", description: "Explanation", x: 50, y: 50 }] } },
+      { type: "knowledgeCheck", data: { question: "Question?", options: ["A", "B"] } },
+      { type: "survey", data: { question: "How confident?", minLabel: "Low", maxLabel: "High" } },
+      { type: "video", data: { src: "/lesson.mp4", mimeType: "video/mp4" } },
+    ].map((block, index) => blockSchema.parse({ ...block, id: `activity-${index}`, version: 1 }))];
+    const save = vi.fn();
+    const progressAdapter = { load: () => null, save };
+    await act(async () => {
+      root.render(createElement(CoursePreview, { initialData: data, authorName: "Author", standalone, initialLessonId: lesson.id, progressAdapter }));
+      await new Promise((resolve) => window.setTimeout(resolve, 10));
+    });
+    await act(async () => { await new Promise((resolve) => window.setTimeout(resolve, 10)); });
+    const body = container.querySelector<HTMLElement>(`#preview-content-${lesson.id} > div`)!;
+    Object.defineProperties(body, {
+      scrollHeight: { configurable: true, value: 1000 }, clientHeight: { configurable: true, value: 500 }, scrollTop: { configurable: true, writable: true, value: 0 },
+    });
+    act(() => body.dispatchEvent(new Event("scroll", { bubbles: true })));
+    expect((save.mock.lastCall![1] as LearnerProgressSnapshot).visitedLessonIds).not.toContain(lesson.id);
+    act(() => { body.scrollTop = 500; body.dispatchEvent(new Event("scroll", { bubbles: true })); });
+    const snapshot = save.mock.lastCall![1] as LearnerProgressSnapshot;
+    const free = navigationMode === "free";
+    expect(snapshot.visitedLessonIds.includes(lesson.id)).toBe(free);
+    expect(snapshot.lessonScrollProgress[lesson.id]).toBe(free ? 100 : 99);
+    expect(save.mock.lastCall![2]).toBe(free);
+    expect(snapshot.interactedContentIds).not.toContain("study-cards:card-1");
+    expect(snapshot.interactedContentIds).not.toContain("activity-3:answer");
+    expect(container.querySelector('[data-lesson-block-id="study-cards"] button')?.getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it.each([false, true])("enforces required Continue interactions in free mode and completes optional content afterward (standalone=%s)", async (standalone) => {
+    const data = structuredClone(initialData);
+    data.courseId = `free-reading-gate-${standalone}`;
+    data.navigationMode = "free";
+    const lesson = data.lessons[0];
+    lesson.blocks.push(blockSchema.parse({ id: "after-gate", version: 1, type: "richText", data: { html: "<p>Read this final section.</p>" } }));
+    lesson.blocks.push(blockSchema.parse({ id: "optional-after-gate", version: 1, type: "flipCard", data: { cards: [{ id: "optional", frontLabel: "Question", front: { type: "text", text: "Optional question" }, backLabel: "Answer", back: { type: "text", text: "Optional answer" } }] } }));
+    const save = vi.fn();
+    await act(async () => {
+      root.render(createElement(CoursePreview, { initialData: data, authorName: "Author", standalone, initialLessonId: lesson.id, progressAdapter: { load: () => null, save } }));
+      await new Promise((resolve) => window.setTimeout(resolve, 10));
+    });
+    await act(async () => { await new Promise((resolve) => window.setTimeout(resolve, 10)); });
+    const body = container.querySelector<HTMLElement>(`#preview-content-${lesson.id} > div`)!;
+    let scrollHeight = 1000;
+    Object.defineProperties(body, {
+      scrollHeight: { configurable: true, get: () => scrollHeight }, clientHeight: { configurable: true, value: 500 }, scrollTop: { configurable: true, writable: true, value: 0 },
+    });
+    const continueButton = container.querySelector<HTMLButtonElement>('[data-lesson-block-id="gate-1"] button')!;
+    expect(continueButton.disabled).toBe(true);
+    expect(continueButton.parentElement?.textContent).toContain("Complete the interactive activities above");
+    act(() => { body.scrollTop = 500; body.dispatchEvent(new Event("scroll", { bubbles: true })); });
+    expect(continueButton.disabled).toBe(true);
+    act(() => container.querySelector<HTMLButtonElement>('[data-lesson-block-id="study-cards"] button[aria-label="Flip card 1 to reveal the back"]')!.click());
+    expect(continueButton.disabled).toBe(true);
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>('[data-lesson-block-id="study-cards"] button[aria-label="Flip card 2 to reveal the back"]')!.click();
+      await new Promise((resolve) => window.setTimeout(resolve, 10));
+    });
+    expect(continueButton.disabled).toBe(false);
+    expect((save.mock.lastCall![1] as LearnerProgressSnapshot).visitedLessonIds).not.toContain(lesson.id);
+    scrollHeight = 1500;
+    await act(async () => { continueButton.click(); await new Promise((resolve) => window.setTimeout(resolve, 10)); });
+    expect(container.querySelector('[data-lesson-block-id="after-gate"]')).not.toBeNull();
+    expect((save.mock.lastCall![1] as LearnerProgressSnapshot).visitedLessonIds).not.toContain(lesson.id);
+    act(() => { body.scrollTop = 1000; body.dispatchEvent(new Event("scroll", { bubbles: true })); });
+    const snapshot = save.mock.lastCall![1] as LearnerProgressSnapshot;
+    expect(snapshot.visitedLessonIds).toContain(lesson.id);
+    expect(snapshot.lessonScrollProgress[lesson.id]).toBe(100);
+    expect(snapshot.interactedContentIds).toContain("study-cards:card-1");
+    expect(snapshot.interactedContentIds).not.toContain("optional-after-gate:optional");
+    expect(save.mock.lastCall![2]).toBe(true);
+  });
+
+  it.each(["none", "completeAbove"] as const)("hides Next section until all Continue buttons are used in free mode (%s)", async (completionType) => {
+    const data = twoLessonCourse("free");
+    data.courseId = `free-continue-next-${completionType}`;
+    const lesson = data.lessons[0];
+    const firstGate = lesson.blocks[1];
+    if (firstGate.type !== "divider") throw new Error("Expected Continue gate");
+    firstGate.data.completionType = completionType;
+    lesson.blocks.push(blockSchema.parse({ id: "second-gate", version: 1, type: "divider", data: { style: "continue", completionType: "none" } }));
+    await act(async () => root.render(createElement(CoursePreview, { initialData: data, authorName: "Author", initialLessonId: lesson.id, persistLocalProgress: false })));
+    const body = container.querySelector<HTMLElement>(`#preview-content-${lesson.id} > div`)!;
+    Object.defineProperties(body, { scrollHeight: { configurable: true, value: 1000 }, clientHeight: { configurable: true, value: 500 }, scrollTop: { configurable: true, writable: true, value: 0 } });
+    const nextSection = () => container.querySelector('nav[aria-label="Next section from content 1"] button');
+    const firstButton = container.querySelector<HTMLButtonElement>('[data-lesson-block-id="gate-1"] button')!;
+    expect(nextSection()).toBeNull();
+    if (completionType === "completeAbove") {
+      expect(firstButton.disabled).toBe(true);
+      act(() => { body.scrollTop = 500; body.dispatchEvent(new Event("scroll", { bubbles: true })); });
+      expect(firstButton.disabled).toBe(true);
+      await act(async () => {
+        for (const button of container.querySelectorAll<HTMLButtonElement>('[data-lesson-block-id="study-cards"] button')) button.click();
+        await new Promise((resolve) => window.setTimeout(resolve, 10));
+      });
+    }
+    expect(firstButton.disabled).toBe(false);
+    expect(nextSection()).toBeNull();
+    act(() => firstButton.click());
+    expect(nextSection()).toBeNull();
+    act(() => container.querySelector<HTMLButtonElement>('[data-lesson-block-id="second-gate"] button')!.click());
+    expect(nextSection()).not.toBeNull();
+  });
+
+  it("still requires a passing assessment for a graded quiz in free navigation", async () => {
+    const data = structuredClone(initialData);
+    data.courseId = "free-graded-quiz";
+    data.navigationMode = "free";
+    const lesson = data.lessons[0];
+    lesson.lessonType = "quiz";
+    lesson.blocks = [];
+    lesson.quizQuestions = [{ id: "q", prompt: "Question?", imageSrc: "", imageAlt: "", selectionMode: "single", choices: [{ id: "a", text: "Correct", imageSrc: "", imageAlt: "" }, { id: "b", text: "Incorrect", imageSrc: "", imageAlt: "" }], correctChoiceIds: ["a"], correctFeedback: "Correct", incorrectFeedback: "Try again" }];
+    const save = vi.fn();
+    await act(async () => {
+      root.render(createElement(CoursePreview, { initialData: data, authorName: "Author", initialLessonId: lesson.id, progressAdapter: { load: () => null, save } }));
+      await new Promise((resolve) => window.setTimeout(resolve, 10));
+    });
+    await act(async () => { await new Promise((resolve) => window.setTimeout(resolve, 10)); });
+    const body = container.querySelector<HTMLElement>(`#preview-content-${lesson.id} > div`)!;
+    Object.defineProperties(body, { scrollHeight: { configurable: true, value: 500 }, clientHeight: { configurable: true, value: 500 } });
+    act(() => body.dispatchEvent(new Event("scroll", { bubbles: true })));
+    expect((save.mock.lastCall![1] as LearnerProgressSnapshot).visitedLessonIds).not.toContain(lesson.id);
+    act(() => container.querySelector<HTMLInputElement>('input[value="a"]')!.click());
+    act(() => Array.from(container.querySelectorAll("button")).find((button) => button.textContent === "Check answer")!.click());
+    expect((save.mock.lastCall![1] as LearnerProgressSnapshot).visitedLessonIds).toContain(lesson.id);
+    expect(save.mock.lastCall![2]).toBe(true);
+  });
+
   it("searches and collapses the section navigation with section progress", async () => {
     await act(async () => {
       root.render(

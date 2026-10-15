@@ -4,7 +4,7 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ContentBlockEditor } from "../app/courses/[courseId]/edit/_components/content-block-editor";
+import { ContentBlockEditor } from "../app/courses/[courseId]/edit/_components/(editor_client_components)/content-block-editor";
 import type { ContentBlock } from "../lib/schemas/block";
 
 const blockDefaults = {
@@ -25,7 +25,7 @@ const blocks: ContentBlock[] = [
   { ...blockDefaults, id: "knowledge", type: "knowledgeCheck", data: { question: "Question?", options: ["Yes", "No"], correctOptionIndex: 0, correctFeedback: "Correct", incorrectFeedback: "Try again" } },
   { ...blockDefaults, id: "survey", type: "survey", data: { question: "How was it?", minLabel: "Low", maxLabel: "High" } },
   { ...blockDefaults, id: "flip-card", type: "flipCard", data: { cards: [{ id: "card-a", frontLabel: "Question", front: { type: "text", text: "Prompt" }, backLabel: "Answer", back: { type: "text", text: "Explanation" } }] } },
-  { ...blockDefaults, id: "accordion", type: "accordion", data: { layout: "accordion", items: [{ id: "item-a", title: "First section", body: "First explanation" }, { id: "item-b", title: "Second section", body: "Second explanation" }] } },
+  { ...blockDefaults, id: "accordion", type: "accordion", data: { layout: "accordion", displayMode: "oneByOne", items: [{ id: "item-a", title: "First section", body: "First explanation" }, { id: "item-b", title: "Second section", body: "Second explanation" }] } },
   { ...blockDefaults, id: "labeled-graphic", type: "labeledGraphic", data: { src: "https://example.com/diagram.png", alt: "Diagram", markers: [{ id: "marker-a", label: "Part one", description: "Explanation", x: 30, y: 40 }] } },
   { ...blockDefaults, id: "process-steps", type: "processSteps", data: { steps: [{ id: "step-a", title: "First", body: "Do this" }, { id: "step-b", title: "Second", body: "Then this" }] } },
   { ...blockDefaults, id: "statement", type: "statement", data: { style: "key", title: "Key idea", body: "Remember this." } },
@@ -91,9 +91,10 @@ describe("content block settings access", () => {
     act(() => document.querySelector<HTMLButtonElement>('[aria-label="Open content settings"]')!.click());
     const settingsPanel = document.querySelector<HTMLDivElement>('[id="content-settings-divider"]')!;
     expect(settingsPanel.style.position).toBe("fixed");
-    expect(settingsPanel.style.left).toBe("24px");
-    expect(settingsPanel.style.top).toBe("50%");
-    expect(settingsPanel.style.transform).toBe("translateY(-50%)");
+    // The panel now anchors to the settings button; jsdom supplies zero-size rectangles.
+    expect(settingsPanel.style.left).toBe("12px");
+    expect(settingsPanel.style.top).toBe("8px");
+    expect(settingsPanel.style.transform).toBe("");
     expect(settingsPanel.style.zIndex).toBe("9999");
     expect(document.querySelector('[aria-label="Divider line weight"]')).not.toBeNull();
     expect(document.querySelector('[aria-label="Divider line color"]')).not.toBeNull();
@@ -165,12 +166,25 @@ describe("content block settings access", () => {
     act(() => document.querySelector<HTMLButtonElement>('[aria-label="Open content settings"]')!.click());
     expect(document.querySelector('[aria-label="Reveal section 1 title"]')).not.toBeNull();
     expect(document.querySelector('[aria-label="Reveal section 1 explanation"]')).not.toBeNull();
+    const display = document.querySelector<HTMLSelectElement>('[aria-label="Explanation display"]')!;
+    act(() => {
+      display.value = "all";
+      display.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    expect(onChange.mock.lastCall?.[0]).toMatchObject({ type: "accordion", data: { displayMode: "all" } });
+    const updatedBlock = onChange.mock.lastCall?.[0];
+    if (!updatedBlock || updatedBlock.type !== "accordion") throw new Error("Expected an updated accordion block");
+    act(() => root.render(createElement(ContentBlockEditor, {
+      block: updatedBlock,
+      courseId: "course-1",
+      onChange,
+    })));
     const layout = document.querySelector<HTMLSelectElement>('[aria-label="Reveal layout"]')!;
     act(() => {
       layout.value = "tabs";
       layout.dispatchEvent(new Event("change", { bubbles: true }));
     });
-    expect(onChange.mock.lastCall?.[0]).toMatchObject({ type: "accordion", data: { layout: "tabs" } });
+    expect(onChange.mock.lastCall?.[0]).toMatchObject({ type: "accordion", data: { layout: "tabs", displayMode: "all" } });
     const addSection = [...document.querySelectorAll("button")].find((button) => button.textContent?.includes("Add section"));
     act(() => addSection?.click());
     expect(onChange.mock.lastCall?.[0].data.items).toHaveLength(3);

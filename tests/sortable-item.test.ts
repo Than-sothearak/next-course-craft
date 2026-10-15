@@ -7,7 +7,7 @@ import { AnimatePresence } from "framer-motion";
 import { DndContext } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { describe, expect, it } from "vitest";
-import { SortableItem } from "../app/courses/[courseId]/edit/_components/sortable-item";
+import { SortableItem } from "../app/courses/[courseId]/edit/_components/(editor_client_components)/sortable-item";
 
 function renderSortableItem(animateLayout: boolean) {
   return renderToStaticMarkup(

@@ -46,6 +46,9 @@ describe("learner quiz assessment", () => {
       wasPassed: false,
     })));
 
+    const answerContainer = container.querySelector<HTMLInputElement>('input[value="choice-a"]')?.closest("label")?.parentElement;
+    expect(answerContainer?.className.split(" ")).not.toContain("border");
+
     const checkAnswer = () => Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent === "Check answer")!;
     act(() => container.querySelector<HTMLInputElement>('input[value="choice-b"]')!.click());
     act(() => checkAnswer().click());
