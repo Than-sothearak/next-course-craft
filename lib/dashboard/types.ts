@@ -21,6 +21,14 @@ export type DashboardCourse = {
   revision: number;
   updatedAt: string;
   lessonCount: number;
+  accessRole: "owner" | "admin" | "editor" | "viewer";
+};
+
+export type DashboardWorkspace = {
+  id: string;
+  name: string;
+  role: "owner" | "admin" | "editor" | "viewer";
+  memberCount: number;
 };
 
 export type FolderOption = { id: string; label: string; depth: number };
@@ -39,15 +47,20 @@ export type DashboardData = {
   courses: DashboardCourse[];
   folderOptions: FolderOption[];
   folderTree: FolderTreeNode[];
+  workspaces: DashboardWorkspace[];
+  workspaceId: string | null;
+  workspaceName: string;
+  workspaceRole: DashboardWorkspace["role"];
 };
 
 export type DashboardQuery = {
+  workspaceId?: string | null;
   folderId?: string | null;
   q?: string;
   status?: "all" | "draft" | "published" | "archived";
   sort?: "updated" | "title" | "created";
 };
 
-export type DashboardNavigation = Pick<DashboardData, "folderOptions" | "folderTree">;
+export type DashboardNavigation = Pick<DashboardData, "folderOptions" | "folderTree" | "workspaces" | "workspaceId" | "workspaceName" | "workspaceRole">;
 export type DashboardListing = Omit<DashboardData, keyof DashboardNavigation>;
 export type DashboardFilters = Required<DashboardQuery>;

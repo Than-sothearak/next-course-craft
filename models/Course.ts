@@ -25,6 +25,8 @@ const CourseThemeSchema = new Schema({
 
 const CourseSchema = new Schema({
   ownerId: { type: Schema.Types.ObjectId, required: true, index: true },
+  createdBy: { type: Schema.Types.ObjectId, ref: "User", default: null },
+  workspaceId: { type: Schema.Types.ObjectId, default: null, index: true },
   folderId: { type: Schema.Types.ObjectId, default: null, index: true },
   title: { type: String, required: true, trim: true, maxlength: 160 },
   description: { type: String, default: "", maxlength: 5_000 },
@@ -43,5 +45,6 @@ const CourseSchema = new Schema({
   completionSettings: { type: Schema.Types.Mixed, default: {} },
 }, { timestamps: true, optimisticConcurrency: true });
 CourseSchema.index({ ownerId: 1, folderId: 1, updatedAt: -1 });
+CourseSchema.index({ workspaceId: 1, folderId: 1, updatedAt: -1 });
 export type CourseDocument = InferSchemaType<typeof CourseSchema>;
 export const Course = (models.Course as Model<CourseDocument> | undefined) ?? model<CourseDocument>("Course", CourseSchema);

@@ -75,12 +75,12 @@ function readSourceFile(value: FormDataEntryValue | null) {
 
 export async function GET(_request: NextRequest, context: Context) {
   try {
-    const ownerId = await requireOwnerId();
+    const userId = await requireOwnerId();
     await connectToDatabase();
     const { courseId } = await context.params;
     if (!objectIdSchema.safeParse(courseId).success)
       throw new DashboardError("Invalid course identifier.", 400);
-    await assertCourseOwner(ownerId, courseId);
+    const ownerId = await assertCourseOwner(userId, courseId);
     return NextResponse.json(await getLastCompletedSourceGenerationJob({ ownerId, courseId }), {
       headers: { "Cache-Control": "no-store" },
     });
@@ -91,12 +91,12 @@ export async function GET(_request: NextRequest, context: Context) {
 
 export async function POST(request: NextRequest, context: Context) {
   try {
-    const ownerId = await requireOwnerId();
+    const userId = await requireOwnerId();
     await connectToDatabase();
     const { courseId } = await context.params;
     if (!objectIdSchema.safeParse(courseId).success)
       throw new DashboardError("Invalid course identifier.", 400);
-    await assertCourseOwner(ownerId, courseId);
+    const ownerId = await assertCourseOwner(userId, courseId);
 
     const formData = await request.formData();
     const action = String(formData.get("action") ?? "generate");

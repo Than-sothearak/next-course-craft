@@ -61,6 +61,8 @@ export function CoursePreview({
   onEdit,
   progressAdapter,
   persistLocalProgress = true,
+  canPublish = true,
+  onBack,
 }: {
   initialData: PreviewData;
   authorName: string;
@@ -69,6 +71,8 @@ export function CoursePreview({
   onEdit?: (target?: PreviewEditTarget) => void;
   progressAdapter?: LearnerProgressAdapter;
   persistLocalProgress?: boolean;
+  canPublish?: boolean;
+  onBack?: () => void;
 }) {
   const [mode, setMode] = useState<PreviewMode>(initialLessonId ? "learn" : "course");
   const [device, setDevice] = useState<PreviewDevice>("desktop");
@@ -571,6 +575,8 @@ export function CoursePreview({
     <main style={themeStyle} className="flex h-dvh min-h-0 w-full min-w-0 flex-col overflow-hidden bg-slate-100 text-slate-900">
       <PreviewToolbar
         standalone={standalone}
+        canPublish={canPublish}
+        onBack={onBack}
         onEdit={onEdit ? editCurrentContent : undefined}
         mode={mode}
         device={device}

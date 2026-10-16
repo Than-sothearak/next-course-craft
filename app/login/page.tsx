@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import {
   ArrowRight,
   BookOpen,
@@ -9,12 +10,21 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth, signIn } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import { LoginSkeleton } from "./login-skeleton";
 
 type LoginPageProps = {
   searchParams: Promise<{ callbackUrl?: string }>;
 };
 
-export default async function LoginPage({ searchParams }: LoginPageProps) {
+export default function LoginPage(props: LoginPageProps) {
+  return (
+    <Suspense fallback={<LoginSkeleton />}>
+      <LoginPageContent {...props} />
+    </Suspense>
+  );
+}
+
+async function LoginPageContent({ searchParams }: LoginPageProps) {
   const { callbackUrl } = await searchParams;
   const redirectTo = callbackUrl?.startsWith("/") && !callbackUrl.startsWith("//") ? callbackUrl : "/";
   const session = await auth();

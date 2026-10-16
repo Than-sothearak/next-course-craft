@@ -1,11 +1,10 @@
 import { Asset } from "@/models/Asset";
-import { Course } from "@/models/Course";
 import { DashboardError } from "@/lib/dashboard/rules";
+import { resolveCourseAccess } from "@/lib/workspaces/access";
 import { deleteMediaObject } from "../storage";
 
 export async function assertCourseOwner(ownerId: string, courseId: string) {
-  const course = await Course.exists({ _id: courseId, ownerId, deletedAt: null });
-  if (!course) throw new DashboardError("Course not found.", 404);
+  return (await resolveCourseAccess(ownerId, courseId, "edit")).ownerId;
 }
 
 export async function listCourseMedia(ownerId: string, courseId: string) {

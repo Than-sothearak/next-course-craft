@@ -12,14 +12,15 @@ const router = vi.hoisted(() => ({ push: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
 vi.mock("@/app/dashboard/actions", () => ({ signOutAction: vi.fn() }));
 
-const filters: DashboardFilters = { folderId: null, q: "", status: "all", sort: "updated" };
+const filters: DashboardFilters = { workspaceId: null, folderId: null, q: "", status: "all", sort: "updated" };
 const data: DashboardData = {
   currentFolder: null,
   breadcrumbs: [{ id: null, name: "All courses" }],
   folders: [],
   folderOptions: [{ id: "folder-1", label: "Training", depth: 0 }],
   folderTree: [{ id: "folder-1", name: "Training", courseCount: 1, children: [] }],
-  courses: [{ id: "course-1", title: "Sample course", description: "A course", coverImage: null, folderId: null, status: "draft", revision: 1, updatedAt: "2026-10-14T00:00:00.000Z", lessonCount: 2 }],
+  courses: [{ id: "course-1", title: "Sample course", description: "A course", coverImage: null, folderId: null, status: "draft", revision: 1, updatedAt: "2026-10-14T00:00:00.000Z", lessonCount: 2, accessRole: "owner" }],
+  workspaces: [], workspaceId: null, workspaceName: "Personal", workspaceRole: "owner",
 };
 
 function response(body: DashboardData) {

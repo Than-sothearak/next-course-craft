@@ -7,3 +7,6 @@ export { ExportJob } from "./ExportJob";
 export { GenerationJob } from "./GenerationJob";
 export { GenerationCheckpoint } from "./GenerationCheckpoint";
 export { User } from "./User";
+export { Workspace } from "./Workspace";
+export { WorkspaceMembership } from "./WorkspaceMembership";
+export { WorkspaceInvitation } from "./WorkspaceInvitation";

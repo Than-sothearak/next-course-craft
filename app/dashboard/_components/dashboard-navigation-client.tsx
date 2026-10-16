@@ -13,7 +13,7 @@ function expandedFolderIds(nodes: FolderTreeNode[]): Set<string> {
 }
 
 export function DashboardNavigationClient({ initialNavigation, initialError }: { initialNavigation: DashboardNavigation; initialError: string | null }) {
-  const { navigation, filters, navigating, busy, navigateToFolder, setShowNewFolder, setShowNewCourse } = useDashboard();
+  const { navigation, filters, navigating, busy, navigateToFolder, navigateToWorkspace, setShowNewFolder, setShowNewCourse, setShowWorkspaceManager } = useDashboard();
   const data = navigation ?? initialNavigation;
   const [expandedFolders, setExpandedFolders] = useState(() => expandedFolderIds(data.folderTree));
 
@@ -32,5 +32,8 @@ export function DashboardNavigationClient({ initialNavigation, initialError }: {
     onOpenFolder={navigateToFolder}
     onNewFolder={() => setShowNewFolder(true)}
     onNewCourse={() => setShowNewCourse(true)}
+    onWorkspaceChange={navigateToWorkspace}
+    onCreateWorkspace={() => setShowWorkspaceManager(true)}
+    onManageWorkspace={() => setShowWorkspaceManager(true)}
   />;
 }

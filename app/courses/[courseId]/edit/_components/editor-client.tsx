@@ -130,11 +130,13 @@ export function EditorClient({
   focusedLessonId,
   focusedBlockId,
   authorName,
+  userName,
 }: {
   initialData: InitialData;
   focusedLessonId?: string;
   focusedBlockId?: string;
   authorName: string;
+  userName?: string;
 }) {
   useDismissDetailsOnOutsideClick();
   const router = useRouter();
@@ -788,7 +790,7 @@ export function EditorClient({
     >
       {isCourseOverview && (
         <DashboardNavbar
-          userName={authorName}
+          userName={userName ?? authorName}
           actions={
             <>
               <Button

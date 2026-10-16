@@ -1,5 +1,5 @@
 import { Types } from "mongoose";
-import { Course, Lesson } from "@/models";
+import { Course, Lesson, User } from "@/models";
 import { DashboardError } from "@/lib/dashboard/rules";
 import {
   defaultBlockWidthForBlock,
@@ -10,6 +10,20 @@ import {
 import { defaultSection, ownerObjectId } from "./shared";
 import { normalizeCourseTheme } from "../theme";
 import { normalizeCourseNavigationMode } from "../navigation";
+
+export async function getCourseAuthorName(ownerId: string, courseId: string) {
+  ownerObjectId(ownerId);
+  if (!Types.ObjectId.isValid(courseId))
+    throw new DashboardError("Course not found.", 404);
+
+  const course = await Course.findOne({ _id: courseId, ownerId, deletedAt: null })
+    .select("createdBy ownerId")
+    .lean();
+  if (!course) throw new DashboardError("Course not found.", 404);
+  const creatorId = course.createdBy ?? course.ownerId;
+  const creator = await User.findById(creatorId).select("name email").lean() as { name?: string | null; email?: string | null } | null;
+  return creator?.name?.trim() || creator?.email || "Course author";
+}
 
 export async function getCourseEditor(ownerId: string, courseId: string) {
   ownerObjectId(ownerId);

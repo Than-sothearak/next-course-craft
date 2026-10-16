@@ -22,13 +22,13 @@ async function connectDashboardStorage() {
   await connectToDatabase();
 }
 
-export async function loadDashboardNavigation(): Promise<DashboardLoadResult<DashboardNavigation>> {
+export async function loadDashboardNavigation(workspaceId: string | null): Promise<DashboardLoadResult<DashboardNavigation>> {
   const { ownerId } = await getDashboardUser();
   try {
     await connectDashboardStorage();
-    return { data: await getDashboardNavigation(ownerId), error: null };
+    return { data: await getDashboardNavigation(ownerId, workspaceId), error: null };
   } catch (error) {
-    return { data: { folderOptions: [], folderTree: [] }, error: error instanceof Error ? error.message : "Folder navigation is unavailable." };
+    return { data: { folderOptions: [], folderTree: [], workspaces: [], workspaceId, workspaceName: workspaceId ? "Team workspace" : "Personal", workspaceRole: workspaceId ? "viewer" : "owner" }, error: error instanceof Error ? error.message : "Folder navigation is unavailable." };
   }
 }
 

@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { createCourseSchema, createFolderSchema, updateCourseSchema } from "../lib/dashboard/schemas";
+import { createCourseSchema, createFolderSchema, duplicateCourseSchema, updateCourseSchema } from "../lib/dashboard/schemas";
 import { assertNoFolderCycle, escapeRegex, normalizeFolderName } from "../lib/dashboard/rules";
 
 describe("dashboard input validation", () => {
   it("trims folder names and defaults new folders to the root", () => {
-    expect(createFolderSchema.parse({ name: "  Sales  " })).toEqual({ name: "Sales", parentId: null });
+    expect(createFolderSchema.parse({ name: "  Sales  " })).toEqual({ name: "Sales", parentId: null, workspaceId: null });
   });
 
   it("rejects blank names and malformed folder references", () => {
@@ -15,6 +15,11 @@ describe("dashboard input validation", () => {
   it("accepts only explicit editable course fields", () => {
     expect(updateCourseSchema.safeParse({ $set: { title: "Changed" } }).success).toBe(false);
     expect(createCourseSchema.parse({ title: " Orientation " })).toMatchObject({ title: "Orientation", folderId: null });
+  });
+
+  it("validates workspace copy destinations", () => {
+    expect(duplicateCourseSchema.parse({ workspaceId: null })).toEqual({ workspaceId: null });
+    expect(duplicateCourseSchema.safeParse({ workspaceId: "not-an-object-id" }).success).toBe(false);
   });
 
   it("allows HTTP(S) cover images and rejects active content URLs", () => {

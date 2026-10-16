@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "build:export": "vite build --config export/vite.config.ts"
+    "build:export": "vite build --config export/vite.config.ts",
+    "migrate:workspace-folder-index": "node scripts/migrate-workspace-folder-indexes.mjs"
   },
   "dependencies": {
     "@auth/mongodb-adapter": "^3.10.0",

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import Loading from "./loading";
 
 export const metadata: Metadata = {
   title: "Coursecraft",

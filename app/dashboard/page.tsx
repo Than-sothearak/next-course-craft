@@ -22,7 +22,7 @@ export default function DashboardPage({ searchParams }: PageProps) {
 async function DashboardWorkspace({ searchParams }: PageProps) {
   // URL-specific work stays behind Suspense so dashboard links can share the shell.
   const filters = dashboardFilters(await searchParams);
-  const navigation = loadDashboardNavigation();
+  const navigation = loadDashboardNavigation(filters.workspaceId);
   const listing = loadDashboardListing(filters);
 
   return <DashboardProvider key={dashboardQueryKey(filters)} initialFilters={filters}>

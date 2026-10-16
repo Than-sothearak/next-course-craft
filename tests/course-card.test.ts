@@ -16,6 +16,7 @@ const course: DashboardCourse = {
   revision: 1,
   updatedAt: "2026-10-14T00:00:00.000Z",
   lessonCount: 2,
+  accessRole: "owner",
 };
 
 const data: DashboardData = {
@@ -25,6 +26,10 @@ const data: DashboardData = {
   courses: [course],
   folderOptions: [],
   folderTree: [],
+  workspaces: [],
+  workspaceId: null,
+  workspaceName: "Personal",
+  workspaceRole: "owner",
 };
 
 describe("course card actions", () => {
@@ -76,9 +81,45 @@ describe("course card actions", () => {
     const menu = container.querySelector('[role="menu"][aria-label="Publish format"]');
     expect([...menu!.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent)).toEqual([
       "HTML",
+      "PDF handout",
       "SCORM 1.2",
       "SCORM 2004",
     ]);
+  });
+
+  it("duplicates a personal course into a selected team workspace", async () => {
+    const teamData: DashboardData = {
+      ...data,
+      workspaces: [{ id: "workspace-1", name: "Product team", role: "editor", memberCount: 2 }],
+    };
+    const onRequest = vi.fn(async () => {});
+    act(() => {
+      root.render(createElement(CourseCard, {
+        course,
+        data: teamData,
+        disabled: false,
+        busy: false,
+        onSubmit: async () => {},
+        onRequest,
+      }));
+    });
+    const details = container.querySelector<HTMLDetailsElement>("details")!;
+    act(() => details.querySelector("summary")!.click());
+    const destination = [...details.querySelectorAll("select")].find((select) =>
+      [...select.options].some((option) => option.value === "workspace-1"),
+    )!;
+    act(() => {
+      destination.value = "workspace-1";
+      destination.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await act(async () => {
+      [...details.querySelectorAll<HTMLButtonElement>("button")]
+        .find((button) => button.textContent?.includes("Duplicate course"))
+        ?.click();
+      await Promise.resolve();
+    });
+
+    expect(onRequest).toHaveBeenCalledWith("/api/courses/course-1", "POST", { workspaceId: "workspace-1" });
   });
 
   it("opens the course image library from the card actions", async () => {

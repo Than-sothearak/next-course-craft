@@ -17,10 +17,10 @@ async function getCourseId(context: Context) {
 
 export async function GET(_request: NextRequest, context: Context) {
   try {
-    const ownerId = await requireOwnerId();
+    const userId = await requireOwnerId();
     await connectToDatabase();
     const courseId = await getCourseId(context);
-    await assertCourseOwner(ownerId, courseId);
+    const ownerId = await assertCourseOwner(userId, courseId);
     return NextResponse.json({ assets: await listCourseMedia(ownerId, courseId) });
   } catch (error) {
     return dashboardErrorResponse(error);
@@ -29,10 +29,10 @@ export async function GET(_request: NextRequest, context: Context) {
 
 export async function POST(request: NextRequest, context: Context) {
   try {
-    const ownerId = await requireOwnerId();
+    const userId = await requireOwnerId();
     await connectToDatabase();
     const courseId = await getCourseId(context);
-    await assertCourseOwner(ownerId, courseId);
+    const ownerId = await assertCourseOwner(userId, courseId);
     const input = await readJson(request, mediaUploadInputSchema);
     return NextResponse.json(await beginMediaUpload(ownerId, courseId, input), { status: 201 });
   } catch (error) {

@@ -7,6 +7,8 @@ import type { PreviewDevice, PreviewMode, PreviewOrientation } from "./preview-t
 
 type PreviewToolbarProps = {
   standalone: boolean;
+  canPublish?: boolean;
+  onBack?: () => void;
   onEdit?: () => void;
   mode: PreviewMode;
   device: PreviewDevice;
@@ -21,6 +23,8 @@ type PreviewToolbarProps = {
 
 export function PreviewToolbar({
   standalone,
+  canPublish = true,
+  onBack,
   onEdit,
   mode,
   device,
@@ -37,16 +41,7 @@ export function PreviewToolbar({
   return (
     <header className="relative z-50 flex min-h-14 shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-200 bg-white px-3 py-2 sm:px-5">
       <div className="flex items-center gap-2">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          aria-label="Back to course editor"
-          title="Back to editor"
-          onClick={onEdit}
-        >
-          <ArrowLeft size={18} />
-        </Button>
+        {onBack && <Button type="button" variant="ghost" size="icon" aria-label="Back" title="Back" onClick={onBack}><ArrowLeft size={18} /></Button>}
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold">Course Preview</span>
           <span className="hidden text-xs text-slate-500 sm:inline">
@@ -140,7 +135,7 @@ export function PreviewToolbar({
             </Button>
           </div>
         )}
-        <Button
+        {onEdit && <Button
           type="button"
           variant="default"
           size="sm"
@@ -148,8 +143,8 @@ export function PreviewToolbar({
           className="ml-1 h-8 px-3 text-xs"
         >
           Edit
-        </Button>
-        <PublishMenu courseId={courseId} title={courseTitle} className="h-8 px-2.5 text-xs sm:px-3" />
+        </Button>}
+        {canPublish && <PublishMenu courseId={courseId} title={courseTitle} className="h-8 px-2.5 text-xs sm:px-3" />}
       </div>
     </header>
   );

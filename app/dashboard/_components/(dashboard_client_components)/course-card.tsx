@@ -49,6 +49,9 @@ export function CourseCard({
   const menuRef = useRef<HTMLDetailsElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [coverLibraryOpen, setCoverLibraryOpen] = useState(false);
+  const [copyWorkspaceId, setCopyWorkspaceId] = useState(data.workspaceId ?? "");
+  const readOnly = course.accessRole === "viewer";
+  const courseHref = readOnly ? `/courses/${course.id}/preview` : `/courses/${course.id}/edit`;
 
   useEffect(() => {
     function closeWhenClickingOutside(event: PointerEvent) {
@@ -90,13 +93,13 @@ export function CourseCard({
               className="truncate font-semibold text-slate-900"
               title={course.title}
             >
-              <Link href={`/courses/${course.id}/edit`} className="rounded-sm hover:text-indigo-700 focus-visible:outline-2 focus-visible:outline-indigo-600">{course.title}</Link>
+              <Link href={courseHref} className="rounded-sm hover:text-indigo-700 focus-visible:outline-2 focus-visible:outline-indigo-600">{course.title}</Link>
             </h3>
             <p className="mt-1 line-clamp-2 min-h-10 text-sm leading-5 text-slate-500">
               {course.description || "Start building your learning experience."}
             </p>
           </div>
-          <details ref={menuRef} onToggle={(event) => setMenuOpen(event.currentTarget.open)} className="relative shrink-0">
+          {!readOnly && <details ref={menuRef} onToggle={(event) => setMenuOpen(event.currentTarget.open)} className="relative shrink-0">
             <summary
               aria-label={`Manage ${course.title}`}
               onClick={() => setMenuOpen((open) => !open)}
@@ -203,16 +206,23 @@ export function CourseCard({
                   <option value="archived">Archived</option>
                 </Select>
               </label>
-              <Button
-                variant="outline"
-                disabled={disabled || busy}
-                onClick={() =>
-                  void onRequest(`/api/courses/${course.id}`, "POST")
-                }
-                className="h-auto min-h-0 w-full justify-start rounded-md px-2 py-2 text-left text-xs"
-              >
-                Duplicate course
-              </Button>
+              <div className="space-y-2">
+                <label className="block text-xs font-semibold text-slate-500">
+                  Copy to workspace
+                  <Select value={copyWorkspaceId} onChange={(event) => setCopyWorkspaceId(event.target.value)} className="mt-1 h-9 w-full px-2 text-sm font-normal text-slate-900">
+                    <option value="">Personal</option>
+                    {data.workspaces.map((workspace) => <option key={workspace.id} value={workspace.id} disabled={workspace.role === "viewer"}>{workspace.name}{workspace.role === "viewer" ? " · view only" : ""}</option>)}
+                  </Select>
+                </label>
+                <Button
+                  variant="outline"
+                  disabled={disabled || busy}
+                  onClick={() => void onRequest(`/api/courses/${course.id}`, "POST", { workspaceId: copyWorkspaceId || null })}
+                  className="h-auto min-h-0 w-full justify-start rounded-md px-2 py-2 text-left text-xs"
+                >
+                  Duplicate course
+                </Button>
+              </div>
               <PublishMenu
                 courseId={course.id}
                 title={course.title}
@@ -241,7 +251,7 @@ export function CourseCard({
                 Move to recently deleted
               </Button>
             </div>
-          </details>
+          </details>}
         </div>
         <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-3">
           <Badge variant={statusVariant}>{course.status}</Badge>
@@ -255,7 +265,7 @@ export function CourseCard({
             {course.lessonCount}{" "}
             {course.lessonCount === 1 ? "lesson" : "lessons"}
           </span>
-          <Link href={`/courses/${course.id}/edit`} className="font-medium text-indigo-700 hover:text-indigo-900">Open editor <span aria-hidden="true">→</span></Link>
+          <Link href={courseHref} className="font-medium text-indigo-700 hover:text-indigo-900">{readOnly ? "Preview course" : "Open editor"} <span aria-hidden="true">→</span></Link>
         </div>
       </div>
     </Card>

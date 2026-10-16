@@ -16,6 +16,9 @@ const courseId = "507f1f77bcf86cd799439012";
 const imageId = "507f1f77bcf86cd799439013";
 const videoId = "507f1f77bcf86cd799439014";
 const unusedId = "507f1f77bcf86cd799439015";
+const destinationOwnerId = "507f1f77bcf86cd799439016";
+const destinationWorkspaceId = "507f1f77bcf86cd799439017";
+const destinationCreatorId = "507f1f77bcf86cd799439018";
 const imageUrl = `/api/assets/${imageId}/file`;
 const videoUrl = `/api/assets/${videoId}/file`;
 
@@ -150,6 +153,18 @@ describe("course duplication with independent media", () => {
     await duplicateCourse(ownerId, courseId);
     expect(Course.create).toHaveBeenCalledWith(expect.objectContaining({ coverImage: "https://example.com/cover.png" }));
     expect(copyMediaObject).toHaveBeenCalledTimes(3);
+  });
+
+  it("copies a personal course into a workspace with destination-owned media", async () => {
+    await duplicateCourse(ownerId, courseId, { ownerId: destinationOwnerId, workspaceId: destinationWorkspaceId, createdBy: destinationCreatorId });
+    const copy = vi.mocked(Course.create).mock.calls[0][0] as unknown as Record<string, unknown>;
+    const assets = vi.mocked(Asset.create).mock.calls.map(([asset]) => asset as unknown as Record<string, unknown>);
+    expect((copy.ownerId as Types.ObjectId).toString()).toBe(destinationOwnerId);
+    expect((copy.createdBy as Types.ObjectId).toString()).toBe(destinationCreatorId);
+    expect(copy).toMatchObject({ workspaceId: destinationWorkspaceId, folderId: null });
+    expect(Asset.find).toHaveBeenCalledWith(expect.objectContaining({ ownerId: new Types.ObjectId(ownerId) }));
+    expect(assets[0].ownerId).toEqual(new Types.ObjectId(destinationOwnerId));
+    expect(assets[0].objectKey).toMatch(new RegExp(`^${destinationOwnerId}/`));
   });
 
   it("rejects inaccessible courses without copying media or content", async () => {

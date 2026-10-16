@@ -4,7 +4,7 @@ export const objectIdSchema = z.string().regex(/^[a-f\d]{24}$/i, "Invalid identi
 export const nullableObjectIdSchema = objectIdSchema.nullable();
 
 export const folderNameSchema = z.string().trim().min(1, "Enter a folder name.").max(120, "Folder names must be 120 characters or fewer.");
-export const createFolderSchema = z.object({ name: folderNameSchema, parentId: nullableObjectIdSchema.default(null) });
+export const createFolderSchema = z.object({ name: folderNameSchema, parentId: nullableObjectIdSchema.default(null), workspaceId: nullableObjectIdSchema.default(null) });
 export const updateFolderSchema = z.object({ name: folderNameSchema.optional(), parentId: nullableObjectIdSchema.optional() }).refine((value) => value.name !== undefined || value.parentId !== undefined, "Change a name or destination.");
 
 const externalCourseCoverImageSchema = z.string().url().max(2_048).refine((value) => {
@@ -22,6 +22,7 @@ export const createCourseSchema = z.object({
   description: z.string().trim().max(5_000).default(""),
   coverImage: externalCourseCoverImageSchema.nullable().optional(),
   folderId: nullableObjectIdSchema.default(null),
+  workspaceId: nullableObjectIdSchema.default(null),
 });
 export const updateCourseSchema = z.object({
   title: z.string().trim().min(1).max(160).optional(),
@@ -31,8 +32,10 @@ export const updateCourseSchema = z.object({
   status: z.enum(["draft", "published", "archived"]).optional(),
 }).refine((value) => Object.keys(value).length > 0, "Provide at least one course field to change.");
 export const deleteCourseSchema = z.object({ confirmTitle: z.string().trim().min(1) });
+export const duplicateCourseSchema = z.object({ workspaceId: nullableObjectIdSchema });
 
 export type CreateFolderInput = z.infer<typeof createFolderSchema>;
 export type UpdateFolderInput = z.infer<typeof updateFolderSchema>;
 export type CreateCourseInput = z.infer<typeof createCourseSchema>;
 export type UpdateCourseInput = z.infer<typeof updateCourseSchema>;
+export type DuplicateCourseInput = z.infer<typeof duplicateCourseSchema>;

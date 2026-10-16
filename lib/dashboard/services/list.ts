@@ -12,12 +12,17 @@ import type {
   FolderTreeNode,
 } from "../types";
 import { folderResponse, objectId, ownerObjectId } from "./internal";
+import { resolveDashboardAccess } from "@/lib/workspaces/access";
+import { listWorkspaces } from "@/lib/workspaces/services";
 
 export async function getDashboardListing(
-  ownerId: string,
+  userId: string,
   query: DashboardQuery = {},
 ): Promise<DashboardListing> {
+  const scope = await resolveDashboardAccess(userId, query.workspaceId ?? null);
+  const ownerId = scope.ownerId;
   const owner = ownerObjectId(ownerId);
+  const workspaceId = objectId(scope.workspaceId);
   const folderId = query.folderId ?? null;
   let currentFolder: DashboardData["currentFolder"] = null;
   const breadcrumbs: DashboardData["breadcrumbs"] = [
@@ -33,7 +38,7 @@ export async function getDashboardListing(
       if (seen.has(id) || seen.size >= 100)
         throw new DashboardError("This folder path is invalid.", 409);
       seen.add(id);
-      const folder = await Folder.findOne({ _id: currentId, ownerId }).lean();
+      const folder = await Folder.findOne({ _id: currentId, ownerId, workspaceId }).lean();
       if (!folder) throw new DashboardError("Folder not found.", 404);
       parents.push({ id, name: folder.name });
       if (id === folderId) currentFolder = folderResponse(folder);
@@ -45,6 +50,7 @@ export async function getDashboardListing(
   const directFolder = objectId(folderId);
   const folderFilter: Record<string, unknown> = {
     ownerId,
+    workspaceId,
     parentId: directFolder,
   };
   if (query.q?.trim())
@@ -66,6 +72,7 @@ export async function getDashboardListing(
     {
       $match: {
         ownerId: owner,
+        workspaceId,
         deletedAt: null,
         folderId: { $in: folders.map((folder) => folder._id) },
       },
@@ -79,6 +86,7 @@ export async function getDashboardListing(
     {
       $match: {
         ownerId: owner,
+        workspaceId,
         parentId: { $in: folders.map((folder) => folder._id) },
       },
     },
@@ -98,6 +106,7 @@ export async function getDashboardListing(
 
   const courseFilter: Record<string, unknown> = {
     ownerId,
+    workspaceId,
     folderId: directFolder,
     deletedAt: null,
   };
@@ -139,6 +148,7 @@ export async function getDashboardListing(
     revision: course.revision,
     updatedAt: course.updatedAt.toISOString(),
     lessonCount: lessonCountMap.get(course._id.toString()) ?? 0,
+    accessRole: scope.role,
   }));
 
   return {
@@ -149,9 +159,14 @@ export async function getDashboardListing(
   };
 }
 
-export async function getDashboardNavigation(ownerId: string): Promise<DashboardNavigation> {
-  const owner = ownerObjectId(ownerId);
-  const allFolders = await Folder.find({ ownerId })
+export async function getDashboardNavigation(userId: string, workspaceId: string | null = null): Promise<DashboardNavigation> {
+  const [scope, workspaces] = await Promise.all([
+    resolveDashboardAccess(userId, workspaceId),
+    listWorkspaces(userId),
+  ]);
+  const owner = ownerObjectId(scope.ownerId);
+  const folderScope = { ownerId: owner, workspaceId: objectId(scope.workspaceId) };
+  const allFolders = await Folder.find(folderScope)
     .sort({ name: 1 })
     .select("_id name parentId")
     .lean();
@@ -163,7 +178,7 @@ export async function getDashboardNavigation(ownerId: string): Promise<Dashboard
     _id: Types.ObjectId;
     count: number;
   }>([
-    { $match: { ownerId: owner, deletedAt: null, folderId: { $ne: null } } },
+    { $match: { ...folderScope, deletedAt: null, folderId: { $ne: null } } },
     { $group: { _id: "$folderId", count: { $sum: 1 } } },
   ]);
   const allCourseCountMap = new Map(
@@ -227,13 +242,17 @@ export async function getDashboardNavigation(ownerId: string): Promise<Dashboard
   return {
     folderOptions,
     folderTree,
+    workspaces,
+    workspaceId: scope.workspaceId,
+    workspaceName: scope.workspaceName,
+    workspaceRole: scope.role,
   };
 }
 
-export async function getDashboardData(ownerId: string, query: DashboardQuery = {}): Promise<DashboardData> {
+export async function getDashboardData(userId: string, query: DashboardQuery = {}): Promise<DashboardData> {
   const [listing, navigation] = await Promise.all([
-    getDashboardListing(ownerId, query),
-    getDashboardNavigation(ownerId),
+    getDashboardListing(userId, query),
+    getDashboardNavigation(userId, query.workspaceId ?? null),
   ]);
   return { ...listing, ...navigation };
 }

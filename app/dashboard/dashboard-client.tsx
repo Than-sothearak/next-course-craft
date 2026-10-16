@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { ChevronRight, LayoutGrid, List, Search, X } from "lucide-react";
+import { ChevronRight, LayoutGrid, List, Search, X, Users, Plus } from "lucide-react";
 import type { DashboardData } from "@/lib/dashboard/types";
 import { dashboardQueryKey } from "@/lib/dashboard/query";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "./_components/(dashboard_client_components)/empty-state";
 import { FolderCard } from "./_components/(dashboard_client_components)/folder-card";
 import { useDismissDetailsOnOutsideClick } from "@/lib/ui/use-dismiss-details";
+import { WorkspaceManagerDialog } from "./_components/workspace-manager-dialog";
 
 type Props = {
   initialData: DashboardData;
@@ -29,7 +30,7 @@ export default function DashboardClient({
   userName,
 }: Props) {
   useDismissDetailsOnOutsideClick();
-  const { filters, setFilters, setNavigation, navigating, navigateToFolder, busy, setBusy, showNewFolder, setShowNewFolder, showNewCourse, setShowNewCourse } = useDashboard();
+  const { filters, setFilters, setNavigation, navigating, navigateToFolder, navigateToWorkspace, busy, setBusy, showNewFolder, setShowNewFolder, showNewCourse, setShowNewCourse, showWorkspaceManager, setShowWorkspaceManager } = useDashboard();
   const { q: query, status, sort } = filters;
   const queryKey = dashboardQueryKey(filters);
   const [data, setData] = useState(initialData);
@@ -137,12 +138,14 @@ export default function DashboardClient({
     if (payload.folderId === "") payload.folderId = null;
     if (payload.parentId === "") payload.parentId = null;
     if (payload.coverImage === "") payload.coverImage = null;
+    if (url === "/api/folders" || url === "/api/courses") payload.workspaceId = filters.workspaceId;
     await request(url, method, payload);
     if (method === "POST" && url === "/api/folders") setShowNewFolder(false);
     if (method === "POST" && url === "/api/courses") setShowNewCourse(false);
   }
 
   const disabled = Boolean(initialError) || busy || navigating;
+  const readOnly = data.workspaceRole === "viewer";
   const unavailable = failedQueryKey === queryKey && loadedQueryKey !== queryKey;
   const loading = navigating || (loadedQueryKey !== queryKey && !unavailable);
 
@@ -157,11 +160,18 @@ export default function DashboardClient({
             Organize your workspace and pick up where you left off.
           </p>
         </div>
-        <DashboardActions
-          disabled={disabled}
-          onNewFolder={() => setShowNewFolder(true)}
-          onNewCourse={() => setShowNewCourse(true)}
-        />
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center gap-2 lg:hidden">
+            <label><span className="sr-only">Switch workspace</span><Select value={filters.workspaceId ?? ""} disabled={disabled} onChange={(event) => navigateToWorkspace(event.target.value || null)} className="h-9 max-w-52"><option value="">Personal</option>{data.workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}</Select></label>
+            <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={() => setShowWorkspaceManager(true)}><Plus size={15} />Team</Button>
+            {filters.workspaceId && (data.workspaceRole === "owner" || data.workspaceRole === "admin") && <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={() => setShowWorkspaceManager(true)} aria-label="Manage team"><Users size={15} /></Button>}
+          </div>
+          <DashboardActions
+            disabled={disabled || readOnly}
+            onNewFolder={() => setShowNewFolder(true)}
+            onNewCourse={() => setShowNewCourse(true)}
+          />
+        </div>
       </div>
 
       {error && (
@@ -202,6 +212,15 @@ export default function DashboardClient({
           </button>
         </div>
       )}
+
+      <WorkspaceManagerDialog
+        key={filters.workspaceId ?? "create-workspace"}
+        open={showWorkspaceManager}
+        workspaceId={filters.workspaceId}
+        role={data.workspaceRole}
+        onClose={() => setShowWorkspaceManager(false)}
+        onCreated={(workspace) => { setShowWorkspaceManager(false); navigateToWorkspace(workspace.id); }}
+      />
 
       <DashboardDialogs
         openFolder={showNewFolder}
@@ -357,7 +376,7 @@ export default function DashboardClient({
                 key={folder.id}
                 folder={folder}
                 data={data}
-                disabled={disabled}
+                disabled={disabled || readOnly}
                 busy={busy}
                 onOpen={() => navigateToFolder(folder.id)}
                 onSubmit={submit}
@@ -382,10 +401,10 @@ export default function DashboardClient({
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-6">
             {data.courses.map((course) => (
               <CourseCard
-                key={course.id}
+                key={`${course.id}:${data.workspaceId ?? "personal"}`}
                 course={course}
                 data={data}
-                disabled={disabled}
+                disabled={disabled || readOnly}
                 busy={busy}
                 onSubmit={submit}
                 onRequest={request}
@@ -397,7 +416,7 @@ export default function DashboardClient({
             hasFolders={data.folders.length > 0}
             query={query}
             onCreate={() => setShowNewCourse(true)}
-            disabled={disabled}
+            disabled={disabled || readOnly}
           />
         )}
       </section>

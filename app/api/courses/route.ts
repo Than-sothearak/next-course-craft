@@ -11,9 +11,11 @@ export async function GET(request: NextRequest) {
     const ownerId = await requireOwnerId();
     await connectToDatabase();
     const params = request.nextUrl.searchParams;
+    const rawWorkspaceId = params.get("workspaceId");
+    if (rawWorkspaceId && !objectIdSchema.safeParse(rawWorkspaceId).success) throw new DashboardError("Invalid workspace identifier.", 400);
     const rawFolderId = params.get("folderId");
     if (rawFolderId && !objectIdSchema.safeParse(rawFolderId).success) throw new DashboardError("Invalid folder identifier.", 400);
-    const data = await getDashboardData(ownerId, { folderId: rawFolderId, q: params.get("q") ?? "", status: "all" });
+    const data = await getDashboardData(ownerId, { workspaceId: rawWorkspaceId, folderId: rawFolderId, q: params.get("q") ?? "", status: "all" });
     return NextResponse.json(data.courses);
   } catch (error) {
     return dashboardErrorResponse(error);

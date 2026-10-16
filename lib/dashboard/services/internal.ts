@@ -51,8 +51,9 @@ export function folderResponse(folder: {
 export async function assertFolderOwned(
   ownerId: string,
   folderId: string | null,
+  workspaceId: string | null = null,
 ) {
-  if (folderId && !(await Folder.exists({ _id: folderId, ownerId }))) {
+  if (folderId && !(await Folder.exists({ _id: folderId, ownerId, workspaceId }))) {
     throw new DashboardError("Destination folder not found.", 404);
   }
 }
@@ -62,11 +63,13 @@ export async function assertUniqueFolderName(
   parentId: string | null,
   name: string,
   excludeId?: string,
+  workspaceId: string | null = null,
 ) {
   const filter: Record<string, unknown> = {
     ownerId,
     parentId: objectId(parentId),
     normalizedName: normalizeFolderName(name),
+    workspaceId,
   };
   if (excludeId) filter._id = { $ne: excludeId };
   if (await Folder.exists(filter)) throw duplicateFolderName();

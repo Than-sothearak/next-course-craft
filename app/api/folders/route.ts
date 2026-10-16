@@ -10,9 +10,12 @@ export async function GET(request: NextRequest) {
   try {
     const ownerId = await requireOwnerId();
     await connectToDatabase();
-    const rawParentId = request.nextUrl.searchParams.get("parentId");
+    const params = request.nextUrl.searchParams;
+    const rawParentId = params.get("parentId");
+    const rawWorkspaceId = params.get("workspaceId");
     if (rawParentId && !objectIdSchema.safeParse(rawParentId).success) throw new DashboardError("Invalid folder identifier.", 400);
-    const data = await getDashboardData(ownerId, { folderId: rawParentId });
+    if (rawWorkspaceId && !objectIdSchema.safeParse(rawWorkspaceId).success) throw new DashboardError("Invalid workspace identifier.", 400);
+    const data = await getDashboardData(ownerId, { workspaceId: rawWorkspaceId, folderId: rawParentId });
     return NextResponse.json(data.folders);
   } catch (error) {
     return dashboardErrorResponse(error);

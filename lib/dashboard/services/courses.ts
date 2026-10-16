@@ -3,14 +3,19 @@ import { Asset, Course } from "@/models";
 import type { CreateCourseInput, UpdateCourseInput } from "../schemas";
 import { DashboardError } from "../rules";
 import { assertFolderOwned, objectId, ownerObjectId } from "./internal";
+import { resolveDashboardAccess } from "@/lib/workspaces/access";
 
 export { duplicateCourse } from "./course-duplication";
 
-export async function createCourse(ownerId: string, input: CreateCourseInput) {
+export async function createCourse(userId: string, input: CreateCourseInput) {
+  const scope = await resolveDashboardAccess(userId, input.workspaceId, "edit");
+  const ownerId = scope.ownerId;
   const owner = ownerObjectId(ownerId);
-  await assertFolderOwned(ownerId, input.folderId);
+  await assertFolderOwned(ownerId, input.folderId, scope.workspaceId);
   const course = await Course.create({
     ownerId: owner,
+    createdBy: ownerObjectId(userId),
+    workspaceId: scope.workspaceId,
     folderId: objectId(input.folderId),
     title: input.title,
     description: input.description,
@@ -46,8 +51,10 @@ export async function getCourseCopyDestinations(
     deletedAt: null,
   });
   if (!source) throw new DashboardError("Course not found.", 404);
+  const sourceCourse = await Course.findById(sourceCourseId).select("workspaceId").lean();
   const courses = await Course.find({
     ownerId: owner,
+    workspaceId: sourceCourse?.workspaceId ?? null,
     deletedAt: null,
     _id: { $ne: sourceCourseId },
   })
@@ -83,7 +90,7 @@ export async function updateCourse(
     throw new DashboardError("Course not found.", 404);
   }
   if (input.folderId !== undefined)
-    await assertFolderOwned(ownerId, input.folderId);
+    await assertFolderOwned(ownerId, input.folderId, course.workspaceId?.toString() ?? null);
   const coverAssetId = input.coverImage?.match(/^\/api\/assets\/([a-f\d]{24})\/file$/i)?.[1];
   if (coverAssetId) {
     const coverAsset = await Asset.findOne({

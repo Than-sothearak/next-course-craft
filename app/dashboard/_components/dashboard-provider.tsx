@@ -12,12 +12,15 @@ type DashboardContextValue = {
   setNavigation: Dispatch<SetStateAction<DashboardNavigation | null>>;
   navigating: boolean;
   navigateToFolder: (folderId: string | null) => void;
+  navigateToWorkspace: (workspaceId: string | null) => void;
   busy: boolean;
   setBusy: Dispatch<SetStateAction<boolean>>;
   showNewFolder: boolean;
   setShowNewFolder: Dispatch<SetStateAction<boolean>>;
   showNewCourse: boolean;
   setShowNewCourse: Dispatch<SetStateAction<boolean>>;
+  showWorkspaceManager: boolean;
+  setShowWorkspaceManager: Dispatch<SetStateAction<boolean>>;
 };
 
 const DashboardContext = createContext<DashboardContextValue | null>(null);
@@ -29,6 +32,7 @@ export function DashboardProvider({ initialFilters, children }: { initialFilters
   const [busy, setBusy] = useState(false);
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [showNewCourse, setShowNewCourse] = useState(false);
+  const [showWorkspaceManager, setShowWorkspaceManager] = useState(false);
   const [navigating, startTransition] = useTransition();
 
   function navigateToFolder(folderId: string | null) {
@@ -36,7 +40,12 @@ export function DashboardProvider({ initialFilters, children }: { initialFilters
     startTransition(() => router.push(dashboardHref({ ...filters, folderId })));
   }
 
-  return <DashboardContext.Provider value={{ filters, setFilters, navigation, setNavigation, navigating, navigateToFolder, busy, setBusy, showNewFolder, setShowNewFolder, showNewCourse, setShowNewCourse }}>
+  function navigateToWorkspace(workspaceId: string | null) {
+    if (workspaceId === filters.workspaceId) return;
+    startTransition(() => router.push(dashboardHref({ ...filters, workspaceId, folderId: null })));
+  }
+
+  return <DashboardContext.Provider value={{ filters, setFilters, navigation, setNavigation, navigating, navigateToFolder, navigateToWorkspace, busy, setBusy, showNewFolder, setShowNewFolder, showNewCourse, setShowNewCourse, showWorkspaceManager, setShowWorkspaceManager }}>
     {children}
   </DashboardContext.Provider>;
 }
