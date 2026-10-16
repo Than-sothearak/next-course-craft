@@ -4,7 +4,6 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ArrowRight, BookOpen, Check, ClipboardList, FileText, ImagePlus, LoaderCircle, Sparkles, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Progress } from "@/components/ui/progress";
 import { Select } from "@/components/ui/select";
 import {
   courseGenerationModelOptions,
@@ -18,6 +17,8 @@ import {
 
 import { advanceSourceGenerationJobUntil, isMissingGenerationJob, postSourceGenerationAction, responseError } from "./(course_generation_dialog_components)/generation-job-request";
 import { GenerationPromptInput, starterGenerationPrompt } from "./(course_generation_dialog_components)/generation-prompt-input";
+
+import { GenerationWaitingPanel } from "./(course_generation_dialog_components)/generation-waiting-panel";
 
 const maximumSourceBytes = 12 * 1024 * 1024;
 type ApplyMode = "append" | "replace";
@@ -155,12 +156,6 @@ function CourseStructurePreview({
       </p>
     </section>
   );
-}
-
-function formatClock(seconds: number) {
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  return `${String(minutes).padStart(2, "0")}:${String(remainingSeconds).padStart(2, "0")}`;
 }
 
 function formatDuration(seconds: number) {
@@ -778,11 +773,11 @@ export function CourseGenerationDialog({
                 <label className="block text-sm font-medium text-slate-700">
                   {template === "preLearnPost" ? "Learning lessons" : "Lessons"}
                   <Select value={lessonCount} onChange={(event) => setLessonCount(event.target.value)} className="mt-1.5">
-                    <option value="2">2 lessons</option>
-                    <option value="5">5 lessons</option>
-                    <option value="8">8 lessons</option>
-                    <option value="12">12 lessons</option>
-                    <option value="20">20 lessons</option>
+                    {Array.from({ length: 20 }, (_, index) => index + 1).map((count) => (
+                      <option key={count} value={count}>
+                        {count} {count === 1 ? "lesson" : "lessons"}
+                      </option>
+                    ))}
                   </Select>
                 </label>
               )}
@@ -883,7 +878,7 @@ export function CourseGenerationDialog({
             {generationJobId && !generating && !cancelling && <p className="text-xs leading-5 text-slate-500">A saved generation is available. Generate draft resumes it; Cancel job starts fresh.</p>}
 
             <Button type="submit" disabled={generating || loadingSavedDraft || cancelling} className="w-full justify-center">
-              {generating ? <><LoaderCircle size={16} className="animate-spin" /> Building course draft…</> : <><Sparkles size={16} /> Generate draft</>}
+              {generating ? <><Sparkles size={16} aria-hidden="true" /> Building course draft…</> : <><Sparkles size={16} /> Generate draft</>}
             </Button>
             <Button type="button" variant="outline" disabled={generating || loadingSavedDraft || cancelling} onClick={() => void loadLastCompletedDraft()} className="w-full justify-center">
               {loadingSavedDraft ? <LoaderCircle size={16} className="animate-spin" /> : <FileText size={16} />}
@@ -902,77 +897,12 @@ export function CourseGenerationDialog({
             onMouseLeave={scheduleStructurePreviewClose}
           >
             {generating ? (
-              <div className="grid min-h-full content-center justify-items-center overflow-hidden rounded-2xl bg-gradient-to-br from-indigo-50 via-white to-violet-50 px-5 py-8 text-center">
-                <div className="relative mb-5 grid size-28 place-items-center" aria-hidden="true">
-                  <span className="absolute inset-1 rounded-full border border-indigo-200/70" />
-                  <span className="absolute inset-1 rounded-full border-2 border-transparent border-t-indigo-500 motion-safe:animate-spin" />
-                  <span className="absolute inset-3 rounded-full border border-dashed border-violet-300 motion-safe:animate-[spin_8s_linear_infinite_reverse]" />
-                  <span className="absolute size-3 -translate-y-12 rounded-full bg-indigo-500 shadow-[0_0_18px_rgba(99,102,241,0.7)] motion-safe:animate-pulse" />
-                  <span className="grid size-16 place-items-center rounded-2xl bg-white text-indigo-600 shadow-lg shadow-indigo-200/70 ring-1 ring-indigo-100">
-                    <Sparkles size={27} className="motion-safe:animate-pulse" />
-                  </span>
-                </div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-indigo-600">AI course generation</p>
-                <h3 className="mt-2 text-lg font-semibold text-slate-900">Building your course draft</h3>
-                <p className="mt-1 max-w-xs text-sm leading-6 text-slate-500">
-                  {generationKind === "prompt" ? "Turning your prompt into lessons and interactive blocks." : "Reading your material and shaping it into lessons and interactive blocks."}
-                </p>
-                <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-                  <span className="rounded-full border border-indigo-100 bg-white/90 px-3 py-1.5 text-xs font-medium tabular-nums text-slate-700">
-                    Elapsed {formatClock(generationElapsedSeconds)}
-                  </span>
-                  <span className="rounded-full border border-violet-100 bg-white/90 px-3 py-1.5 text-xs font-medium text-slate-700">
-                    {courseGenerationModelOptions.find((option) => option.value === selectedModel)?.label ?? selectedModel}
-                  </span>
-                </div>
-                  <ol aria-label="Course generation progress" className="mt-5 w-full max-w-sm space-y-3 text-left">
-                    {generationStages.map((stage) => {
-                      const progressValue = stage.total === null
-                        ? null
-                        : stage.total === 0
-                          ? 100
-                          : (stage.completed / stage.total) * 100;
-                      const statusLabel = stage.status === "complete"
-                        ? "Complete"
-                        : stage.status === "active"
-                          ? "In progress"
-                          : "Up next";
-                      return (
-                        <li
-                          key={stage.step}
-                          aria-current={stage.status === "active" ? "step" : undefined}
-                          className={`rounded-xl border p-3.5 transition-colors ${stage.status === "active" ? "border-indigo-200 bg-white shadow-sm" : stage.status === "complete" ? "border-emerald-100 bg-emerald-50/70" : "border-slate-200 bg-white/60"}`}
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <span className={`grid size-7 shrink-0 place-items-center rounded-full text-xs font-bold ${stage.status === "complete" ? "bg-emerald-600 text-white" : stage.status === "active" ? "bg-indigo-600 text-white" : "bg-slate-200 text-slate-500"}`}>
-                              {stage.status === "complete" ? <Check size={15} /> : stage.step}
-                            </span>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">Step {stage.step} of 2</p>
-                              <h4 className="text-sm font-semibold text-slate-800">{stage.title}</h4>
-                            </div>
-                            <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold ${stage.status === "complete" ? "bg-emerald-100 text-emerald-700" : stage.status === "active" ? "bg-indigo-50 text-indigo-700" : "bg-slate-100 text-slate-500"}`}>
-                              {statusLabel}
-                            </span>
-                          </div>
-                          <p className="ml-9 mt-1 text-xs leading-5 text-slate-500">{stage.detail}</p>
-                          {stage.status !== "upcoming" && (
-                            <div className="ml-9 mt-2.5">
-                              <div className="mb-1.5 flex items-center justify-between text-[10px] font-medium text-slate-500">
-                                <span>{stage.total === null ? generationKind === "prompt" ? "Writing course content" : "Planning course steps" : `${stage.completed} of ${stage.total} steps`}</span>
-                                {stage.total !== null && <span>{Math.round(progressValue ?? 0)}%</span>}
-                              </div>
-                              <Progress value={progressValue} aria-label={`${stage.title} progress`} />
-                            </div>
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ol>
-                <p role="status" className="mt-4 text-xs leading-5 text-slate-400">
-                  This can take a few minutes when image generation is enabled. Keep this window open.
-                </p>
-              </div>
+              <GenerationWaitingPanel
+                stages={generationStages}
+                kind={generationKind}
+                elapsedSeconds={generationElapsedSeconds}
+                modelLabel={courseGenerationModelOptions.find((option) => option.value === selectedModel)?.label ?? selectedModel}
+              />
             ) : file && !result ? (
               <section aria-label="Source file ready" className="rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50/80 via-white to-white p-5 shadow-sm">
                 <div className="flex items-start gap-3">

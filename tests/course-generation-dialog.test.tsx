@@ -110,6 +110,17 @@ describe("course generation structure previews", () => {
     expect(prompt.value).toBe("Teach HTML and CSS with clear examples.");
   });
 
+  it("offers Learning lesson counts from one through twenty", () => {
+    const label = Array.from(container.querySelectorAll("label")).find((item) =>
+      item.textContent?.includes("Learning lessons"),
+    );
+    const select = label?.querySelector("select");
+    expect(Array.from(select?.options ?? [], (option) => Number(option.value))).toEqual(
+      Array.from({ length: 20 }, (_, index) => index + 1),
+    );
+    expect(select?.options[0].textContent).toBe("1 lesson");
+  });
+
   it("places the source slides upload directly after the prompt and before course settings", () => {
     const prompt = container.querySelector("textarea")!;
     const sourceInput = container.querySelector<HTMLInputElement>('input[aria-label="Upload PDF or PowerPoint source"]')!;

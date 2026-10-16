@@ -29,23 +29,39 @@ export const generatedBlockTypeValues = [
   "code",
 ] as const;
 
-export const courseBlockGenerationGuide = `Course content blocks supported by this project:
-- heading: a genuine topic boundary; use title and headingLevel 1, 2, or 3. Use level 2 for ordinary 24px bold headings. Do not add headings for every paragraph or repeat a lesson title.
-- richText (also the text intent): normal paragraph explanations belong in body; use bullets for lists. Set title to an empty string for ordinary paragraphs and after a standalone heading; a title alone is not an explanation.
-- code: body contains exact raw code, never Markdown fences. Use codeExample with template, language, and a complete paragraph explanation of its meaning, important lines, and result. Templates: ${codeTemplateValues.join(", ")}. Explained templates place the explanation above or below the code. Choose an appropriate template consistently, follow author style requests, and keep title empty unless a meaningful example heading is needed. Code is stored in the existing richText block and remains editable. Return codeExample null on other block types.
-- image: one useful generated illustration; provide imagePrompt and accessible imageAlt. imageLayout may be full, banner, text-left, text-right, text-overlay, or card; title/body are optional accompanying copy.
-- gallery: a group of 1–8 images; use galleryImages with source image URLs and alt text only when those URLs are explicitly present in the source. Never invent image URLs.
-- video: a playable direct MP4/WebM source; use videoSrc only when a direct video URL appears in the provided source, and provide videoMimeType and captions when available. Never invent a URL.
-- divider: a visual separator or Continue control; dividerStyle is line, space, or continue. Use completionType none unless the author explicitly asks to require completion above it.
-- knowledgeCheck: a practice question; provide question, 2–8 options, correctOptionIndex, and learner-facing correct/incorrect feedback.
-- survey: a non-graded reflection question; provide question plus minLabel and maxLabel for its response scale.
-- statement: a highlighted takeaway, tip, warning, or centered callout; provide title, body, and style key/tip/warning/centered.
-- flipCard: 1–30 question/answer or term/definition cards. Each face may be text or an image; when using an image face, provide its image prompt and accessible alt text.
-- accordion: 2–12 grouped items in steps, with layout accordion or tabs. The project supports all/oneByOne display modes; generated blocks always use all so learners can open multiple items without closing previous ones.
-- labeledGraphic: a generated visual with 1–20 labeled markers; provide imagePrompt, imageAlt, and markers with concise label/description and x/y positions from 0 to 100.
-- processSteps: a real ordered procedure with 2–20 steps; do not use for unrelated facts.
-- chart: a data-supported visualization; choose bar, column, line, donut, or stacked and provide a title, optional description, and 1–20 fields with labels and numeric values. Do not invent data.
-Use enough blocks to preserve every meaningful source detail, example, and step. Keep each block focused and avoid repeating the same information. For unused string/array fields return empty strings/arrays; for required settings use these neutral values: style tip, headingLevel 2, correctOptionIndex 0, layout accordion, displayMode all, imageLayout full, dividerStyle continue, dividerCompletionType none, chartType bar, and chartColor #4f46e5. The application assigns block IDs and visual styling.`;
+export const courseBlockGenerationGuide = `CourseCraft block catalog and instructional design guide:
+
+EXPLANATION AND STRUCTURE BLOCKS
+- heading: marks a genuine topic boundary. Use title and headingLevel 1, 2, or 3; level 2 is the normal 24px heading. Do not make a heading for every paragraph or repeat the lesson title.
+- richText (also the text intent): teaches through complete paragraphs in body and can present lists through bullets. Use it for clear explanations, context, examples, and transitions. Leave title empty for ordinary paragraphs and after a standalone heading; a title alone is not an explanation.
+- statement: highlights one useful takeaway, tip, warning, or centered callout. Provide title, body, and style key/tip/warning/centered. Use it for emphasis, not as a substitute for the full explanation.
+- divider: separates substantial sections or gives learners a Continue control. dividerStyle is line, space, or continue. Use completionType none unless the author explicitly asks to require completion above it.
+
+ACTIVE LEARNING BLOCKS
+- knowledgeCheck: lets learners retrieve or apply an idea with one scored practice question. Provide question, 2–8 options, correctOptionIndex, and useful correct/incorrect feedback. Use for decisions, misconceptions, and quick checks.
+- survey: a non-graded reflection or confidence check. Provide question plus minLabel and maxLabel; do not mark an answer correct.
+- flipCard: supports active recall, vocabulary, question/answer practice, or matching a concept to an explanation, with 1–30 cards. Each face can be text or an image. For image faces provide an image prompt and accessible alt text. Do not repeat the template's automatically generated keyword cards.
+- accordion: groups related details learners may want to reveal selectively; use 2–12 steps/items and layout accordion or tabs. Generated blocks use displayMode all so learners can open multiple items.
+- processSteps: teaches a real ordered procedure with 2–20 steps. Give each step a title and explanation; do not use it for unrelated facts.
+
+VISUAL AND DATA BLOCKS
+- image: one useful generated illustration. Provide imagePrompt and accessible imageAlt. imageLayout may be full, banner, text-left, text-right, text-overlay, or card; title/body are optional accompanying copy.
+- gallery: presents 1–8 images. Use galleryImages only with image URLs explicitly present in the source; never invent image URLs.
+- video: embeds a playable direct MP4/WebM source. Use videoSrc only when a direct video URL appears in the source, and provide videoMimeType and captions when available. Never invent a URL.
+- labeledGraphic: explains parts of a generated visual with 1–20 markers. Provide imagePrompt, imageAlt, and concise marker labels/descriptions with x/y positions from 0 to 100.
+- chart: visualizes data actually present in the source. Choose bar, column, line, donut, or stacked; provide a title, optional description, and 1–20 labeled numeric fields. Never invent data.
+
+CODE BLOCK
+- code: preserves exact raw code in body, never Markdown fences. Use codeExample with template, language, and a complete paragraph explaining its purpose, important lines, and result. Templates: ${codeTemplateValues.join(", ")}. Explained templates place the explanation above or below the code. Choose consistently, follow author style requests, and leave title empty unless a meaningful example heading is needed. Code is stored in the editable richText block. Return codeExample null on other block types.
+
+BLOCK CHOICE AND VARIETY
+Teach with a purposeful mix: use richText for explanation, then select active-learning, visual, or data blocks when they help learners recall, decide, reflect, compare, follow a procedure, or interpret information. For substantive lessons, include an appropriate learner-active block when the material supports one. Vary suitable interaction types across lessons instead of repeating the same interaction pattern throughout the course. Respect the requested interactivity level. Keep explanations alongside activities, preserve all meaningful source details, and never force an unsuitable interaction or invent facts, data, or media.
+
+Interactivity levels: low means use interactions selectively; medium means include a suitable learner interaction in most substantive lessons; high means include at least one suitable learner interaction in each substantive lesson and vary the formats across the course. Apply these levels only where the source and learning goal support an activity.
+
+For unused string/array fields return empty strings/arrays; for required settings use these neutral values: style tip, headingLevel 2, correctOptionIndex 0, layout accordion, displayMode all, imageLayout full, dividerStyle continue, dividerCompletionType none, chartType bar, and chartColor #4f46e5. The application assigns block IDs and visual styling.`;
+
+export const courseBlockLearnGuide = `BLOCKS (${blockTypes.join(", ")}, text/code): richText teaches; knowledgeCheck tests; survey reflects; flipCard recalls; accordion/tabs group; processSteps guide; statement highlights; divider separates; image/labeledGraphic show visuals; chart uses source data; gallery/video need source URLs. BLOCK CHOICE AND VARIETY: High means one suitable interaction per substantive lesson; medium means most lessons; low means selective use. Vary formats. No filler, duplication, unsupported claims, or invented data/media.`;
 
 export const courseGenerationModelValues = [
   "gpt-6-astra",
@@ -72,7 +88,7 @@ export const courseGenerationInputSchema = z.object({
   prompt: z.string().max(5_000),
   audience: z.string().max(300),
   level: z.enum(["beginner", "intermediate", "advanced"]),
-  lessonCount: z.number().int().min(2).max(20),
+  lessonCount: z.number().int().min(1).max(20),
   template: z.enum(["custom", "preLearnPost"]),
   learnGroupingMode: learnGroupingModeSchema.default("smart"),
   slidesPerContent: z.number().int().min(1).max(500).default(5),

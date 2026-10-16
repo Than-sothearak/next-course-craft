@@ -52,6 +52,14 @@ describe("prompt-only course generation requests", () => {
     }) }));
   });
 
+  it("accepts a single requested Learning lesson", async () => {
+    const response = await submit({ template: "preLearnPost", lessonCount: "1" });
+    expect(response.status).toBe(200);
+    expect(generateCourseDraft).toHaveBeenCalledWith(expect.objectContaining({
+      input: expect.objectContaining({ template: "preLearnPost", lessonCount: 1 }),
+    }));
+  });
+
   it("uses defaults for blank optional settings", async () => {
     const response = await submit({ lessonCount: "", model: "", level: "", contentDepth: "", targetLanguage: "" });
     expect(response.status).toBe(200);

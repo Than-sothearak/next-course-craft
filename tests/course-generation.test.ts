@@ -624,9 +624,12 @@ describe("AI course generation contracts", () => {
     };
     expect(requestBody.model).toBe("gpt-6-luna");
     const promptAndSchema = fetchMock.mock.calls[0][1].body as string;
-    expect(promptAndSchema).toContain("Course content blocks supported by this project");
+    expect(promptAndSchema).toContain("CourseCraft block catalog and instructional design guide");
     expect(promptAndSchema).toContain("displayMode all");
     expect(promptAndSchema).toContain("chartFields");
+    expect(promptAndSchema).toContain("BLOCK CHOICE AND VARIETY");
+    expect(promptAndSchema).toContain("Vary suitable interaction types across lessons");
+    expect(promptAndSchema).toContain("high means include at least one suitable learner interaction");
     expect(promptAndSchema).toContain("SOURCE COMPLETENESS RULES");
     expect(promptAndSchema).toContain("Preserve code exactly as shown");
     expect(requestBody.max_output_tokens).toBe(64_000);
@@ -887,6 +890,12 @@ describe("AI course generation contracts", () => {
       input: courseGenerationInputSchema.parse({ ...input, lessonCount: 2, template: "preLearnPost" }),
       sourceFile: { name: "slides.pdf", contentType: "application/pdf", bytes },
     });
+
+    const learnRequest = fetchMock.mock.calls
+      .map(([, request]) => JSON.parse(request.body as string) as { text?: { format?: { name?: string } } })
+      .find((request) => request.text?.format?.name === "course_learn_content_item");
+    expect(JSON.stringify(learnRequest)).toContain("BLOCKS (");
+    expect(JSON.stringify(learnRequest)).toContain("BLOCK CHOICE AND VARIETY");
 
     expect(course.sections.map((section) => section.title)).toEqual(["Pre activities", "Learn", "Post activities"]);
     expect(course.learningLessonCount).toBe(4);
@@ -1229,6 +1238,8 @@ describe("AI course generation contracts", () => {
   });
 
   it("rejects lesson counts and text that exceed generation limits", () => {
+    expect(courseGenerationInputSchema.safeParse({ ...input, lessonCount: 1 }).success).toBe(true);
+    expect(courseGenerationInputSchema.safeParse({ ...input, lessonCount: 0 }).success).toBe(false);
     expect(courseGenerationInputSchema.safeParse({ ...input, lessonCount: 21 }).success).toBe(false);
     expect(courseGenerationInputSchema.safeParse({ ...input, prompt: "x".repeat(5_001) }).success).toBe(false);
   });

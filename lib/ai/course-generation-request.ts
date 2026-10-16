@@ -32,7 +32,7 @@ const settingMessages: Record<string, string> = {
   prompt: "Course prompt must be 5,000 characters or fewer.",
   audience: "Learner audience must be 300 characters or fewer.",
   level: "Choose Beginner, Intermediate, or Advanced for Level.",
-  lessonCount: "Learning lessons must be a whole number from 2 to 20.",
+  lessonCount: "Learning lessons must be a whole number from 1 to 20.",
   template: "Choose Custom or Pre / Learn / Post for Course structure.",
   learnGroupingMode: "Choose Smart or Fixed for Learn content grouping.",
   slidesPerContent: "Slides per Learn content item must be a whole number from 1 to 500.",
