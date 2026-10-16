@@ -5,8 +5,6 @@ import { DashboardError } from "@/lib/dashboard/rules";
 import { dashboardErrorResponse, requireOwnerId } from "@/lib/dashboard/http";
 import { objectIdSchema } from "@/lib/dashboard/schemas";
 
-export const runtime = "nodejs";
-
 export async function GET(request: NextRequest) {
   try {
     const ownerId = await requireOwnerId();

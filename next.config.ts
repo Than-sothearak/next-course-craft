@@ -8,7 +8,8 @@ const nextConfig: NextConfig = {
   },
 
   allowedDevOrigins: ['skilled-jacqulyn-flamier.ngrok-free.dev'],
-
+  cacheComponents: true,
+  partialPrefetching: true,
 };
 
 export default nextConfig;

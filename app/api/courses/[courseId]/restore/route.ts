@@ -5,7 +5,6 @@ import { restoreCourse } from "@/lib/dashboard/services/courses";
 import { objectIdSchema } from "@/lib/dashboard/schemas";
 import { DashboardError } from "@/lib/dashboard/rules";
 
-export const runtime = "nodejs";
 type RouteContext = { params: Promise<{ courseId: string }> };
 
 export async function POST(_request: Request, context: RouteContext) {

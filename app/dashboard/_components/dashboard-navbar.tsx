@@ -9,7 +9,12 @@ function userInitials(name: string) {
   return name.split(/[\s@.]+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join("") || "A";
 }
 
-export function DashboardNavbar({ userName, actions, primaryAction }: { userName: string; actions?: ReactNode; primaryAction?: ReactNode }) {
+type NavbarProps = { actions?: ReactNode; primaryAction?: ReactNode } & (
+  | { userName: string; profile?: never }
+  | { userName?: never; profile: ReactNode }
+);
+
+export function DashboardNavbar({ userName, profile, actions, primaryAction }: NavbarProps) {
   return <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/95 backdrop-blur">
     <div className="flex h-16 w-full items-center justify-between px-5 sm:px-8 lg:px-9 xl:px-12">
       <div className="flex items-center gap-3">
@@ -21,7 +26,14 @@ export function DashboardNavbar({ userName, actions, primaryAction }: { userName
       </div>
       <nav aria-label="Account" className="flex items-center gap-3">
         {primaryAction}
-        <details className="relative">
+        {profile ?? <DashboardUserProfile userName={userName ?? "Author"} />}
+      </nav>
+    </div>
+  </header>;
+}
+
+export function DashboardUserProfile({ userName }: { userName: string }) {
+  return <details className="relative">
           <summary
             title={userName}
             aria-label={`Open profile menu for ${userName}`}
@@ -38,8 +50,5 @@ export function DashboardNavbar({ userName, actions, primaryAction }: { userName
               </Button>
             </form>
           </div>
-        </details>
-      </nav>
-    </div>
-  </header>;
+    </details>;
 }

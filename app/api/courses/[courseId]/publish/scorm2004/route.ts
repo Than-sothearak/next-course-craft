@@ -6,7 +6,6 @@ import { dashboardErrorResponse, requireOwnerId } from "@/lib/dashboard/http";
 import { DashboardError } from "@/lib/dashboard/rules";
 import { buildScorm2004Package } from "@/lib/scorm/package";
 
-export const runtime = "nodejs";
 const paramsSchema = z.object({ courseId: z.string().regex(/^[\da-f]{24}$/i) });
 
 export async function POST(_request: NextRequest, context: { params: Promise<{ courseId: string }> }) {

@@ -5,8 +5,6 @@ import { getCourseEditor } from "@/lib/editor/services/course";
 import { saveCourseEditor } from "@/lib/editor/services/save";
 import { editorSnapshotSchema } from "@/lib/editor/schemas";
 
-export const runtime = "nodejs";
-
 type Context = { params: Promise<{ courseId: string }> };
 
 export async function GET(_request: NextRequest, { params }: Context) {

@@ -6,8 +6,6 @@ import { createCourseSchema, objectIdSchema } from "@/lib/dashboard/schemas";
 import { dashboardErrorResponse, readJson, requireOwnerId } from "@/lib/dashboard/http";
 import { DashboardError } from "@/lib/dashboard/rules";
 
-export const runtime = "nodejs";
-
 export async function GET(request: NextRequest) {
   try {
     const ownerId = await requireOwnerId();

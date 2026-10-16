@@ -6,7 +6,6 @@ import { getOwnedMediaAsset } from "@/lib/media/services/assets";
 import { createMediaReadUrl } from "@/lib/media/storage";
 import { DashboardError } from "@/lib/dashboard/rules";
 
-export const runtime = "nodejs";
 type Context = { params: Promise<{ assetId: string }> };
 
 export async function GET(_request: NextRequest, { params }: Context) {

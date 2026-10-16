@@ -3,7 +3,6 @@ import { connectToDatabase } from "@/lib/db/mongodb";
 import { dashboardErrorResponse, requireOwnerId } from "@/lib/dashboard/http";
 import { addCourseLesson } from "@/lib/editor/services/lessons";
 
-export const runtime = "nodejs";
 type Context = { params: Promise<{ courseId: string }> };
 
 export async function POST(_request: NextRequest, { params }: Context) {

@@ -5,7 +5,6 @@ import { objectIdSchema, updateFolderSchema } from "@/lib/dashboard/schemas";
 import { dashboardErrorResponse, readJson, requireOwnerId } from "@/lib/dashboard/http";
 import { DashboardError } from "@/lib/dashboard/rules";
 
-export const runtime = "nodejs";
 type RouteContext = { params: Promise<{ folderId: string }> };
 
 async function validatedFolderId(context: RouteContext) {

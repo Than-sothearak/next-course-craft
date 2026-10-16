@@ -1,105 +1,98 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ChevronRight, LayoutGrid, List, Search, X } from "lucide-react";
-import type { DashboardData, FolderTreeNode } from "@/lib/dashboard/types";
+import type { DashboardData } from "@/lib/dashboard/types";
+import { dashboardQueryKey } from "@/lib/dashboard/query";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { DashboardDialogs } from "./_components/(dashboard_client_components)/dashboard-dialogs";
 import { CourseCard } from "./_components/(dashboard_client_components)/course-card";
 import { DashboardActions } from "./_components/(dashboard_client_components)/dashboard-actions";
-import { DashboardNavbar } from "./_components/dashboard-navbar";
-import { DashboardSidebar } from "./_components/(dashboard_client_components)/dashboard-sidebar";
+import { useDashboard } from "./_components/dashboard-provider";
+import { DashboardCoursesSkeleton, DashboardFoldersSkeleton } from "./_components/dashboard-skeletons";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { EmptyState } from "./_components/(dashboard_client_components)/empty-state";
 import { FolderCard } from "./_components/(dashboard_client_components)/folder-card";
 import { useDismissDetailsOnOutsideClick } from "@/lib/ui/use-dismiss-details";
 
 type Props = {
   initialData: DashboardData;
-  initialFolderId: string | null;
-  initialQuery: string;
-  initialStatus: string;
-  initialSort: string;
   initialError: string | null;
   userName: string;
 };
 
-function expandedFolderIds(nodes: FolderTreeNode[]): Set<string> {
-  const expanded = new Set<string>();
-  for (const node of nodes) {
-    if (node.children.length) expanded.add(node.id);
-    for (const id of expandedFolderIds(node.children)) expanded.add(id);
-  }
-  return expanded;
-}
-
 export default function DashboardClient({
   initialData,
-  initialFolderId,
-  initialQuery,
-  initialStatus,
-  initialSort,
   initialError,
   userName,
 }: Props) {
   useDismissDetailsOnOutsideClick();
-  const router = useRouter();
+  const { filters, setFilters, setNavigation, navigating, navigateToFolder, busy, setBusy, showNewFolder, setShowNewFolder, showNewCourse, setShowNewCourse } = useDashboard();
+  const { q: query, status, sort } = filters;
+  const queryKey = dashboardQueryKey(filters);
   const [data, setData] = useState(initialData);
-  const [folderId, setFolderId] = useState(initialFolderId);
-  const [query, setQuery] = useState(initialQuery);
-  const [status, setStatus] = useState(initialStatus);
-  const [sort, setSort] = useState(initialSort);
   const [folderView, setFolderView] = useState<"grid" | "list">("grid");
-  const [expandedFolders, setExpandedFolders] = useState(() =>
-    expandedFolderIds(initialData.folderTree),
-  );
+  const [loadedQueryKey, setLoadedQueryKey] = useState(queryKey);
+  const [failedQueryKey, setFailedQueryKey] = useState<string | null>(null);
+  const [retry, setRetry] = useState(0);
+  const requestSequence = useRef(0);
   const [error, setError] = useState(initialError);
   const [deletedCourse, setDeletedCourse] = useState<{
     id: string;
     title: string;
   } | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [showNewFolder, setShowNewFolder] = useState(false);
-  const [showNewCourse, setShowNewCourse] = useState(false);
-
   useEffect(() => {
-    if (initialError) return;
+    // The streamed server data is already current; fetch only after filters change.
+    if (initialError || busy || queryKey === loadedQueryKey) return;
+    const controller = new AbortController();
+    const sequence = ++requestSequence.current;
     const timer = setTimeout(async () => {
-      const params = new URLSearchParams({ status, sort, q: query });
-      if (folderId) params.set("folderId", folderId);
       try {
-        const response = await fetch(`/api/dashboard?${params.toString()}`, {
+        const response = await fetch(`/api/dashboard?${queryKey}`, {
           cache: "no-store",
+          signal: controller.signal,
         });
         const body = await response.json();
         if (!response.ok)
           throw new Error(body.error ?? "Could not load courses.");
+        if (controller.signal.aborted || sequence !== requestSequence.current) return;
         setData(body as DashboardData);
+        setNavigation(body as DashboardData);
+        setLoadedQueryKey(queryKey);
+        setFailedQueryKey(null);
         setError(null);
       } catch (cause) {
+        if (controller.signal.aborted || sequence !== requestSequence.current) return;
+        setFailedQueryKey(queryKey);
         setError(
           cause instanceof Error ? cause.message : "Could not load courses.",
         );
       }
     }, 180);
-    return () => clearTimeout(timer);
-  }, [folderId, initialError, query, sort, status]);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [queryKey, loadedQueryKey, initialError, busy, retry, setNavigation]);
 
   async function refresh() {
-    const params = new URLSearchParams({ status, sort, q: query });
-    if (folderId) params.set("folderId", folderId);
-    const response = await fetch(`/api/dashboard?${params.toString()}`, {
+    const response = await fetch(`/api/dashboard?${queryKey}`, {
       cache: "no-store",
     });
     const body = await response.json();
     if (!response.ok)
       throw new Error(body.error ?? "Could not refresh your workspace.");
     setData(body as DashboardData);
+    setNavigation(body as DashboardData);
+    setLoadedQueryKey(queryKey);
+    setFailedQueryKey(null);
   }
 
   async function request(url: string, method: string, body?: unknown) {
     if (initialError) return;
+    ++requestSequence.current;
     setBusy(true);
     setError(null);
     try {
@@ -149,284 +142,266 @@ export default function DashboardClient({
     if (method === "POST" && url === "/api/courses") setShowNewCourse(false);
   }
 
-  function navigateToFolder(nextFolderId: string | null) {
-    setFolderId(nextFolderId);
-    const params = new URLSearchParams();
-    if (nextFolderId) params.set("folderId", nextFolderId);
-    router.push(params.size ? `/dashboard?${params.toString()}` : "/dashboard");
-  }
-
-  const currentFolderId = data.currentFolder?.id ?? folderId;
-  const disabled = Boolean(initialError) || busy;
+  const disabled = Boolean(initialError) || busy || navigating;
+  const unavailable = failedQueryKey === queryKey && loadedQueryKey !== queryKey;
+  const loading = navigating || (loadedQueryKey !== queryKey && !unavailable);
 
   return (
-    <main className="flex min-h-screen flex-col bg-[#f7f8fc] text-slate-900">
-      <DashboardNavbar userName={userName} />
-
-      <div className="grid flex-1 lg:grid-cols-[260px_minmax(0,1fr)]">
-        <DashboardSidebar
-          data={data}
-          currentFolderId={currentFolderId}
-          expandedFolders={expandedFolders}
+    <section className="min-w-0 px-5 py-7 sm:px-8 lg:px-8 xl:p-4">
+      <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
+        <div>
+          <h1 className="mt-1 text-3xl font-semibold tracking-tight sm:text-[34px]">
+            Good to see you, {userName.split(" ")[0]}
+          </h1>
+          <p className="mt-2 text-sm text-slate-500">
+            Organize your workspace and pick up where you left off.
+          </p>
+        </div>
+        <DashboardActions
           disabled={disabled}
-          onToggleFolder={(id) =>
-            setExpandedFolders((previous) => {
-              const next = new Set(previous);
-              if (next.has(id)) next.delete(id);
-              else next.add(id);
-              return next;
-            })
-          }
-          onOpenFolder={navigateToFolder}
           onNewFolder={() => setShowNewFolder(true)}
           onNewCourse={() => setShowNewCourse(true)}
         />
+      </div>
 
-        <section className="min-w-0 px-5 py-7 sm:px-8 lg:px- xl:p-4">
-          <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
-            <div>
-              <h1 className="mt-1 text-3xl font-semibold tracking-tight sm:text-[34px]">
-                Good to see you, {userName.split(" ")[0]}
-              </h1>
-              <p className="mt-2 text-sm text-slate-500">
-                Organize your workspace and pick up where you left off.
-              </p>
-            </div>
-            <DashboardActions
-              disabled={disabled}
-              onNewFolder={() => setShowNewFolder(true)}
-              onNewCourse={() => setShowNewCourse(true)}
-            />
-          </div>
-
-          {error && (
-            <div
-              role="alert"
-              className="mt-6 flex items-start justify-between gap-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+      {error && (
+        <div
+          role="alert"
+          className="mt-6 flex items-start justify-between gap-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+        >
+          <p>{error}</p>
+          {unavailable && <Button variant="outline" size="sm" onClick={() => { setFailedQueryKey(null); setError(null); setRetry((value) => value + 1); }}>Retry</Button>}
+          {!initialError && !unavailable && (
+            <button
+              onClick={() => setError(null)}
+              className="rounded p-0.5 hover:bg-amber-100"
+              aria-label="Dismiss message"
             >
-              <p>{error}</p>
-              {!initialError && (
-                <button
-                  onClick={() => setError(null)}
-                  className="rounded p-0.5 hover:bg-amber-100"
-                  aria-label="Dismiss message"
+              <X size={16} />
+            </button>
+          )}
+        </div>
+      )}
+      {deletedCourse && (
+        <div
+          role="status"
+          className="mt-4 flex items-center justify-between gap-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950"
+        >
+          <span>â€œ{deletedCourse.title}â€ moved to recently deleted.</span>
+          <button
+            onClick={() =>
+              void request(
+                `/api/courses/${deletedCourse.id}/restore`,
+                "POST",
+              )
+            }
+            disabled={busy}
+            className="shrink-0 rounded-md px-2 py-1 font-semibold text-emerald-800 underline underline-offset-2 hover:bg-emerald-100 disabled:opacity-50"
+          >
+            Undo
+          </button>
+        </div>
+      )}
+
+      <DashboardDialogs
+        openFolder={showNewFolder}
+        openCourse={showNewCourse}
+        data={data}
+        busy={busy}
+        onCloseFolder={() => setShowNewFolder(false)}
+        onCloseCourse={() => setShowNewCourse(false)}
+        onSubmit={submit}
+      />
+
+      <div className="mt-8 flex flex-wrap items-center gap-3 text-sm">
+        <nav
+          aria-label="Breadcrumb"
+          className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto text-slate-500"
+        >
+          {loading || unavailable ? <Skeleton className="h-5 w-32" /> : data.breadcrumbs.map((crumb, index) => (
+            <span
+              key={crumb.id ?? "root"}
+              className="inline-flex shrink-0 items-center gap-1"
+            >
+              {index > 0 && <ChevronRight size={15} aria-hidden="true" />}
+              {index === data.breadcrumbs.length - 1 ? (
+                <span
+                  aria-current="page"
+                  className="max-w-48 truncate font-semibold text-slate-800"
                 >
-                  <X size={16} />
+                  {crumb.name}
+                </span>
+              ) : (
+                <button
+                  onClick={() => navigateToFolder(crumb.id)}
+                  className="max-w-48 truncate rounded px-1 py-0.5 hover:bg-white hover:text-indigo-700"
+                >
+                  {crumb.name}
                 </button>
               )}
-            </div>
-          )}
-          {deletedCourse && (
-            <div
-              role="status"
-              className="mt-4 flex items-center justify-between gap-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950"
+            </span>
+          ))}
+        </nav>
+        <label className="relative min-w-[210px] flex-1 sm:max-w-xs">
+          <span className="sr-only">Search courses and folders</span>
+          <Search
+            size={16}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+            aria-hidden="true"
+          />
+          <Input
+            value={query}
+            disabled={disabled}
+            onChange={(event) => setFilters({ ...filters, q: event.target.value })}
+            placeholder="Search courses and folders"
+            className="pl-9 pr-3"
+          />
+        </label>
+      </div>
+
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-sm text-slate-500">
+          {loading || unavailable ? <Skeleton className="h-4 w-32" /> : <>
+          <span>
+            {data.folders.length}{" "}
+            {data.folders.length === 1 ? "folder" : "folders"}
+          </span>
+          <span>
+            {data.courses.length}{" "}
+            {data.courses.length === 1 ? "course" : "courses"}
+          </span>
+          </>}
+        </div>
+        <div className="flex gap-2">
+          <label>
+            <span className="sr-only">Filter course status</span>
+            <Select
+              value={status}
+              disabled={disabled}
+              onChange={(event) => setFilters({ ...filters, status: event.target.value as typeof status })}
+              className="h-9 w-auto px-2.5 text-slate-600"
             >
-              <span>â€œ{deletedCourse.title}â€ moved to recently deleted.</span>
+              <option value="all">All statuses</option>
+              <option value="draft">Draft</option>
+              <option value="published">Published</option>
+              <option value="archived">Archived</option>
+            </Select>
+          </label>
+          {data.folders.length > 0 && (
+            <div
+              role="group"
+              aria-label="Folder view"
+              className="hidden rounded-lg border border-slate-200 bg-white p-0.5 sm:flex"
+            >
               <button
-                onClick={() =>
-                  void request(
-                    `/api/courses/${deletedCourse.id}/restore`,
-                    "POST",
-                  )
-                }
-                disabled={busy}
-                className="shrink-0 rounded-md px-2 py-1 font-semibold text-emerald-800 underline underline-offset-2 hover:bg-emerald-100 disabled:opacity-50"
+                onClick={() => setFolderView("grid")}
+                aria-label="Grid view"
+                aria-pressed={folderView === "grid"}
+                className={`rounded-md p-1.5 ${folderView === "grid" ? "bg-indigo-50 text-indigo-700" : "text-slate-500 hover:bg-slate-50"}`}
               >
-                Undo
+                <LayoutGrid size={15} />
+              </button>
+              <button
+                onClick={() => setFolderView("list")}
+                aria-label="List view"
+                aria-pressed={folderView === "list"}
+                className={`rounded-md p-1.5 ${folderView === "list" ? "bg-indigo-50 text-indigo-700" : "text-slate-500 hover:bg-slate-50"}`}
+              >
+                <List size={15} />
               </button>
             </div>
           )}
-
-          <DashboardDialogs
-            openFolder={showNewFolder}
-            openCourse={showNewCourse}
-            data={data}
-            busy={busy}
-            onCloseFolder={() => setShowNewFolder(false)}
-            onCloseCourse={() => setShowNewCourse(false)}
-            onSubmit={submit}
-          />
-
-          <div className="mt-8 flex flex-wrap items-center gap-3 text-sm">
-            <nav
-              aria-label="Breadcrumb"
-              className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto text-slate-500"
+          <label>
+            <span className="sr-only">Sort items</span>
+            <Select
+              value={sort}
+              disabled={disabled}
+              onChange={(event) => setFilters({ ...filters, sort: event.target.value as typeof sort })}
+              className="h-9 w-auto px-2.5 text-slate-600"
             >
-              {data.breadcrumbs.map((crumb, index) => (
-                <span
-                  key={crumb.id ?? "root"}
-                  className="inline-flex shrink-0 items-center gap-1"
-                >
-                  {index > 0 && <ChevronRight size={15} aria-hidden="true" />}
-                  {index === data.breadcrumbs.length - 1 ? (
-                    <span
-                      aria-current="page"
-                      className="max-w-48 truncate font-semibold text-slate-800"
-                    >
-                      {crumb.name}
-                    </span>
-                  ) : (
-                    <button
-                      onClick={() => navigateToFolder(crumb.id)}
-                      className="max-w-48 truncate rounded px-1 py-0.5 hover:bg-white hover:text-indigo-700"
-                    >
-                      {crumb.name}
-                    </button>
-                  )}
-                </span>
-              ))}
-            </nav>
-            <label className="relative min-w-[210px] flex-1 sm:max-w-xs">
-              <span className="sr-only">Search courses and folders</span>
-              <Search
-                size={16}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                aria-hidden="true"
-              />
-              <Input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search courses and folders"
-                className="pl-9 pr-3"
-              />
-            </label>
-          </div>
-
-          <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-sm text-slate-500">
-              <span>
-                {data.folders.length}{" "}
-                {data.folders.length === 1 ? "folder" : "folders"}
-              </span>
-              <span>
-                {data.courses.length}{" "}
-                {data.courses.length === 1 ? "course" : "courses"}
-              </span>
-            </div>
-            <div className="flex gap-2">
-              <label>
-                <span className="sr-only">Filter course status</span>
-                <Select
-                  value={status}
-                  onChange={(event) => setStatus(event.target.value)}
-                  className="h-9 w-auto px-2.5 text-slate-600"
-                >
-                  <option value="all">All statuses</option>
-                  <option value="draft">Draft</option>
-                  <option value="published">Published</option>
-                  <option value="archived">Archived</option>
-                </Select>
-              </label>
-              {data.folders.length > 0 && (
-                <div
-                  role="group"
-                  aria-label="Folder view"
-                  className="hidden rounded-lg border border-slate-200 bg-white p-0.5 sm:flex"
-                >
-                  <button
-                    onClick={() => setFolderView("grid")}
-                    aria-label="Grid view"
-                    aria-pressed={folderView === "grid"}
-                    className={`rounded-md p-1.5 ${folderView === "grid" ? "bg-indigo-50 text-indigo-700" : "text-slate-500 hover:bg-slate-50"}`}
-                  >
-                    <LayoutGrid size={15} />
-                  </button>
-                  <button
-                    onClick={() => setFolderView("list")}
-                    aria-label="List view"
-                    aria-pressed={folderView === "list"}
-                    className={`rounded-md p-1.5 ${folderView === "list" ? "bg-indigo-50 text-indigo-700" : "text-slate-500 hover:bg-slate-50"}`}
-                  >
-                    <List size={15} />
-                  </button>
-                </div>
-              )}
-              <label>
-                <span className="sr-only">Sort items</span>
-                <Select
-                  value={sort}
-                  onChange={(event) => setSort(event.target.value)}
-                  className="h-9 w-auto px-2.5 text-slate-600"
-                >
-                  <option value="updated">Recently edited</option>
-                  <option value="title">Title</option>
-                  <option value="created">Date created</option>
-                </Select>
-              </label>
-            </div>
-          </div>
-
-          {data.folders.length > 0 && (
-            <section className="mt-5" aria-labelledby="folders-title">
-              <div className="mb-3 flex items-center justify-between">
-                <h2
-                  id="folders-title"
-                  className="text-sm font-semibold text-slate-700"
-                >
-                  Folders
-                </h2>
-                <span className="text-xs text-slate-400">
-                  {data.folders.length} shown
-                </span>
-              </div>
-              <div
-                className={
-                  folderView === "grid"
-                    ? "grid gap-3 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
-                    : "grid gap-2"
-                }
-              >
-                {data.folders.map((folder) => (
-                  <FolderCard
-                    key={folder.id}
-                    folder={folder}
-                    data={data}
-                    disabled={disabled}
-                    busy={busy}
-                    onOpen={() => navigateToFolder(folder.id)}
-                    onSubmit={submit}
-                    onRequest={request}
-                  />
-                ))}
-              </div>
-            </section>
-          )}
-
-          <section className="mt-8" aria-labelledby="courses-title">
-            <div className="mb-3 flex items-center justify-between">
-              <h2
-                id="courses-title"
-                className="text-sm font-semibold text-slate-700"
-              >
-                Courses
-              </h2>
-              <span className="text-xs text-slate-400">Showing up to 200</span>
-            </div>
-            {data.courses.length ? (
-              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-6">
-                {data.courses.map((course) => (
-                  <CourseCard
-                    key={course.id}
-                    course={course}
-                    data={data}
-                    disabled={disabled}
-                    busy={busy}
-                    onSubmit={submit}
-                    onRequest={request}
-                  />
-                ))}
-              </div>
-            ) : (
-              <EmptyState
-                hasFolders={data.folders.length > 0}
-                query={query}
-                onCreate={() => setShowNewCourse(true)}
-                disabled={disabled}
-              />
-            )}
-          </section>
-        </section>
+              <option value="updated">Recently edited</option>
+              <option value="title">Title</option>
+              <option value="created">Date created</option>
+            </Select>
+          </label>
+        </div>
       </div>
-    </main>
+
+      {loading ? <>
+        <p role="status" className="sr-only">Loading your folders and courses…</p>
+        <DashboardFoldersSkeleton view={folderView} />
+        <DashboardCoursesSkeleton />
+      </> : !unavailable && <>
+      {data.folders.length > 0 && (
+        <section className="mt-5" aria-labelledby="folders-title">
+          <div className="mb-3 flex items-center justify-between">
+            <h2
+              id="folders-title"
+              className="text-sm font-semibold text-slate-700"
+            >
+              Folders
+            </h2>
+            <span className="text-xs text-slate-400">
+              {data.folders.length} shown
+            </span>
+          </div>
+          <div
+            className={
+              folderView === "grid"
+                ? "grid gap-3 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
+                : "grid gap-2"
+            }
+          >
+            {data.folders.map((folder) => (
+              <FolderCard
+                key={folder.id}
+                folder={folder}
+                data={data}
+                disabled={disabled}
+                busy={busy}
+                onOpen={() => navigateToFolder(folder.id)}
+                onSubmit={submit}
+                onRequest={request}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section className="mt-8" aria-labelledby="courses-title">
+        <div className="mb-3 flex items-center justify-between">
+          <h2
+            id="courses-title"
+            className="text-sm font-semibold text-slate-700"
+          >
+            Courses
+          </h2>
+          <span className="text-xs text-slate-400">Showing up to 200</span>
+        </div>
+        {data.courses.length ? (
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-6">
+            {data.courses.map((course) => (
+              <CourseCard
+                key={course.id}
+                course={course}
+                data={data}
+                disabled={disabled}
+                busy={busy}
+                onSubmit={submit}
+                onRequest={request}
+              />
+            ))}
+          </div>
+        ) : (
+          <EmptyState
+            hasFolders={data.folders.length > 0}
+            query={query}
+            onCreate={() => setShowNewCourse(true)}
+            disabled={disabled}
+          />
+        )}
+      </section>
+      </>}
+    </section>
   );
 }

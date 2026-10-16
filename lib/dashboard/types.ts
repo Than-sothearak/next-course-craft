@@ -47,3 +47,7 @@ export type DashboardQuery = {
   status?: "all" | "draft" | "published" | "archived";
   sort?: "updated" | "title" | "created";
 };
+
+export type DashboardNavigation = Pick<DashboardData, "folderOptions" | "folderTree">;
+export type DashboardListing = Omit<DashboardData, keyof DashboardNavigation>;
+export type DashboardFilters = Required<DashboardQuery>;

@@ -7,7 +7,6 @@ import { assertCourseOwner, listCourseMedia } from "@/lib/media/services/course-
 import { beginMediaUpload } from "@/lib/media/services/uploads";
 import { DashboardError } from "@/lib/dashboard/rules";
 
-export const runtime = "nodejs";
 type Context = { params: Promise<{ courseId: string }> };
 
 async function getCourseId(context: Context) {

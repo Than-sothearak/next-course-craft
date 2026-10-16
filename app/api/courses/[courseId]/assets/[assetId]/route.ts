@@ -5,7 +5,6 @@ import { objectIdSchema } from "@/lib/dashboard/schemas";
 import { assertCourseOwner, deleteCourseMediaAsset } from "@/lib/media/services/course-assets";
 import { DashboardError } from "@/lib/dashboard/rules";
 
-export const runtime = "nodejs";
 type Context = { params: Promise<{ courseId: string; assetId: string }> };
 
 export async function DELETE(_request: NextRequest, { params }: Context) {

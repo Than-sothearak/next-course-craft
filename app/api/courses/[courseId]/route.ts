@@ -5,7 +5,6 @@ import { deleteCourseSchema, objectIdSchema, updateCourseSchema } from "@/lib/da
 import { dashboardErrorResponse, readJson, requireOwnerId } from "@/lib/dashboard/http";
 import { DashboardError } from "@/lib/dashboard/rules";
 
-export const runtime = "nodejs";
 type RouteContext = { params: Promise<{ courseId: string }> };
 
 async function validatedCourseId(context: RouteContext) {

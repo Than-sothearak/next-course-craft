@@ -6,15 +6,17 @@ import type {
   DashboardData,
   DashboardFolder,
   DashboardQuery,
+  DashboardListing,
+  DashboardNavigation,
   FolderOption,
   FolderTreeNode,
 } from "../types";
 import { folderResponse, objectId, ownerObjectId } from "./internal";
 
-export async function getDashboardData(
+export async function getDashboardListing(
   ownerId: string,
   query: DashboardQuery = {},
-): Promise<DashboardData> {
+): Promise<DashboardListing> {
   const owner = ownerObjectId(ownerId);
   const folderId = query.folderId ?? null;
   let currentFolder: DashboardData["currentFolder"] = null;
@@ -139,6 +141,16 @@ export async function getDashboardData(
     lessonCount: lessonCountMap.get(course._id.toString()) ?? 0,
   }));
 
+  return {
+    currentFolder,
+    breadcrumbs,
+    folders: dashboardFolders,
+    courses: dashboardCourses,
+  };
+}
+
+export async function getDashboardNavigation(ownerId: string): Promise<DashboardNavigation> {
+  const owner = ownerObjectId(ownerId);
   const allFolders = await Folder.find({ ownerId })
     .sort({ name: 1 })
     .select("_id name parentId")
@@ -213,11 +225,15 @@ export async function getDashboardData(
   }
 
   return {
-    currentFolder,
-    breadcrumbs,
-    folders: dashboardFolders,
-    courses: dashboardCourses,
     folderOptions,
     folderTree,
   };
+}
+
+export async function getDashboardData(ownerId: string, query: DashboardQuery = {}): Promise<DashboardData> {
+  const [listing, navigation] = await Promise.all([
+    getDashboardListing(ownerId, query),
+    getDashboardNavigation(ownerId),
+  ]);
+  return { ...listing, ...navigation };
 }

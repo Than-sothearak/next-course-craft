@@ -6,7 +6,6 @@ import { assertCourseOwner } from "@/lib/media/services/course-assets";
 import { completeMediaUpload } from "@/lib/media/services/uploads";
 import { DashboardError } from "@/lib/dashboard/rules";
 
-export const runtime = "nodejs";
 type Context = { params: Promise<{ courseId: string; assetId: string }> };
 
 export async function POST(_request: NextRequest, { params }: Context) {

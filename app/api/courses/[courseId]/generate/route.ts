@@ -15,7 +15,6 @@ import {
   startSourceGenerationJob,
 } from "@/lib/ai/course-generation";
 
-export const runtime = "nodejs";
 export const maxDuration = 300;
 
 type Context = { params: Promise<{ courseId: string }> };

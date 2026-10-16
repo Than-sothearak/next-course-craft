@@ -5,8 +5,6 @@ import { dashboardErrorResponse, readJson, requireOwnerId } from "@/lib/dashboar
 import { copyCourseLesson } from "@/lib/editor/services/lessons";
 import { editorLessonSchema } from "@/lib/editor/schemas";
 
-export const runtime = "nodejs";
-
 const copyInputSchema = z.object({
   destinationCourseId: z.string().regex(/^[\da-f]{24}$/i),
   lesson: editorLessonSchema,

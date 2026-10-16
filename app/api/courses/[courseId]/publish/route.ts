@@ -11,7 +11,6 @@ import { Asset } from "@/models/Asset";
 import { createMediaReadUrl } from "@/lib/media/storage";
 import { validateQuizAssessments } from "@/lib/interactive/quiz-assessment";
 
-export const runtime = "nodejs";
 const paramsSchema = z.object({ courseId: z.string().regex(/^[\da-f]{24}$/i) });
 const dataUriPattern = /\/api\/assets\/([\da-f]{24})\/file/g;
 
