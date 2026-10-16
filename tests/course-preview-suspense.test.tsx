@@ -13,7 +13,7 @@ const mocks = vi.hoisted(() => ({
   redirect: vi.fn((path: string) => { throw new Error(`Redirect to ${path}`); }),
 }));
 
-vi.mock("../lib/auth", () => ({ auth: mocks.auth }));
+vi.mock("../lib/auth/pages", () => ({ requirePageUser: mocks.auth, requirePageCourseAccess: mocks.resolveCourseAccess }));
 vi.mock("../lib/db/mongodb", () => ({ connectToDatabase: mocks.connectToDatabase }));
 vi.mock("../lib/editor/services/course", () => ({
   getCourseEditor: mocks.getCourseEditor,
@@ -32,9 +32,9 @@ type CoursePreviewPageProps = {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.auth.mockResolvedValue({ user: { id: "owner-1" } });
+  mocks.auth.mockResolvedValue({ id: "owner-1", name: "Author" });
   mocks.connectToDatabase.mockResolvedValue(undefined);
-  mocks.resolveCourseAccess.mockResolvedValue({ ownerId: "owner-1", role: "owner" });
+  mocks.resolveCourseAccess.mockResolvedValue({ ownerId: "owner-1", role: "owner", permissions: ["courses.view", "courses.edit"] });
   mocks.getCourseEditor.mockResolvedValue({ courseId: "course-1", sections: [], lessons: [{ id: "lesson-1" }] });
   mocks.getCourseAuthorName.mockResolvedValue("Course Creator");
 });

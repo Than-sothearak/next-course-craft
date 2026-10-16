@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import DashboardClient from "@/app/dashboard/dashboard-client";
 import { DashboardProvider } from "@/app/dashboard/_components/dashboard-provider";
 import { DashboardNavigationClient } from "@/app/dashboard/_components/dashboard-navigation-client";
+import { roleCeilings } from "@/lib/auth/policy";
 import type { DashboardData, DashboardFilters } from "@/lib/dashboard/types";
 
 const router = vi.hoisted(() => ({ push: vi.fn() }));
@@ -19,8 +20,8 @@ const data: DashboardData = {
   folders: [],
   folderOptions: [{ id: "folder-1", label: "Training", depth: 0 }],
   folderTree: [{ id: "folder-1", name: "Training", courseCount: 1, children: [] }],
-  courses: [{ id: "course-1", title: "Sample course", description: "A course", coverImage: null, folderId: null, status: "draft", revision: 1, updatedAt: "2026-10-14T00:00:00.000Z", lessonCount: 2, accessRole: "owner" }],
-  workspaces: [], workspaceId: null, workspaceName: "Personal", workspaceRole: "owner",
+  courses: [{ id: "course-1", title: "Sample course", description: "A course", coverImage: null, folderId: null, status: "draft", revision: 1, updatedAt: "2026-10-14T00:00:00.000Z", lessonCount: 2, accessRole: "owner", permissions: [...roleCeilings.editor] }],
+  workspaces: [], workspaceId: null, workspaceName: "Personal", workspaceRole: "owner", permissions: [...roleCeilings.editor],
 };
 
 function response(body: DashboardData) {
@@ -60,7 +61,7 @@ describe("dashboard loading and shared controls", () => {
 
   function select(index: number, value: string) {
     act(() => {
-      const element = container.querySelectorAll("select")[index];
+      const element = container.querySelector<HTMLSelectElement>(index === 0 ? 'select[aria-label="Filter course status"]' : 'select[aria-label="Sort courses"]')!;
       element.value = value;
       element.dispatchEvent(new Event("change", { bubbles: true }));
     });
@@ -106,7 +107,7 @@ describe("dashboard loading and shared controls", () => {
       dialog.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
       await vi.advanceTimersByTimeAsync(0);
     });
-    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/folders", expect.objectContaining({ method: "POST", body: JSON.stringify({ name: "New folder", parentId: null }) }));
+    expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/folders", expect.objectContaining({ method: "POST", body: JSON.stringify({ name: "New folder", parentId: null, workspaceId: null }) }));
     expect(container.querySelector('[role="tree"]')?.textContent).toContain("New folder");
     expect(container.querySelector('[role="dialog"]')).toBeNull();
   });

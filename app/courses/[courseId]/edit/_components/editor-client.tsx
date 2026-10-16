@@ -80,6 +80,7 @@ import { editorBlockElementId } from "@/lib/editor/lesson-location";
 import { applyProcessStepsPreset } from "@/lib/editor/process-steps";
 import { useFocusedContentBlock } from "./(editor_client_components)/use-focused-content-block";
 import { duplicateLessonContent, moveLessonToSection } from "@/lib/editor/course-content";
+import type { Permission } from "@/lib/auth/policy";
 
 type InitialData = { courseId: string } & EditorSnapshotInput;
 type Draft = Omit<EditorSnapshotInput, "revision">;
@@ -131,12 +132,16 @@ export function EditorClient({
   focusedBlockId,
   authorName,
   userName,
+  permissions = [],
+  globalPermissions = [],
 }: {
   initialData: InitialData;
   focusedLessonId?: string;
   focusedBlockId?: string;
   authorName: string;
   userName?: string;
+  permissions?: Permission[];
+  globalPermissions?: Permission[];
 }) {
   useDismissDetailsOnOutsideClick();
   const router = useRouter();
@@ -790,6 +795,7 @@ export function EditorClient({
     >
       {isCourseOverview && (
         <DashboardNavbar
+          permissions={globalPermissions}
           userName={userName ?? authorName}
           actions={
             <>
@@ -817,7 +823,7 @@ export function EditorClient({
           }
           primaryAction={
             <div className="flex items-center gap-2">
-              <Button
+              {permissions.includes("ai.generate") && <Button
                 type="button"
                 variant="outline"
                 size="sm"
@@ -828,7 +834,7 @@ export function EditorClient({
                 <Sparkles size={15} />
                 <span className="hidden sm:inline">Generate content</span>
                 <span className="sm:hidden">Generate</span>
-              </Button>
+              </Button>}
               <CourseThemeSettings
                 courseId={initialData.courseId}
                 courseTitle={draft.title}
@@ -843,12 +849,12 @@ export function EditorClient({
                   updateDraft((current) => ({ ...current, navigationMode }))
                 }
               />
-              <PublishMenu
+              {permissions.includes("courses.publish") && permissions.includes("courses.export") && <PublishMenu
                 courseId={initialData.courseId}
                 title={draft.title}
                 disabled={!isDraftSaved}
                 disabledReason={publishDisabledReason}
-              />
+              />}
               <Button
                 type="button"
                 variant="outline"

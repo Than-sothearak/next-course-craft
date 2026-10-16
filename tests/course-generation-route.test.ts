@@ -2,12 +2,14 @@ import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "../app/api/courses/[courseId]/generate/route";
 import { cancelSourceGenerationJob, generateCourseDraft, getSourceGenerationJob } from "../lib/ai/course-generation";
-import { assertCourseOwner } from "../lib/media/services/course-assets";
+import { resolveCourseAccess } from "../lib/workspaces/access";
 import { DashboardError } from "../lib/dashboard/rules";
 
 vi.mock("../lib/auth", () => ({ auth: vi.fn(async () => ({ user: { id: "507f1f77bcf86cd799439011" } })) }));
 vi.mock("../lib/db/mongodb", () => ({ connectToDatabase: vi.fn(async () => undefined) }));
-vi.mock("../lib/media/services/course-assets", () => ({ assertCourseOwner: vi.fn(async () => undefined) }));
+vi.mock("../lib/workspaces/access", () => ({ resolveCourseAccess: vi.fn(async () => ({ ownerId: "507f1f77bcf86cd799439011", permissions: [] })) }));
+vi.mock("../lib/auth/authorization", () => ({ requireActiveUser: vi.fn(async () => ({ id: "507f1f77bcf86cd799439011" })), requireAIEnabled: vi.fn() }));
+vi.mock("../lib/ai/generation-lease", () => ({ acquireGenerationLease: vi.fn(async () => ({ courseId: "course", token: "lease" })), releaseGenerationLease: vi.fn(async () => undefined) }));
 vi.mock("../lib/ai/course-generation", () => ({
   advanceSourceGenerationJob: vi.fn(), cancelSourceGenerationJob: vi.fn(), createSourceGenerationJob: vi.fn(),
   generateCourseDraft: vi.fn(), getLastCompletedSourceGenerationJob: vi.fn(), getSourceGenerationJob: vi.fn(), startSourceGenerationJob: vi.fn(),
@@ -37,7 +39,7 @@ describe("prompt-only course generation requests", () => {
       ownerId: "507f1f77bcf86cd799439011", courseId, sourceFile: undefined,
       input: expect.objectContaining({ template: "custom", lessonCount: 2, postTestCount: 5, learnGroupingMode: "smart", slidesPerContent: 5 }),
     });
-    expect(assertCourseOwner).toHaveBeenCalledWith("507f1f77bcf86cd799439011", courseId);
+    expect(resolveCourseAccess).toHaveBeenCalledWith("507f1f77bcf86cd799439011", courseId, "ai.generate");
   });
 
   it("accepts changed visible settings in prompt-only Pre / Learn / Post mode", async () => {
@@ -82,7 +84,7 @@ describe("prompt-only course generation requests", () => {
   });
 
   it("rejects generation for a course the caller does not own", async () => {
-    vi.mocked(assertCourseOwner).mockRejectedValueOnce(new DashboardError("Course not found.", 404));
+    vi.mocked(resolveCourseAccess).mockRejectedValueOnce(new DashboardError("Course not found.", 404));
     const response = await submit();
     expect(response.status).toBe(404);
     expect(generateCourseDraft).not.toHaveBeenCalled();
@@ -98,7 +100,7 @@ describe("prompt-only course generation requests", () => {
   });
 
   it("rejects cancellation when the caller does not own the course", async () => {
-    vi.mocked(assertCourseOwner).mockRejectedValueOnce(new DashboardError("Course not found.", 404));
+    vi.mocked(resolveCourseAccess).mockRejectedValueOnce(new DashboardError("Course not found.", 404));
     const response = await submit({ action: "cancelGeneration", jobId: "saved-job" });
     expect(response.status).toBe(404);
     expect(cancelSourceGenerationJob).not.toHaveBeenCalled();

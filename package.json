@@ -12,7 +12,9 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "build:export": "vite build --config export/vite.config.ts",
-    "migrate:workspace-folder-index": "node scripts/migrate-workspace-folder-indexes.mjs"
+    "migrate:workspace-folder-index": "node scripts/migrate-workspace-folder-indexes.mjs",
+    "migrate:user-approval": "node --env-file=.env.local scripts/migrate-user-approval.mjs",
+    "bootstrap:super-admin": "node --env-file=.env.local scripts/bootstrap-super-admin.mjs"
   },
   "dependencies": {
     "@auth/mongodb-adapter": "^3.10.0",

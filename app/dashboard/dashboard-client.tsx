@@ -145,7 +145,8 @@ export default function DashboardClient({
   }
 
   const disabled = Boolean(initialError) || busy || navigating;
-  const readOnly = data.workspaceRole === "viewer";
+  const readOnly = data.workspaceRole === "viewer" || !data.permissions?.includes("courses.edit");
+  const canCreate = !readOnly && Boolean(data.permissions?.includes("courses.create"));
   const unavailable = failedQueryKey === queryKey && loadedQueryKey !== queryKey;
   const loading = navigating || (loadedQueryKey !== queryKey && !unavailable);
 
@@ -163,14 +164,14 @@ export default function DashboardClient({
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-2 lg:hidden">
             <label><span className="sr-only">Switch workspace</span><Select value={filters.workspaceId ?? ""} disabled={disabled} onChange={(event) => navigateToWorkspace(event.target.value || null)} className="h-9 max-w-52"><option value="">Personal</option>{data.workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}</Select></label>
-            <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={() => setShowWorkspaceManager(true)}><Plus size={15} />Team</Button>
-            {filters.workspaceId && (data.workspaceRole === "owner" || data.workspaceRole === "admin") && <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={() => setShowWorkspaceManager(true)} aria-label="Manage team"><Users size={15} /></Button>}
+            {data.permissions?.includes("workspaces.manage") && <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={() => setShowWorkspaceManager(true)}><Plus size={15} />Team</Button>}
+            {data.permissions?.includes("workspaces.manage") && filters.workspaceId && (data.workspaceRole === "owner" || data.workspaceRole === "admin") && <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={() => setShowWorkspaceManager(true)} aria-label="Manage team"><Users size={15} /></Button>}
           </div>
-          <DashboardActions
+          {canCreate && <DashboardActions
             disabled={disabled || readOnly}
             onNewFolder={() => setShowNewFolder(true)}
             onNewCourse={() => setShowNewCourse(true)}
-          />
+          />}
         </div>
       </div>
 
@@ -295,6 +296,7 @@ export default function DashboardClient({
           <label>
             <span className="sr-only">Filter course status</span>
             <Select
+              aria-label="Filter course status"
               value={status}
               disabled={disabled}
               onChange={(event) => setFilters({ ...filters, status: event.target.value as typeof status })}
@@ -333,6 +335,7 @@ export default function DashboardClient({
           <label>
             <span className="sr-only">Sort items</span>
             <Select
+              aria-label="Sort courses"
               value={sort}
               disabled={disabled}
               onChange={(event) => setFilters({ ...filters, sort: event.target.value as typeof sort })}
@@ -404,7 +407,7 @@ export default function DashboardClient({
                 key={`${course.id}:${data.workspaceId ?? "personal"}`}
                 course={course}
                 data={data}
-                disabled={disabled || readOnly}
+                disabled={disabled}
                 busy={busy}
                 onSubmit={submit}
                 onRequest={request}
@@ -413,6 +416,7 @@ export default function DashboardClient({
           </div>
         ) : (
           <EmptyState
+            canCreate={canCreate}
             hasFolders={data.folders.length > 0}
             query={query}
             onCreate={() => setShowNewCourse(true)}

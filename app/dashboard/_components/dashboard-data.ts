@@ -1,6 +1,5 @@
 import { cache } from "react";
-import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { requirePagePermission } from "@/lib/auth/pages";
 import { connectToDatabase } from "@/lib/db/mongodb";
 import { getDashboardListing, getDashboardNavigation } from "@/lib/dashboard/services/list";
 import type { DashboardFilters, DashboardListing, DashboardNavigation } from "@/lib/dashboard/types";
@@ -9,11 +8,11 @@ export type DashboardLoadResult<T> = { data: T; error: string | null };
 
 // Request-scoped deduplication; authenticated data is never shared across users.
 export const getDashboardUser = cache(async () => {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login?callbackUrl=%2Fdashboard");
+  const user = await requirePagePermission("courses.view");
   return {
-    ownerId: session.user.id,
-    userName: session.user.name ?? session.user.email ?? "Author",
+    ownerId: user.id,
+    userName: user.name,
+    permissions: user.permissions,
   };
 });
 

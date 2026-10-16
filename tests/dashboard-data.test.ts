@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DashboardFilters, DashboardListing } from "@/lib/dashboard/types";
 
 const mocks = vi.hoisted(() => ({ auth: vi.fn(), connect: vi.fn(), listing: vi.fn(), navigation: vi.fn() }));
-vi.mock("@/lib/auth", () => ({ auth: mocks.auth }));
+vi.mock("@/lib/auth/pages", () => ({ requirePagePermission: mocks.auth }));
 vi.mock("@/lib/db/mongodb", () => ({ connectToDatabase: mocks.connect }));
 vi.mock("@/lib/dashboard/services/list", () => ({ getDashboardListing: mocks.listing, getDashboardNavigation: mocks.navigation }));
 vi.mock("next/navigation", () => ({ redirect: (url: string) => { throw new Error(`Redirect: ${url}`); } }));
@@ -18,15 +18,15 @@ describe("dashboard server sections", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     vi.stubEnv("MONGODB_URI", "mongodb://test/coursecraft");
-    mocks.auth.mockResolvedValue({ user: { id: "owner-1", name: "Author" } });
+    mocks.auth.mockResolvedValue({ id: "owner-1", name: "Author", permissions: ["courses.view"] });
     mocks.connect.mockResolvedValue(undefined);
     mocks.listing.mockResolvedValue(listing);
     mocks.navigation.mockResolvedValue(navigation);
   });
 
   it("requires authentication before either section accesses storage", async () => {
-    mocks.auth.mockResolvedValue(null);
-    await expect(loadDashboardNavigation(null)).rejects.toThrow("Redirect: /login?callbackUrl=%2Fdashboard");
+    mocks.auth.mockRejectedValue(new Error("Redirect: /login"));
+    await expect(loadDashboardNavigation(null)).rejects.toThrow("Redirect: /login");
     await expect(loadDashboardListing(filters)).rejects.toThrow("Redirect:");
     expect(mocks.connect).not.toHaveBeenCalled();
     expect(mocks.navigation).not.toHaveBeenCalled();

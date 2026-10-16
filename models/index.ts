@@ -10,3 +10,8 @@ export { User } from "./User";
 export { Workspace } from "./Workspace";
 export { WorkspaceMembership } from "./WorkspaceMembership";
 export { WorkspaceInvitation } from "./WorkspaceInvitation";
+export { RolePermission } from "./RolePermission";
+export { CourseAssignment } from "./CourseAssignment";
+export { AuditLog } from "./AuditLog";
+export { SecurityControl } from "./SecurityControl";
+export { PlatformSettings } from "./PlatformSettings";

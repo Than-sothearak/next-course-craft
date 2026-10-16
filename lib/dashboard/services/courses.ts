@@ -3,7 +3,7 @@ import { Asset, Course } from "@/models";
 import type { CreateCourseInput, UpdateCourseInput } from "../schemas";
 import { DashboardError } from "../rules";
 import { assertFolderOwned, objectId, ownerObjectId } from "./internal";
-import { resolveDashboardAccess } from "@/lib/workspaces/access";
+import { resolveDashboardAccess, courseAccessFilter } from "@/lib/workspaces/access";
 
 export { duplicateCourse } from "./course-duplication";
 
@@ -40,6 +40,7 @@ export async function createCourse(userId: string, input: CreateCourseInput) {
 export async function getCourseCopyDestinations(
   ownerId: string,
   sourceCourseId: string,
+  actorId: string = ownerId,
 ) {
   const owner = ownerObjectId(ownerId);
   if (!Types.ObjectId.isValid(sourceCourseId)) {
@@ -53,6 +54,7 @@ export async function getCourseCopyDestinations(
   if (!source) throw new DashboardError("Course not found.", 404);
   const sourceCourse = await Course.findById(sourceCourseId).select("workspaceId").lean();
   const courses = await Course.find({
+    $and: [await courseAccessFilter(actorId, "courses.edit")],
     ownerId: owner,
     workspaceId: sourceCourse?.workspaceId ?? null,
     deletedAt: null,

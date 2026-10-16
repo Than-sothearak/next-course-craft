@@ -60,7 +60,7 @@ export function FolderCard({
             </span>
           </span>
         </button>
-        <details ref={menuRef} className="relative">
+        {data.permissions?.includes("courses.edit") && data.workspaceRole !== "viewer" && <details ref={menuRef} className="relative">
           <summary
             aria-label={`Manage ${folder.name}`}
             className="grid size-8 cursor-pointer list-none place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 [&::-webkit-details-marker]:hidden"
@@ -124,7 +124,7 @@ export function FolderCard({
                 Move
               </Button>
             </form>
-            <Button
+            {data.permissions?.includes("courses.delete") && ["owner", "admin"].includes(data.workspaceRole) && <Button
               variant="ghost"
               disabled={disabled || busy}
               onClick={() => {
@@ -136,9 +136,9 @@ export function FolderCard({
               className="mt-3 h-auto min-h-0 w-full justify-start rounded-md px-2 py-2 text-left text-xs font-semibold text-rose-700 hover:bg-rose-50"
             >
               Delete empty folder
-            </Button>
+            </Button>}
           </div>
-        </details>
+        </details>}
       </div>
     </Card>
   );

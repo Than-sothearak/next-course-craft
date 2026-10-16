@@ -3,7 +3,7 @@ import LessonEditPage from "../app/courses/[courseId]/edit/lessons/[lessonId]/pa
 import type { ComponentProps, ReactElement } from "react";
 
 const { auth, getCourseEditor, getCourseAuthorName, notFound } = vi.hoisted(() => ({ auth: vi.fn(), getCourseEditor: vi.fn(), getCourseAuthorName: vi.fn(), notFound: vi.fn(() => { throw new Error("Not found"); }) }));
-vi.mock("../lib/auth", () => ({ auth }));
+vi.mock("../lib/auth/pages", () => ({ requirePageUser: auth, requirePageCourseAccess: vi.fn(async () => ({ ownerId: "owner-1", role: "owner", workspaceId: null, permissions: ["courses.view", "courses.edit"] })) }));
 vi.mock("../lib/db/mongodb", () => ({ connectToDatabase: vi.fn() }));
 vi.mock("../lib/editor/services/course", () => ({ getCourseEditor, getCourseAuthorName }));
 vi.mock("../lib/workspaces/access", () => ({ resolveCourseAccess: vi.fn(async () => ({ ownerId: "owner-1", role: "owner", workspaceId: null })) }));
@@ -19,7 +19,7 @@ async function renderLessonEditContent(props: ComponentProps<typeof LessonEditPa
 
 beforeEach(() => {
   vi.clearAllMocks();
-  auth.mockResolvedValue({ user: { id: "owner-1", name: "Author" } });
+  auth.mockResolvedValue({ id: "owner-1", name: "Author" });
   getCourseAuthorName.mockResolvedValue("Course Creator");
   getCourseEditor.mockResolvedValue({
     courseId: "course-1", lessons: [

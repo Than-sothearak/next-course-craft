@@ -3,7 +3,10 @@ import { connectToDatabase } from "@/lib/db/mongodb";
 import { dashboardErrorResponse, requireOwnerId } from "@/lib/dashboard/http";
 import { objectIdSchema } from "@/lib/dashboard/schemas";
 import { DashboardError } from "@/lib/dashboard/rules";
-import { assertCourseOwner } from "@/lib/media/services/course-assets";
+import { resolveCourseAccess } from "@/lib/workspaces/access";
+import { requireAIEnabled } from "@/lib/auth/authorization";
+import { acquireGenerationLease, releaseGenerationLease } from "@/lib/ai/generation-lease";
+import { assertMutationOrigin } from "@/lib/auth/http-security";
 import { generationSettingsError, parseCourseGenerationForm } from "@/lib/ai/course-generation-request";
 import {
   advanceSourceGenerationJob,
@@ -80,7 +83,7 @@ export async function GET(_request: NextRequest, context: Context) {
     const { courseId } = await context.params;
     if (!objectIdSchema.safeParse(courseId).success)
       throw new DashboardError("Invalid course identifier.", 400);
-    const ownerId = await assertCourseOwner(userId, courseId);
+    const { ownerId } = await resolveCourseAccess(userId, courseId, "courses.edit");
     return NextResponse.json(await getLastCompletedSourceGenerationJob({ ownerId, courseId }), {
       headers: { "Cache-Control": "no-store" },
     });
@@ -90,13 +93,15 @@ export async function GET(_request: NextRequest, context: Context) {
 }
 
 export async function POST(request: NextRequest, context: Context) {
+  let lease: Awaited<ReturnType<typeof acquireGenerationLease>> | undefined;
   try {
+    assertMutationOrigin(request);
     const userId = await requireOwnerId();
     await connectToDatabase();
     const { courseId } = await context.params;
     if (!objectIdSchema.safeParse(courseId).success)
       throw new DashboardError("Invalid course identifier.", 400);
-    const ownerId = await assertCourseOwner(userId, courseId);
+    const { ownerId } = await resolveCourseAccess(userId, courseId, "courses.edit");
 
     const formData = await request.formData();
     const action = String(formData.get("action") ?? "generate");
@@ -109,6 +114,11 @@ export async function POST(request: NextRequest, context: Context) {
     ].includes(action))
       throw new DashboardError("Unsupported course generation action.", 400);
     const jobId = String(formData.get("jobId") ?? "");
+    if (["generate", "analyzeSource", "advanceGeneration"].includes(action)) {
+      await resolveCourseAccess(userId, courseId, "ai.generate");
+      await requireAIEnabled();
+      lease = await acquireGenerationLease(ownerId, courseId);
+    }
     if (action === "getGeneration") {
       if (!jobId) throw new DashboardError("A generation job identifier is required.", 400);
       return NextResponse.json(await getSourceGenerationJob({ ownerId, courseId, jobId }));
@@ -161,5 +171,7 @@ export async function POST(request: NextRequest, context: Context) {
     return NextResponse.json(generatedCourse, { status: 200 });
   } catch (error) {
     return dashboardErrorResponse(error);
+  } finally {
+    if (lease) await releaseGenerationLease(lease).catch(() => console.error("Generation lease release failed; it will expire automatically."));
   }
 }

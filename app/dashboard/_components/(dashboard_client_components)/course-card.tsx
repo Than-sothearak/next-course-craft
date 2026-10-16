@@ -50,7 +50,7 @@ export function CourseCard({
   const [menuOpen, setMenuOpen] = useState(false);
   const [coverLibraryOpen, setCoverLibraryOpen] = useState(false);
   const [copyWorkspaceId, setCopyWorkspaceId] = useState(data.workspaceId ?? "");
-  const readOnly = course.accessRole === "viewer";
+  const readOnly = !course.permissions?.includes("courses.edit");
   const courseHref = readOnly ? `/courses/${course.id}/preview` : `/courses/${course.id}/edit`;
 
   useEffect(() => {
@@ -202,7 +202,7 @@ export function CourseCard({
                   className="mt-1 h-9 px-2 text-sm font-normal text-slate-900"
                 >
                   <option value="draft">Draft</option>
-                  <option value="published">Published</option>
+                  <option value="published" disabled={!course.permissions?.includes("courses.publish")}>Published</option>
                   <option value="archived">Archived</option>
                 </Select>
               </label>
@@ -223,7 +223,7 @@ export function CourseCard({
                   Duplicate course
                 </Button>
               </div>
-              <PublishMenu
+              {course.permissions?.includes("courses.publish") && course.permissions?.includes("courses.export") && <PublishMenu
                 courseId={course.id}
                 title={course.title}
                 disabled={disabled || busy}
@@ -233,8 +233,8 @@ export function CourseCard({
                   menuRef.current?.removeAttribute("open");
                   setMenuOpen(false);
                 }}
-              />
-              <Button
+              />}
+              {course.permissions?.includes("courses.delete") && <Button
                 variant="ghost"
                 disabled={disabled || busy}
                 onClick={() => {
@@ -249,7 +249,7 @@ export function CourseCard({
                 className="h-auto min-h-0 w-full justify-start rounded-md px-2 py-2 text-left text-xs font-semibold text-rose-700 hover:bg-rose-50"
               >
                 Move to recently deleted
-              </Button>
+              </Button>}
             </div>
           </details>}
         </div>
@@ -265,6 +265,7 @@ export function CourseCard({
             {course.lessonCount}{" "}
             {course.lessonCount === 1 ? "lesson" : "lessons"}
           </span>
+          {course.permissions?.includes("courses.assign") && <Link href={`/courses/${course.id}/access`} className="font-medium text-indigo-700">Share access</Link>}
           <Link href={courseHref} className="font-medium text-indigo-700 hover:text-indigo-900">{readOnly ? "Preview course" : "Open editor"} <span aria-hidden="true">→</span></Link>
         </div>
       </div>

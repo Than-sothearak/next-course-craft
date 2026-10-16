@@ -1,16 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireActiveUser } from "@/lib/auth/authorization";
 import { connectToDatabase } from "@/lib/db/mongodb";
 import { dashboardErrorResponse } from "@/lib/dashboard/http";
 import { acceptWorkspaceInvitation, getWorkspaceInvitation } from "@/lib/workspaces/services";
-import { DashboardError } from "@/lib/dashboard/rules";
 
 type Context = { params: Promise<{ token: string }> };
 
 async function getSessionUser() {
-  const session = await auth();
-  if (!session?.user?.id) throw new DashboardError("Sign in to accept this invitation.", 401);
-  return { userId: session.user.id, email: session.user.email ?? null };
+  const user = await requireActiveUser();
+  return { userId: user.id, email: user.email };
 }
 
 export async function GET(_request: NextRequest, context: Context) {

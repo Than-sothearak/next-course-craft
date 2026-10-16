@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db/mongodb";
-import { duplicateCourse, getCourseCopyDestinations, softDeleteCourse, updateCourse } from "@/lib/dashboard/services/courses";
+import { duplicateCourse, getCourseCopyDestinations, updateCourse } from "@/lib/dashboard/services/courses";
+import { mutateCourse } from "@/lib/admin/courses";
 import { deleteCourseSchema, duplicateCourseSchema, objectIdSchema, updateCourseSchema } from "@/lib/dashboard/schemas";
 import { dashboardErrorResponse, readJson, requireOwnerId } from "@/lib/dashboard/http";
 import { DashboardError } from "@/lib/dashboard/rules";
@@ -21,6 +22,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     const courseId = await validatedCourseId(context);
     const input = await readJson(request, updateCourseSchema);
     const { ownerId } = await resolveCourseAccess(userId, courseId, "edit");
+    if (input.status === "published") await resolveCourseAccess(userId, courseId, "courses.publish");
     return NextResponse.json(await updateCourse(ownerId, courseId, input));
   } catch (error) {
     return dashboardErrorResponse(error);
@@ -33,7 +35,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     await connectToDatabase();
     const courseId = await validatedCourseId(context);
     const { ownerId } = await resolveCourseAccess(userId, courseId, "edit");
-    return NextResponse.json(await getCourseCopyDestinations(ownerId, courseId));
+    return NextResponse.json(await getCourseCopyDestinations(ownerId, courseId, userId));
   } catch (error) {
     return dashboardErrorResponse(error);
   }
@@ -63,8 +65,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     await connectToDatabase();
     const courseId = await validatedCourseId(context);
     const input = await readJson(request, deleteCourseSchema);
-    const { ownerId } = await resolveCourseAccess(userId, courseId, "manage");
-    await softDeleteCourse(ownerId, courseId, input.confirmTitle);
+    await mutateCourse(userId, courseId, { action: "delete", confirmTitle: input.confirmTitle }, false);
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     return dashboardErrorResponse(error);

@@ -60,8 +60,8 @@ export function WorkspaceInvitationClient({ token }: { token: string }) {
         </> : signedOut ? <>
           <p className="mt-6 text-sm font-semibold text-indigo-700">Team invitation</p>
           <h1 className="mt-2 text-2xl font-semibold">Sign in to continue</h1>
-          <p className="mt-3 text-sm leading-6 text-slate-600">Sign in with the GitHub account that received this invitation. You’ll return here to accept it.</p>
-          <Link href={`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`} className="mt-7 inline-flex"><Button>Sign in with GitHub <ArrowRight size={16} /></Button></Link>
+          <p className="mt-3 text-sm leading-6 text-slate-600">Sign in with the account that received this invitation. You’ll return here to accept it.</p>
+          <Link href={`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`} className="mt-7 inline-flex"><Button>Choose a sign-in method <ArrowRight size={16} /></Button></Link>
         </> : invitation ? <>
           <p className="mt-6 text-sm font-semibold text-indigo-700">Team invitation</p>
           <h1 className="mt-2 text-2xl font-semibold">Join {invitation.workspaceName}</h1>

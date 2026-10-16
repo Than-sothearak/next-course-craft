@@ -8,7 +8,7 @@ import { DashboardError } from "@/lib/dashboard/rules";
 
 type Context = { params: Promise<{ assetId: string }> };
 
-export async function GET(_request: NextRequest, { params }: Context) {
+export async function GET(request: NextRequest, { params }: Context) {
   try {
     const ownerId = await requireOwnerId();
     await connectToDatabase();
@@ -16,7 +16,18 @@ export async function GET(_request: NextRequest, { params }: Context) {
     if (!objectIdSchema.safeParse(assetId).success) throw new DashboardError("Invalid asset identifier.", 400);
     const asset = await getOwnedMediaAsset(ownerId, assetId);
     const url = await createMediaReadUrl({ objectKey: asset.objectKey, contentType: asset.mimeType });
-    return NextResponse.redirect(url, { status: 307, headers: { "Cache-Control": "private, no-store" } });
+    const range = request.headers.get("range");
+    if (range && !/^bytes=\d*-\d*$/.test(range)) throw new DashboardError("Invalid media range.", 400);
+    const upstream = await fetch(url, { cache: "no-store", headers: range ? { Range: range } : undefined, signal: request.signal });
+    if (!upstream.ok && upstream.status !== 416) throw new DashboardError("The media file could not be read.", 502);
+    // The browser never receives a reusable S3 URL. Each new media/range request
+    // rechecks approval, current permissions and course access.
+    const headers = new Headers({ "Content-Type": asset.mimeType, "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff" });
+    for (const name of ["content-length", "content-range", "accept-ranges"]) {
+      const value = upstream.headers.get(name);
+      if (value) headers.set(name, value);
+    }
+    return new NextResponse(upstream.body, { status: upstream.status, headers });
   } catch (error) {
     return dashboardErrorResponse(error);
   }

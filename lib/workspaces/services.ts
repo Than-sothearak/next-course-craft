@@ -4,6 +4,7 @@ import { User, Workspace, WorkspaceInvitation, WorkspaceMembership } from "@/mod
 import { DashboardError } from "@/lib/dashboard/rules";
 import type { CreateWorkspaceInput, CreateWorkspaceInvitationInput, UpdateWorkspaceMembershipInput } from "./schemas";
 import { requireWorkspaceAccess, type WorkspaceRole } from "./access";
+import { requirePermission, requireActiveUser } from "@/lib/auth/authorization";
 
 const invitationLifetimeMs = 7 * 24 * 60 * 60 * 1000;
 
@@ -17,6 +18,7 @@ function hashToken(token: string) {
 }
 
 export async function listWorkspaces(userId: string) {
+  await requirePermission("courses.view", userId);
   const user = objectId(userId, "Account");
   const memberships = await WorkspaceMembership.find({ userId: user }).select("workspaceId").lean();
   const workspaces = await Workspace.find({
@@ -37,6 +39,7 @@ export async function listWorkspaces(userId: string) {
 }
 
 export async function createWorkspace(userId: string, input: CreateWorkspaceInput) {
+  await requirePermission("workspaces.manage", userId);
   const ownerId = objectId(userId, "Account");
   const workspace = await Workspace.create({ name: input.name, ownerId });
   return { id: workspace._id.toString(), name: workspace.name, role: "owner" as const, memberCount: 1 };
@@ -128,6 +131,7 @@ export async function removeWorkspaceMember(userId: string, workspaceId: string,
   if (!target) throw new DashboardError("Workspace member not found.", 404);
   const selfLeave = userId === memberId;
   if (!selfLeave) {
+    await requirePermission("workspaces.manage", userId);
     if (!roleAtLeastManager(access.role)) throw new DashboardError("You do not have permission to remove members.", 403);
     if (target.role === "admin" && access.role !== "owner")
       throw new DashboardError("Only the workspace owner can remove an admin.", 403);
@@ -179,6 +183,7 @@ export async function getWorkspaceInvitation(email: string | null, token: string
 }
 
 export async function acceptWorkspaceInvitation(userId: string, email: string | null, token: string) {
+  await requireActiveUser(userId);
   if (!email) throw new DashboardError("Sign in with the email address invited to this workspace.", 403);
   const { invitation } = await getInvitation(token);
   if (email.trim().toLowerCase() !== invitation.email)

@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import { auth, signIn } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { LoginSkeleton } from "./login-skeleton";
@@ -27,12 +28,18 @@ export default function LoginPage(props: LoginPageProps) {
 async function LoginPageContent({ searchParams }: LoginPageProps) {
   const { callbackUrl } = await searchParams;
   const redirectTo = callbackUrl?.startsWith("/") && !callbackUrl.startsWith("//") ? callbackUrl : "/";
+  await connection();
   const session = await auth();
   if (session?.user) redirect(redirectTo);
 
   async function signInWithGitHub() {
     "use server";
     await signIn("github", { redirectTo });
+  }
+
+  async function signInWithGoogle() {
+    "use server";
+    await signIn("google", { redirectTo });
   }
 
   return (
@@ -89,7 +96,7 @@ async function LoginPageContent({ searchParams }: LoginPageProps) {
               />
               <p className="font-medium">Your work stays yours</p>
               <p className="mt-1 text-sm leading-6 text-slate-400">
-                Sign in securely with your GitHub account.
+                Sign in securely with Google or GitHub.
               </p>
             </div>
           </div>
@@ -121,16 +128,17 @@ async function LoginPageContent({ searchParams }: LoginPageProps) {
             Sign in to your workspace
           </h2>
           <p className="mt-3 leading-7 text-slate-600">
-            Use your GitHub account to continue creating your courses.
+            Use your Google or GitHub account to continue creating your
+            courses.
           </p>
 
-          <form action={signInWithGitHub} className="mt-9">
+          <form action={signInWithGoogle} className="mt-9">
             <Button
               type="submit"
               className="group min-h-13 w-full justify-center rounded-xl bg-slate-950 px-5 py-3.5 font-medium text-white shadow-sm transition hover:bg-slate-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 active:scale-[0.99]"
             >
-              <Github size={19} aria-hidden="true" />
-              Continue with GitHub
+              <GoogleIcon />
+              Continue with Google
               <ArrowRight
                 size={17}
                 className="ml-auto text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-white"
@@ -139,8 +147,24 @@ async function LoginPageContent({ searchParams }: LoginPageProps) {
             </Button>
           </form>
 
+          <form action={signInWithGitHub} className="mt-3">
+            <Button
+              type="submit"
+              variant="outline"
+              className="group min-h-13 w-full justify-center rounded-xl px-5 py-3.5 font-medium active:scale-[0.99]"
+            >
+              <Github size={19} aria-hidden="true" />
+              Continue with GitHub
+              <ArrowRight
+                size={17}
+                className="ml-auto text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-slate-700"
+                aria-hidden="true"
+              />
+            </Button>
+          </form>
+
           <p className="mt-5 text-center text-sm leading-6 text-slate-500">
-            You’ll be redirected to GitHub to authorize sign-in.
+            You’ll be redirected to your chosen provider to authorize sign-in.
           </p>
           <div className="my-8 flex items-center gap-4" aria-hidden="true">
             <span className="h-px flex-1 bg-slate-200" />
@@ -156,7 +180,7 @@ async function LoginPageContent({ searchParams }: LoginPageProps) {
               aria-hidden="true"
             />
             <p>
-              Your password is handled by GitHub. Coursecraft never sees or
+              Your password is handled by your provider. Coursecraft never sees or
               stores it.
             </p>
           </div>
@@ -168,5 +192,32 @@ async function LoginPageContent({ searchParams }: LoginPageProps) {
         </footer>
       </section>
     </main>
+  );
+}
+
+function GoogleIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="size-[19px]"
+    >
+      <path
+        fill="#4285F4"
+        d="M23.49 12.27c0-.79-.07-1.55-.2-2.27H12v4.3h6.44a5.5 5.5 0 0 1-2.38 3.61v2.79h3.85c2.25-2.08 3.58-5.15 3.58-8.43Z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 24c3.24 0 5.96-1.08 7.95-2.92l-3.85-2.79c-1.07.72-2.44 1.15-4.1 1.15-3.15 0-5.82-2.13-6.78-5H1.24v2.87A12 12 0 0 0 12 24Z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.22 14.44a7.2 7.2 0 0 1 0-4.88V6.69H1.24a12 12 0 0 0 0 10.62l3.98-2.87Z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 4.75c1.77 0 3.35.61 4.6 1.82l3.45-3.45A11.53 11.53 0 0 0 12 0 12 12 0 0 0 1.24 6.69l3.98 2.87c.96-2.87 3.63-4.81 6.78-4.81Z"
+      />
+    </svg>
   );
 }

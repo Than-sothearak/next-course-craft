@@ -38,8 +38,8 @@ async function DashboardWorkspace({ searchParams }: PageProps) {
 }
 
 async function DashboardProfile() {
-  const { userName } = await getDashboardUser();
-  return <DashboardUserProfile userName={userName} />;
+  const { userName, permissions } = await getDashboardUser();
+  return <DashboardUserProfile userName={userName} permissions={permissions} />;
 }
 
 async function DashboardNavigationSection({ navigation }: { navigation: Promise<DashboardLoadResult<DashboardNavigation>> }) {

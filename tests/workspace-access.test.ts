@@ -3,6 +3,8 @@ import { Workspace, WorkspaceMembership } from "../models";
 import { requireWorkspaceAccess, roleCan } from "../lib/workspaces/access";
 import { createWorkspaceInvitationSchema } from "../lib/workspaces/schemas";
 
+vi.mock("../lib/auth/authorization", () => ({ requirePermission: vi.fn(async () => undefined) }));
+
 vi.mock("../models", () => ({
   Course: {},
   Folder: {},
@@ -16,7 +18,7 @@ const workspaceId = "507f1f77bcf86cd799439013";
 
 function mockWorkspace() {
   vi.mocked(Workspace.findById).mockReturnValue({
-    select: () => ({ lean: async () => ({ _id: workspaceId, ownerId, name: "Learning" }) }),
+    select: () => ({ session: () => ({ lean: async () => ({ _id: workspaceId, ownerId, name: "Learning" }) }) }),
   } as never);
 }
 
@@ -35,7 +37,7 @@ describe("workspace access roles", () => {
   it("resolves the member role before granting workspace access", async () => {
     mockWorkspace();
     vi.mocked(WorkspaceMembership.findOne).mockReturnValue({
-      select: () => ({ lean: async () => ({ role: "editor" }) }),
+      select: () => ({ session: () => ({ lean: async () => ({ role: "editor" }) }) }),
     } as never);
 
     await expect(requireWorkspaceAccess(memberId, workspaceId, "edit")).resolves.toMatchObject({
@@ -50,7 +52,7 @@ describe("workspace access roles", () => {
   it("does not reveal workspaces to nonmembers and normalizes invitation email", async () => {
     mockWorkspace();
     vi.mocked(WorkspaceMembership.findOne).mockReturnValue({
-      select: () => ({ lean: async () => null }),
+      select: () => ({ session: () => ({ lean: async () => null }) }),
     } as never);
     await expect(requireWorkspaceAccess(memberId, workspaceId)).rejects.toMatchObject({ status: 404 });
     expect(createWorkspaceInvitationSchema.parse({ email: " Team@Example.com ", role: "editor" })).toEqual({

@@ -8,12 +8,14 @@ export function CoursePreviewRoute({
   initialData,
   authorName,
   initialLessonId,
-  canEdit = true,
+  canEdit = false,
+  canPublish = false,
 }: {
   initialData: PreviewData;
   authorName: string;
   initialLessonId?: string;
   canEdit?: boolean;
+  canPublish?: boolean;
 }) {
   const router = useRouter();
 
@@ -23,7 +25,7 @@ export function CoursePreviewRoute({
       authorName={authorName}
       initialLessonId={initialLessonId}
       persistLocalProgress={false}
-      canPublish={canEdit}
+      canPublish={canPublish}
       onBack={() => router.push(canEdit ? `/courses/${initialData.courseId}/edit` : "/dashboard")}
       onEdit={canEdit ? (target) => router.push(lessonEditorHref(initialData.courseId, target?.lessonId, target?.blockId)) : undefined}
     />

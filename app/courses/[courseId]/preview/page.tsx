@@ -1,12 +1,11 @@
 import { Suspense } from "react";
-import { notFound, redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
+import { notFound } from "next/navigation";
+import { requirePageUser, requirePageCourseAccess } from "@/lib/auth/pages";
 import { connectToDatabase } from "@/lib/db/mongodb";
 import { DashboardError } from "@/lib/dashboard/rules";
 import { getCourseAuthorName, getCourseEditor } from "@/lib/editor/services/course";
 import { CoursePreviewRoute } from "./course-preview-route";
 import { CoursePreviewSkeleton } from "./preview-skeleton";
-import { resolveCourseAccess } from "@/lib/workspaces/access";
 
 type CoursePreviewPageProps = {
   params: Promise<{ courseId: string }>;
@@ -25,14 +24,13 @@ async function CoursePreviewContent({
   params,
   searchParams,
 }: CoursePreviewPageProps) {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login");
+  const user = await requirePageUser();
   const [{ courseId }, query] = await Promise.all([
     params,
     searchParams ?? Promise.resolve({} as { lessonId?: string | string[] }),
   ]);
   await connectToDatabase();
-  const access = await resolveCourseAccess(session.user.id, courseId, "view");
+  const access = await requirePageCourseAccess(user.id, courseId, "courses.view");
   let initialData: Awaited<ReturnType<typeof getCourseEditor>>;
   let authorName: string;
   try {
@@ -48,5 +46,5 @@ async function CoursePreviewContent({
   const initialLessonId = initialData.lessons.some((lesson) => lesson.id === requestedLessonId)
     ? requestedLessonId ?? undefined
     : undefined;
-  return <CoursePreviewRoute initialData={initialData} authorName={authorName} initialLessonId={initialLessonId} canEdit={access.role !== "viewer"} />;
+  return <CoursePreviewRoute initialData={initialData} authorName={authorName} initialLessonId={initialLessonId} canEdit={access.permissions.includes("courses.edit")} canPublish={access.permissions.includes("courses.publish") && access.permissions.includes("courses.export")} />;
 }

@@ -41,6 +41,8 @@ const CourseSchema = new Schema({
   revision: { type: Number, default: 0, min: 0 },
   editorSaveLock: { type: String, default: null, select: false },
   editorSaveLockAt: { type: Date, default: null, select: false },
+  generationLockToken: { type: String, default: null, select: false },
+  generationLockUntil: { type: Date, default: null, select: false },
   deletedAt: { type: Date, default: null, index: true },
   completionSettings: { type: Schema.Types.Mixed, default: {} },
 }, { timestamps: true, optimisticConcurrency: true });

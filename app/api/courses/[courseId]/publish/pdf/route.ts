@@ -15,7 +15,8 @@ export async function POST(_request: NextRequest, context: { params: Promise<{ c
     const parsed = paramsSchema.safeParse(await context.params);
     if (!parsed.success) throw new DashboardError("Course not found.", 404);
     await connectToDatabase();
-    const { ownerId } = await resolveCourseAccess(userId, parsed.data.courseId, "edit");
+    const { ownerId } = await resolveCourseAccess(userId, parsed.data.courseId, "courses.export");
+    await resolveCourseAccess(userId, parsed.data.courseId, "courses.publish");
     const result = await buildCourseHandoutPdf({
       ownerId,
       courseId: parsed.data.courseId,

@@ -1,3 +1,5 @@
+import type { Permission } from "@/lib/auth/policy";
+
 export type DashboardFolderBase = {
   id: string;
   name: string;
@@ -22,6 +24,7 @@ export type DashboardCourse = {
   updatedAt: string;
   lessonCount: number;
   accessRole: "owner" | "admin" | "editor" | "viewer";
+  permissions?: Permission[];
 };
 
 export type DashboardWorkspace = {
@@ -51,6 +54,7 @@ export type DashboardData = {
   workspaceId: string | null;
   workspaceName: string;
   workspaceRole: DashboardWorkspace["role"];
+  permissions?: Permission[];
 };
 
 export type DashboardQuery = {
@@ -61,6 +65,6 @@ export type DashboardQuery = {
   sort?: "updated" | "title" | "created";
 };
 
-export type DashboardNavigation = Pick<DashboardData, "folderOptions" | "folderTree" | "workspaces" | "workspaceId" | "workspaceName" | "workspaceRole">;
+export type DashboardNavigation = Pick<DashboardData, "folderOptions" | "folderTree" | "workspaces" | "workspaceId" | "workspaceName" | "workspaceRole" | "permissions">;
 export type DashboardListing = Omit<DashboardData, keyof DashboardNavigation>;
 export type DashboardFilters = Required<DashboardQuery>;

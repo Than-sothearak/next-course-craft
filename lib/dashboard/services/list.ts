@@ -1,5 +1,5 @@
 import { Types } from "mongoose";
-import { Course, Folder, Lesson } from "@/models";
+import { Course, CourseAssignment, Folder, Lesson } from "@/models";
 import { DashboardError, escapeRegex } from "../rules";
 import type {
   DashboardCourse,
@@ -12,13 +12,17 @@ import type {
   FolderTreeNode,
 } from "../types";
 import { folderResponse, objectId, ownerObjectId } from "./internal";
-import { resolveDashboardAccess } from "@/lib/workspaces/access";
+import { courseScopeCan, resolveDashboardAccess, roleCan, type WorkspaceRole } from "@/lib/workspaces/access";
+import { requirePermission } from "@/lib/auth/authorization";
 import { listWorkspaces } from "@/lib/workspaces/services";
 
 export async function getDashboardListing(
   userId: string,
   query: DashboardQuery = {},
 ): Promise<DashboardListing> {
+  const principal = await requirePermission("courses.view", userId);
+  const assignments = await CourseAssignment.find({ userId }).select("courseId role").lean();
+  const assignedRoles = new Map(assignments.map((assignment) => [assignment.courseId.toString(), assignment.role]));
   const scope = await resolveDashboardAccess(userId, query.workspaceId ?? null);
   const ownerId = scope.ownerId;
   const owner = ownerObjectId(ownerId);
@@ -110,6 +114,12 @@ export async function getDashboardListing(
     folderId: directFolder,
     deletedAt: null,
   };
+  if (!workspaceId && !folderId && assignments.length) {
+    delete courseFilter.ownerId;
+    delete courseFilter.workspaceId;
+    delete courseFilter.folderId;
+    courseFilter.$and = [{ $or: [{ ownerId: owner, workspaceId: null, folderId: null }, { _id: { $in: assignments.map((assignment) => assignment.courseId) } }] }];
+  }
   if (query.status && query.status !== "all")
     courseFilter.status = query.status;
   if (query.q?.trim()) {
@@ -125,7 +135,7 @@ export async function getDashboardListing(
   const courses = await Course.find(courseFilter)
     .sort(sort)
     .limit(200)
-    .select("title description coverImage folderId status revision updatedAt")
+    .select("title description coverImage folderId status revision updatedAt ownerId workspaceId")
     .lean();
   const ids = courses.map((course) => course._id);
   const lessonCounts = await Lesson.aggregate<{
@@ -138,7 +148,11 @@ export async function getDashboardListing(
   const lessonCountMap = new Map(
     lessonCounts.map((item) => [item._id.toString(), item.count]),
   );
-  const dashboardCourses: DashboardCourse[] = courses.map((course) => ({
+  const dashboardCourses: DashboardCourse[] = courses.map((course) => {
+    const assignmentRole = assignedRoles.get(course._id.toString()) as WorkspaceRole | undefined;
+    const rawRole: WorkspaceRole = course.ownerId.toString() === userId ? "owner" : course.workspaceId?.toString() === scope.workspaceId && roleCan(scope.role, "edit") ? scope.role : assignmentRole ?? scope.role;
+    const permissions = principal.permissions.filter((permission) => courseScopeCan(rawRole, permission));
+    return ({
     id: course._id.toString(),
     title: course.title,
     description: course.description,
@@ -148,8 +162,9 @@ export async function getDashboardListing(
     revision: course.revision,
     updatedAt: course.updatedAt.toISOString(),
     lessonCount: lessonCountMap.get(course._id.toString()) ?? 0,
-    accessRole: scope.role,
-  }));
+    accessRole: permissions.includes("courses.edit") ? rawRole : "viewer",
+    permissions,
+  }); });
 
   return {
     currentFolder,
@@ -160,6 +175,7 @@ export async function getDashboardListing(
 }
 
 export async function getDashboardNavigation(userId: string, workspaceId: string | null = null): Promise<DashboardNavigation> {
+  const principal = await requirePermission("courses.view", userId);
   const [scope, workspaces] = await Promise.all([
     resolveDashboardAccess(userId, workspaceId),
     listWorkspaces(userId),
@@ -246,6 +262,7 @@ export async function getDashboardNavigation(userId: string, workspaceId: string
     workspaceId: scope.workspaceId,
     workspaceName: scope.workspaceName,
     workspaceRole: scope.role,
+    permissions: principal.permissions,
   };
 }
 

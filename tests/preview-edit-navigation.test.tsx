@@ -53,14 +53,14 @@ describe("preview links to the exact editor block", () => {
   });
 
   it("uses only the navbar Edit button without adding buttons inside preview blocks", async () => {
-    await act(async () => root.render(createElement(CoursePreviewRoute, { initialData, authorName: "Author", initialLessonId: "lesson-2" })));
+    await act(async () => root.render(createElement(CoursePreviewRoute, { canEdit: true, initialData, authorName: "Author", initialLessonId: "lesson-2" })));
     expect(container.querySelector('[aria-label^="Edit block"]')).toBeNull();
     expect(Array.from(container.querySelectorAll<HTMLButtonElement>("header button")).filter((button) => button.textContent?.trim() === "Edit")).toHaveLength(1);
     expect(container.querySelector('[data-lesson-block-id] button')).toBeNull();
   });
 
   it("routes toolbar Edit to the lesson and block currently in view", async () => {
-    await act(async () => root.render(createElement(CoursePreviewRoute, { initialData, authorName: "Author", initialLessonId: "lesson-2" })));
+    await act(async () => root.render(createElement(CoursePreviewRoute, { canEdit: true, initialData, authorName: "Author", initialLessonId: "lesson-2" })));
     const article = container.querySelector("#preview-content-lesson-2")!;
     const body = article.firstElementChild as HTMLElement;
     body.getBoundingClientRect = () => rect(0, 500);
@@ -73,7 +73,7 @@ describe("preview links to the exact editor block", () => {
   });
 
   it("lays out only the selected lesson instead of scrolling a stack of full-height articles", async () => {
-    await act(async () => root.render(createElement(CoursePreviewRoute, { initialData, authorName: "Author", initialLessonId: "lesson-2" })));
+    await act(async () => root.render(createElement(CoursePreviewRoute, { canEdit: true, initialData, authorName: "Author", initialLessonId: "lesson-2" })));
     const first = container.querySelector("#preview-content-lesson-1")!;
     const second = container.querySelector("#preview-content-lesson-2")!;
     expect(first.classList.contains("hidden")).toBe(true);
@@ -85,7 +85,7 @@ describe("preview links to the exact editor block", () => {
   });
 
   it("keeps the lesson scroll element and reading position when switching devices or course view", async () => {
-    await act(async () => root.render(createElement(CoursePreviewRoute, { initialData, authorName: "Author", initialLessonId: "lesson-2" })));
+    await act(async () => root.render(createElement(CoursePreviewRoute, { canEdit: true, initialData, authorName: "Author", initialLessonId: "lesson-2" })));
     const body = container.querySelector<HTMLElement>("#preview-content-lesson-2 > div")!;
     body.scrollTop = 130;
     for (const device of ["mobile", "tablet", "desktop"]) {
@@ -102,7 +102,7 @@ describe("preview links to the exact editor block", () => {
   });
 
   it("leaves 60px between lesson content and the Previous/Next section controls on every device", async () => {
-    await act(async () => root.render(createElement(CoursePreviewRoute, { initialData, authorName: "Author", initialLessonId: "lesson-1" })));
+    await act(async () => root.render(createElement(CoursePreviewRoute, { canEdit: true, initialData, authorName: "Author", initialLessonId: "lesson-1" })));
     for (const device of ["desktop", "tablet", "mobile"]) {
       act(() => container.querySelector<HTMLButtonElement>(`[aria-label="Preview on ${device}"]`)!.click());
       const previous = container.querySelector('nav[aria-label="Previous section from content 1"]')!;
@@ -115,7 +115,7 @@ describe("preview links to the exact editor block", () => {
   });
 
   it("keeps course overview Edit pointing to the course editor", async () => {
-    await act(async () => root.render(createElement(CoursePreviewRoute, { initialData, authorName: "Author" })));
+    await act(async () => root.render(createElement(CoursePreviewRoute, { canEdit: true, initialData, authorName: "Author" })));
     const edit = Array.from(container.querySelectorAll<HTMLButtonElement>("header button")).find((button) => button.textContent?.trim() === "Edit")!;
     act(() => edit.click());
     expect(push).toHaveBeenCalledWith("/courses/course-1/edit");

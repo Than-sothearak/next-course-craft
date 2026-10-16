@@ -4,6 +4,7 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CourseCard } from "@/app/dashboard/_components/(dashboard_client_components)/course-card";
+import { roleCeilings } from "@/lib/auth/policy";
 import type { DashboardCourse, DashboardData } from "@/lib/dashboard/types";
 
 const course: DashboardCourse = {
@@ -16,7 +17,7 @@ const course: DashboardCourse = {
   revision: 1,
   updatedAt: "2026-10-14T00:00:00.000Z",
   lessonCount: 2,
-  accessRole: "owner",
+  accessRole: "owner", permissions: [...roleCeilings.editor],
 };
 
 const data: DashboardData = {
@@ -29,7 +30,7 @@ const data: DashboardData = {
   workspaces: [],
   workspaceId: null,
   workspaceName: "Personal",
-  workspaceRole: "owner",
+  workspaceRole: "owner", permissions: [...roleCeilings.editor],
 };
 
 describe("course card actions", () => {
