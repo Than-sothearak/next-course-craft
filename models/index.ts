@@ -1,6 +1,7 @@
 export { Course } from "./Course";
 export { Folder } from "./Folder";
 export { Lesson } from "./Lesson";
+export { Slide } from "./Slide";
 export { Asset } from "./Asset";
 export { Quiz } from "./Quiz";
 export { ExportJob } from "./ExportJob";

@@ -65,14 +65,14 @@ export async function resolveCourseAccess(
   userId: string,
   courseId: string,
   permission: WorkspacePermission | Permission = "view",
-  options: { includeDeleted?: boolean; session?: ClientSession } = {},
+  options: { includeDeleted?: boolean; includeEditorType?: boolean; session?: ClientSession } = {},
 ) {
   const action: Permission = permission === "view" ? "courses.view" : permission === "edit" ? "courses.edit" : permission === "manage" ? "courses.delete" : permission;
   const principal = await requirePermission("courses.view", userId, options.session);
   if (!can(principal, action)) throw new DashboardError("You do not have permission to do that.", 403);
   assertObjectId(courseId, "Course");
   const course = await Course.findOne({ _id: courseId, ...(options.includeDeleted ? {} : { deletedAt: null }) })
-    .select("ownerId workspaceId")
+    .select(options.includeEditorType ? "ownerId workspaceId editorType" : "ownerId workspaceId")
     .session(options.session ?? null)
     .lean();
   if (!course) throw new DashboardError("Course not found.", 404);
@@ -95,7 +95,13 @@ export async function resolveCourseAccess(
   if (!role) throw new DashboardError("Course not found.", 404);
   if (!courseScopeCan(role, action)) throw new DashboardError("You do not have permission to do that with this course.", 403);
   const permissions = principal.permissions.filter((item) => courseScopeCan(role!, item));
-  return { ownerId: course.ownerId.toString(), workspaceId: course.workspaceId?.toString() ?? null, role: permissions.includes("courses.edit") ? role : "viewer" as WorkspaceRole, permissions };
+  return {
+    ownerId: course.ownerId.toString(),
+    workspaceId: course.workspaceId?.toString() ?? null,
+    ...(options.includeEditorType ? { editorType: course.editorType ?? "block" } : {}),
+    role: permissions.includes("courses.edit") ? role : "viewer" as WorkspaceRole,
+    permissions,
+  };
 }
 
 export function courseScopeCan(role: WorkspaceRole, permission: Permission) {

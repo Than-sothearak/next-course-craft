@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { requirePageUser, requirePageCourseAccess } from "@/lib/auth/pages";
 import { connectToDatabase } from "@/lib/db/mongodb";
 import { DashboardError } from "@/lib/dashboard/rules";
@@ -42,6 +42,8 @@ async function CoursePreviewContent({
     if (error instanceof DashboardError && error.status === 404) notFound();
     throw error;
   }
+  if (initialData.editorType === "slide")
+    redirect(`/courses/${courseId}/slides/preview`);
   const requestedLessonId = typeof query.lessonId === "string" ? query.lessonId : null;
   const initialLessonId = initialData.lessons.some((lesson) => lesson.id === requestedLessonId)
     ? requestedLessonId ?? undefined

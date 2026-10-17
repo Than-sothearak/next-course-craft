@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import { ImagePlus, LoaderCircle, Trash2, Video, X } from "lucide-react";
+import { ImagePlus, LoaderCircle, Music, Trash2, Video, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { mediaStorageUploadError } from "@/lib/media/messages";
 
@@ -15,7 +15,7 @@ export type MediaLibraryAsset = {
   createdAt: string;
 };
 
-type MediaKind = "image" | "video";
+type MediaKind = "image" | "video" | "audio";
 
 function formatMediaSize(size: number) {
   if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))} KB`;
@@ -52,9 +52,7 @@ export function MediaLibraryDialog({
   const [error, setError] = useState<string | null>(null);
   const apiPath = `/api/courses/${courseId}/assets`;
   const visibleAssets = (assets ?? []).filter((asset) =>
-    kind === "image"
-      ? asset.contentType.startsWith("image/")
-      : asset.contentType.startsWith("video/"),
+    asset.contentType.startsWith(`${kind}/`),
   );
 
   useEffect(() => {
@@ -178,7 +176,7 @@ export function MediaLibraryDialog({
   }
 
   if (!open) return null;
-  const kindLabel = kind === "image" ? "image" : "video";
+  const kindLabel = kind;
 
   return (
     <div
@@ -202,7 +200,7 @@ export function MediaLibraryDialog({
               Media library
             </h2>
             <p className="mt-1 text-xs text-slate-500">
-              Choose an {kindLabel} or upload a new file.
+              Choose {kindLabel} or upload a new file.
             </p>
           </div>
           <Button
@@ -222,7 +220,7 @@ export function MediaLibraryDialog({
             accept={
               kind === "image"
                 ? "image/avif,image/gif,image/jpeg,image/png,image/webp"
-                : "video/mp4,video/webm"
+                : kind === "audio" ? "audio/mpeg,audio/mp4,audio/x-m4a,audio/wav,audio/x-wav,audio/ogg,audio/webm" : "video/mp4,video/webm"
             }
             className="sr-only"
             aria-label={`Upload ${kindLabel}`}
@@ -247,6 +245,8 @@ export function MediaLibraryDialog({
                 <LoaderCircle size={15} className="animate-spin" />
               ) : kind === "image" ? (
                 <ImagePlus size={15} />
+              ) : kind === "audio" ? (
+                <Music size={15} />
               ) : (
                 <Video size={15} />
               )}
@@ -296,7 +296,7 @@ export function MediaLibraryDialog({
                         />
                       ) : (
                         <div className="grid h-full place-items-center bg-slate-900 text-white">
-                          <Video size={30} />
+                          {kind === "audio" ? <Music size={30} /> : <Video size={30} />}
                         </div>
                       )}
                     </div>

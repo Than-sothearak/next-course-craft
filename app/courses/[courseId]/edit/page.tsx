@@ -1,11 +1,12 @@
 import { Suspense } from "react";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { requirePageUser, requirePageCourseAccess } from "@/lib/auth/pages";
 import { LoadingPage } from "@/components/loading-page";
 import { connectToDatabase } from "@/lib/db/mongodb";
 import { DashboardError } from "@/lib/dashboard/rules";
 import { getCourseAuthorName, getCourseEditor } from "@/lib/editor/services/course";
 import { EditorClient } from "./_components/editor-client";
+import { courseEditorPath } from "@/lib/editor/editor-type";
 
 type CoursePageProps = { params: Promise<{ courseId: string }> };
 
@@ -33,6 +34,8 @@ async function CoursePageContent({ params }: CoursePageProps) {
     if (error instanceof DashboardError && error.status === 404) notFound();
     throw error;
   }
+  if (initialData.editorType === "slide")
+    redirect(courseEditorPath(courseId, initialData.editorType));
   const userName = user.name;
   return <EditorClient initialData={initialData} authorName={authorName} userName={userName} permissions={access.permissions} globalPermissions={user.permissions} />;
 }

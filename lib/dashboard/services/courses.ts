@@ -1,9 +1,12 @@
 import { Types } from "mongoose";
-import { Asset, Course } from "@/models";
+import { randomUUID } from "node:crypto";
+import { Asset, Course, Slide } from "@/models";
 import type { CreateCourseInput, UpdateCourseInput } from "../schemas";
 import { DashboardError } from "../rules";
 import { assertFolderOwned, objectId, ownerObjectId } from "./internal";
 import { resolveDashboardAccess, courseAccessFilter } from "@/lib/workspaces/access";
+import { createTemplateSlide } from "@/lib/slides/templates";
+import { composeLearningPage } from "@/lib/slides/pages";
 
 export { duplicateCourse } from "./course-duplication";
 
@@ -18,6 +21,7 @@ export async function createCourse(userId: string, input: CreateCourseInput) {
     workspaceId: scope.workspaceId,
     folderId: objectId(input.folderId),
     title: input.title,
+    editorType: input.editorType,
     description: input.description,
     coverImage: input.coverImage ?? null,
     status: "draft",
@@ -29,9 +33,26 @@ export async function createCourse(userId: string, input: CreateCourseInput) {
       },
     ],
   });
+  if (input.editorType === "slide") {
+    try {
+      const openingSlide = createTemplateSlide("cover", 0, "Welcome");
+      openingSlide.template!.slots.title = { type: "text", content: input.title };
+      const { id: temporaryId, ...openingPage } = composeLearningPage({ ...openingSlide, id: "opening" });
+      void temporaryId;
+      await Slide.create({
+        ...openingPage,
+        courseId: course._id,
+        slideId: randomUUID(),
+      });
+    } catch (error) {
+      await Course.deleteOne({ _id: course._id, ownerId: owner }).catch(() => undefined);
+      throw error;
+    }
+  }
   return {
     id: course._id.toString(),
     title: course.title,
+    editorType: course.editorType ?? "block",
     folderId: course.folderId?.toString() ?? null,
     status: course.status,
   };

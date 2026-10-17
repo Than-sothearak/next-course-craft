@@ -1,11 +1,13 @@
 import { Types } from "mongoose";
-import { Asset, Course, Lesson } from "@/models";
+import { randomUUID } from "node:crypto";
+import { Asset, Course, Lesson, Slide } from "@/models";
 import { getCourseEditor } from "@/lib/editor/services/course";
 import { editorSnapshotSchema } from "@/lib/editor/schemas";
 import { courseAssetIds, remapCourseAssetUrls } from "@/lib/media/asset-references";
 import { copyMediaObject, deleteMediaObject } from "@/lib/media/storage";
 import { DashboardError } from "../rules";
 import { ownerObjectId } from "./internal";
+import { serializeStoredSlide } from "@/lib/slides/service";
 
 export async function duplicateCourse(
   sourceOwnerId: string,
@@ -26,7 +28,14 @@ export async function duplicateCourse(
   const parsed = editorSnapshotSchema.safeParse(await getCourseEditor(sourceOwnerId, courseId));
   if (!parsed.success) throw new DashboardError("The course content is invalid and could not be duplicated. Open the course and save it before trying again.", 422);
   const content = { ...parsed.data, coverImage: source.coverImage };
-  const referencedIds = courseAssetIds(content);
+  const rawSlides = source.editorType === "slide"
+    ? await Slide.find({ courseId: source._id }).sort({ order: 1 }).lean()
+    : [];
+  const sourceSlides = rawSlides.map((slide) => {
+    try { return { ...slide, ...serializeStoredSlide(slide) }; }
+    catch { throw new DashboardError("A slide contains invalid content and could not be duplicated. Open it and correct the content first.", 422); }
+  });
+  const referencedIds = courseAssetIds({ content, slides: sourceSlides, slideTheme: source.slideTheme });
   // Include referenced media owned by this author, including older cross-course copies.
   const assets = await Asset.find({
     ownerId: sourceOwner,
@@ -68,21 +77,50 @@ export async function duplicateCourse(
     if (copied.lessons.length) await Lesson.insertMany(copied.lessons.map(({ id, ...lesson }) => ({
       ...lesson, courseId: copyId, editorId: id, revision: 0,
     })));
+    if (sourceSlides.length) {
+      const copiedSlides = remapCourseAssetUrls(sourceSlides, mediaSources);
+      const copiedSlideIds = new Map(copiedSlides.map((slide) => [slide.slideId, randomUUID()]));
+      const remapAction = <T extends { type: string; slideId?: string }>(action: T) => action.type === "goToSlide" && action.slideId
+        ? { ...action, slideId: copiedSlideIds.get(action.slideId) ?? action.slideId }
+        : action;
+      await Slide.insertMany(copiedSlides.map((slide) => ({
+        courseId: copyId,
+        slideId: copiedSlideIds.get(slide.slideId)!,
+        title: slide.title,
+        order: slide.order,
+        layout: slide.layout,
+        width: slide.width,
+        height: slide.height,
+        background: structuredClone(slide.background),
+        template: structuredClone(slide.template),
+        composition: structuredClone(slide.composition),
+        masterOverrides: structuredClone(slide.masterOverrides),
+        numbering: structuredClone(slide.numbering),
+        objects: structuredClone(slide.objects).map((object) => ({ ...object, actions: (object.actions ?? []).map(remapAction) })),
+        interactions: structuredClone(slide.interactions ?? []).map((interaction) => ({ ...interaction, action: remapAction(interaction.action) })),
+        notes: slide.notes,
+        schemaVersion: slide.schemaVersion,
+        revision: 0,
+      })));
+    }
     // Publish the new course record only after its media and lessons are available.
     const copy = await Course.create({
       _id: copyId, ownerId: destinationOwner, createdBy, workspaceId: targetWorkspaceId, folderId: targetFolderId,
       title: `${source.title} (copy)`.slice(0, 160),
+      editorType: source.editorType ?? "block",
       description: copied.description, descriptionHtml: copied.descriptionHtml,
       authorVisible: copied.authorVisible, coverImage: copied.coverImage,
       sections: copied.sections, language: source.language, theme: copied.theme,
+      slideTheme: remapCourseAssetUrls(source.slideTheme, mediaSources), slideThemeRevision: 0,
       navigationMode: copied.navigationMode, status: "draft", revision: 0,
       completionSettings: structuredClone(source.completionSettings),
     });
-    return { id: copy._id.toString(), title: copy.title, folderId: copy.folderId?.toString() ?? null, status: copy.status };
+    return { id: copy._id.toString(), title: copy.title, editorType: copy.editorType ?? "block", folderId: copy.folderId?.toString() ?? null, status: copy.status };
   } catch (error) {
     const cleanup = await Promise.allSettled([
       Course.deleteOne({ _id: copyId, ownerId: destinationOwner }),
       Lesson.deleteMany({ courseId: copyId }),
+      Slide.deleteMany({ courseId: copyId }),
       Asset.deleteMany({ courseId: copyId, ownerId: destinationOwner }),
       ...copiedKeys.map((key) => deleteMediaObject(key)),
     ]);

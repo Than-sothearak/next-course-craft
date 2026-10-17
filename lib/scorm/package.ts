@@ -87,6 +87,8 @@ async function buildScormPackage({
   version: "1.2" | "2004";
 }) {
   const editorCourse = await getCourseEditor(ownerId, courseId);
+  if (editorCourse.editorType === "slide")
+    throw new DashboardError("Slide course SCORM publishing is not available yet.", 409);
   const { courseId: snapshotCourseId, ...untrustedSnapshot } = editorCourse;
   const course = parseScorm12Snapshot(untrustedSnapshot);
 

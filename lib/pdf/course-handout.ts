@@ -262,6 +262,8 @@ async function loadReferencedImages(course: HandoutSnapshot, ownerId: string, co
 
 export async function buildCourseHandoutPdf({ ownerId, courseId, authorName }: { ownerId: string; courseId: string; authorName: string }) {
   const editorCourse = await getCourseEditor(ownerId, courseId);
+  if (editorCourse.editorType === "slide")
+    throw new DashboardError("Slide course PDF publishing is not available yet.", 409);
   const course = parseScorm12Snapshot(editorCourse);
   const images = await loadReferencedImages(course, ownerId, courseId);
   const pdf = await renderCourseHandoutPdf(course, authorName, images);

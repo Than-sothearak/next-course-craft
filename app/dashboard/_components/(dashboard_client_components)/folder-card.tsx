@@ -26,7 +26,7 @@ export function FolderCard({
     url: string,
     method: string,
   ) => Promise<void>;
-  onRequest: (url: string, method: string, body?: unknown) => Promise<void>;
+  onRequest: (url: string, method: string, body?: unknown) => Promise<unknown>;
 }) {
   const menuRef = useRef<HTMLDetailsElement>(null);
 

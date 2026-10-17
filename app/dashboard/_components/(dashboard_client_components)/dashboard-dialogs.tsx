@@ -169,6 +169,23 @@ export function DashboardDialogs({
                   className="mt-1.5 font-normal"
                 />
               </label>
+              <fieldset className="space-y-2" aria-label="Editor type">
+                <legend className="text-sm font-medium text-slate-700">Choose an editor</legend>
+                <label className="flex cursor-pointer gap-3 rounded-xl border border-slate-200 p-3 transition-colors has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50/60 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-indigo-300">
+                  <Input className="mt-0.5 h-4 w-4 shrink-0 accent-indigo-600 shadow-none focus-visible:ring-2" type="radio" name="editorType" value="block" required />
+                  <span className="block">
+                    <span className="block text-sm font-semibold text-slate-900">Responsive Course</span>
+                    <span className="mt-0.5 block text-xs leading-5 text-slate-500">Rise-style block editor for responsive lessons and activities.</span>
+                  </span>
+                </label>
+                <label className="flex cursor-pointer gap-3 rounded-xl border border-slate-200 p-3 transition-colors has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50/60 has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-indigo-300">
+                  <Input className="mt-0.5 h-4 w-4 shrink-0 accent-indigo-600 shadow-none focus-visible:ring-2" type="radio" name="editorType" value="slide" required />
+                  <span className="block">
+                    <span className="block text-sm font-semibold text-slate-900">Interactive Course</span>
+                    <span className="mt-0.5 block text-xs leading-5 text-slate-500">Content blocks, interactive text, quizzes and media with a layer timeline.</span>
+                  </span>
+                </label>
+              </fieldset>
               <label className="block text-sm font-medium text-slate-700">
                 Save in
                 <Select

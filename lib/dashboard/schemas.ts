@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { courseEditorTypes } from "@/lib/editor/editor-type";
 
 export const objectIdSchema = z.string().regex(/^[a-f\d]{24}$/i, "Invalid identifier.");
 export const nullableObjectIdSchema = objectIdSchema.nullable();
@@ -19,12 +20,14 @@ const courseCoverImageSchema = z.union([externalCourseCoverImageSchema, courseMe
 
 export const createCourseSchema = z.object({
   title: z.string().trim().min(1, "Enter a course title.").max(160, "Course titles must be 160 characters or fewer."),
+  editorType: z.enum(courseEditorTypes),
   description: z.string().trim().max(5_000).default(""),
   coverImage: externalCourseCoverImageSchema.nullable().optional(),
   folderId: nullableObjectIdSchema.default(null),
   workspaceId: nullableObjectIdSchema.default(null),
 });
 export const updateCourseSchema = z.object({
+  editorType: z.never().optional(),
   title: z.string().trim().min(1).max(160).optional(),
   description: z.string().trim().max(5_000).optional(),
   coverImage: courseCoverImageSchema.nullable().optional(),

@@ -38,7 +38,7 @@ export function CourseCard({
     url: string,
     method: string,
   ) => Promise<void>;
-  onRequest: (url: string, method: string, body?: unknown) => Promise<void>;
+  onRequest: (url: string, method: string, body?: unknown) => Promise<unknown>;
 }) {
   const statusVariant =
     course.status === "published"

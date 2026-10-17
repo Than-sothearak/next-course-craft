@@ -83,7 +83,9 @@ export async function GET(_request: NextRequest, context: Context) {
     const { courseId } = await context.params;
     if (!objectIdSchema.safeParse(courseId).success)
       throw new DashboardError("Invalid course identifier.", 400);
-    const { ownerId } = await resolveCourseAccess(userId, courseId, "courses.edit");
+    const { ownerId, editorType } = await resolveCourseAccess(userId, courseId, "courses.edit", { includeEditorType: true });
+    if (editorType === "slide")
+      throw new DashboardError("Use slide generation for interactive slide courses.", 409);
     return NextResponse.json(await getLastCompletedSourceGenerationJob({ ownerId, courseId }), {
       headers: { "Cache-Control": "no-store" },
     });
@@ -101,7 +103,9 @@ export async function POST(request: NextRequest, context: Context) {
     const { courseId } = await context.params;
     if (!objectIdSchema.safeParse(courseId).success)
       throw new DashboardError("Invalid course identifier.", 400);
-    const { ownerId } = await resolveCourseAccess(userId, courseId, "courses.edit");
+    const { ownerId, editorType } = await resolveCourseAccess(userId, courseId, "courses.edit", { includeEditorType: true });
+    if (editorType === "slide")
+      throw new DashboardError("Use slide generation for interactive slide courses.", 409);
 
     const formData = await request.formData();
     const action = String(formData.get("action") ?? "generate");

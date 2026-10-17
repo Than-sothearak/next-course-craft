@@ -31,6 +31,8 @@ export async function POST(_request: NextRequest, context: { params: Promise<{ c
     const { ownerId } = await resolveCourseAccess(userId, parsed.data.courseId, "courses.export");
     await resolveCourseAccess(userId, parsed.data.courseId, "courses.publish");
     const course = await getCourseEditor(ownerId, parsed.data.courseId);
+    if (course.editorType === "slide")
+      throw new DashboardError("Slide course HTML publishing is not available yet.", 409);
     const assessmentIssue = validateQuizAssessments(course.lessons);
     if (assessmentIssue) throw new DashboardError(assessmentIssue, 422);
     const exportDir = join(process.cwd(), "public", "course-export");

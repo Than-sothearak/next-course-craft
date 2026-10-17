@@ -153,6 +153,11 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+async function flushPreviewFrame() {
+  // Reading progress runs in an effect's animation frame, after click updates commit.
+  await act(async () => { await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve())); });
+}
+
 describe("admin course preview progress", () => {
   it.each([
     ["free", false], ["free", true], ["sequential", false], ["sequential", true], ["restricted", false], ["restricted", true],
@@ -218,10 +223,8 @@ describe("admin course preview progress", () => {
     expect(continueButton.disabled).toBe(true);
     act(() => container.querySelector<HTMLButtonElement>('[data-lesson-block-id="study-cards"] button[aria-label="Flip card 1 to reveal the back"]')!.click());
     expect(continueButton.disabled).toBe(true);
-    await act(async () => {
-      container.querySelector<HTMLButtonElement>('[data-lesson-block-id="study-cards"] button[aria-label="Flip card 2 to reveal the back"]')!.click();
-      await new Promise((resolve) => window.setTimeout(resolve, 10));
-    });
+    act(() => container.querySelector<HTMLButtonElement>('[data-lesson-block-id="study-cards"] button[aria-label="Flip card 2 to reveal the back"]')!.click());
+    await flushPreviewFrame();
     expect(continueButton.disabled).toBe(false);
     expect((save.mock.lastCall![1] as LearnerProgressSnapshot).visitedLessonIds).not.toContain(lesson.id);
     scrollHeight = 1500;
@@ -246,6 +249,7 @@ describe("admin course preview progress", () => {
     firstGate.data.completionType = completionType;
     lesson.blocks.push(blockSchema.parse({ id: "second-gate", version: 1, type: "divider", data: { style: "continue", completionType: "none" } }));
     await act(async () => root.render(createElement(CoursePreview, { initialData: data, authorName: "Author", initialLessonId: lesson.id, persistLocalProgress: false })));
+    await flushPreviewFrame();
     const body = container.querySelector<HTMLElement>(`#preview-content-${lesson.id} > div`)!;
     Object.defineProperties(body, { scrollHeight: { configurable: true, value: 1000 }, clientHeight: { configurable: true, value: 500 }, scrollTop: { configurable: true, writable: true, value: 0 } });
     const nextSection = () => container.querySelector('nav[aria-label="Next section from content 1"] button');
@@ -255,10 +259,8 @@ describe("admin course preview progress", () => {
       expect(firstButton.disabled).toBe(true);
       act(() => { body.scrollTop = 500; body.dispatchEvent(new Event("scroll", { bubbles: true })); });
       expect(firstButton.disabled).toBe(true);
-      await act(async () => {
-        for (const button of container.querySelectorAll<HTMLButtonElement>('[data-lesson-block-id="study-cards"] button')) button.click();
-        await new Promise((resolve) => window.setTimeout(resolve, 10));
-      });
+      act(() => { for (const button of container.querySelectorAll<HTMLButtonElement>('[data-lesson-block-id="study-cards"] button')) button.click(); });
+      await flushPreviewFrame();
     }
     expect(firstButton.disabled).toBe(false);
     expect(nextSection()).toBeNull();

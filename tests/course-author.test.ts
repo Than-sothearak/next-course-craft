@@ -1,15 +1,16 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Types } from "mongoose";
-import { Course, User } from "../models";
+import { Course, Slide, User } from "../models";
 import { getCourseAuthorName } from "../lib/editor/services/course";
 import { createCourse } from "../lib/dashboard/services/courses";
 import { resolveDashboardAccess } from "../lib/workspaces/access";
 
 vi.mock("../models", () => ({
   Asset: {},
-  Course: { findOne: vi.fn(), create: vi.fn() },
+  Course: { findOne: vi.fn(), create: vi.fn(), deleteOne: vi.fn() },
   Folder: { exists: vi.fn() },
   Lesson: {},
+  Slide: { create: vi.fn() },
   User: { findById: vi.fn() },
 }));
 vi.mock("../lib/workspaces/access", () => ({ resolveDashboardAccess: vi.fn() }));
@@ -62,10 +63,13 @@ describe("course author name", () => {
       title: "Shared course",
       folderId: null,
       status: "draft",
+      editorType: "slide",
     } as never);
+    vi.mocked(Slide.create).mockResolvedValue({} as never);
 
     await createCourse(creatorId, {
       title: "Shared course",
+      editorType: "slide",
       description: "",
       coverImage: null,
       folderId: null,
@@ -76,6 +80,16 @@ describe("course author name", () => {
       ownerId: new Types.ObjectId(ownerId),
       createdBy: new Types.ObjectId(creatorId),
       workspaceId: "507f1f77bcf86cd799439014",
+      editorType: "slide",
+    }));
+    expect(Slide.create).toHaveBeenCalledWith(expect.objectContaining({
+      courseId: "507f1f77bcf86cd799439015",
+      title: "Welcome",
+      schemaVersion: 3,
+      composition: expect.objectContaining({ layers: [expect.objectContaining({ kind: "template", content: expect.objectContaining({ slots: expect.objectContaining({ title: { type: "text", content: "Shared course" } }) }) })] }),
+      order: 0,
+      width: 1280,
+      height: 720,
     }));
   });
 });

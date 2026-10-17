@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { ChevronRight, LayoutGrid, List, Search, X, Users, Plus } from "lucide-react";
 import type { DashboardData } from "@/lib/dashboard/types";
 import { dashboardQueryKey } from "@/lib/dashboard/query";
@@ -17,6 +18,7 @@ import { EmptyState } from "./_components/(dashboard_client_components)/empty-st
 import { FolderCard } from "./_components/(dashboard_client_components)/folder-card";
 import { useDismissDetailsOnOutsideClick } from "@/lib/ui/use-dismiss-details";
 import { WorkspaceManagerDialog } from "./_components/workspace-manager-dialog";
+import { courseEditorPath } from "@/lib/editor/editor-type";
 
 type Props = {
   initialData: DashboardData;
@@ -29,6 +31,7 @@ export default function DashboardClient({
   initialError,
   userName,
 }: Props) {
+  const router = useRouter();
   useDismissDetailsOnOutsideClick();
   const { filters, setFilters, setNavigation, navigating, navigateToFolder, navigateToWorkspace, busy, setBusy, showNewFolder, setShowNewFolder, showNewCourse, setShowNewCourse, showWorkspaceManager, setShowWorkspaceManager } = useDashboard();
   const { q: query, status, sort } = filters;
@@ -102,17 +105,20 @@ export default function DashboardClient({
         headers: body ? { "Content-Type": "application/json" } : undefined,
         body: body ? JSON.stringify(body) : undefined,
       });
+      const result: unknown = await response.json().catch(() => null);
       if (!response.ok) {
-        const result = await response.json().catch(() => ({}));
-        throw new Error(result.error ?? "That change could not be saved.");
+        const errorBody = result as { error?: string } | null;
+        throw new Error(errorBody?.error ?? "That change could not be saved.");
       }
       if (method === "DELETE" && url.startsWith("/api/courses/")) {
         const courseId = url.split("/").at(-1);
         const course = data.courses.find((item) => item.id === courseId);
         if (course) setDeletedCourse({ id: course.id, title: course.title });
       }
+      if (url === "/api/courses" && method === "POST") return result;
       await refresh();
       if (url.endsWith("/restore")) setDeletedCourse(null);
+      return result;
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -139,9 +145,15 @@ export default function DashboardClient({
     if (payload.parentId === "") payload.parentId = null;
     if (payload.coverImage === "") payload.coverImage = null;
     if (url === "/api/folders" || url === "/api/courses") payload.workspaceId = filters.workspaceId;
-    await request(url, method, payload);
+    const result = await request(url, method, payload);
     if (method === "POST" && url === "/api/folders") setShowNewFolder(false);
-    if (method === "POST" && url === "/api/courses") setShowNewCourse(false);
+    if (method === "POST" && url === "/api/courses") {
+      const course = result as { id?: unknown; editorType?: unknown } | null;
+      if (typeof course?.id === "string") {
+        setShowNewCourse(false);
+        router.push(courseEditorPath(course.id, course.editorType));
+      }
+    }
   }
 
   const disabled = Boolean(initialError) || busy || navigating;

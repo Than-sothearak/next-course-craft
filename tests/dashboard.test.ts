@@ -14,7 +14,10 @@ describe("dashboard input validation", () => {
 
   it("accepts only explicit editable course fields", () => {
     expect(updateCourseSchema.safeParse({ $set: { title: "Changed" } }).success).toBe(false);
-    expect(createCourseSchema.parse({ title: " Orientation " })).toMatchObject({ title: "Orientation", folderId: null });
+    expect(createCourseSchema.parse({ title: " Orientation ", editorType: "block" })).toMatchObject({ title: "Orientation", folderId: null, editorType: "block" });
+    expect(createCourseSchema.safeParse({ title: "Missing editor" }).success).toBe(false);
+    expect(createCourseSchema.safeParse({ title: "Unknown editor", editorType: "canvas" }).success).toBe(false);
+    expect(updateCourseSchema.safeParse({ editorType: "slide" }).success).toBe(false);
   });
 
   it("validates workspace copy destinations", () => {
@@ -23,8 +26,8 @@ describe("dashboard input validation", () => {
   });
 
   it("allows HTTP(S) cover images and rejects active content URLs", () => {
-    expect(createCourseSchema.safeParse({ title: "Guide", coverImage: "https://cdn.example.com/cover.png" }).success).toBe(true);
-    expect(createCourseSchema.safeParse({ title: "Guide", coverImage: "javascript:alert(1)" }).success).toBe(false);
+    expect(createCourseSchema.safeParse({ title: "Guide", editorType: "block", coverImage: "https://cdn.example.com/cover.png" }).success).toBe(true);
+    expect(createCourseSchema.safeParse({ title: "Guide", editorType: "block", coverImage: "javascript:alert(1)" }).success).toBe(false);
     expect(updateCourseSchema.safeParse({ coverImage: "/api/assets/0123456789abcdef01234567/file" }).success).toBe(true);
     expect(updateCourseSchema.safeParse({ coverImage: "/api/assets/not-an-id/file" }).success).toBe(false);
   });

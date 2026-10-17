@@ -1,11 +1,12 @@
 import { Suspense } from "react";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { requirePageUser, requirePageCourseAccess } from "@/lib/auth/pages";
 import { connectToDatabase } from "@/lib/db/mongodb";
 import { DashboardError } from "@/lib/dashboard/rules";
 import { getCourseAuthorName, getCourseEditor } from "@/lib/editor/services/course";
 import { EditorClient } from "../../_components/editor-client";
 import { LessonEditSkeleton } from "../../_components/lesson-edit-skeleton";
+import { courseEditorPath } from "@/lib/editor/editor-type";
 
 type LessonEditPageProps = {
   params: Promise<{ courseId: string; lessonId: string }>;
@@ -38,6 +39,8 @@ async function LessonEditContent({ params, searchParams }: LessonEditPageProps) 
     if (error instanceof DashboardError && error.status === 404) notFound();
     throw error;
   }
+  if (initialData.editorType === "slide")
+    redirect(courseEditorPath(courseId, initialData.editorType));
   const userName = user.name;
   const lesson = initialData.lessons.find((item) => item.id === lessonId)!;
   const focusedBlockId = typeof query?.blockId === "string" && lesson.blocks.some((block: { id: string }) => block.id === query.blockId)

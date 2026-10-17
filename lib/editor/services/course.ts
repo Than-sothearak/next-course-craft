@@ -10,6 +10,7 @@ import {
 import { defaultSection, ownerObjectId } from "./shared";
 import { normalizeCourseTheme } from "../theme";
 import { normalizeCourseNavigationMode } from "../navigation";
+import { normalizeCourseEditorType } from "../editor-type";
 
 export async function getCourseAuthorName(ownerId: string, courseId: string) {
   ownerObjectId(ownerId);
@@ -48,6 +49,7 @@ export async function getCourseEditor(ownerId: string, courseId: string) {
   return {
     courseId: course._id.toString(),
     title: course.title,
+    editorType: normalizeCourseEditorType(course.editorType),
     description: course.description,
     descriptionHtml: course.descriptionHtml ?? undefined,
     authorVisible: course.authorVisible ?? true,

@@ -1,12 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Types } from "mongoose";
-import { Asset, Course, Lesson } from "../models";
+import { Asset, Course, Lesson, Slide } from "../models";
 import { duplicateCourse } from "../lib/dashboard/services/courses";
 import { getCourseEditor } from "../lib/editor/services/course";
 import { editorSnapshotSchema } from "../lib/editor/schemas";
 import { copyMediaObject, deleteMediaObject } from "../lib/media/storage";
 import { courseAssetIds } from "../lib/media/asset-references";
 import { parseScorm12Snapshot } from "../lib/scorm12/snapshot";
+import { createTemplateSlide } from "../lib/slides/templates";
+import { slideThemePresets } from "../lib/slides/themes";
+import { composeLearningPage } from "../lib/slides/pages";
+import { createLearningBlock } from "../lib/slides/blocks";
+import { institutionalGreenMaster } from "../lib/slides/master-schema";
 
 vi.mock("../lib/editor/services/course", () => ({ getCourseEditor: vi.fn() }));
 vi.mock("../lib/media/storage", () => ({ copyMediaObject: vi.fn(), deleteMediaObject: vi.fn() }));
@@ -67,11 +72,36 @@ describe("course duplication with independent media", () => {
     vi.spyOn(Course, "create").mockImplementation((async (value: unknown) => new Course(value)) as never);
     vi.spyOn(Course, "deleteOne").mockResolvedValue({ acknowledged: true, deletedCount: 1 });
     vi.spyOn(Lesson, "deleteMany").mockResolvedValue({ acknowledged: true, deletedCount: 2 });
+    vi.spyOn(Slide, "deleteMany").mockResolvedValue({ acknowledged: true, deletedCount: 0 });
+    vi.spyOn(Slide, "insertMany").mockResolvedValue([] as never);
     vi.spyOn(Asset, "deleteMany").mockResolvedValue({ acknowledged: true, deletedCount: 3 });
     vi.mocked(copyMediaObject).mockResolvedValue(undefined);
     vi.mocked(deleteMediaObject).mockResolvedValue(undefined);
   });
   afterEach(() => vi.restoreAllMocks());
+
+  it("copies and remaps shared master images and per-slide overrides without changing the source", async () => {
+    const master = structuredClone(institutionalGreenMaster);
+    master.header.logo.src = imageUrl; master.background.imageSrc = imageUrl;
+    const slide = composeLearningPage({ ...createTemplateSlide("cover", 0), id: "page" });
+    slide.composition!.masterOverrides = { header: { logo: { src: imageUrl } } };
+    const source = { ...data.source, editorType: "slide", slideTheme: { ...slideThemePresets[0].theme, master } };
+    vi.mocked(Course.findOne).mockReturnValue({ lean: async () => source } as never);
+    vi.spyOn(Slide, "find").mockReturnValue({ sort: () => ({ lean: async () => [{ ...slide, slideId: "page" }] }) } as never);
+    await duplicateCourse(ownerId, courseId);
+    const copiedAsset = vi.mocked(Asset.create).mock.calls[0][0] as unknown as { _id: Types.ObjectId };
+    const url = `/api/assets/${copiedAsset._id}/file`;
+    expect(Course.create).toHaveBeenCalledWith(expect.objectContaining({ slideTheme: expect.objectContaining({ master: expect.objectContaining({ header: expect.objectContaining({ logo: expect.objectContaining({ src: url }) }), background: expect.objectContaining({ imageSrc: url }) }) }) }));
+    expect(Slide.insertMany).toHaveBeenCalledWith([expect.objectContaining({ composition: expect.objectContaining({ masterOverrides: { header: { logo: { src: url } } } }) })]);
+    expect(master.header.logo.src).toBe(imageUrl); expect(slide.composition!.masterOverrides.header?.logo?.src).toBe(imageUrl);
+  });
+  it("detects a missing image referenced only by the course master before copying any files", async () => {
+    const master = structuredClone(institutionalGreenMaster);
+    master.header.logo.src = "/api/assets/507f1f77bcf86cd799439099/file";
+    vi.mocked(Course.findOne).mockReturnValue({ lean: async () => ({ ...data.source, slideTheme: { ...slideThemePresets[0].theme, master } }) } as never);
+    await expect(duplicateCourse(ownerId, courseId)).rejects.toMatchObject({ status: 409 });
+    expect(copyMediaObject).not.toHaveBeenCalled(); expect(Course.create).not.toHaveBeenCalled();
+  });
 
   it("copies all lessons and ready media, remapping every image location and both covers", async () => {
     const before = JSON.stringify(data);
@@ -113,6 +143,32 @@ describe("course duplication with independent media", () => {
     expect(vi.mocked(Course.create).mock.invocationCallOrder[0]).toBeGreaterThan(vi.mocked(Lesson.insertMany).mock.invocationCallOrder[0]);
   });
 
+  it("duplicates slide documents with an independent slide type and fresh slide IDs", async () => {
+    const slideCourse = new Course({ ...data.source, editorType: "slide" }).toObject();
+    const sourceSlides = [{
+      _id: new Types.ObjectId(), courseId: data.source._id, slideId: "source-slide", title: "Opening", order: 0,
+      layout: "title", width: 1280, height: 720, background: { color: "#ffffff" },
+      objects: [{ id: "headline", type: "text", x: 80, y: 80, width: 500, height: 100, content: "Welcome", actions: [{ type: "goToSlide", slideId: "target-slide" }] }],
+      notes: "Presenter note", schemaVersion: 1, revision: 2,
+    }, {
+      _id: new Types.ObjectId(), courseId: data.source._id, slideId: "target-slide", title: "Next", order: 1,
+      layout: "blank", width: 1280, height: 720, background: { color: "#ffffff" }, objects: [],
+      notes: "", schemaVersion: 1, revision: 0,
+    }];
+    vi.spyOn(Course, "findOne").mockReturnValue({ lean: async () => slideCourse } as never);
+    vi.spyOn(Slide, "find").mockReturnValue({ sort: () => ({ lean: async () => sourceSlides }) } as never);
+
+    const result = await duplicateCourse(ownerId, courseId);
+
+    expect(result.editorType).toBe("slide");
+    const slideCopy = vi.mocked(Slide.insertMany).mock.calls[0][0] as unknown as Array<Record<string, unknown>>;
+    expect(slideCopy).toHaveLength(2);
+    expect(slideCopy[0]).toMatchObject({ courseId: expect.any(Types.ObjectId), title: "Opening", order: 0, notes: "Presenter note", revision: 0 });
+    expect(slideCopy[0].slideId).not.toBe("source-slide");
+    expect((slideCopy[0].objects as Array<{ actions: Array<{ slideId: string }> }>)[0].actions[0].slideId).toBe(slideCopy[1].slideId);
+    expect((slideCopy[0].objects as Array<{ actions: Array<{ slideId: string }> }>)[0].actions[0].slideId).not.toBe("target-slide");
+  });
+
   it("duplicates an empty course without calling storage", async () => {
     data.snapshot.lessons = [];
     data.snapshot.descriptionHtml = "";
@@ -124,6 +180,34 @@ describe("course duplication with independent media", () => {
     expect(Lesson.insertMany).not.toHaveBeenCalled();
   });
 
+  it("copies structured slots, retained media, design overrides, and the slide course theme", async () => {
+    const snapshot = createTemplateSlide("image-text", 0);
+    snapshot.template!.slots.image = { type: "image", src: imageUrl, alt: "My photograph" };
+    snapshot.template!.retainedSlots.spareImage = { type: "image", src: imageUrl, alt: "Retained media" };
+    snapshot.template!.design.themeOverrides = { primaryColor: "#123456" };
+    const theme = slideThemePresets.find((item) => item.id === "dark")!.theme;
+    vi.spyOn(Course, "findOne").mockReturnValue({ lean: async () => ({ ...data.source, editorType: "slide", slideTheme: theme, slideThemeRevision: 3 }) } as never);
+    vi.spyOn(Slide, "find").mockReturnValue({ sort: () => ({ lean: async () => [{ ...snapshot, slideId: "structured", courseId: data.source._id }] }) } as never);
+    await duplicateCourse(ownerId, courseId);
+    const copied = vi.mocked(Slide.insertMany).mock.calls[0][0] as unknown as Array<{ template: typeof snapshot.template; schemaVersion: number }>;
+    const imageCopy = vi.mocked(Asset.create).mock.calls[0][0] as unknown as { _id: Types.ObjectId };
+    expect(copied[0].schemaVersion).toBe(2);
+    expect(copied[0].template).toMatchObject({ slots: { image: { src: `/api/assets/${imageCopy._id}/file`, alt: "My photograph" } }, retainedSlots: { spareImage: { src: `/api/assets/${imageCopy._id}/file` } }, design: { themeOverrides: { primaryColor: "#123456" } } });
+    expect(snapshot.template!.slots.image.src).toBe(imageUrl);
+    expect(vi.mocked(Course.create).mock.calls[0][0]).toMatchObject({ slideTheme: theme, slideThemeRevision: 0 });
+  });
+
+  it("preserves content blocks and timeline timing while remapping nested audio media", async () => {
+    const page = composeLearningPage({ ...createTemplateSlide("cover", 0), id: "page" });
+    page.composition!.layers.push({ ...createLearningBlock("audio"), src: imageUrl, start: 4, end: 20 } as never, createLearningBlock("quiz"));
+    vi.spyOn(Course, "findOne").mockReturnValue({ lean: async () => ({ ...data.source, editorType: "slide" }) } as never);
+    vi.spyOn(Slide, "find").mockReturnValue({ sort: () => ({ lean: async () => [{ ...page, slideId: "page", courseId: data.source._id }] }) } as never);
+    await duplicateCourse(ownerId, courseId);
+    const copied = vi.mocked(Slide.insertMany).mock.calls[0][0] as unknown as Array<typeof page>;
+    expect(copied[0].composition?.layers[1]).toMatchObject({ kind: "audio", start: 4, end: 20, src: expect.not.stringContaining(imageId) });
+    expect(copied[0].composition?.layers[2]).toEqual(page.composition!.layers[2]);
+    expect(page.composition!.layers[1]).toMatchObject({ src: imageUrl });
+  });
   it("loads the copied lessons and cover through the existing editor reader", async () => {
     const result = await duplicateCourse(ownerId, courseId);
     const copiedCourse = new Course(vi.mocked(Course.create).mock.calls[0][0]).toObject();

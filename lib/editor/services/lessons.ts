@@ -17,6 +17,8 @@ export async function addCourseLesson(ownerId: string, courseId: string) {
   });
   if (!course)
     throw new DashboardError("Course not found or currently being saved.", 404);
+  if (course.editorType === "slide")
+    throw new DashboardError("Slide courses cannot contain block lessons.", 409);
   const sections = course.sections?.length
     ? course.sections
     : [defaultSection()];
@@ -79,7 +81,7 @@ export async function copyCourseLesson(
       _id: sourceCourseId,
       ownerId: owner,
       deletedAt: null,
-    }).select("_id"),
+    }).select("_id editorType"),
     Course.findOne({
       _id: destinationCourseId,
       ownerId: owner,
@@ -93,6 +95,8 @@ export async function copyCourseLesson(
       "Destination course not found or currently being saved.",
       404,
     );
+  if (source.editorType === "slide" || destination.editorType === "slide")
+    throw new DashboardError("Block lessons can only be copied between responsive courses.", 409);
 
   const sections = destination.sections?.length
     ? destination.sections

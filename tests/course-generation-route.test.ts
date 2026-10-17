@@ -90,6 +90,13 @@ describe("prompt-only course generation requests", () => {
     expect(generateCourseDraft).not.toHaveBeenCalled();
   });
 
+  it("rejects block generation for a slide course", async () => {
+    vi.mocked(resolveCourseAccess).mockResolvedValueOnce({ ownerId: "507f1f77bcf86cd799439011", editorType: "slide", permissions: [] } as never);
+    const response = await submit();
+    expect(response.status).toBe(409);
+    expect(generateCourseDraft).not.toHaveBeenCalled();
+  });
+
   it("cancels an owned job without validating generation settings or invoking AI", async () => {
     vi.mocked(cancelSourceGenerationJob).mockResolvedValue({ jobId: "saved-job", status: "cancelled" } as Awaited<ReturnType<typeof cancelSourceGenerationJob>>);
     const response = await submit({ action: "cancelGeneration", jobId: "saved-job", lessonCount: "invalid" });
