@@ -4,87 +4,50 @@
     linear-gradient(160deg, #fafaff, #ffffff);
 }
 
-.orb {
+.waveScene {
   position: relative;
   isolation: isolate;
-  display: grid;
-  place-items: center;
-  width: 144px;
-  height: 144px;
-}
-
-.glow {
-  position: absolute;
-  z-index: -1;
-  inset: -8%;
-  border-radius: 50%;
-  background: conic-gradient(from 40deg, #a78bfa55, #67e8f955, #818cf855, #a78bfa55);
-  filter: blur(22px);
-  animation: breathe 5s ease-in-out infinite;
-}
-
-.core {
-  position: absolute;
-  inset: 23%;
+  width: 184px;
+  height: 184px;
   overflow: hidden;
-  border-radius: 50%;
-  background: #eeedff;
-  box-shadow: 0 0 32px #a5b4fc66, inset 0 0 16px #ffffffcc;
 }
 
-.core::before {
-  content: "";
-  position: absolute;
-  inset: -20%;
-  background: conic-gradient(from 90deg, #ffffff, #a5b4fc, #c4b5fd, #67e8f9, #ffffff);
-  filter: blur(10px);
-  animation: orbit 12s linear infinite;
-}
-
-.core::after {
+.waveScene::before {
   content: "";
   position: absolute;
   inset: 0;
-  border-radius: inherit;
-  background: radial-gradient(circle at 35% 25%, #ffffffcc, transparent 65%);
-  box-shadow: inset 0 0 14px #ffffff99;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 12% 26%, #f0abfc99 0 1px, transparent 1.5px),
+    radial-gradient(circle at 83% 72%, #fb718599 0 1px, transparent 1.5px),
+    radial-gradient(circle at 72% 10%, #c084fc88 0 1px, transparent 1.5px),
+    radial-gradient(circle at 24% 78%, #fdba7488 0 1px, transparent 1.5px);
+  opacity: 0.7;
 }
 
-.ring {
+.waveSvg {
   position: absolute;
-  inset: calc(3px + var(--ring) * 5px);
-  padding: 1.5px;
-  border-radius: 46% 54% 53% 47% / 52% 45% 55% 48%;
-  background: conic-gradient(from 30deg, #8b5cf644, #818cf8, #22d3ee99, #ffffffcc, #a78bfa, #8b5cf644);
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  animation: opticalWave calc(9s + var(--ring) * 1.2s) linear infinite;
-  animation-delay: calc(var(--ring) * -1.7s);
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 0 2px #f472b644);
 }
 
-.ring:nth-of-type(even) { animation-direction: reverse; }
-
-.ripple {
-  position: absolute;
-  inset: 5%;
-  border: 1px solid #a5b4fc66;
-  border-radius: 50%;
-  animation: ripple 5s ease-out infinite;
+.waveLine {
+  fill: none;
+  stroke-width: 0.72;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: var(--line-opacity);
 }
-
-.delayedRipple { animation-delay: -2.5s; }
-
-.orbSparkle { position: relative; color: #6366f1; }
 
 .miniOrb {
   position: relative;
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  background: radial-gradient(circle at 30% 25%, #ffffff, #a78bfa 45%, #67e8f9);
-  box-shadow: 0 0 8px #a5b4fc88;
+  background: radial-gradient(circle at 30% 25%, #ffffff, #f472b6 45%, #fb923c);
+  box-shadow: 0 0 8px #ec489988;
   animation: breathe 3s ease-in-out infinite;
 }
 
@@ -92,30 +55,14 @@
   content: "";
   position: absolute;
   inset: -3px;
-  border: 1px solid #818cf866;
+  border: 1px solid #f472b666;
   border-radius: 50%;
 }
 
 .indeterminate > div {
   width: 45%;
-  background: linear-gradient(90deg, #a78bfa, #6366f1, #22d3ee);
+  background: linear-gradient(90deg, #fb923c, #ec4899, #c084fc);
   animation: sweep 2.4s ease-in-out infinite;
-}
-
-@keyframes opticalWave {
-  0% { transform: rotate(0deg); border-radius: 46% 54% 53% 47% / 52% 45% 55% 48%; }
-  50% { transform: rotate(180deg); border-radius: 54% 46% 45% 55% / 47% 55% 45% 53%; }
-  100% { transform: rotate(360deg); border-radius: 46% 54% 53% 47% / 52% 45% 55% 48%; }
-}
-
-@keyframes orbit {
-  to { transform: rotate(360deg); }
-}
-
-@keyframes ripple {
-  0% { transform: scale(0.9); opacity: 0; }
-  25% { opacity: 0.6; }
-  100% { transform: scale(1.25); opacity: 0; }
 }
 
 @keyframes breathe {
@@ -129,11 +76,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ring, .glow, .ripple, .core::before, .miniOrb, .indeterminate > div {
+  .waveLine, .miniOrb, .indeterminate > div {
     animation: none;
   }
 
-  .ring { transform: rotate(calc(var(--ring) * 30deg)); }
-  .ripple { opacity: 0.25; }
   .indeterminate > div { transform: translateX(60%); }
 }

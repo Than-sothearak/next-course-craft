@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { Course } from "../models/Course";
 import {
+  courseThemeFontFamilies,
+  courseThemeFontFamilyIds,
   courseThemeSchema,
   createCourseThemePreset,
   defaultCourseTheme,
@@ -20,6 +23,26 @@ describe("course themes", () => {
       fontFamily: "sans",
     });
     expect(courseThemeSchema.parse({ ...createCourseThemePreset("violet"), fontFamily: "serif" }).fontFamily).toBe("serif");
+  });
+
+  it("supports Khmer fonts and keeps a Khmer fallback in the general theme choices", () => {
+    expect(courseThemeFontFamilyIds).toContain("battambang");
+    expect(courseThemeFontFamilyIds).toContain("kantumruy-pro");
+    expect(courseThemeFontFamilyIds).toContain("nokora");
+    for (const fontFamily of courseThemeFontFamilyIds)
+      expect(courseThemeSchema.parse({ ...defaultCourseTheme, fontFamily }).fontFamily).toBe(fontFamily);
+    expect(courseThemeFontFamilies.sans).toContain("Noto Sans Khmer");
+    expect(courseThemeFontFamilies.serif).toContain("Nokora");
+  });
+
+  it("allows the Khmer typography choices through the persisted course schema", () => {
+    const course = new Course({
+      ownerId: "507f1f77bcf86cd799439011",
+      title: "Khmer typography",
+      theme: { fontFamily: "kantumruy-pro" },
+    });
+
+    expect(course.validateSync()).toBeUndefined();
   });
 
   it("rejects unsafe colors and unknown theme fields", () => {

@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { useEffect, useRef, type CSSProperties } from "react";
 import { Check, Clock3, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -6,9 +6,35 @@ import { Progress } from "@/components/ui/progress";
 import type { CourseGenerationProgressStage } from "../course-generation-dialog";
 import styles from "./generation-waiting-panel.module.css";
 
-const orbRings = Array.from({ length: 6 }, (_, index) => ({
-  "--ring": index,
-}) as CSSProperties);
+const waveLineCount = 24;
+const waveSampleCount = 144;
+
+function createWavePath(index: number, time = 0) {
+  const phase = (index / waveLineCount) * Math.PI * 2;
+  const radiusOffset = (index - (waveLineCount - 1) / 2) * 0.58;
+  return Array.from({ length: waveSampleCount + 1 }, (_, sample) => {
+    const angle = (sample / waveSampleCount) * Math.PI * 2;
+    const radius =
+      48 +
+      radiusOffset +
+      13 * Math.sin(3 * angle + phase + time) +
+      4.5 * Math.sin(2 * angle - phase * 0.7 - time * 0.72) +
+      2 * Math.cos(5 * angle + phase * 1.15 + time * 0.44);
+    const x = 90 + radius * Math.cos(angle);
+    const y = 90 + radius * Math.sin(angle);
+    return `${sample === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`;
+  }).join(" ") + " Z";
+}
+
+const waveLines = Array.from({ length: waveLineCount }, (_, index) => {
+  const variation = 0.5 + 0.5 * Math.sin(index * 0.71);
+  return {
+    path: createWavePath(index),
+    style: {
+      "--line-opacity": (0.28 + variation * 0.55).toFixed(2),
+    } as CSSProperties,
+  };
+});
 
 export function GenerationWaitingPanel({
   stages,
@@ -21,8 +47,30 @@ export function GenerationWaitingPanel({
   elapsedSeconds: number;
   modelLabel: string;
 }) {
+  const wavePathRefs = useRef<Array<SVGPathElement | null>>([]);
   const elapsed = `${String(Math.floor(elapsedSeconds / 60)).padStart(2, "0")}:${String(elapsedSeconds % 60).padStart(2, "0")}`;
   const activeStage = stages.find((stage) => stage.status === "active");
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.requestAnimationFrame !== "function") return;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+
+    let frame = 0;
+    let lastUpdate = 0;
+    const animate = (timestamp: number) => {
+      if (timestamp - lastUpdate >= 1000 / 30) {
+        const time = timestamp * 0.00055;
+        wavePathRefs.current.forEach((path, index) => {
+          path?.setAttribute("d", createWavePath(index, time));
+        });
+        lastUpdate = timestamp;
+      }
+      frame = window.requestAnimationFrame(animate);
+    };
+
+    frame = window.requestAnimationFrame(animate);
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
 
   return (
     <section aria-label="AI generation in progress" className={`${styles.panel} flex min-h-full flex-col justify-center rounded-2xl border border-indigo-100/80 px-4 py-6 sm:px-5`}>
@@ -36,16 +84,29 @@ export function GenerationWaitingPanel({
         </Badge>
       </div>
 
-      <div className="my-4 flex h-44 items-center justify-center" aria-hidden="true">
-        <div className={styles.orb}>
-          <span className={styles.glow} />
-          <span className={styles.ripple} />
-          <span className={`${styles.ripple} ${styles.delayedRipple}`} />
-          <span className={styles.core} />
-          {orbRings.map((style, index) => (
-            <span key={index} className={styles.ring} style={style} />
-          ))}
-          <Sparkles className={styles.orbSparkle} size={25} strokeWidth={1.4} />
+      <div className="my-4 flex h-48 items-center justify-center" aria-hidden="true">
+        <div className={styles.waveScene}>
+          <svg className={styles.waveSvg} viewBox="0 0 180 180" fill="none">
+            <defs>
+              <linearGradient id="generation-wave-gradient" x1="20" y1="150" x2="160" y2="25" gradientUnits="userSpaceOnUse">
+                <stop stopColor="#fb923c" />
+                <stop offset="0.32" stopColor="#f43f9b" />
+                <stop offset="0.68" stopColor="#e879f9" />
+                <stop offset="1" stopColor="#e9d5ff" />
+              </linearGradient>
+            </defs>
+            {waveLines.map((line, index) => (
+              <path
+                key={index}
+                data-wave-line=""
+                d={line.path}
+                ref={(path) => { wavePathRefs.current[index] = path; }}
+                stroke="url(#generation-wave-gradient)"
+                className={styles.waveLine}
+                style={line.style}
+              />
+            ))}
+          </svg>
         </div>
       </div>
 

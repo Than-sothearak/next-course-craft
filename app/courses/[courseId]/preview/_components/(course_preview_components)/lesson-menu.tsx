@@ -46,6 +46,21 @@ export function LessonMenu({
   setMobileMenuOpen: React.Dispatch<React.SetStateAction<boolean>>;
   mobile?: boolean;
 }) {
+  const menuScrollRef = React.useRef<HTMLDivElement>(null);
+  const activeLessonButtonRef = React.useRef<HTMLButtonElement>(null);
+
+  React.useEffect(() => {
+    const viewport = menuScrollRef.current;
+    const activeLessonButton = activeLessonButtonRef.current;
+    if (!viewport || !activeLessonButton) return;
+
+    const viewportRect = viewport.getBoundingClientRect();
+    const lessonRect = activeLessonButton.getBoundingClientRect();
+    const lessonTop = viewport.scrollTop + lessonRect.top - viewportRect.top;
+    const centeredTop = lessonTop - (viewport.clientHeight - activeLessonButton.offsetHeight) / 2;
+    viewport.scrollTo({ top: Math.max(0, centeredTop), behavior: "smooth" });
+  }, [selectedLesson?.id, mobile, lessonSearch, collapsedSectionIds]);
+
   if (!mobile && sidebarCollapsed) return null;
   const menuWidth = mobile
     ? "w-[min(84%,320px)] shrink-0 shadow-2xl"
@@ -109,7 +124,7 @@ export function LessonMenu({
           />
         </div>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto py-2">
+      <div ref={menuScrollRef} className="min-h-0 flex-1 overflow-y-auto py-2">
         <div className="px-3 pb-3 pt-1">
           <div className="relative">
             <Search
@@ -192,6 +207,7 @@ export function LessonMenu({
                     <li key={lesson.id}>
                       <button
                         type="button"
+                        ref={active ? activeLessonButtonRef : undefined}
                         disabled={locked}
                         onClick={() => selectLesson(lesson.id)}
                         aria-current={active ? "page" : undefined}

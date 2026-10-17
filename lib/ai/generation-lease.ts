@@ -9,6 +9,21 @@ export async function acquireGenerationLease(ownerId: string, courseId: string) 
   return { courseId, token };
 }
 
+export async function getGenerationLeaseStatus(ownerId: string, courseId: string) {
+  const course = await Course.findOne({ _id: courseId, ownerId, deletedAt: null })
+    .select("+generationLockUntil")
+    .lean();
+  if (!course) throw new DashboardError("Course was not found.", 404);
+
+  const now = Date.now();
+  const lockUntil = course.generationLockUntil?.getTime() ?? 0;
+  const locked = lockUntil > now;
+  return {
+    locked,
+    retryAfterMs: locked ? Math.max(250, Math.min(2_000, lockUntil - now)) : 0,
+  };
+}
+
 export async function releaseGenerationLease(lease: { courseId: string; token: string }) {
   await Course.updateOne({ _id: lease.courseId, generationLockToken: lease.token }, { $set: { generationLockToken: null, generationLockUntil: null } });
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canCompleteLesson, canNavigateToLesson, getCourseProgress, getFlipCardProgressId, getInitiallyViewedInteractionIds, getInteractiveBlockProgressIds, getInteractiveItemProgressId, getLessonReadingProgress, getPendingFlipCardIds, getPendingInteractiveProgressIds, getPendingRequiredContinueDividerIds, hasReachedContentEnd, subscribeToScroll } from "../lib/export/progress";
+import { canCompleteLesson, canNavigateToLesson, getCourseProgress, getFlipCardProgressId, getInitiallyViewedInteractionIds, getInteractiveBlockProgressIds, getInteractiveItemProgressId, getLessonReadingProgress, getPendingFlipCardIds, getPendingInteractiveProgressIds, getPendingRequiredContinueDividerIds, getRestrictedLessonProgress, hasReachedContentEnd, subscribeToScroll } from "../lib/export/progress";
 import type { ContentBlock } from "../lib/schemas/block";
 
 describe("standalone learner progress", () => {
@@ -94,6 +94,33 @@ describe("standalone learner progress", () => {
     ];
     expect(getPendingRequiredContinueDividerIds(blocks, new Set(), new Set(), new Set())).toEqual(["required-continue"]);
     expect(getPendingRequiredContinueDividerIds(blocks, new Set(["required-continue"]), new Set(["required-continue"]), new Set(["activity:answer"]))).toEqual([]);
+  });
+
+  it("shares restricted lesson progress between reading and required activities", () => {
+    const blocks: ContentBlock[] = [{
+      id: "cards",
+      version: 1,
+      type: "flipCard",
+      width: "small",
+      widthCustom: false,
+      backgroundColor: "#ffffff",
+      blockPadding: 20,
+      data: {
+        cardsPerRow: 2,
+        cardStyle: "classic",
+        cardBackgroundColor: "#ffffff",
+        cardTextColor: "#0f172a",
+        cards: [
+          { id: "one", frontLabel: "Question", front: { type: "text", text: "A" }, backLabel: "Answer", back: { type: "text", text: "A" } },
+          { id: "two", frontLabel: "Question", front: { type: "text", text: "B" }, backLabel: "Answer", back: { type: "text", text: "B" } },
+        ],
+      },
+    }];
+
+    expect(getRestrictedLessonProgress(100, blocks, new Set())).toBe(50);
+    expect(getRestrictedLessonProgress(100, blocks, new Set(["cards:one"]))).toBe(75);
+    expect(getRestrictedLessonProgress(100, blocks, new Set(["cards:one", "cards:two"]))).toBe(100);
+    expect(getRestrictedLessonProgress(60, [], new Set())).toBe(60);
   });
 
   it("keeps each flip card pending until that card has been opened", () => {

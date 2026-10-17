@@ -25,6 +25,127 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 }
+/* Khmer webfonts are bundled locally; their OFL notices are copied into course exports. */
+@font-face {
+  font-family: "Noto Sans Khmer";
+  src: url("./fonts/noto-sans-khmer.woff") format("woff");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+1780-17FF, U+19E0-19FF;
+}
+@font-face {
+  font-family: "Battambang";
+  src: url("./fonts/battambang-khmer-400.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+1780-17FF, U+19E0-19FF;
+}
+@font-face {
+  font-family: "Battambang";
+  src: url("./fonts/battambang-khmer-700.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  unicode-range: U+1780-17FF, U+19E0-19FF;
+}
+@font-face {
+  font-family: "Battambang";
+  src: url("./fonts/battambang-latin-400.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Battambang";
+  src: url("./fonts/battambang-latin-700.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Kantumruy Pro";
+  src: url("./fonts/kantumruy-pro-khmer-400.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+1780-17FF, U+19E0-19FF;
+}
+@font-face {
+  font-family: "Kantumruy Pro";
+  src: url("./fonts/kantumruy-pro-khmer-700.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  unicode-range: U+1780-17FF, U+19E0-19FF;
+}
+@font-face {
+  font-family: "Kantumruy Pro";
+  src: url("./fonts/kantumruy-pro-latin-400.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Kantumruy Pro";
+  src: url("./fonts/kantumruy-pro-latin-700.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Kantumruy Pro";
+  src: url("./fonts/kantumruy-pro-latin-ext-400.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+0100-024F, U+1E00-1EFF;
+}
+@font-face {
+  font-family: "Kantumruy Pro";
+  src: url("./fonts/kantumruy-pro-latin-ext-700.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  unicode-range: U+0100-024F, U+1E00-1EFF;
+}
+@font-face {
+  font-family: "Nokora";
+  src: url("./fonts/nokora-khmer-400.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+1780-17FF, U+19E0-19FF;
+}
+@font-face {
+  font-family: "Nokora";
+  src: url("./fonts/nokora-khmer-700.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  unicode-range: U+1780-17FF, U+19E0-19FF;
+}
+@font-face {
+  font-family: "Nokora";
+  src: url("./fonts/nokora-latin-400.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Nokora";
+  src: url("./fonts/nokora-latin-700.woff2") format("woff2");
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
 body { margin: 0; min-height: 100vh; background: #f8fafc; color: #0f172a; font-family: Arial, Helvetica, sans-serif; }
 .course-description-editor .tiptap p.is-editor-empty:first-child::before { color: #94a3b8; content: attr(data-placeholder); float: left; height: 0; pointer-events: none; }
 

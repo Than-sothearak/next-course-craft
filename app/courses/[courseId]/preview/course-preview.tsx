@@ -19,6 +19,7 @@ import {
   getInitiallyViewedInteractionIds,
   getPendingInteractiveProgressIds,
   getPendingRequiredContinueDividerIds,
+  getRestrictedLessonProgress,
   getLessonReadingProgress,
   hasReachedContentEnd,
   type LearnerProgressAdapter,
@@ -322,7 +323,7 @@ export function CoursePreview({
         revealedDividerIds.has(block.id),
       ).length;
       const reachedEnd = hasReachedContentEnd(element);
-      const hasPendingInteractiveContent = navigationMode !== "free" && getPendingInteractiveProgressIds(
+      const hasPendingRequiredActivities = navigationMode === "restricted" && getPendingInteractiveProgressIds(
         lesson.blocks,
         interactedContentIds,
       ).length > 0;
@@ -333,11 +334,15 @@ export function CoursePreview({
         revealedContinueCount,
         totalContinueCount: continueDividers.length,
       });
-      const trackedProgress = hasPendingInteractiveContent
-        ? Math.min(readingProgress, 99)
+      const trackedProgress = navigationMode === "restricted"
+        ? getRestrictedLessonProgress(
+            readingProgress,
+            lesson.blocks,
+            interactedContentIds,
+          )
         : readingProgress;
       setLessonScrollProgress((previous) =>
-        previous[lesson.id] === trackedProgress
+        (previous[lesson.id] ?? 0) >= trackedProgress
           ? previous
           : { ...previous, [lesson.id]: trackedProgress },
       );
@@ -368,7 +373,7 @@ export function CoursePreview({
           scrollHeight: element.scrollHeight,
           clientHeight: element.clientHeight,
           scrollTop: element.scrollTop,
-          hasPendingContinue: hasPendingInteractiveContent,
+          hasPendingContinue: hasPendingRequiredActivities,
         })
       ) {
         setVisitedLessonIds((previous) =>
@@ -461,11 +466,14 @@ export function CoursePreview({
       ? getSequentialNavigationLockMessage(selectedLesson)
       : getRestrictedNavigationLockMessage(selectedLesson);
     const canContinue = !completionLockMessage;
+    const targetPrerequisitesComplete = targetIndex > 0 && lessons
+      .slice(0, targetIndex)
+      .every((lesson) => visitedLessonIds.has(lesson.id));
     if (canNavigateToLesson(
       lessonIndex,
       targetIndex,
       canContinue,
-      visitedLessonIds.has(lessonId),
+      visitedLessonIds.has(lessonId) || targetPrerequisitesComplete,
       navigationMode,
     )) return null;
     if (completionLockMessage) return completionLockMessage;

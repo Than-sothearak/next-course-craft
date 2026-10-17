@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import {
+  courseThemeFontFamilies,
   courseThemePresets,
   createCourseThemePreset,
   defaultCourseTheme,
@@ -105,7 +106,16 @@ export function CourseThemeSettings({
             <option value="sans">System sans</option>
             <option value="serif">Serif</option>
             <option value="rounded">Rounded</option>
+            <optgroup label="Khmer fonts">
+              <option value="noto-sans-khmer">Noto Sans Khmer</option>
+              <option value="battambang">Battambang</option>
+              <option value="kantumruy-pro">Kantumruy Pro</option>
+              <option value="nokora">Nokora</option>
+            </optgroup>
           </Select>
+          <span lang="km" className="mt-1 block text-sm text-slate-500" style={{ fontFamily: courseThemeFontFamilies[theme.fontFamily] }}>
+            សូមមើលគំរូអក្សរខ្មែរ និងពាក្យ Lab។
+          </span>
         </label>
         <CourseCoverSettings courseId={courseId} courseTitle={courseTitle} theme={theme} onChange={onChange} />
         <p className="mt-3 border-t border-slate-100 pt-3 text-[11px] text-slate-500">Changes save automatically and appear in course previews and exports.</p>

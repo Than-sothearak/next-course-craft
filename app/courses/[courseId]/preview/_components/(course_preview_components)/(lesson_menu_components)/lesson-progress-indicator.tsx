@@ -15,7 +15,7 @@ export function LessonProgressIndicator({
   return (
     <svg
       role="img"
-      aria-label={`Lesson ${progress}% read`}
+      aria-label={`Lesson ${progress}% complete`}
       viewBox="0 0 18 18"
       width="16"
       height="16"

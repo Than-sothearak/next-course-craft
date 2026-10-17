@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "../app/api/courses/[courseId]/generate/route";
 import { cancelSourceGenerationJob, generateCourseDraft, getSourceGenerationJob } from "../lib/ai/course-generation";
+import { getGenerationLeaseStatus } from "../lib/ai/generation-lease";
 import { resolveCourseAccess } from "../lib/workspaces/access";
 import { DashboardError } from "../lib/dashboard/rules";
 
@@ -9,7 +10,7 @@ vi.mock("../lib/auth", () => ({ auth: vi.fn(async () => ({ user: { id: "507f1f77
 vi.mock("../lib/db/mongodb", () => ({ connectToDatabase: vi.fn(async () => undefined) }));
 vi.mock("../lib/workspaces/access", () => ({ resolveCourseAccess: vi.fn(async () => ({ ownerId: "507f1f77bcf86cd799439011", permissions: [] })) }));
 vi.mock("../lib/auth/authorization", () => ({ requireActiveUser: vi.fn(async () => ({ id: "507f1f77bcf86cd799439011" })), requireAIEnabled: vi.fn() }));
-vi.mock("../lib/ai/generation-lease", () => ({ acquireGenerationLease: vi.fn(async () => ({ courseId: "course", token: "lease" })), releaseGenerationLease: vi.fn(async () => undefined) }));
+vi.mock("../lib/ai/generation-lease", () => ({ acquireGenerationLease: vi.fn(async () => ({ courseId: "course", token: "lease" })), getGenerationLeaseStatus: vi.fn(async () => ({ locked: false })), releaseGenerationLease: vi.fn(async () => undefined) }));
 vi.mock("../lib/ai/course-generation", () => ({
   advanceSourceGenerationJob: vi.fn(), cancelSourceGenerationJob: vi.fn(), createSourceGenerationJob: vi.fn(),
   generateCourseDraft: vi.fn(), getLastCompletedSourceGenerationJob: vi.fn(), getSourceGenerationJob: vi.fn(), startSourceGenerationJob: vi.fn(),
@@ -80,6 +81,18 @@ describe("prompt-only course generation requests", () => {
     const response = await submit({ action: "getGeneration", jobId: "saved-job", lessonCount: "invalid", model: "invalid" });
     expect(response.status).toBe(200);
     expect(getSourceGenerationJob).toHaveBeenCalledWith({ ownerId: "507f1f77bcf86cd799439011", courseId, jobId: "saved-job" });
+    expect(generateCourseDraft).not.toHaveBeenCalled();
+  });
+
+  it("returns the active generation lease state through a status action", async () => {
+    vi.mocked(getGenerationLeaseStatus).mockResolvedValueOnce({ locked: true, retryAfterMs: 500 });
+    const formData = new FormData();
+    formData.set("action", "getGenerationLease");
+    const request = new NextRequest(`http://localhost/api/courses/${courseId}/generate`, { method: "POST", body: formData });
+    const response = await POST(request, { params: Promise.resolve({ courseId }) });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ locked: true, retryAfterMs: 500 });
+    expect(getGenerationLeaseStatus).toHaveBeenCalledWith("507f1f77bcf86cd799439011", courseId);
     expect(generateCourseDraft).not.toHaveBeenCalled();
   });
 

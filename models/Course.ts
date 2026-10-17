@@ -1,4 +1,5 @@
 import { Schema, model, models, type InferSchemaType, type Model } from "mongoose";
+import { courseThemeFontFamilyIds } from "@/lib/editor/theme";
 
 const SectionSchema = new Schema({
   id: { type: String, required: true, maxlength: 64 },
@@ -10,7 +11,7 @@ const CourseThemeSchema = new Schema({
   preset: { type: String, enum: ["ocean", "forest", "sunset", "violet", "slate", "custom"], default: "ocean" },
   primaryColor: { type: String, match: /^#[\da-fA-F]{6}$/, default: "#2f5f9f" },
   accentColor: { type: String, match: /^#[\da-fA-F]{6}$/, default: "#ff876c" },
-  fontFamily: { type: String, enum: ["sans", "serif", "rounded"], default: "sans" },
+  fontFamily: { type: String, enum: [...courseThemeFontFamilyIds], default: "sans" },
   cover: { type: new Schema({
     template: { type: String, enum: ["gradient", "solid", "image", "waves", "geometric", "editorial"], default: "gradient" },
     backgroundColor: { type: String, match: /^#[\da-fA-F]{6}$/ },

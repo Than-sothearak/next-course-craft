@@ -664,6 +664,7 @@ function createProgressAdapter(
           safeSet("cmi.core.score.min", "0");
           safeSet("cmi.core.score.max", "100");
         } else {
+          safeSet("cmi.score.scaled", (score / 100).toFixed(4));
           safeSet("cmi.score.min", "0");
           safeSet("cmi.score.max", "100");
         }

@@ -15,7 +15,7 @@ import {
   type SourceGenerationJobSnapshot,
 } from "@/lib/ai/course-generation-schemas";
 
-import { advanceSourceGenerationJobUntil, isMissingGenerationJob, postSourceGenerationAction, responseError } from "./(course_generation_dialog_components)/generation-job-request";
+import { advanceSourceGenerationJobUntil, isMissingGenerationJob, postCourseGenerationForm, postSourceGenerationAction, responseError } from "./(course_generation_dialog_components)/generation-job-request";
 import { GenerationPromptInput, starterGenerationPrompt } from "./(course_generation_dialog_components)/generation-prompt-input";
 
 import { GenerationWaitingPanel } from "./(course_generation_dialog_components)/generation-waiting-panel";
@@ -294,6 +294,7 @@ export function CourseGenerationDialog({
   const [applyMode, setApplyMode] = useState<ApplyMode>("append");
   const [generating, setGenerating] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [waitingForPreviousGeneration, setWaitingForPreviousGeneration] = useState(false);
   const [generationNotice, setGenerationNotice] = useState<string | null>(null);
   const [generationKind, setGenerationKind] = useState<"prompt" | "source">("prompt");
   const [loadingSavedDraft, setLoadingSavedDraft] = useState(false);
@@ -305,6 +306,8 @@ export function CourseGenerationDialog({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const structurePreviewTimerRef = useRef<number | null>(null);
   const generationControllerRef = useRef<AbortController | null>(null);
+  const generationCompletionRef = useRef<Promise<void> | null>(null);
+  const cancelRequestedRef = useRef(false);
   const activeJobIdRef = useRef<string | null>(null);
 
   function showStructurePreview(value: StructurePreviewTemplate) {
@@ -371,31 +374,54 @@ export function CourseGenerationDialog({
 
   async function cancelGeneration() {
     if (cancelling) return;
-    const jobId = activeJobIdRef.current ?? generationJobId;
-    generationControllerRef.current?.abort();
-    generationControllerRef.current = null;
-    setGenerating(false);
-    setGenerationStartedAt(null);
-    setGenerationInfo(null);
+    const generationInFlight = generationCompletionRef.current;
+    let jobId = activeJobIdRef.current ?? generationJobId;
+    let job: SourceGenerationJobSnapshot | null = null;
+    let cancelError: unknown = null;
+    cancelRequestedRef.current = Boolean(generationInFlight);
     setCancelling(true);
     setError(null);
+    if (generationInFlight) setGenerationNotice("Waiting for the current request to finish before starting another generation.");
     try {
-      const job = jobId ? await postSourceGenerationAction(courseId, "cancelGeneration", jobId) : null;
+      if (jobId) {
+        try {
+          job = await postSourceGenerationAction(courseId, "cancelGeneration", jobId);
+        } catch (requestError) {
+          cancelError = requestError;
+        }
+      }
+
+      await generationInFlight;
+
+      jobId = jobId ?? activeJobIdRef.current ?? generationJobId;
+      if (jobId && !job && !cancelError) {
+        try {
+          job = await postSourceGenerationAction(courseId, "cancelGeneration", jobId);
+        } catch (requestError) {
+          cancelError = requestError;
+        }
+      }
+
+      if (cancelError) {
+        if (isMissingGenerationJob(cancelError)) {
+          if (jobId) clearGenerationJob(jobId);
+          setGenerationNotice("The saved job is no longer available. Its reference was cleared; you can start a new run.");
+        } else {
+          setGenerationNotice(null);
+          setError(cancelError instanceof Error ? cancelError.message : "Could not cancel the saved job. Try Cancel job again.");
+        }
+        return;
+      }
+
       if (jobId) clearGenerationJob(jobId);
       if (job?.status === "completed" && job.course) {
         setResult(job.course);
         setGenerationNotice("This job had already completed. Its draft is ready to review.");
       } else {
-        setGenerationNotice("Generation cancelled. You can start a new run. An AI request already sent may finish.");
-      }
-    } catch (cancelError) {
-      if (isMissingGenerationJob(cancelError)) {
-        if (jobId) clearGenerationJob(jobId);
-        setGenerationNotice("The saved job is no longer available. Its reference was cleared; you can start a new run.");
-      } else {
-        setError(cancelError instanceof Error ? cancelError.message : "Could not cancel the saved job. Try Cancel job again.");
+        setGenerationNotice("Generation cancelled. The current request has finished, so you can start a new run.");
       }
     } finally {
+      cancelRequestedRef.current = false;
       setCancelling(false);
     }
   }
@@ -441,6 +467,10 @@ export function CourseGenerationDialog({
     const model = selectedModel;
     const controller = new AbortController();
     const signal = controller.signal;
+    let finishGeneration!: () => void;
+    const generationCompletion = new Promise<void>((resolve) => { finishGeneration = resolve; });
+    generationCompletionRef.current = generationCompletion;
+    cancelRequestedRef.current = false;
     generationControllerRef.current = controller;
     activeJobIdRef.current = generationJobId;
     let completed = false;
@@ -451,15 +481,22 @@ export function CourseGenerationDialog({
     setGenerationElapsedSeconds(0);
     setGenerationInfo(null);
     setResult(null);
+    const leaseWaitOptions = {
+      onWaiting: () => {
+        setWaitingForPreviousGeneration(true);
+        setGenerationNotice("A previous generation is still finishing. Waiting before starting this one.");
+      },
+      onAvailable: () => {
+        setWaitingForPreviousGeneration(false);
+        setGenerationNotice(null);
+      },
+      shouldStop: () => cancelRequestedRef.current,
+    };
     try {
       let jobId = generationJobId;
       let sourceIsIndexed = false;
       if (file && !jobId) {
-        const response = await fetch(`/api/courses/${courseId}/generate`, {
-          method: "POST",
-          body: buildGenerationFormData("generate", file),
-          signal,
-        });
+        const response = await postCourseGenerationForm(courseId, buildGenerationFormData("generate", file), signal, leaseWaitOptions);
         if (!response.ok) throw new Error(await responseError(response));
         const created = await response.json() as SourceGenerationJobSnapshot;
         if (signal.aborted && created.jobId) {
@@ -471,31 +508,33 @@ export function CourseGenerationDialog({
         setGenerationJobId(jobId);
         window.localStorage.setItem(`course-generation:${courseId}`, jobId);
         setSourceJobProgress(created);
+        if (cancelRequestedRef.current) return;
         await advanceSourceGenerationJobUntil(courseId, jobId, ["awaitingPrompt"], (progress) => {
           setSourceJobProgress(progress);
-        }, signal);
+        }, signal, leaseWaitOptions);
         sourceIsIndexed = true;
       }
       if (jobId) {
         let current = sourceIsIndexed
           ? null
-          : await postSourceGenerationAction(courseId, "getGeneration", jobId, undefined, signal);
+          : await postSourceGenerationAction(courseId, "getGeneration", jobId, undefined, signal, leaseWaitOptions);
         if (current) setSourceJobProgress(current);
         if (current?.status === "completed") {
           if (!current.course) throw new Error("Generation completed without a saved course draft.");
+          if (cancelRequestedRef.current) return;
           setResult(current.course);
           completed = true;
           clearGenerationJob(jobId);
           return;
         }
         if (current?.status === "failed") {
-          current = await postSourceGenerationAction(courseId, "advanceGeneration", jobId, undefined, signal);
+          current = await postSourceGenerationAction(courseId, "advanceGeneration", jobId, undefined, signal, leaseWaitOptions);
           setSourceJobProgress(current);
         }
         if (current?.status === "indexing" || current?.status === "extracting") {
           current = await advanceSourceGenerationJobUntil(courseId, jobId, ["awaitingPrompt"], (progress) => {
             setSourceJobProgress(progress);
-          }, signal);
+          }, signal, leaseWaitOptions);
         }
         if (current?.status === "cancelled" || current?.status === "failed")
           throw new Error(current.errorMessage || "Course generation stopped. Retry this stage to continue.");
@@ -505,6 +544,7 @@ export function CourseGenerationDialog({
           jobId,
           buildGenerationFormData("generate"),
           signal,
+          leaseWaitOptions,
         );
         setSourceJobProgress(configured);
         const completedJob = configured.status === "completed"
@@ -515,25 +555,24 @@ export function CourseGenerationDialog({
               ["completed"],
               (progress) => setSourceJobProgress(progress),
               signal,
+              leaseWaitOptions,
             );
         if (!completedJob.course) throw new Error("Generation completed without a saved course draft.");
+        if (cancelRequestedRef.current) return;
         setResult(completedJob.course);
         clearGenerationJob(jobId);
       } else {
         const formData = buildGenerationFormData("generate", file ?? undefined);
-        const response = await fetch(`/api/courses/${courseId}/generate`, {
-          method: "POST",
-          body: formData,
-          signal,
-        });
+        const response = await postCourseGenerationForm(courseId, formData, signal, leaseWaitOptions);
         if (!response.ok) throw new Error(await responseError(response));
         const generated = await response.json() as GeneratedCourseDraft;
         signal.throwIfAborted();
+        if (cancelRequestedRef.current) return;
         setResult(generated);
       }
       completed = true;
     } catch (requestError) {
-      if (signal.aborted) return;
+      if (signal.aborted || cancelRequestedRef.current) return;
       if (isMissingGenerationJob(requestError)) {
         const missingId = activeJobIdRef.current;
         if (missingId) clearGenerationJob(missingId);
@@ -552,6 +591,10 @@ export function CourseGenerationDialog({
         if (completed) setGenerationInfo({ model, elapsedSeconds });
         setGenerating(false);
       }
+      cancelRequestedRef.current = false;
+      setWaitingForPreviousGeneration(false);
+      if (generationCompletionRef.current === generationCompletion) generationCompletionRef.current = null;
+      finishGeneration();
     }
   }
 
@@ -608,7 +651,7 @@ export function CourseGenerationDialog({
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2 self-end sm:self-auto">
-            {(generating || generationJobId || cancelling) && <Button type="button" variant="outline" size="sm" disabled={cancelling} onClick={() => void cancelGeneration()}>{cancelling ? "Cancelling…" : generationKind === "source" || generationJobId ? "Cancel job" : "Cancel generation"}</Button>}
+            {(generating || generationJobId || cancelling) && <Button type="button" variant="outline" size="sm" disabled={cancelling || waitingForPreviousGeneration} onClick={() => void cancelGeneration()}>{cancelling || waitingForPreviousGeneration ? <><LoaderCircle size={14} className="animate-spin" /> Waiting…</> : generationKind === "source" || generationJobId ? "Cancel job" : "Cancel generation"}</Button>}
             <Button type="button" variant="ghost" size="icon" aria-label="Close course generation" disabled={generating || cancelling} onClick={closeDialog}>
               <X size={18} />
             </Button>

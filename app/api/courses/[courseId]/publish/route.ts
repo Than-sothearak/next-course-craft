@@ -9,6 +9,7 @@ import { getCourseEditor } from "@/lib/editor/services/course";
 import { Asset } from "@/models/Asset";
 import { createMediaReadUrl } from "@/lib/media/storage";
 import { validateQuizAssessments } from "@/lib/interactive/quiz-assessment";
+import { inlineLocalFontAssets } from "@/lib/export/inline-font-assets";
 import { resolveCourseAccess } from "@/lib/workspaces/access";
 import { getCourseAuthorName } from "@/lib/editor/services/course";
 
@@ -56,8 +57,9 @@ export async function POST(_request: NextRequest, context: { params: Promise<{ c
     }));
     const authorName = await getCourseAuthorName(ownerId, parsed.data.courseId);
     const courseData = replaceAssetSources({ ...course, authorName }, embeddedAssets);
-    const js = await readFile(join(exportDir, "assets", jsName), "utf8");
-    const css = await readFile(join(exportDir, "assets", cssName), "utf8");
+    const exportAssetsDir = join(exportDir, "assets");
+    const js = await readFile(join(exportAssetsDir, jsName), "utf8");
+    const css = await inlineLocalFontAssets(await readFile(join(exportAssetsDir, cssName), "utf8"), exportAssetsDir);
     const safeJson = JSON.stringify(courseData).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
     const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="${course.description.replace(/[&<>"']/g, " ").slice(0, 300)}"><title>${course.title.replace(/[&<>"']/g, " ")}</title><style>${css}</style></head><body><div id="export-root"></div><script>window.COURSE_EXPORT_DATA=${safeJson}</script><script>${js}</script></body></html>`;
     const filename = `${course.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "course"}.html`;

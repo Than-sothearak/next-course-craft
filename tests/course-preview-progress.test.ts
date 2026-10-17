@@ -160,7 +160,7 @@ afterEach(() => {
 describe("admin course preview progress", () => {
   it.each([
     ["free", false], ["free", true], ["sequential", false], ["sequential", true], ["restricted", false], ["restricted", true],
-  ] as const)("uses reading completion with optional interactions only in %s mode (standalone=%s)", async (navigationMode, standalone) => {
+  ] as const)("applies %s lesson completion rules in the preview (standalone=%s)", async (navigationMode, standalone) => {
     const data = structuredClone(initialData);
     data.courseId = `reading-completion-${navigationMode}-${standalone}`;
     data.navigationMode = navigationMode;
@@ -188,13 +188,85 @@ describe("admin course preview progress", () => {
     expect((save.mock.lastCall![1] as LearnerProgressSnapshot).visitedLessonIds).not.toContain(lesson.id);
     act(() => { body.scrollTop = 500; body.dispatchEvent(new Event("scroll", { bubbles: true })); });
     const snapshot = save.mock.lastCall![1] as LearnerProgressSnapshot;
-    const free = navigationMode === "free";
-    expect(snapshot.visitedLessonIds.includes(lesson.id)).toBe(free);
-    expect(snapshot.lessonScrollProgress[lesson.id]).toBe(free ? 100 : 99);
-    expect(save.mock.lastCall![2]).toBe(free);
+    const completesAfterReading = navigationMode !== "restricted";
+    expect(snapshot.visitedLessonIds.includes(lesson.id)).toBe(completesAfterReading);
+    if (navigationMode === "restricted") {
+      expect(snapshot.lessonScrollProgress[lesson.id]).toBe(60);
+      expect(container.querySelector('[aria-label="Lesson 60% complete"]')).not.toBeNull();
+    } else {
+      expect(snapshot.lessonScrollProgress[lesson.id]).toBe(100);
+    }
+    expect(save.mock.lastCall![2]).toBe(completesAfterReading);
     expect(snapshot.interactedContentIds).not.toContain("study-cards:card-1");
     expect(snapshot.interactedContentIds).not.toContain("activity-3:answer");
     expect(container.querySelector('[data-lesson-block-id="study-cards"] button')?.getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("counts restricted activities in the lesson circle and unlocks the sidebar after both requirements are met", async () => {
+    const data = twoLessonCourse("restricted");
+    const save = vi.fn();
+    data.lessons[0].blocks = data.lessons[0].blocks.filter(
+      (block) => block.type !== "divider" || block.data.style !== "continue",
+    );
+    await act(async () => {
+      root.render(createElement(CoursePreview, {
+        initialData: data,
+        authorName: "Course author",
+        initialLessonId: data.lessons[0].id,
+        persistLocalProgress: false,
+        progressAdapter: { load: () => null, save },
+      }));
+      await new Promise((resolve) => window.setTimeout(resolve, 10));
+    });
+    await act(async () => { await new Promise((resolve) => window.setTimeout(resolve, 10)); });
+
+    const scrollContainer = container.querySelector<HTMLElement>(
+      `#preview-content-${data.lessons[0].id} > div`,
+    );
+    const getSecondLesson = () => container.querySelector<HTMLButtonElement>(
+      'aside button[aria-label^="Second lesson"]',
+    );
+    const getFirstLesson = () => container.querySelector<HTMLButtonElement>(
+      'aside button[aria-label^="Lesson with a gate"]',
+    );
+    expect(scrollContainer).not.toBeNull();
+    expect(getSecondLesson()?.disabled).toBe(true);
+    if (!scrollContainer) return;
+    Object.defineProperties(scrollContainer, {
+      scrollHeight: { configurable: true, value: 1000 },
+      clientHeight: { configurable: true, value: 500 },
+      scrollTop: { configurable: true, writable: true, value: 500 },
+    });
+    act(() => scrollContainer.dispatchEvent(new Event("scroll", { bubbles: true })));
+
+    const getLessonCircle = () => getFirstLesson()?.querySelector<SVGElement>(
+      '[role="img"][aria-label^="Lesson "]',
+    );
+    expect(getLessonCircle()?.getAttribute("aria-label")).toBe("Lesson 50% complete");
+
+    const firstCard = container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Flip card 1 to reveal the back"]',
+    );
+    expect(firstCard).not.toBeNull();
+    await act(async () => {
+      firstCard?.click();
+      await new Promise((resolve) => window.setTimeout(resolve, 10));
+    });
+    expect(container.querySelector<HTMLButtonElement>(
+      'button[aria-label="Show the front of card 1"]',
+    )?.getAttribute("aria-pressed")).toBe("true");
+    expect((save.mock.lastCall![1] as LearnerProgressSnapshot).interactedContentIds).toContain("study-cards:card-1");
+    expect(getLessonCircle()?.getAttribute("aria-label")).toBe("Lesson 75% complete");
+    expect(getSecondLesson()?.disabled).toBe(true);
+
+    await act(async () => {
+      container.querySelector<HTMLButtonElement>(
+        'button[aria-label="Flip card 2 to reveal the back"]',
+      )?.click();
+      await new Promise((resolve) => window.setTimeout(resolve, 10));
+    });
+    expect(getFirstLesson()?.querySelector('[aria-label="Lesson complete"]')).not.toBeNull();
+    expect(getSecondLesson()?.disabled).toBe(false);
   });
 
   it.each([false, true])("enforces required Continue interactions in free mode and completes optional content afterward (standalone=%s)", async (standalone) => {
@@ -389,6 +461,108 @@ describe("admin course preview progress", () => {
       await new Promise((resolve) => window.setTimeout(resolve, 0));
     });
     expect(secondLesson?.getAttribute("aria-current")).toBe("page");
+  });
+
+  it("centers the selected lesson in the sidebar scroll area", async () => {
+    const data = twoLessonCourse("free");
+    const lessonTemplate = data.lessons[1];
+    for (let index = 2; index < 7; index += 1) {
+      data.lessons.push({
+        ...lessonTemplate,
+        id: `lesson-${index + 1}`,
+        title: `Lesson ${index + 1}`,
+        order: index,
+      });
+    }
+    await act(async () => {
+      root.render(createElement(CoursePreview, {
+        initialData: data,
+        authorName: "Course author",
+        initialLessonId: data.lessons[0].id,
+        persistLocalProgress: false,
+      }));
+      await new Promise((resolve) => window.setTimeout(resolve, 10));
+    });
+
+    const menuViewport = container.querySelector<HTMLElement>(
+      "aside > div.min-h-0.flex-1.overflow-y-auto.py-2",
+    );
+    const targetLesson = container.querySelector<HTMLButtonElement>(
+      'aside button[aria-label^="Lesson 7"]',
+    );
+    expect(menuViewport).not.toBeNull();
+    expect(targetLesson).not.toBeNull();
+    if (!menuViewport || !targetLesson) return;
+
+    const scrollTo = vi.fn();
+    Object.defineProperty(menuViewport, "clientHeight", { configurable: true, value: 200 });
+    Object.defineProperty(menuViewport, "scrollTop", { configurable: true, writable: true, value: 20 });
+    Object.defineProperty(menuViewport, "scrollTo", { configurable: true, value: scrollTo });
+    Object.defineProperty(targetLesson, "offsetHeight", { configurable: true, value: 40 });
+    vi.spyOn(menuViewport, "getBoundingClientRect").mockReturnValue({
+      x: 0, y: 100, top: 100, bottom: 300, left: 0, right: 300,
+      width: 300, height: 200, toJSON: () => ({}),
+    });
+    vi.spyOn(targetLesson, "getBoundingClientRect").mockReturnValue({
+      x: 0, y: 250, top: 250, bottom: 290, left: 0, right: 300,
+      width: 300, height: 40, toJSON: () => ({}),
+    });
+
+    await act(async () => {
+      targetLesson.click();
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+
+    expect(targetLesson.getAttribute("aria-current")).toBe("page");
+    expect(scrollTo).toHaveBeenCalledWith({ top: 90, behavior: "smooth" });
+  });
+
+  it("unlocks the next sidebar lesson after reading in sequential mode without requiring optional activities", async () => {
+    const data = twoLessonCourse("sequential");
+    data.lessons[0].blocks = data.lessons[0].blocks.filter(
+      (block) => block.type !== "divider" || block.data.style !== "continue",
+    );
+    await act(async () => {
+      root.render(createElement(CoursePreview, {
+        initialData: data,
+        authorName: "Course author",
+        persistLocalProgress: false,
+      }));
+      await new Promise((resolve) => window.setTimeout(resolve, 10));
+    });
+
+    const startButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent?.trim() === "Start learning",
+    );
+    await act(async () => {
+      startButton?.click();
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+
+    const secondLesson = container.querySelector<HTMLButtonElement>(
+      'aside button[aria-label^="Second lesson"]',
+    );
+    const scrollContainer = container.querySelector<HTMLElement>(
+      `#preview-content-${data.lessons[0].id} > div`,
+    );
+    expect(secondLesson?.disabled).toBe(true);
+    expect(scrollContainer).not.toBeNull();
+    if (!scrollContainer) return;
+    Object.defineProperties(scrollContainer, {
+      scrollHeight: { configurable: true, value: 1000 },
+      clientHeight: { configurable: true, value: 500 },
+      scrollTop: { configurable: true, writable: true, value: 500 },
+    });
+
+    await act(async () => {
+      scrollContainer.dispatchEvent(new Event("scroll", { bubbles: true }));
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+
+    expect(
+      container.querySelector('[data-lesson-block-id="study-cards"] button')?.getAttribute("aria-pressed"),
+    ).toBe("false");
+    expect(secondLesson?.disabled).toBe(false);
   });
 
   it.each(["sequential", "restricted"] as const)(
@@ -1000,5 +1174,92 @@ describe("admin course preview progress", () => {
       await new Promise((resolve) => window.setTimeout(resolve, 0));
     });
     expect(container.textContent).toContain("Content after Continue");
+  });
+
+  it("keeps a previously unlocked lesson available with its partial progress after navigating backward", async () => {
+    const data = twoLessonCourse("restricted");
+    data.courseId = "restricted-back-navigation-progress-course";
+    data.lessons[0].title = "First lesson";
+    const studyCards = data.lessons[0].blocks.find(
+      (block) => block.type === "flipCard",
+    );
+    if (studyCards?.type !== "flipCard") throw new Error("Expected study cards");
+    data.lessons[0].blocks = [studyCards];
+
+    const thirdLesson = structuredClone(data.lessons[1]);
+    thirdLesson.id = "lesson-3";
+    thirdLesson.title = "Third lesson";
+    thirdLesson.order = 2;
+    data.lessons.push(thirdLesson);
+
+    const loadedProgress: LearnerProgressSnapshot = {
+      visitedLessonIds: ["lesson-1", "lesson-2"],
+      lessonScrollProgress: { "lesson-1": 100, "lesson-2": 100 },
+      revealedDividerIds: [],
+      completedDividerIds: [],
+      interactedContentIds: ["study-cards:card-1", "study-cards:card-2"],
+      selectedLessonId: "lesson-3",
+    };
+    const save = vi.fn();
+
+    await act(async () => {
+      root.render(
+        createElement(CoursePreview, {
+          initialData: data,
+          authorName: "Course author",
+          initialLessonId: "lesson-3",
+          progressAdapter: { load: () => loadedProgress, save },
+        }),
+      );
+      await new Promise((resolve) => window.setTimeout(resolve, 10));
+    });
+
+    const thirdLessonBody = container.querySelector<HTMLElement>(
+      "#preview-content-lesson-3 > div",
+    );
+    expect(thirdLessonBody).not.toBeNull();
+    Object.defineProperties(thirdLessonBody, {
+      scrollHeight: { configurable: true, value: 1000 },
+      clientHeight: { configurable: true, value: 500 },
+      scrollTop: { configurable: true, writable: true, value: 250 },
+    });
+    await act(async () => {
+      thirdLessonBody?.dispatchEvent(new Event("scroll", { bubbles: true }));
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+    expect(container.querySelector('[aria-label="Lesson 50% complete"]')).not.toBeNull();
+
+    const firstLessonButton = container.querySelector<HTMLButtonElement>(
+      'aside button[aria-label="First lesson"]',
+    );
+    await act(async () => {
+      firstLessonButton?.click();
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+    const thirdLessonButton = container.querySelector<HTMLButtonElement>(
+      'aside button[aria-label^="Third lesson"]',
+    );
+    expect(thirdLessonButton?.disabled).toBe(false);
+    expect(container.querySelector('[aria-label="Lesson 50% complete"]')).not.toBeNull();
+
+    const secondLessonButton = container.querySelector<HTMLButtonElement>(
+      'aside button[aria-label^="Second lesson"]',
+    );
+    await act(async () => {
+      secondLessonButton?.click();
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+    expect(thirdLessonButton?.disabled).toBe(false);
+
+    await act(async () => {
+      if (thirdLessonBody) thirdLessonBody.scrollTop = 0;
+      thirdLessonButton?.click();
+      await new Promise((resolve) => window.setTimeout(resolve, 10));
+    });
+    expect(container.querySelector('[aria-label="Lesson 50% complete"]')).not.toBeNull();
+    expect(
+      (save.mock.lastCall?.[1] as LearnerProgressSnapshot | undefined)
+        ?.lessonScrollProgress["lesson-3"],
+    ).toBe(50);
   });
 });

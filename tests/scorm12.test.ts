@@ -402,6 +402,7 @@ describe("SCORM 2004 package and LMS progress adapter", () => {
     }, true);
 
     expect(values["cmi.score.raw"]).toBe("82");
+    expect(values["cmi.score.scaled"]).toBe("0.8200");
     expect(values["cmi.score.min"]).toBe("0");
     expect(values["cmi.score.max"]).toBe("100");
     expect(values["cmi.success_status"]).toBe("passed");

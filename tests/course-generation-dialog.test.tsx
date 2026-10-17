@@ -89,6 +89,29 @@ describe("course generation structure previews", () => {
     expect(generation).toMatchObject({ step: 2, title: "Generate course", status: "active", completed: 0, total: null });
   });
 
+  it("shows the circular AI waveform while generation is waiting", async () => {
+    const animationFrames: FrameRequestCallback[] = [];
+    vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+      animationFrames.push(callback);
+      return animationFrames.length;
+    });
+    vi.stubGlobal("cancelAnimationFrame", vi.fn());
+    vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>(() => undefined)));
+    await enterPrompt();
+    await act(async () => {
+      container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    });
+
+    expect(container.querySelector('[aria-label="AI generation in progress"]')).not.toBeNull();
+    expect(container.querySelectorAll("[data-wave-line]")).toHaveLength(24);
+    const waveLine = container.querySelector<SVGPathElement>("[data-wave-line]");
+    const initialShape = waveLine?.getAttribute("d");
+    await act(async () => {
+      animationFrames.shift()?.(1000);
+    });
+    expect(waveLine?.getAttribute("d")).not.toBe(initialShape);
+  });
+
   async function enterPrompt() {
     await act(async () => {
       const prompt = container.querySelector("textarea")!;
@@ -245,22 +268,58 @@ describe("course generation structure previews", () => {
     expect(window.localStorage.getItem("course-generation:course-1")).toBeNull();
   });
 
-  it("ignores a cancelled prompt response while the next generation is running", async () => {
+  it("waits for a cancelled prompt request before allowing another generation", async () => {
     const finishes: ((response: Response) => void)[] = [];
     const fetchMock = vi.fn().mockImplementation(() => new Promise<Response>((resolve) => finishes.push(resolve)));
     vi.stubGlobal("fetch", fetchMock);
     await enterPrompt();
     await act(async () => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
     await clickCancel();
-    expect(fetchMock.mock.calls[0][1].signal.aborted).toBe(true);
+    expect(fetchMock.mock.calls[0][1].signal.aborted).toBe(false);
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(container.querySelector('[aria-label="Course generation progress"]')).toBeNull();
+    expect(container.querySelector('[aria-label="Course generation progress"]')).not.toBeNull();
+    expect(Array.from(container.querySelectorAll("button")).find((button) => button.textContent?.includes("Waiting"))?.disabled).toBe(true);
     await act(async () => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
-    await act(async () => finishes[0](jsonResponse(draft("Cancelled old draft"))));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(container.querySelector('[aria-label="Course generation progress"]')).not.toBeNull();
+    await act(async () => {
+      finishes[0](jsonResponse(draft("Cancelled old draft")));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
     expect(container.textContent).not.toContain("Cancelled old draft");
+    expect(container.querySelector('[aria-label="Course generation progress"]')).toBeNull();
+    expect(container.textContent).toContain("current request has finished");
+    await act(async () => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+    expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(container.querySelector('[aria-label="Course generation progress"]')).not.toBeNull();
     await act(async () => finishes[1](jsonResponse(draft("New draft"))));
     expect(container.textContent).toContain("New draft");
+    expect(container.querySelector('[aria-label="Course generation progress"]')).toBeNull();
+  });
+
+  it("waits for a server generation lease to clear after a page reload", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonResponse({ error: "Generation is already running or this course changed. Try again shortly." }, 409))
+      .mockResolvedValueOnce(jsonResponse({ locked: true, retryAfterMs: 500 }))
+      .mockResolvedValueOnce(jsonResponse({ locked: false, retryAfterMs: 0 }))
+      .mockResolvedValueOnce(jsonResponse(draft("Course after previous run")));
+    vi.stubGlobal("fetch", fetchMock);
+    await enterPrompt();
+    await act(async () => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1][1].method).toBe("POST");
+    expect((fetchMock.mock.calls[1][1].body as FormData).get("action")).toBe("getGenerationLease");
+    expect(container.textContent).toContain("A previous generation is still finishing");
+    expect(container.querySelector('[aria-label="Course generation progress"]')).not.toBeNull();
+    const cancelButton = Array.from(container.querySelectorAll("button")).find((button) => button.textContent?.includes("Waiting"));
+    expect(cancelButton).not.toBeUndefined();
+    expect(cancelButton?.disabled).toBe(true);
+
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 550)));
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(container.textContent).toContain("Course after previous run");
+    expect(Array.from(container.querySelectorAll("button")).some((button) => button.textContent?.includes("Waiting"))).toBe(false);
     expect(container.querySelector('[aria-label="Course generation progress"]')).toBeNull();
   });
 
@@ -276,12 +335,14 @@ describe("course generation structure previews", () => {
     await act(async () => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
     expect(fetchMock).toHaveBeenCalledTimes(4);
     await clickCancel();
-    expect(fetchMock.mock.calls[3][1].signal.aborted).toBe(true);
+    expect(fetchMock.mock.calls[3][1].signal.aborted).toBe(false);
+    expect(container.querySelector('[aria-label="Course generation progress"]')).not.toBeNull();
     await act(async () => finish(jsonResponse({ status: "completed", course: draft("Cancelled source draft") })));
     expect(fetchMock).toHaveBeenCalledTimes(5);
     expect(container.textContent).not.toContain("Cancelled source draft");
     expect(container.querySelector('[aria-label="Course generation progress"]')).toBeNull();
     expect(window.localStorage.getItem("course-generation:course-1")).toBeNull();
+    expect(container.textContent).toContain("current request has finished");
   });
 
   it("does not treat an unrelated course access error as an expired job", async () => {

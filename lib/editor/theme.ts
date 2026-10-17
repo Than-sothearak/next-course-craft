@@ -11,12 +11,21 @@ export const courseThemePresetIds = [
 ] as const;
 
 const themeColorSchema = z.string().regex(/^#[\da-fA-F]{6}$/).transform((value) => value.toLowerCase());
+export const courseThemeFontFamilyIds = [
+  "sans",
+  "serif",
+  "rounded",
+  "noto-sans-khmer",
+  "battambang",
+  "kantumruy-pro",
+  "nokora",
+] as const;
 
 export const courseThemeSchema = z.object({
   preset: z.enum(courseThemePresetIds).default("ocean"),
   primaryColor: themeColorSchema.default("#2f5f9f"),
   accentColor: themeColorSchema.default("#ff876c"),
-  fontFamily: z.enum(["sans", "serif", "rounded"]).default("sans"),
+  fontFamily: z.enum(courseThemeFontFamilyIds).default("sans"),
   cover: courseCoverSchema.optional(),
 }).strict();
 
@@ -54,7 +63,11 @@ export function normalizeCourseTheme(theme: unknown): CourseTheme {
 }
 
 export const courseThemeFontFamilies: Record<CourseTheme["fontFamily"], string> = {
-  sans: "Arial, Helvetica, sans-serif",
-  serif: "Georgia, 'Times New Roman', serif",
-  rounded: "'Trebuchet MS', Arial, sans-serif",
+  sans: "Arial, Helvetica, 'Noto Sans Khmer', sans-serif",
+  serif: "Georgia, 'Nokora', 'Noto Sans Khmer', 'Times New Roman', serif",
+  rounded: "'Trebuchet MS', 'Noto Sans Khmer', Arial, sans-serif",
+  "noto-sans-khmer": "'Noto Sans Khmer', Arial, Helvetica, sans-serif",
+  battambang: "Battambang, Arial, Helvetica, sans-serif",
+  "kantumruy-pro": "'Kantumruy Pro', Arial, Helvetica, sans-serif",
+  nokora: "Nokora, Georgia, serif",
 };

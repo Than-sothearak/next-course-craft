@@ -1016,6 +1016,28 @@ describe("AI course generation contracts", () => {
     expect(learnCalls).toHaveLength(8);
     expect(learnCalls.at(-1).input[1].content[0].text).toContain("Generate only Learn content item 36-36");
     expect(learnCalls.every((call) => call.input[1].content[0].text.includes("Write learner-facing content in Khmer"))).toBe(true);
+
+    const requests = fetchMock.mock.calls.map(([, call]) => JSON.parse(call.body as string));
+    const khmerStyle = "natural, contemporary Khmer, with the clear and respectful tone a Cambodian teacher would use with learners.";
+    const learnerStages = requests.filter((request) => [
+      "course_source_plan",
+      "course_pre_activities",
+      "course_learn_content_item",
+      "course_post_activities",
+    ].includes(request.text.format.name));
+    expect(learnerStages.length).toBe(11);
+    expect(learnerStages.every((request) =>
+      request.input[1].content.map((part: { text?: string }) => part.text ?? "").join("\n").includes(khmerStyle),
+    )).toBe(true);
+    expect(learnerStages.every((request) =>
+      request.input[1].content.map((part: { text?: string }) => part.text ?? "").join("\n").includes("Avoid word-for-word translation"),
+    )).toBe(true);
+    expect(learnerStages.every((request) =>
+      request.input[1].content.map((part: { text?: string }) => part.text ?? "").join("\n").includes("write “Lab” as “Lab”"),
+    )).toBe(true);
+    expect(learnerStages.every((request) =>
+      request.input[1].content.map((part: { text?: string }) => part.text ?? "").join("\n").includes("do not translate or transliterate them into Khmer"),
+    )).toBe(true);
   });
 
   it("accepts smart topic boundaries while validating exact source-page coverage", async () => {

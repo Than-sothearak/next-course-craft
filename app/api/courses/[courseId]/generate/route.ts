@@ -5,7 +5,7 @@ import { objectIdSchema } from "@/lib/dashboard/schemas";
 import { DashboardError } from "@/lib/dashboard/rules";
 import { resolveCourseAccess } from "@/lib/workspaces/access";
 import { requireAIEnabled } from "@/lib/auth/authorization";
-import { acquireGenerationLease, releaseGenerationLease } from "@/lib/ai/generation-lease";
+import { acquireGenerationLease, getGenerationLeaseStatus, releaseGenerationLease } from "@/lib/ai/generation-lease";
 import { assertMutationOrigin } from "@/lib/auth/http-security";
 import { generationSettingsError, parseCourseGenerationForm } from "@/lib/ai/course-generation-request";
 import {
@@ -110,10 +110,13 @@ export async function POST(request: NextRequest, context: Context) {
       "analyzeSource",
       "advanceGeneration",
       "getGeneration",
+      "getGenerationLease",
       "cancelGeneration",
     ].includes(action))
       throw new DashboardError("Unsupported course generation action.", 400);
     const jobId = String(formData.get("jobId") ?? "");
+    if (action === "getGenerationLease")
+      return NextResponse.json(await getGenerationLeaseStatus(ownerId, courseId));
     if (["generate", "analyzeSource", "advanceGeneration"].includes(action)) {
       await resolveCourseAccess(userId, courseId, "ai.generate");
       await requireAIEnabled();

@@ -85,6 +85,26 @@ export function getPendingInteractiveProgressIds(
     .filter((id) => !interactedContentIds.has(id));
 }
 
+export function getRestrictedLessonProgress(
+  readingProgress: number,
+  blocks: readonly ContentBlock[],
+  interactedContentIds: ReadonlySet<string>,
+) {
+  const activityIds = blocks.flatMap((block) =>
+    getInteractiveBlockProgressIds(block),
+  );
+  if (activityIds.length === 0) return readingProgress;
+
+  const completedActivityCount = activityIds.filter((id) =>
+    interactedContentIds.has(id),
+  ).length;
+  const activityProgress = (completedActivityCount / activityIds.length) * 100;
+
+  // In restricted mode, reading and required activities each account for half
+  // of the lesson ring. Floor the result so only full completion reaches 100.
+  return Math.floor((readingProgress + activityProgress) / 2);
+}
+
 export function getPendingRequiredContinueDividerIds(
   blocks: readonly ContentBlock[],
   revealedDividerIds: ReadonlySet<string>,

@@ -54,6 +54,16 @@ describe("course cover settings", () => {
     expect(latest).toEqual(defaultCourseTheme);
   });
 
+  it("offers Khmer typefaces and previews the selected Khmer font", () => {
+    select("Course typography", "battambang");
+    expect(latest.fontFamily).toBe("battambang");
+    expect(container.querySelector('[lang="km"]')?.getAttribute("style")).toContain("Battambang");
+
+    select("Course typography", "kantumruy-pro");
+    expect(latest.fontFamily).toBe("kantumruy-pro");
+    expect(container.querySelector('[lang="km"]')?.getAttribute("style")).toContain("Kantumruy Pro");
+  });
+
   it("updates cover and text colors in the live preview", () => {
     click("Use Solid color cover");
     const changeColor = (label: string, value: string) => act(() => {
