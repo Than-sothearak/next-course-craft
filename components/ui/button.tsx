@@ -31,7 +31,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
   { className, variant, size, type = "button", ...props },
   ref,
 ) {
-  return <button ref={ref} type={type} className={cn(buttonVariants({ variant, size }), className)} {...props} />;
+  return <button ref={ref} type={type} className={cn(buttonVariants({ variant, size }), className, "cursor-pointer")} {...props} />;
 });
 
 export { buttonVariants };

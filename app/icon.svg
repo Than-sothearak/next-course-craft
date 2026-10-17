@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" shape-rendering="geometricPrecision">
+  <defs>
+    <linearGradient id="coursecraft" x1="8" y1="6" x2="56" y2="58" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6366F1" />
+      <stop offset="1" stop-color="#4338CA" />
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="17" fill="url(#coursecraft)" />
+  <path
+    d="M32 24.5c-5.5-4.2-12.4-5-20-2.3v22.1c7.2-2.4 14-.9 20 3.7 6-4.6 12.8-6.1 20-3.7V22.2c-7.6-2.7-14.5-1.9-20 2.3Z"
+    fill="none"
+    stroke="#fff"
+    stroke-linejoin="round"
+    stroke-width="2.5"
+  />
+  <path d="M32 25v22.5" stroke="#fff" stroke-linecap="round" stroke-width="2.5" />
+</svg>

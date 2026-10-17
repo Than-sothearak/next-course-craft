@@ -179,19 +179,62 @@ describe("list marker font size formatting", () => {
     expect(listItemType.spec.attrs?.fontSize).toBeDefined();
     expect(listItemType.spec.toDOM?.(listItem)).toEqual(["li", { style: "font-size: 40px" }, 0]);
   });
+
+  it("stores spacing independently on each ordered or bulleted list", () => {
+    const schema = getSchema(textEditorExtensions.filter((extension) => extension.name !== "underline"));
+    const listItem = schema.nodes.listItem.create(
+      null,
+      schema.nodes.paragraph.create(null, schema.text("A list item")),
+    );
+
+    for (const typeName of ["bulletList", "orderedList"]) {
+      const listType = schema.nodes[typeName];
+      const list = listType.create({ itemSpacing: "spacious" }, listItem);
+
+      expect(listType.spec.attrs?.itemSpacing).toBeDefined();
+      expect(list.attrs.itemSpacing).toBe("spacious");
+      expect(listType.spec.toDOM?.(list)).toMatchObject([
+        typeName === "bulletList" ? "ul" : "ol",
+        { "data-item-spacing": "spacious" },
+        0,
+      ]);
+    }
+  });
+
+  it("stores a separate marker style on nested bullet and ordered lists", () => {
+    const schema = getSchema(textEditorExtensions.filter((extension) => extension.name !== "underline"));
+    const listItem = schema.nodes.listItem.create(
+      null,
+      schema.nodes.paragraph.create(null, schema.text("A nested list item")),
+    );
+    const bulletList = schema.nodes.bulletList.create({ listStyle: "circle" }, listItem);
+    const orderedList = schema.nodes.orderedList.create({ listStyle: "lower-alpha" }, listItem);
+
+    expect(schema.nodes.bulletList.spec.attrs?.listStyle).toBeDefined();
+    expect(schema.nodes.bulletList.spec.toDOM?.(bulletList)).toMatchObject([
+      "ul",
+      { "data-list-style": "circle" },
+      0,
+    ]);
+    expect(schema.nodes.orderedList.spec.toDOM?.(orderedList)).toMatchObject([
+      "ol",
+      { "data-list-style": "lower-alpha" },
+      0,
+    ]);
+  });
 });
 
 describe("content block dimensions", () => {
-  it("defaults heading and text blocks to medium width with 20px padding", () => {
+  it("defaults heading and text blocks to medium width with 40px padding", () => {
     const heading = blockSchema.parse({ id: "heading-a", version: 1, type: "heading", data: { text: "Title", level: 1 } });
     const richText = blockSchema.parse({ id: "text-a", version: 1, type: "richText", data: { html: "<p>Text</p>" } });
 
-    expect(heading).toMatchObject({ width: "medium", widthCustom: false, blockPadding: 20 });
-    expect(richText).toMatchObject({ width: "medium", widthCustom: false, blockPadding: 20 });
+    expect(heading).toMatchObject({ width: "medium", widthCustom: false, blockPadding: 40 });
+    expect(richText).toMatchObject({ width: "medium", widthCustom: false, blockPadding: 40 });
     expect(defaultBlockWidth("heading")).toBe("medium");
     expect(defaultBlockWidth("richText")).toBe("medium");
-    expect(defaultBlockPadding("heading")).toBe(20);
-    expect(defaultBlockPadding("richText")).toBe(20);
+    expect(defaultBlockPadding("heading")).toBe(40);
+    expect(defaultBlockPadding("richText")).toBe(40);
   });
 
   it("accepts pixel padding and migrates legacy spacing values", () => {
@@ -221,8 +264,8 @@ describe("content block dimensions", () => {
         }],
       },
     });
-    expect(image).toMatchObject({ width: "small", blockPadding: 20 });
-    expect(flipCard).toMatchObject({ width: "full", blockPadding: 20 });
+    expect(image).toMatchObject({ width: "small", blockPadding: 40 });
+    expect(flipCard).toMatchObject({ width: "full", blockPadding: 40 });
     expect(defaultBlockWidth("flipCard")).toBe("full");
   });
 });

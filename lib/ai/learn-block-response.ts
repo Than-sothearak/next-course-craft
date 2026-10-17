@@ -11,6 +11,7 @@ const fieldsByType = {
   image: ["imagePrompt", "imageAlt", "imageLayout", "imageTitle", "imageBody"],
   gallery: ["galleryImages"],
   video: ["videoSrc", "videoMimeType", "videoCaptions"],
+  link: ["linkUrl", "linkLabel", "linkDescription"],
   divider: ["dividerStyle", "dividerLabel", "dividerCompletionType"],
   knowledgeCheck: ["question", "options", "correctOptionIndex", "correctFeedback", "incorrectFeedback"],
   survey: ["question", "minLabel", "maxLabel"],

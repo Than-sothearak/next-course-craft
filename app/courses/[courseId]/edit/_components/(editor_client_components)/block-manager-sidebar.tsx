@@ -28,6 +28,7 @@ function blockTypeLabel(block: ContentBlock) {
     if (/<pre\b/i.test(block.data.html)) return "Code";
     return "Text";
   }
+  if (block.type === "link") return "Link";
   if (block.type === "statement") return "Statement";
   if (block.type === "image") return "Image";
   if (block.type === "gallery") return "Image gallery";
@@ -35,8 +36,9 @@ function blockTypeLabel(block: ContentBlock) {
   if (block.type === "divider") return "Divider";
   if (block.type === "flipCard") return "Flashcards";
   if (block.type === "accordion") return block.data.layout === "tabs" ? "Tabs" : "Accordion";
-  if (block.type === "labeledGraphic") return "Labeled graphic";
+  if (block.type === "labeledGraphic") return block.data.interactionMode === "spotTarget" ? "Mini-game" : "Labeled graphic";
   if (block.type === "processSteps") return "Process steps";
+  if (block.type === "lessonMap") return "Lesson Map";
   if (block.type === "chart") return "Chart";
   if (block.type === "knowledgeCheck") return "Knowledge check";
   return "Survey";
@@ -53,6 +55,7 @@ function blockTitle(block: ContentBlock) {
       .trim();
     return text.slice(0, 72) || blockTypeLabel(block);
   }
+  if (block.type === "link") return block.data.label.trim() || "Link";
   if (block.type === "statement") return block.data.title.trim() || "Statement";
   if (block.type === "image")
     return block.data.title?.trim() || block.data.caption?.trim() || block.data.alt.trim() || "Image";
@@ -65,8 +68,12 @@ function blockTitle(block: ContentBlock) {
     return front?.type === "text" ? front.text.trim() || "Flip card" : front?.alt.trim() || "Flip card";
   }
   if (block.type === "accordion") return block.data.items[0]?.title.trim() || "Reveal sections";
-  if (block.type === "labeledGraphic") return `${block.data.markers.length} labeled marker${block.data.markers.length === 1 ? "" : "s"}`;
+  if (block.type === "labeledGraphic") {
+    if (block.data.interactionMode === "spotTarget") return block.data.challengePrompt?.trim() || "Spot the clue";
+    return `${block.data.markers.length} labeled marker${block.data.markers.length === 1 ? "" : "s"}`;
+  }
   if (block.type === "processSteps") return block.data.steps[0]?.title.trim() || "Process steps";
+  if (block.type === "lessonMap") return `${block.data.checkpoints.length} map checkpoint${block.data.checkpoints.length === 1 ? "" : "s"}`;
   if (block.type === "chart") return block.data.title.trim() || "Chart";
   if (block.type === "knowledgeCheck") return block.data.question.trim() || "Knowledge check";
   return block.data.question.trim() || "Survey";
@@ -110,7 +117,7 @@ export function BlockManagerSidebar({
         type="button"
         aria-label="Close block manager"
         onClick={onClose}
-        className="absolute inset-0 bg-slate-950/20 lg:bg-transparent"
+        className="cursor-pointer absolute inset-0 bg-slate-950/20 lg:bg-transparent"
       />
       <aside
         id="lesson-block-manager"

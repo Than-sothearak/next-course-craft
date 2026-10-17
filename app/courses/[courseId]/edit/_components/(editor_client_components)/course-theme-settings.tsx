@@ -60,7 +60,7 @@ export function CourseThemeSettings({
                 aria-label={`Use ${preset.label} theme`}
                 aria-pressed={theme.preset === preset.id}
                 onClick={() => onChange({ ...createCourseThemePreset(preset.id), fontFamily: theme.fontFamily, cover: theme.cover })}
-                className={`flex min-w-0 flex-col items-center gap-1.5 rounded-lg border p-2 text-[10px] font-medium transition-colors ${theme.preset === preset.id ? "border-slate-900 bg-slate-50 text-slate-900" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}
+                className={`cursor-pointer flex min-w-0 flex-col items-center gap-1.5 rounded-lg border p-2 text-[10px] font-medium transition-colors ${theme.preset === preset.id ? "border-slate-900 bg-slate-50 text-slate-900" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}
               >
                 <span className="relative grid size-7 place-items-center rounded-full" style={{ backgroundColor: preset.primaryColor }}>
                   {theme.preset === preset.id && <Check size={14} className="text-white drop-shadow" />}

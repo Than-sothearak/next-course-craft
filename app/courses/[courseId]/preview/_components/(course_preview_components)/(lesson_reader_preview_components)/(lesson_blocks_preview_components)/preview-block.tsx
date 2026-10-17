@@ -3,12 +3,14 @@
 import type { ReactNode } from "react";
 import { CirclePlay } from "lucide-react";
 import { PreviewImage } from "../../../../preview-image";
+import { CourseLinkBlock } from "@/components/course-link-block";
 import { InteractiveAccordion, InteractiveFlipCard, InteractiveKnowledgeCheck, InteractiveLabeledGraphic, InteractiveProcessSteps, InteractiveSurvey } from "../../../../interactive-blocks";
 import type { ContentBlock } from "@/lib/schemas/block";
 import { ImageBlockLayout } from "../../../../../edit/_components/image-block-layout";
 import { StatementBlockPreview } from "../../../../../edit/_components/statement-block-preview";
 import { StatementTextPreview } from "../../../../../edit/_components/statement-text-preview";
 import { ChartBlockPreview } from "../../../../chart-block";
+import { InteractiveLessonMap } from "@/components/lesson-map";
 import { getInteractiveItemProgressId } from "@/lib/export/progress";
 import { blockSurfaceStyle, blockWidthClass } from "../../preview-utils";
 import type { PreviewDevice, PreviewOrientation } from "../../preview-types";
@@ -19,6 +21,11 @@ export function PreviewBlock({
   animateListItems = false,
   interactedContentIds,
   onInteractiveProgress,
+  lessons = [],
+  visitedLessonIds = new Set(),
+  passedQuizIds = new Set(),
+  getLessonNavigationLockMessage = () => null,
+  onOpenLesson = () => {},
 }: {
   block: ContentBlock;
   device: PreviewDevice;
@@ -26,6 +33,11 @@ export function PreviewBlock({
   animateListItems?: boolean;
   interactedContentIds?: ReadonlySet<string>;
   onInteractiveProgress?: (progressId: string) => void;
+  lessons?: { id: string; title: string; sectionId: string; order: number; lessonType?: "content" | "quiz" }[];
+  visitedLessonIds?: ReadonlySet<string>;
+  passedQuizIds?: ReadonlySet<string>;
+  getLessonNavigationLockMessage?: (lessonId: string) => string | null;
+  onOpenLesson?: (lessonId: string) => void;
 }) {
   const widthClass = blockWidthClass(block);
   const style = blockSurfaceStyle(block);
@@ -72,6 +84,8 @@ export function PreviewBlock({
         className={`prose max-w-none ${compactText ? "text-sm leading-6" : "text-base leading-7"} [&_p]:my-3 [&_h1]:my-5 [&_h2]:my-4 [&_h3]:my-3 ${animateListItems ? "lesson-list-enter" : ""}`}
       />
     );
+  } else if (block.type === "link") {
+    content = <CourseLinkBlock data={block.data} />;
   } else if (block.type === "statement") {
     content = (
       <StatementBlockPreview
@@ -158,6 +172,10 @@ export function PreviewBlock({
       <InteractiveFlipCard
         blockId={block.id}
         cards={block.data.cards}
+        cardsPerRow={block.data.cardsPerRow}
+        cardStyle={block.data.cardStyle}
+        cardBackgroundColor={block.data.cardBackgroundColor}
+        cardTextColor={block.data.cardTextColor}
         interactedCardIds={interactedContentIds}
         onCardReveal={onInteractiveProgress}
       />
@@ -179,6 +197,7 @@ export function PreviewBlock({
   } else if (block.type === "labeledGraphic") {
     content = (
       <InteractiveLabeledGraphic
+        key={`${block.id}:${block.data.sceneTheme ?? ""}:${block.data.challengePrompt ?? ""}`}
         blockId={block.id}
         src={block.data.src}
         alt={block.data.alt}
@@ -186,11 +205,26 @@ export function PreviewBlock({
         markerColor={block.data.markerColor}
         textColor={block.data.textColor}
         radarColor={block.data.radarColor}
+        interactionMode={block.data.interactionMode}
+        sceneTheme={block.data.sceneTheme}
+        challengePrompt={block.data.challengePrompt}
+        successMessage={block.data.successMessage}
         onMarkerInteract={(markerId) =>
           onInteractiveProgress?.(
             getInteractiveItemProgressId(block.id, "marker", markerId),
           )
         }
+      />
+    );
+  } else if (block.type === "lessonMap") {
+    content = (
+      <InteractiveLessonMap
+        block={block}
+        lessons={lessons}
+        visitedLessonIds={visitedLessonIds}
+        passedQuizIds={passedQuizIds}
+        getLessonNavigationLockMessage={getLessonNavigationLockMessage}
+        onOpenLesson={onOpenLesson}
       />
     );
   } else if (block.type === "processSteps") {

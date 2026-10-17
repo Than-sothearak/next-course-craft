@@ -111,7 +111,7 @@ export function BlockFormatMenu({ block, onChange }: { block: ContentBlock; onCh
             }} onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); }} className="h-9 w-24 font-mono text-xs uppercase" />
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5" aria-label="Background color presets">
-            {backgroundColors.map((color) => <button key={color} type="button" aria-label={`Set background ${color}`} title={color} onClick={() => onChange({ ...block, backgroundColor: color })} className={`size-6 rounded-md border ${block.backgroundColor.toLowerCase() === color ? "border-indigo-600 ring-1 ring-indigo-500" : "border-slate-200"}`} style={{ backgroundColor: color }} />)}
+            {backgroundColors.map((color) => <button key={color} type="button" aria-label={`Set background ${color}`} title={color} onClick={() => onChange({ ...block, backgroundColor: color })} className={`cursor-pointer size-6 rounded-md border ${block.backgroundColor.toLowerCase() === color ? "border-indigo-600 ring-1 ring-indigo-500" : "border-slate-200"}`} style={{ backgroundColor: color }} />)}
           </div>
           <p className="mt-1 text-[11px] text-slate-500">Text color adjusts for contrast.</p>
         </div>

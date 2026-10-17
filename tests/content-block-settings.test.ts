@@ -24,7 +24,7 @@ const blocks: ContentBlock[] = [
   { ...blockDefaults, id: "divider", type: "divider", data: { style: "line", label: "Continue", completionType: "none" } },
   { ...blockDefaults, id: "knowledge", type: "knowledgeCheck", data: { question: "Question?", options: ["Yes", "No"], correctOptionIndex: 0, correctFeedback: "Correct", incorrectFeedback: "Try again" } },
   { ...blockDefaults, id: "survey", type: "survey", data: { question: "How was it?", minLabel: "Low", maxLabel: "High" } },
-  { ...blockDefaults, id: "flip-card", type: "flipCard", data: { cards: [{ id: "card-a", frontLabel: "Question", front: { type: "text", text: "Prompt" }, backLabel: "Answer", back: { type: "text", text: "Explanation" } }] } },
+  { ...blockDefaults, id: "flip-card", type: "flipCard", data: { cardsPerRow: 3, cardStyle: "classic", cardBackgroundColor: "#ffffff", cardTextColor: "#0f172a", cards: [{ id: "card-a", frontLabel: "Question", front: { type: "text", text: "Prompt" }, backLabel: "Answer", back: { type: "text", text: "Explanation" } }] } },
   { ...blockDefaults, id: "accordion", type: "accordion", data: { layout: "accordion", displayMode: "oneByOne", items: [{ id: "item-a", title: "First section", body: "First explanation" }, { id: "item-b", title: "Second section", body: "Second explanation" }] } },
   { ...blockDefaults, id: "labeled-graphic", type: "labeledGraphic", data: { src: "https://example.com/diagram.png", alt: "Diagram", markers: [{ id: "marker-a", label: "Part one", description: "Explanation", x: 30, y: 40 }] } },
   { ...blockDefaults, id: "process-steps", type: "processSteps", data: { steps: [{ id: "step-a", title: "First", body: "Do this" }, { id: "step-b", title: "Second", body: "Then this" }] } },
@@ -139,6 +139,29 @@ describe("content block settings access", () => {
     expect(document.querySelector('[aria-label="Card 1 front text"]')).not.toBeNull();
     expect(document.querySelector('[aria-label="Card 1 back label"]')).not.toBeNull();
     expect(document.querySelector('[aria-label="Card 1 back text"]')).not.toBeNull();
+    const cardsPerRow = document.querySelector<HTMLSelectElement>('[aria-label="Cards per row"]')!;
+    expect([...cardsPerRow.options].map((option) => option.value)).toEqual(["1", "2", "3", "4", "5"]);
+    const cardStyle = document.querySelector<HTMLSelectElement>('[aria-label="Card style"]')!;
+    expect([...cardStyle.options].map((option) => option.value)).toEqual(["classic", "soft", "outlined", "elevated"]);
+    act(() => {
+      cardsPerRow.value = "5";
+      cardsPerRow.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    expect(onChange.mock.lastCall?.[0]).toMatchObject({ data: { cardsPerRow: 5 } });
+    const updatedBlock = onChange.mock.lastCall?.[0];
+    if (!updatedBlock || updatedBlock.type !== "flipCard") throw new Error("Expected an updated flip card block");
+    act(() => root.render(createElement(ContentBlockEditor, {
+      block: updatedBlock,
+      courseId: "course-1",
+      onChange,
+    })));
+    const backgroundColor = document.querySelector<HTMLInputElement>('[aria-label="Card background color"]')!;
+    act(() => {
+      const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+      valueSetter?.call(backgroundColor, "#123456");
+      backgroundColor.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    expect(onChange.mock.lastCall?.[0]).toMatchObject({ data: { cardsPerRow: 5, cardBackgroundColor: "#123456" } });
     const addCardButton = [...document.querySelectorAll("button")].find((button) => button.textContent?.includes("Add card"));
     expect(addCardButton).toBeDefined();
     act(() => addCardButton!.click());
@@ -233,6 +256,27 @@ describe("content block settings access", () => {
     act(() => addMarker?.click());
     expect(graphicChange.mock.lastCall?.[0].data.markers).toHaveLength(2);
     expect(graphicChange.mock.lastCall?.[0].data.markers[1]).toMatchObject({ x: 50, y: 50 });
+    const graphicAfterAdd = graphicChange.mock.lastCall?.[0];
+    if (!graphicAfterAdd || graphicAfterAdd.type !== "labeledGraphic") throw new Error("Expected an updated labeled graphic");
+    act(() => root.render(createElement(ContentBlockEditor, {
+      block: graphicAfterAdd,
+      courseId: "course-1",
+      onChange: graphicChange,
+    })));
+    const interactionMode = document.querySelector<HTMLSelectElement>('[aria-label="Graphic interaction mode"]')!;
+    act(() => {
+      interactionMode.value = "spotTarget";
+      interactionMode.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    expect(graphicChange.mock.lastCall?.[0]).toMatchObject({
+      type: "labeledGraphic",
+      data: {
+        interactionMode: "spotTarget",
+        sceneTheme: "data",
+        challengePrompt: "Find the clue in the scene.",
+        markers: [{ isTarget: true }, { isTarget: false }],
+      },
+    });
 
     const stepsChange = vi.fn();
     act(() => root.render(createElement(ContentBlockEditor, {

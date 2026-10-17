@@ -107,6 +107,10 @@ describe("standalone learner progress", () => {
         backgroundColor: "#ffffff",
         blockPadding: 20,
         data: {
+          cardsPerRow: 3,
+          cardStyle: "classic",
+          cardBackgroundColor: "#ffffff",
+          cardTextColor: "#0f172a",
           cards: [
             { id: "one", frontLabel: "Question", front: { type: "text", text: "A" }, backLabel: "Answer", back: { type: "text", text: "A" } },
             { id: "two", frontLabel: "Question", front: { type: "text", text: "B" }, backLabel: "Answer", back: { type: "text", text: "B" } },

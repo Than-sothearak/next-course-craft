@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlignLeft, BarChart3, CheckCircle2, Code2, FilePlus2, Image as ImageIcon, Images, List, Minus, Quote, RotateCcw, Type, Video, X } from "lucide-react";
+import { AlignLeft, BarChart3, CheckCircle2, Code2, FilePlus2, Image as ImageIcon, Images, Link2, List, Minus, Quote, RotateCcw, Type, Video, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { blockCategories, blockTemplates, type BlockCategory, type BlockTemplate } from "./(block_template_picker_components)/block-template-data";
 import { TemplatePreview } from "./(block_template_picker_components)/template-preview";
 
 const categoryIcons = {
   Text: Type,
+  Link: Link2,
   Statement: AlignLeft,
   Quote,
   List,
@@ -98,7 +99,7 @@ export function BlockTemplatePicker({
                   key={item}
                   type="button"
                   onClick={() => setCategory(item)}
-                  className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors sm:w-full ${category === item ? "bg-indigo-50 font-semibold text-indigo-700" : "text-slate-600 hover:bg-slate-50"}`}
+                  className={`cursor-pointer flex shrink-0 whitespace-nowrap items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors sm:w-full ${category === item ? "bg-indigo-50 font-semibold text-indigo-700" : "text-slate-600 hover:bg-slate-50"}`}
                 >
                   <Icon size={16} />
                   {item}
@@ -116,7 +117,7 @@ export function BlockTemplatePicker({
                   key={template.id}
                   type="button"
                   onClick={() => onSelect(template)}
-                  className="group overflow-hidden rounded-xl border border-slate-200 text-left transition hover:border-indigo-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                  className="cursor-pointer group overflow-hidden rounded-xl border border-slate-200 text-left transition hover:border-indigo-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
                 >
                   <div className="m-2 grid min-h-36 place-items-center rounded-lg bg-slate-50 p-4">
                     <div className="w-full max-w-52">

@@ -153,7 +153,7 @@ export function LessonMenu({
                       return next;
                     })
                   }
-                  className="flex w-full items-center justify-between gap-2 text-left"
+                  className="cursor-pointer flex w-full items-center justify-between gap-2 text-left"
                 >
                   <span className="min-w-0 truncate">{section.title}</span>
                   <span className="flex shrink-0 items-center gap-2">
@@ -197,7 +197,7 @@ export function LessonMenu({
                         aria-current={active ? "page" : undefined}
                         aria-label={`${lesson.title}${lockMessage ? `. Locked. ${lockMessage}` : ""}`}
                         title={lockMessage ?? undefined}
-                        className={`flex min-h-20 w-full items-start gap-2.5 px-4 py-4 text-left ${locked ? "cursor-not-allowed opacity-50" : active ? "" : "hover:bg-slate-50"}`}
+                        className={`cursor-pointer flex min-h-20 w-full items-start gap-2.5 px-4 py-4 text-left ${locked ? "cursor-not-allowed opacity-50" : active ? "" : "hover:bg-slate-50"}`}
                         style={active ? { backgroundColor: "color-mix(in srgb, var(--course-primary) 10%, white)" } : undefined}
                       >
                         <Icon

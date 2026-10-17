@@ -77,6 +77,9 @@ function block(type: GenerationBlockType = "text"): {
   videoSrc: string;
   videoMimeType: "" | "video/mp4" | "video/webm";
   videoCaptions: string;
+  linkUrl: string;
+  linkLabel: string;
+  linkDescription: string;
   dividerStyle: "line" | "space" | "continue";
   dividerLabel: string;
   dividerCompletionType: "none" | "completeAbove";
@@ -117,6 +120,9 @@ function block(type: GenerationBlockType = "text"): {
     videoSrc: "",
     videoMimeType: "",
     videoCaptions: "",
+    linkUrl: "",
+    linkLabel: "",
+    linkDescription: "",
     dividerStyle: "continue",
     dividerLabel: "Continue",
     dividerCompletionType: "none",
@@ -1662,6 +1668,7 @@ describe("AI course generation contracts", () => {
       { ...block("survey"), question: "How confident are you?" },
       { ...block("gallery"), galleryImages: [{ src: "https://example.test/slide.png", alt: "A source slide illustration" }] },
       { ...block("video"), videoSrc: "https://media.example.test/lesson.mp4", videoMimeType: "video/mp4" as const },
+      { ...block("link"), title: "Read the handbook", linkUrl: "https://example.test/handbook", linkLabel: "Open handbook", linkDescription: "Read the support handbook." },
       { ...block("chart"), title: "Requests by category", chartFields: [{ label: "Billing", value: 6 }, { label: "Access", value: 4 }] },
     ];
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(providerResponse(outputBlocks)));
@@ -1674,11 +1681,13 @@ describe("AI course generation contracts", () => {
 
     expect(course.lessons[0].blocks.slice(1).map((item) => item.type)).toEqual([
       "heading", "richText", "statement", "knowledgeCheck", "processSteps",
-      "flipCard", "accordion", "divider", "survey", "gallery", "video", "chart",
+      "flipCard", "accordion", "divider", "survey", "gallery", "video", "link", "chart",
     ]);
-    expect(lessonContentSchema.parse({ schemaVersion: 1, blocks: course.lessons[0].blocks }).blocks).toHaveLength(13);
+    expect(lessonContentSchema.parse({ schemaVersion: 1, blocks: course.lessons[0].blocks }).blocks).toHaveLength(14);
     const tabs = course.lessons[0].blocks[7];
     expect(tabs.type === "accordion" && tabs.data).toMatchObject({ layout: "tabs", displayMode: "all" });
+    const link = course.lessons[0].blocks[12];
+    expect(link.type === "link" && link.data).toMatchObject({ url: "https://example.test/handbook", label: "Open handbook", description: "Read the support handbook." });
   });
 
   it("adds Khmer Continue controls after long content and localizes the Pre / Learn / Post template", async () => {

@@ -17,6 +17,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
+  vi.restoreAllMocks();
 });
 
 describe("interactive knowledge check", () => {
@@ -47,6 +48,66 @@ describe("interactive knowledge check", () => {
     act(() => checkButton.click());
     expect(container.querySelector('[role="status"]')?.textContent).toBe("That is right.");
     expect(onAnswerChecked).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("graphic hotspot mini-game", () => {
+  it("gives retry feedback, scores a correct hotspot, and lets learners replay", () => {
+    const markers = [
+      { id: "nearby", label: "Nearby point", description: "This point follows the trend.", x: 48, y: 61, isTarget: false, missFeedback: "That point follows the trend. Try another hotspot." },
+      { id: "outlier", label: "Outlier", description: "This point sits outside the main cluster.", x: 78, y: 45, isTarget: true },
+      { id: "cluster", label: "Cluster point", description: "This point sits near the main cluster.", x: 63, y: 58, isTarget: false },
+    ];
+    act(() => root.render(createElement(InteractiveLabeledGraphic, {
+      blockId: "data-detective",
+      src: "",
+      alt: "Analytics dashboard with one isolated point in a scatter plot.",
+      markers,
+      interactionMode: "spotTarget",
+      sceneTheme: "data",
+      challengePrompt: "Find the point that breaks the pattern.",
+      successMessage: "Signal found! Check the source before explaining it.",
+    })));
+
+    expect(container.querySelector('[data-scene-theme="data"]')).not.toBeNull();
+    expect(container.textContent).toContain("Find the point that breaks the pattern.");
+    const hotspots = container.querySelectorAll<HTMLButtonElement>('button[aria-label^="Inspect hotspot"]');
+    expect(hotspots).toHaveLength(3);
+
+    act(() => hotspots[0].click());
+    expect(container.querySelector('[role="status"]')?.textContent).toBe("That point follows the trend. Try another hotspot.");
+    expect(container.textContent).toContain("1 scan");
+
+    act(() => hotspots[1].click());
+    expect(container.querySelector('[role="status"]')?.textContent).toBe("Signal found! Check the source before explaining it.");
+    expect(container.textContent).toContain("85");
+    expect(container.querySelector<HTMLButtonElement>('button[aria-label="Play again"]')).not.toBeNull();
+
+    act(() => container.querySelector<HTMLButtonElement>('button[aria-label="Play again"]')?.click());
+    expect(container.querySelector('[role="status"]')?.textContent).toBe("Tap a hotspot in the scene to investigate it.");
+    expect(container.textContent).toContain("0 scans");
+  });
+});
+
+describe("themed explore graphic", () => {
+  it("renders a local network scene with a bounded canvas and accessible description", () => {
+    act(() => root.render(createElement(InteractiveLabeledGraphic, {
+      blockId: "network-explore",
+      src: "",
+      alt: "Network diagram with a client, router, access point, and service.",
+      markers: [
+        { id: "client", label: "Client", description: "The client starts a request.", x: 19, y: 53 },
+        { id: "router", label: "Router", description: "The router forwards packets.", x: 39, y: 43 },
+      ],
+      interactionMode: "explore",
+      sceneTheme: "network",
+    })));
+
+    const canvas = container.querySelector<HTMLElement>("[data-testid='labeled-graphic-canvas']");
+    expect(container.querySelector('[data-scene-theme="network"]')).not.toBeNull();
+    expect(canvas?.className).toContain("aspect-video");
+    expect(container.textContent).toContain("Network diagram with a client, router, access point, and service.");
+    expect(container.querySelectorAll(".labeled-graphic-radar")).toHaveLength(2);
   });
 });
 
@@ -118,6 +179,32 @@ describe("interactive flip card", () => {
     act(() => container.querySelector<HTMLButtonElement>("button")!.click());
     expect(faces[1].getAttribute("aria-hidden")).toBe("false");
     expect(faces[1].textContent).toContain(longText);
+  });
+
+  it("applies the selected maximum columns, card style, and colors", () => {
+    act(() => root.render(createElement(InteractiveFlipCard, {
+      blockId: "styled-cards",
+      cards: Array.from({ length: 5 }, (_, index) => ({
+        id: `card-${index}`,
+        frontLabel: "Question",
+        front: { type: "text" as const, text: `Prompt ${index + 1}` },
+        backLabel: "Answer",
+        back: { type: "text" as const, text: `Answer ${index + 1}` },
+      })),
+      cardsPerRow: 5,
+      cardStyle: "outlined",
+      cardBackgroundColor: "#fef3c7",
+      cardTextColor: "#1f2937",
+    })));
+
+    const grid = container.firstElementChild?.firstElementChild;
+    expect(grid?.className).toContain("@min-[64rem]/flip-cards:grid-cols-5");
+    const flipButton = container.querySelector<HTMLButtonElement>("button")!;
+    expect(flipButton.className).toContain("rounded-xl");
+    const face = container.querySelector<HTMLElement>('span[aria-hidden="false"]')!;
+    expect(face.style.backgroundColor).toBe("rgb(254, 243, 199)");
+    expect(face.style.color).toBe("rgb(31, 41, 55)");
+    expect(face.style.borderWidth).toBe("2px");
   });
 
   it("also gives single image cards a responsive container", () => {
@@ -217,10 +304,52 @@ describe("interactive reveal blocks", () => {
     ]);
     expect(markerButtons[0].style.color).toBe("rgb(254, 243, 199)");
     expect(markerButtons[0].style.getPropertyValue("--radar-color")).toBe("#f97316");
+    const canvas = container.querySelector<HTMLDivElement>("[data-testid='labeled-graphic-canvas']")!;
+    vi.spyOn(canvas, "getBoundingClientRect").mockReturnValue({
+      x: 0,
+      y: 0,
+      left: 0,
+      top: 0,
+      right: 320,
+      bottom: 240,
+      width: 320,
+      height: 240,
+      toJSON: () => ({}),
+    });
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (this: HTMLElement) {
+      if (this.classList.contains("labeled-graphic-popover")) {
+        return {
+          x: 0,
+          y: 0,
+          left: 0,
+          top: 0,
+          right: 272,
+          bottom: 100,
+          width: 272,
+          height: 100,
+          toJSON: () => ({}),
+        };
+      }
+      return {
+        x: 0,
+        y: 0,
+        left: 0,
+        top: 0,
+        right: 0,
+        bottom: 0,
+        width: 0,
+        height: 0,
+        toJSON: () => ({}),
+      };
+    });
     act(() => container.querySelector<HTMLButtonElement>('[aria-label="Output: show explanation"]')!.click());
     expect(onMarkerInteract).toHaveBeenCalledWith("marker-two");
     expect(container.textContent).toContain("The result appears here.");
-    expect(container.querySelector(".labeled-graphic-popover")).not.toBeNull();
+    const popup = container.querySelector<HTMLElement>(".labeled-graphic-popover");
+    expect(popup).not.toBeNull();
+    expect(popup?.style.left).toBe("8px");
+    expect(popup?.style.top).toBe("56px");
+    expect(popup?.style.transform).toBe("");
     act(() => {
       container.querySelector('[role="group"]')!.dispatchEvent(
         new MouseEvent("click", { bubbles: true }),

@@ -114,6 +114,20 @@ describe("preview links to the exact editor block", () => {
     }
   });
 
+  it("returns to the course overview from the first lesson's Previous control", async () => {
+    await act(async () => root.render(createElement(CoursePreviewRoute, { canEdit: true, initialData, authorName: "Author", initialLessonId: "lesson-1" })));
+    const previousButton = container.querySelector<HTMLButtonElement>('nav[aria-label="Previous section from content 1"] button')!;
+
+    expect(previousButton.disabled).toBe(false);
+    expect(previousButton.textContent).toContain("Preview course");
+    act(() => previousButton.click());
+
+    const previewModeButton = Array.from(container.querySelectorAll<HTMLButtonElement>("header button"))
+      .find((button) => button.textContent?.trim() === "Preview course");
+    expect(previewModeButton?.getAttribute("aria-pressed")).toBe("true");
+    expect(container.querySelector('[aria-label="Course cover"]')).not.toBeNull();
+  });
+
   it("keeps course overview Edit pointing to the course editor", async () => {
     await act(async () => root.render(createElement(CoursePreviewRoute, { canEdit: true, initialData, authorName: "Author" })));
     const edit = Array.from(container.querySelectorAll<HTMLButtonElement>("header button")).find((button) => button.textContent?.trim() === "Edit")!;

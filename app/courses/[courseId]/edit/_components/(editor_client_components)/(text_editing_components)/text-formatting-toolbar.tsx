@@ -28,6 +28,7 @@ import { normalizeFontSize, normalizeHexColor } from "@/lib/editor/text-format";
 import { FontSizeControl } from "./(text_formatting_toolbar_components)/font-size-control";
 import { TextColorControl } from "./(text_formatting_toolbar_components)/text-color-control";
 import { ToolbarButton } from "./(text_formatting_toolbar_components)/toolbar-button";
+import { LinkControl } from "./(text_formatting_toolbar_components)/link-control";
 import { setInlineStyle } from "./(text_formatting_toolbar_components)/text-formatting-commands";
 import { StyledCodeBlock } from "./(text_formatting_toolbar_components)/styled-code-block";
 
@@ -115,13 +116,60 @@ const ListMarkerFormatting = Extension.create({
       types: ["bulletList"],
       attributes: {
         listStyle: {
-          default: "disc",
+          default: null,
           parseHTML: (element: HTMLElement) => {
             const value = element.getAttribute("data-list-style");
-            return ["disc", "circle", "square", "dash", "check"].includes(value ?? "") ? value : "disc";
+            return ["disc", "circle", "square", "dash", "check"].includes(value ?? "") ? value : null;
+          },
+          renderHTML: (attributes) => ["disc", "circle", "square", "dash", "check"].includes(String(attributes.listStyle))
+            ? { "data-list-style": attributes.listStyle }
+            : {},
+        },
+      },
+    }, {
+      types: ["orderedList"],
+      attributes: {
+        listStyle: {
+          default: null,
+          parseHTML: (element: HTMLElement) => {
+            const value = element.getAttribute("data-list-style");
+            const validValue = ["decimal", "lower-alpha", "upper-alpha", "lower-roman", "upper-roman"];
+            if (validValue.includes(value ?? "")) return value;
+            const legacyType = element.getAttribute("type");
+            return legacyType === "a" ? "lower-alpha"
+              : legacyType === "A" ? "upper-alpha"
+                : legacyType === "i" ? "lower-roman"
+                  : legacyType === "I" ? "upper-roman"
+                    : null;
+          },
+          renderHTML: (attributes) => ["decimal", "lower-alpha", "upper-alpha", "lower-roman", "upper-roman"].includes(String(attributes.listStyle))
+            ? { "data-list-style": attributes.listStyle }
+            : {},
+        },
+      },
+    }];
+  },
+});
+
+const ListSpacingFormatting = Extension.create({
+  name: "listSpacingFormatting",
+  addGlobalAttributes() {
+    return [{
+      types: ["bulletList", "orderedList"],
+      attributes: {
+        itemSpacing: {
+          default: "comfortable",
+          parseHTML: (element: HTMLElement) => {
+            const value = element.getAttribute("data-item-spacing");
+            return ["compact", "comfortable", "spacious"].includes(value ?? "")
+              ? value
+              : "comfortable";
           },
           renderHTML: (attributes) => ({
-            "data-list-style": ["disc", "circle", "square", "dash", "check"].includes(String(attributes.listStyle)) ? attributes.listStyle : "disc",
+            "data-item-spacing": ["compact", "comfortable", "spacious"].includes(String(attributes.itemSpacing))
+              ? attributes.itemSpacing
+              : "comfortable",
+            role: "list",
           }),
         },
       },
@@ -183,7 +231,13 @@ const CourseOverviewCell = Node.create({
 });
 
 const sharedTextExtensions = [
-  StarterKit.configure({ document: false, codeBlock: false, underline: false, heading: { levels: [1, 2, 3] } }),
+  StarterKit.configure({
+    document: false,
+    codeBlock: false,
+    underline: false,
+    heading: { levels: [1, 2, 3] },
+    link: { openOnClick: false, HTMLAttributes: { target: "_blank", rel: "noopener noreferrer nofollow" } },
+  }),
   StyledCodeBlock,
   CourseOverviewTable,
   CourseOverviewRow,
@@ -193,7 +247,22 @@ const sharedTextExtensions = [
   InlineStyle,
   ParagraphFormatting,
   ListMarkerFormatting,
+  ListSpacingFormatting,
 ];
+
+function getListContext(editor: Editor) {
+  const { $from } = editor.state.selection;
+  let activeListType: "bulletList" | "orderedList" | null = null;
+  let listDepth = 0;
+  for (let depth = $from.depth; depth > 0; depth -= 1) {
+    const typeName = $from.node(depth).type.name;
+    if (typeName === "bulletList" || typeName === "orderedList") {
+      activeListType ??= typeName;
+      listDepth += 1;
+    }
+  }
+  return { activeListType, listDepth };
+}
 
 export const textEditorExtensions = [...sharedTextExtensions, SingleElementDocument, SingleElementEditing];
 export const richTextEditorExtensions = [...sharedTextExtensions, Document];
@@ -203,9 +272,21 @@ export function TextFormattingToolbar({ editor, allowLists = true }: { editor: E
   const editorFormatting = useEditorState({
     editor,
     selector: ({ editor: currentEditor }) => {
-      if (!currentEditor) return { fontSize: null, color: null };
+      if (!currentEditor) return { fontSize: null, color: null, activeListType: null, listDepth: 0, itemSpacing: "comfortable", listStyle: null };
       const inlineStyle = currentEditor.getAttributes("inlineStyle");
-      return { fontSize: inlineStyle.fontSize as string | null, color: inlineStyle.color as string | null };
+      const { activeListType, listDepth } = getListContext(currentEditor);
+      return {
+        fontSize: inlineStyle.fontSize as string | null,
+        color: inlineStyle.color as string | null,
+        activeListType,
+        listDepth,
+        itemSpacing: activeListType
+          ? String(currentEditor.getAttributes(activeListType).itemSpacing ?? "comfortable")
+          : "comfortable",
+        listStyle: activeListType
+          ? currentEditor.getAttributes(activeListType).listStyle as string | null
+          : null,
+      };
     },
   });
   const selectedFontSize = normalizeFontSize(editorFormatting?.fontSize);
@@ -233,14 +314,44 @@ export function TextFormattingToolbar({ editor, allowLists = true }: { editor: E
     <ToolbarButton label="Strikethrough" active={editor.isActive("strike")} onClick={() => editor.chain().focus().toggleStrike().run()}><Strikethrough size={16} /></ToolbarButton>
     <span className="mx-1 h-6 w-px bg-slate-200" />
     <TextColorControl key={selectedColor} editor={editor} selectedColor={selectedColor} />
+    <LinkControl editor={editor} active={editor.isActive("link")} />
     <div className="flex items-center gap-0.5" role="group" aria-label="Highlight color">
-      {highlightColors.map((color) => <button key={color} type="button" title={`Highlight ${color}`} aria-label={`Highlight ${color}`} onMouseDown={(event) => event.preventDefault()} onClick={() => setInlineStyle(editor, "highlight", color)} className="grid size-7 place-items-center rounded-md hover:bg-slate-100"><Highlighter size={15} style={{ color }} /></button>)}
+      {highlightColors.map((color) => <button key={color} type="button" title={`Highlight ${color}`} aria-label={`Highlight ${color}`} onMouseDown={(event) => event.preventDefault()} onClick={() => setInlineStyle(editor, "highlight", color)} className="cursor-pointer grid size-7 place-items-center rounded-md hover:bg-slate-100"><Highlighter size={15} style={{ color }} /></button>)}
     </div>
     <span className="mx-1 h-6 w-px bg-slate-200" />
     {allowLists && <><ToolbarButton label="Bulleted list" active={editor.isActive("bulletList")} onClick={() => editor.chain().focus().toggleBulletList().run()}><List size={16} /></ToolbarButton>
     <ToolbarButton label="Numbered list" active={editor.isActive("orderedList")} onClick={() => editor.chain().focus().toggleOrderedList().run()}><ListOrdered size={16} /></ToolbarButton></>}
-    <ToolbarButton label="Decrease indent" onClick={() => editor.chain().focus().updateAttributes(activeBlock, { indent: Math.max(0, indent - 24) }).run()}><IndentDecrease size={16} /></ToolbarButton>
-    <ToolbarButton label="Increase indent" onClick={() => editor.chain().focus().updateAttributes(activeBlock, { indent: Math.min(240, indent + 24) }).run()}><IndentIncrease size={16} /></ToolbarButton>
+    {editorFormatting?.activeListType && <Select
+      aria-label="List item spacing"
+      value={editorFormatting.itemSpacing}
+      onChange={(event) => editor.chain().focus().updateAttributes(editorFormatting.activeListType!, { itemSpacing: event.target.value }).run()}
+      className="ml-1 h-8 w-[8rem] rounded-md border-slate-200 px-2 text-xs shadow-none"
+    >
+      <option value="compact">Compact</option>
+      <option value="comfortable">Comfortable</option>
+      <option value="spacious">Spacious</option>
+    </Select>}
+    {editorFormatting?.activeListType && editorFormatting.listDepth > 1 && <Select
+      aria-label="Sublist style"
+      value={String(editorFormatting.listStyle ?? "default")}
+      onChange={(event) => editor.chain().focus().updateAttributes(editorFormatting.activeListType!, { listStyle: event.target.value === "default" ? null : event.target.value }).run()}
+      className="ml-1 h-8 w-[8.5rem] rounded-md border-slate-200 px-2 text-xs shadow-none"
+    >
+      <option value="default">Default style</option>
+      {editorFormatting.activeListType === "bulletList"
+        ? <><option value="disc">Solid bullets</option><option value="circle">Open circles</option><option value="square">Squares</option><option value="dash">Dashes</option><option value="check">Checks</option></>
+        : <><option value="decimal">Numbers</option><option value="lower-alpha">Lowercase letters</option><option value="upper-alpha">Uppercase letters</option><option value="lower-roman">Lowercase Roman</option><option value="upper-roman">Uppercase Roman</option></>}
+    </Select>}
+    <ToolbarButton label={editor.isActive("listItem") ? "Decrease list nesting" : "Decrease indent"} onClick={() => {
+      const chain = editor.chain().focus();
+      if (editor.isActive("listItem")) chain.liftListItem("listItem").run();
+      else chain.updateAttributes(activeBlock, { indent: Math.max(0, indent - 24) }).run();
+    }}><IndentDecrease size={16} /></ToolbarButton>
+    <ToolbarButton label={editor.isActive("listItem") ? "Increase list nesting" : "Increase indent"} onClick={() => {
+      const chain = editor.chain().focus();
+      if (editor.isActive("listItem")) chain.sinkListItem("listItem").run();
+      else chain.updateAttributes(activeBlock, { indent: Math.min(240, indent + 24) }).run();
+    }}><IndentIncrease size={16} /></ToolbarButton>
     <span className="mx-1 h-6 w-px bg-slate-200" />
     {(["left", "center", "right"] as const).map((align) => {
       const Icon = align === "left" ? AlignLeft : align === "center" ? AlignCenter : AlignRight;

@@ -46,6 +46,10 @@ const initialData: PreviewData = {
           backgroundColor: "#ffffff",
           blockPadding: 20,
           data: {
+            cardsPerRow: 3,
+            cardStyle: "classic",
+            cardBackgroundColor: "#ffffff",
+            cardTextColor: "#0f172a",
             cards: [
               {
                 id: "card-1",
@@ -517,6 +521,10 @@ describe("admin course preview progress", () => {
         backgroundColor: "#ffffff",
         blockPadding: 20,
         data: {
+          cardsPerRow: 3,
+          cardStyle: "classic",
+          cardBackgroundColor: "#ffffff",
+          cardTextColor: "#0f172a",
           cards: [{
             id: "first-block-card",
             frontLabel: "Question",
@@ -536,6 +544,10 @@ describe("admin course preview progress", () => {
         backgroundColor: "#ffffff",
         blockPadding: 20,
         data: {
+          cardsPerRow: 3,
+          cardStyle: "classic",
+          cardBackgroundColor: "#ffffff",
+          cardTextColor: "#0f172a",
           cards: [{
             id: "last-block-card",
             frontLabel: "Question",

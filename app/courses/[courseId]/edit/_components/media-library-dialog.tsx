@@ -282,7 +282,7 @@ export function MediaLibraryDialog({
                       onClose();
                     }}
                     aria-label={`Use ${asset.originalName}`}
-                    className="block w-full text-left focus-visible:outline-2 focus-visible:outline-indigo-500"
+                    className="cursor-pointer block w-full text-left focus-visible:outline-2 focus-visible:outline-indigo-500"
                   >
                     <div className="relative aspect-[16/10] overflow-hidden bg-slate-100">
                       {asset.contentType.startsWith("image/") ? (

@@ -74,6 +74,8 @@ export function getHandoutBlockText(block: ContentBlock): string[] {
       return block.data.images.map((image, index) => `Image ${index + 1}: ${image.alt}`).filter(Boolean);
     case "video":
       return [block.data.captions ? `Video captions: ${block.data.captions}` : "Video content is available in the online course."];
+    case "link":
+      return [block.data.label, block.data.description, `Link: ${block.data.url}`].filter((value) => Boolean(value.trim()));
     case "divider":
       return block.data.style === "continue" && block.data.label ? [block.data.label] : [];
     case "knowledgeCheck":
@@ -100,12 +102,24 @@ export function getHandoutBlockText(block: ContentBlock): string[] {
     case "accordion":
       return block.data.items.flatMap((item) => [item.title, htmlToHandoutText(item.body)]).filter(Boolean);
     case "labeledGraphic":
+      if (block.data.interactionMode === "spotTarget")
+        return [
+          `Mini-game: ${block.data.challengePrompt ?? "Spot the clue"}`,
+          `Scene: ${block.data.alt}`,
+          "Complete the hotspot activity in the interactive course.",
+        ];
       return [
         `Graphic: ${block.data.alt}`,
         ...block.data.markers.map((marker, index) => `${index + 1}. ${marker.label}: ${marker.description}`),
       ];
     case "processSteps":
       return block.data.steps.flatMap((step, index) => [`Step ${index + 1}: ${step.title}`, htmlToHandoutText(step.body)]).filter(Boolean);
+    case "lessonMap":
+      return [
+        `Lesson map: ${{ modernCity: "Modern City", farmFields: "Farm Fields", cityProvince: "City Province", learningRoad: "Learning Road" }[block.data.template]}`,
+        ...block.data.checkpoints.map((checkpoint, index) => `Checkpoint ${index + 1}: ${checkpoint.title}${checkpoint.description ? ` — ${checkpoint.description}` : ""}`),
+        "Open the interactive course to follow the illustrated lesson map.",
+      ];
     case "chart":
       return [
         block.data.title,

@@ -11,6 +11,8 @@ import { ListTemplatePreview } from "./(template_preview_components)/list-templa
 import { ProcessStepsTemplatePreview } from "./(template_preview_components)/process-steps-template-preview";
 import { TextTemplatePreview } from "./(template_preview_components)/text-template-preview";
 import { CodeTemplatePreview } from "./(template_preview_components)/code-template-preview";
+import { CourseLinkBlock } from "@/components/course-link-block";
+import { LessonMapTemplateThumbnail } from "@/components/lesson-map";
 
 export function TemplatePreview({ template }: { template: BlockTemplate }) {
   const kind = template.preview;
@@ -22,29 +24,34 @@ export function TemplatePreview({ template }: { template: BlockTemplate }) {
     return <AccordionTemplatePreview data={template.accordion} />;
   if (template.type === "labeledGraphic" && template.labeledGraphic)
     return <LabeledGraphicTemplatePreview data={template.labeledGraphic} />;
+  if (template.type === "lessonMap" && template.lessonMap)
+    return <LessonMapTemplateThumbnail template={template.lessonMap.template} className="aspect-[18/11] w-full" />;
   if (template.type === "processSteps" && template.processSteps)
     return <ProcessStepsTemplatePreview data={template.processSteps} />;
   if (template.type === "chart" && template.chart)
     return <ChartBlockPreview data={template.chart} />;
+  if (template.type === "link" && template.link)
+    return <CourseLinkBlock data={template.link} interactive={false} />;
   if (kind === "knowledge")
     return (
       <InputBlockPreview
         type="knowledgeCheck"
-        question="Which option best describes the key idea?"
-        options={[
+        question={template.knowledgeCheck?.question ?? "Which option best describes the key idea?"}
+        options={template.knowledgeCheck?.options ?? [
           "It takes practice",
           "It happens instantly",
           "It needs no feedback",
         ]}
+        correctOptionIndex={template.knowledgeCheck?.correctOptionIndex}
       />
     );
   if (kind === "survey")
     return (
       <InputBlockPreview
         type="survey"
-        question="How confident do you feel?"
-        minLabel="Not yet"
-        maxLabel="Very confident"
+        question={template.survey?.question ?? "How confident do you feel?"}
+        minLabel={template.survey?.minLabel ?? "Not yet"}
+        maxLabel={template.survey?.maxLabel ?? "Very confident"}
       />
     );
   if (kind === "title" || kind === "text" || kind.startsWith("text-"))
@@ -143,9 +150,23 @@ export function TemplatePreview({ template }: { template: BlockTemplate }) {
   if (kind === "divider")
     return (
       <div className="flex items-center gap-2">
-        <span className="h-px flex-1 bg-slate-300" />
+        <span
+          className="flex-1"
+          style={{
+            borderTopWidth: `${template.dividerLineWeight ?? 1}px`,
+            borderTopStyle: template.dividerLineStyle ?? "solid",
+            borderTopColor: template.dividerLineColor ?? "#cbd5e1",
+          }}
+        />
         <span className="text-[9px] text-slate-400">Section break</span>
-        <span className="h-px flex-1 bg-slate-300" />
+        <span
+          className="flex-1"
+          style={{
+            borderTopWidth: `${template.dividerLineWeight ?? 1}px`,
+            borderTopStyle: template.dividerLineStyle ?? "solid",
+            borderTopColor: template.dividerLineColor ?? "#cbd5e1",
+          }}
+        />
       </div>
     );
   if (kind === "spacer")

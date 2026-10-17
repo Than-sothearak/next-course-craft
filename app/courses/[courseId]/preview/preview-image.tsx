@@ -30,7 +30,7 @@ export function PreviewImage({
         type="button"
         aria-label={`View image full screen${alt ? `: ${alt}` : ""}`}
         onClick={() => setOpen(true)}
-        className="group relative block w-full cursor-zoom-in rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+        className="cursor-pointer group relative block w-full cursor-zoom-in rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
       >
         <img src={src} alt={alt} width={1200} height={675} className={className} />
         <span

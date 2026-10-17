@@ -28,7 +28,7 @@ describe("chart content blocks", () => {
       expect(block).toMatchObject({
         type: "chart",
         width: "medium",
-        blockPadding: 20,
+        blockPadding: 40,
         data: { chartType, color: "#2878b5", fields: [{ value: 78 }, { value: 22 }] },
       });
       if (block.type !== "chart") throw new Error("Expected a chart block");

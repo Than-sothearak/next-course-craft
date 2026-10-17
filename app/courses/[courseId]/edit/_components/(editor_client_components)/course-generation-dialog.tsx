@@ -66,7 +66,7 @@ function CourseStructurePreview({
           type="button"
           aria-label="Close course structure preview"
           onClick={onClose}
-          className="grid size-7 shrink-0 place-items-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+          className="cursor-pointer grid size-7 shrink-0 place-items-center rounded-md text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
         >
           <X size={15} />
         </button>

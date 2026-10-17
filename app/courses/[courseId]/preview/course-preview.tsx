@@ -552,6 +552,7 @@ export function CoursePreview({
     initials,
     quizScores,
     passedQuizIds,
+    visitedLessonIds,
     revealedDividerIds,
     completedDividerIds,
     unlockingDividerIds,
@@ -560,6 +561,7 @@ export function CoursePreview({
     lessonBodyScrollRefs,
     markContentAboveComplete,
     selectLesson,
+    returnToCourse: () => setMode("course"),
     getLessonNavigationLockMessage,
     setQuizScores,
     setPassedQuizIds,
@@ -615,13 +617,13 @@ export function CoursePreview({
                     type="button"
                     aria-label="Close course menu"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="absolute inset-0 bg-slate-950/40"
+                    className="cursor-pointer absolute inset-0 bg-slate-950/40"
                   />
                   <LessonMenu {...lessonMenuProps} mobile />
                 </div>
               )}
               <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-                <div className="relative z-50 flex min-h-12 shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-4 sm:px-6">
+                <div className="relative z-10 flex min-h-12 shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-4 sm:px-6">
                   {useMobileMenu ? (
                     <Button
                       type="button"

@@ -4,8 +4,8 @@ import { requirePageUser, requirePageCourseAccess } from "@/lib/auth/pages";
 import { connectToDatabase } from "@/lib/db/mongodb";
 import { DashboardError } from "@/lib/dashboard/rules";
 import { getCourseAuthorName, getCourseEditor } from "@/lib/editor/services/course";
+import { LoadingPage } from "@/components/loading-page";
 import { EditorClient } from "../../_components/editor-client";
-import { LessonEditSkeleton } from "../../_components/lesson-edit-skeleton";
 
 type LessonEditPageProps = {
   params: Promise<{ courseId: string; lessonId: string }>;
@@ -14,7 +14,7 @@ type LessonEditPageProps = {
 
 export default function LessonEditPage(props: LessonEditPageProps) {
   return (
-    <Suspense fallback={<LessonEditSkeleton />}>
+    <Suspense fallback={<LoadingPage message="Loading lesson editor…" />}>
       <LessonEditContent {...props} />
     </Suspense>
   );

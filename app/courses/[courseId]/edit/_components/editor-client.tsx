@@ -109,6 +109,7 @@ function contrastTextColor(hex: string) {
 function getTemplateCategory(block: ContentBlock): BlockCategory {
   if (block.type === "statement") return "Statement";
   if (block.type === "heading") return "Text";
+  if (block.type === "link") return "Link";
   if (block.type === "richText") {
     if (block.data.html.includes("<pre")) return "Code";
     if (block.data.html.includes("<blockquote")) return "Quote";
@@ -120,7 +121,7 @@ function getTemplateCategory(block: ContentBlock): BlockCategory {
   if (block.type === "gallery") return "Gallery";
   if (block.type === "video") return "Multimedia";
   if (block.type === "divider") return "Divider";
-  if (block.type === "flipCard" || block.type === "accordion" || block.type === "labeledGraphic" || block.type === "processSteps") return "Interactive";
+  if (block.type === "flipCard" || block.type === "accordion" || block.type === "labeledGraphic" || block.type === "processSteps" || block.type === "lessonMap") return "Interactive";
   if (block.type === "chart") return "Chart";
   if (block.type === "knowledgeCheck") return "Knowledge check";
   return "Survey";
@@ -629,7 +630,10 @@ export function EditorClient({
     const picker = templatePicker;
     if (!activeLesson || !picker) return;
     if (picker.mode === "add") {
-      const insertedBlocks = createBlocksFromTemplate(template, newId());
+      const insertedBlocks = createBlocksFromTemplate(template, newId(), {
+        sections: draft.sections,
+        lessons: draft.lessons,
+      });
       updateLesson(activeLesson.id, (lesson) => {
         const blocks = [...lesson.blocks];
         blocks.splice(
@@ -644,7 +648,10 @@ export function EditorClient({
         (block) => block.id === picker.blockId,
       );
       const replacement =
-        existing && createBlocksFromTemplate(template, existing.id)[0];
+        existing && createBlocksFromTemplate(template, existing.id, {
+          sections: draft.sections,
+          lessons: draft.lessons,
+        })[0];
       if (!existing || !replacement) return;
       if (existing.type === "processSteps" && replacement.type === "processSteps")
         replacement.data = applyProcessStepsPreset(existing.data, replacement.data);
@@ -877,7 +884,7 @@ export function EditorClient({
                   type="button"
                   onClick={() => setActiveLessonId(null)}
                   aria-label="Back to course outline"
-                  className="grid size-9 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+                  className="cursor-pointer grid size-9 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900"
                 >
                   <ArrowLeft size={18} />
                 </button>
@@ -1145,7 +1152,7 @@ export function EditorClient({
                                   authorVisible: false,
                                 }))
                               }
-                              className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-xs text-slate-700 hover:bg-slate-50"
+                              className="cursor-pointer flex w-full items-center gap-2 rounded px-2 py-2 text-left text-xs text-slate-700 hover:bg-slate-50"
                             >
                               <EyeOff size={13} />
                               Hide author
@@ -1386,6 +1393,15 @@ export function EditorClient({
                                           <ContentBlockEditor
                                             block={block}
                                             courseId={initialData.courseId}
+                                            sections={draft.sections}
+                                            lessons={draft.lessons}
+                                            saveState={saveState}
+                                            hasUnsavedChanges={hasUnsavedChanges}
+                                            saveMessage={saveMessage}
+                                            onRetrySave={() => {
+                                              if (saveState === "conflict") window.location.reload();
+                                              else void saveLatest();
+                                            }}
                                             onChange={(next) =>
                                               updateBlock(block.id, next)
                                             }

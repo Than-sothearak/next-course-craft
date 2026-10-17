@@ -46,7 +46,7 @@ describe("prebuilt lesson text templates", () => {
     const inserted = textTemplates.map((template) => {
       const [block] = createBlocksFromTemplate(template, `block-${template.id}`);
       const parsed = blockSchema.parse(block);
-      expect(parsed).toMatchObject({ type: "richText", width: "medium", blockPadding: 20 });
+      expect(parsed).toMatchObject({ type: "richText", width: "medium", blockPadding: 40 });
       if (parsed.type !== "richText") throw new Error("Expected rich text block");
       return [template.id, parsed.data.html] as const;
     });
@@ -59,6 +59,18 @@ describe("prebuilt lesson text templates", () => {
     expect(htmlById.get("text-centered-intro")).toContain('text-align: center');
     expect(htmlById.get("text-subheading")).toContain("font-size: 24px");
     expect(htmlById.get("text-color-emphasis")).toContain("color: #4f46e5");
+  });
+});
+
+describe("new template block spacing", () => {
+  it("uses at least 40px of vertical padding for every new block template", () => {
+    for (const template of blockTemplates) {
+      const blocks = createBlocksFromTemplate(template, `padding-${template.id}`);
+      expect(blocks.length, template.id).toBeGreaterThan(0);
+      for (const block of blocks) {
+        expect(block.blockPadding, template.id).toBeGreaterThanOrEqual(40);
+      }
+    }
   });
 });
 
@@ -115,7 +127,7 @@ describe("prebuilt chart templates", () => {
     for (const template of chartTemplates) {
       const [block] = createBlocksFromTemplate(template, `block-${template.id}`);
       const parsed = blockSchema.parse(block);
-      expect(parsed).toMatchObject({ type: "chart", width: "medium", blockPadding: 20 });
+      expect(parsed).toMatchObject({ type: "chart", width: "medium", blockPadding: 40 });
       if (parsed.type !== "chart") throw new Error("Expected a chart block");
       expect(parsed.data.fields.length).toBeGreaterThan(1);
       expect(parsed.data.color).toMatch(/^#[\da-fA-F]{6}$/);
@@ -165,6 +177,27 @@ describe("prebuilt lesson image templates", () => {
         body: "Add a short explanation that helps learners understand this image.",
       },
     });
+  });
+});
+
+describe("prebuilt lesson link templates", () => {
+  it("offers button, card, and inline resource links with matching previews", () => {
+    const templates = blockTemplates.filter((template) => template.category === "Link");
+
+    expect(templates.map((template) => template.id)).toEqual([
+      "link-button",
+      "link-card",
+      "link-inline",
+    ]);
+
+    for (const template of templates) {
+      const [block] = createBlocksFromTemplate(template, `block-${template.id}`);
+      const parsed = blockSchema.parse(block);
+      expect(parsed.type).toBe("link");
+      if (parsed.type !== "link") continue;
+      expect(parsed.data.url).toBe("https://example.com");
+      expect(renderToStaticMarkup(createElement(TemplatePreview, { template }))).toContain(parsed.data.label);
+    }
   });
 });
 
@@ -232,7 +265,7 @@ describe("prebuilt quote templates", () => {
       const [block] = createBlocksFromTemplate(template, `block-${template.id}`);
       const parsed = blockSchema.parse(block);
 
-      expect(parsed).toMatchObject({ type: "richText", width: "medium", blockPadding: 20 });
+      expect(parsed).toMatchObject({ type: "richText", width: "medium", blockPadding: 40 });
       if (parsed.type !== "richText") continue;
       expect(parsed.data.html).toContain("<blockquote>");
     }
@@ -240,6 +273,38 @@ describe("prebuilt quote templates", () => {
 });
 
 describe("prebuilt divider templates", () => {
+  it("offers solid, dashed, dotted, double, and bold line presets with matching previews", () => {
+    const lineTemplates = blockTemplates.filter(
+      (template) => template.category === "Divider" && template.dividerStyle === "line",
+    );
+
+    expect(lineTemplates.map((template) => template.id)).toEqual([
+      "divider-line",
+      "divider-line-dashed",
+      "divider-line-dotted",
+      "divider-line-double",
+      "divider-line-accent",
+      "divider-line-bold",
+    ]);
+
+    for (const template of lineTemplates) {
+      const [inserted] = createBlocksFromTemplate(template, `block-${template.id}`);
+      const parsed = blockSchema.parse(inserted);
+      expect(parsed.type).toBe("divider");
+      if (parsed.type !== "divider") continue;
+      expect(parsed.data).toMatchObject({
+        style: "line",
+        lineStyle: template.dividerLineStyle ?? "solid",
+        lineWeight: template.dividerLineWeight ?? 1,
+        lineColor: template.dividerLineColor ?? "#cbd5e1",
+      });
+
+      const preview = renderToStaticMarkup(createElement(TemplatePreview, { template }));
+      expect(preview).toContain(`border-top-style:${template.dividerLineStyle ?? "solid"}`);
+      expect(preview).toContain(`border-top-color:${template.dividerLineColor ?? "#cbd5e1"}`);
+    }
+  });
+
   it("adds continue button presets with editable labels and completion settings", () => {
     const dividerTemplates = blockTemplates.filter(
       (template) => template.category === "Divider",
@@ -277,67 +342,215 @@ describe("prebuilt interactive block templates", () => {
 
     expect(interactiveTemplates.map((item) => item.id)).toEqual([
       "interactive-reveal",
-      "interactive-term-definition",
-      "interactive-scenario-reveal",
-      "interactive-flashcards-2",
-      "interactive-flashcards-3",
-      "interactive-flashcards-4",
       "interactive-accordion",
       "interactive-tabs",
       "interactive-labeled-graphic",
+      "interactive-explore-data",
+      "interactive-explore-network",
+      "interactive-explore-field",
       "interactive-process-steps",
+      "interactive-sequence-data",
+      "interactive-sequence-it",
+      "interactive-sequence-agriculture",
       "interactive-process-steps-numbered",
       "interactive-process-steps-timeline",
       "interactive-process-steps-spotlight",
       "interactive-process-steps-minimal",
       "interactive-knowledge-check",
+      "interactive-next-step-data",
+      "interactive-next-step-it",
+      "interactive-next-step-agriculture",
       "interactive-confidence-poll",
+      "interactive-mini-game-data",
+      "interactive-mini-game-security",
+      "interactive-mini-game-agriculture",
+      "interactive-lesson-map",
+      "interactive-lesson-map-farm",
     ]);
 
-    const inserted = interactiveTemplates.map((template) => {
-      const [block] = createBlocksFromTemplate(template, `block-${template.id}`);
-      return blockSchema.parse(block);
-    });
+    const insertedById = new Map(
+      interactiveTemplates.map((template) => {
+        const [block] = createBlocksFromTemplate(template, `block-${template.id}`);
+        return [template.id, blockSchema.parse(block)] as const;
+      }),
+    );
 
-    expect(inserted[0]).toMatchObject({
+    expect(interactiveTemplates.filter((item) => item.type === "flipCard")).toHaveLength(1);
+    expect(insertedById.get("interactive-reveal")).toMatchObject({
       type: "flipCard",
       width: "full",
-      blockPadding: 20,
-      data: { cards: [{ frontLabel: "Think about it", backLabel: "Reveal" }] },
+      blockPadding: 40,
+      data: {
+        cardsPerRow: 3,
+        cardStyle: "classic",
+        cardBackgroundColor: "#ffffff",
+        cardTextColor: "#0f172a",
+        cards: [{ frontLabel: "Predict", backLabel: "Reveal" }],
+      },
     });
-    expect(inserted[1]).toMatchObject({
-      type: "flipCard",
-      data: { cards: [{ frontLabel: "Term", backLabel: "Definition" }] },
+    expect(insertedById.get("interactive-accordion")).toMatchObject({
+      type: "accordion",
+      data: {
+        layout: "accordion",
+        items: expect.arrayContaining([expect.any(Object), expect.any(Object)]),
+      },
     });
-    expect(inserted[2]).toMatchObject({
-      type: "flipCard",
-      data: { cards: [{ frontLabel: "Scenario", backLabel: "Suggested response" }] },
+    expect(insertedById.get("interactive-tabs")).toMatchObject({
+      type: "accordion",
+      data: {
+        layout: "tabs",
+        items: expect.arrayContaining([expect.any(Object), expect.any(Object)]),
+      },
     });
-    expect(inserted[3]).toMatchObject({ type: "flipCard", width: "full", data: { cards: expect.arrayContaining([expect.any(Object), expect.any(Object)]) } });
-    expect(inserted[4]).toMatchObject({ type: "flipCard", width: "full", data: { cards: expect.arrayContaining([expect.any(Object), expect.any(Object), expect.any(Object)]) } });
-    expect(inserted[5]).toMatchObject({ type: "flipCard", width: "full", data: { cards: expect.arrayContaining([expect.any(Object), expect.any(Object), expect.any(Object), expect.any(Object)]) } });
-    expect(inserted[6]).toMatchObject({ type: "accordion", data: { layout: "accordion", items: expect.arrayContaining([expect.any(Object), expect.any(Object)]) } });
-    expect(inserted[7]).toMatchObject({ type: "accordion", data: { layout: "tabs", items: expect.arrayContaining([expect.any(Object), expect.any(Object)]) } });
-    expect(inserted[8]).toMatchObject({ type: "labeledGraphic", data: { markers: expect.arrayContaining([expect.any(Object), expect.any(Object), expect.any(Object)]) } });
-    expect(inserted[9]).toMatchObject({ type: "processSteps", data: { steps: expect.arrayContaining([expect.any(Object), expect.any(Object), expect.any(Object)]) } });
-    expect(inserted[14]).toMatchObject({ type: "knowledgeCheck" });
-    expect(inserted[15]).toMatchObject({ type: "survey" });
+    expect(insertedById.get("interactive-labeled-graphic")).toMatchObject({
+      type: "labeledGraphic",
+      data: {
+        markers: expect.arrayContaining([
+          expect.any(Object),
+          expect.any(Object),
+          expect.any(Object),
+        ]),
+      },
+    });
+    for (const [templateId, sceneTheme] of [
+      ["interactive-explore-data", "data"],
+      ["interactive-explore-network", "network"],
+      ["interactive-explore-field", "agriculture"],
+    ] as const) {
+      expect(insertedById.get(templateId)).toMatchObject({
+        type: "labeledGraphic",
+        data: {
+          interactionMode: "explore",
+          sceneTheme,
+          markers: expect.arrayContaining([expect.any(Object), expect.any(Object)]),
+        },
+      });
+    }
+    expect(insertedById.get("interactive-process-steps")).toMatchObject({
+      type: "processSteps",
+      data: {
+        steps: expect.arrayContaining([
+          expect.any(Object),
+          expect.any(Object),
+          expect.any(Object),
+        ]),
+      },
+    });
+    expect(insertedById.get("interactive-sequence-data")).toMatchObject({
+      type: "processSteps",
+      data: { steps: expect.arrayContaining([expect.objectContaining({ title: "Define the question" })]) },
+    });
+    expect(insertedById.get("interactive-sequence-it")).toMatchObject({
+      type: "processSteps",
+      data: { steps: expect.arrayContaining([expect.objectContaining({ title: "Verify the source" })]) },
+    });
+    expect(insertedById.get("interactive-sequence-agriculture")).toMatchObject({
+      type: "processSteps",
+      data: { steps: expect.arrayContaining([expect.objectContaining({ title: "Prepare the soil" })]) },
+    });
+    expect(insertedById.get("interactive-knowledge-check")).toMatchObject({ type: "knowledgeCheck" });
+    expect(insertedById.get("interactive-next-step-data")).toMatchObject({
+      type: "knowledgeCheck",
+      data: { question: expect.stringContaining("dashboard shows a sudden spike") },
+    });
+    expect(insertedById.get("interactive-next-step-it")).toMatchObject({
+      type: "knowledgeCheck",
+      data: { question: expect.stringContaining("devices cannot reach") },
+    });
+    expect(insertedById.get("interactive-next-step-agriculture")).toMatchObject({
+      type: "knowledgeCheck",
+      data: { question: expect.stringContaining("yellowing leaves") },
+    });
+    expect(insertedById.get("interactive-confidence-poll")).toMatchObject({ type: "survey" });
+    expect(insertedById.get("interactive-mini-game-data")).toMatchObject({
+      type: "labeledGraphic",
+      data: {
+        interactionMode: "spotTarget",
+        sceneTheme: "data",
+        markers: expect.arrayContaining([expect.objectContaining({ isTarget: true })]),
+      },
+    });
+    expect(insertedById.get("interactive-mini-game-security")).toMatchObject({
+      type: "labeledGraphic",
+      data: {
+        interactionMode: "spotTarget",
+        sceneTheme: "security",
+        markers: expect.arrayContaining([expect.objectContaining({ isTarget: true })]),
+      },
+    });
+    expect(insertedById.get("interactive-mini-game-agriculture")).toMatchObject({
+      type: "labeledGraphic",
+      data: {
+        interactionMode: "spotTarget",
+        sceneTheme: "agriculture",
+        markers: expect.arrayContaining([expect.objectContaining({ isTarget: true })]),
+      },
+    });
+    expect(insertedById.get("interactive-lesson-map")).toMatchObject({
+      type: "lessonMap",
+      width: "full",
+      data: {
+        template: "modernCity",
+        checkpoints: expect.arrayContaining([
+          expect.objectContaining({ title: "Welcome" }),
+          expect.objectContaining({ title: "Practice" }),
+        ]),
+      },
+    });
+    expect(insertedById.get("interactive-lesson-map-farm")).toMatchObject({
+      type: "lessonMap",
+      data: {
+        template: "farmFields",
+        checkpoints: expect.arrayContaining([
+          expect.objectContaining({ title: "Soil check" }),
+          expect.objectContaining({ title: "Water source" }),
+        ]),
+      },
+    });
   });
 
-  it("previews every flip card in the two, three, and four card presets", () => {
-    for (const [templateId, expectedCount] of [
-      ["interactive-flashcards-2", 2],
-      ["interactive-flashcards-3", 3],
-      ["interactive-flashcards-4", 4],
+  it("previews three graphic mini-games with different scenes and hidden targets", () => {
+    for (const [templateId, theme] of [
+      ["interactive-mini-game-data", "data"],
+      ["interactive-mini-game-security", "security"],
+      ["interactive-mini-game-agriculture", "agriculture"],
     ] as const) {
       const template = blockTemplates.find((item) => item.id === templateId);
       expect(template).toBeDefined();
-      const markup = renderToStaticMarkup(
-        createElement(TemplatePreview, { template: template! }),
-      );
-
-      expect(markup.match(/data-template-preview-card=/g)).toHaveLength(expectedCount);
+      const markup = renderToStaticMarkup(createElement(TemplatePreview, { template: template! }));
+      expect(markup).toContain('data-mini-game-preview=""');
+      expect(markup).toContain(`data-scene-theme="${theme}"`);
+      expect(markup).toContain("Spot the clue");
+      expect(markup).toContain(template!.labeledGraphic!.challengePrompt!);
+      expect(markup).not.toContain("isTarget");
     }
+  });
+
+  it("previews field-specific explore scenes with clickable markers", () => {
+    for (const [templateId, theme] of [
+      ["interactive-explore-data", "data"],
+      ["interactive-explore-network", "network"],
+      ["interactive-explore-field", "agriculture"],
+    ] as const) {
+      const template = blockTemplates.find((item) => item.id === templateId);
+      expect(template).toBeDefined();
+      const markup = renderToStaticMarkup(createElement(TemplatePreview, { template: template! }));
+      expect(markup).toContain('data-scene-hotspot-preview=""');
+      expect(markup).toContain(`data-scene-theme="${theme}"`);
+      expect(markup.match(/Select a marker to explore/g)).toHaveLength(1);
+    }
+  });
+
+  it("previews one flip card template with a single card", () => {
+    const flipCardTemplates = blockTemplates.filter(
+      (item) => item.category === "Interactive" && item.type === "flipCard",
+    );
+    expect(flipCardTemplates.map((item) => item.id)).toEqual(["interactive-reveal"]);
+
+    const markup = renderToStaticMarkup(
+      createElement(TemplatePreview, { template: flipCardTemplates[0] }),
+    );
+    expect(markup.match(/data-template-preview-card=/g)).toHaveLength(1);
   });
 
   it("previews accordion, tabs, labeled graphic markers, and process steps", () => {

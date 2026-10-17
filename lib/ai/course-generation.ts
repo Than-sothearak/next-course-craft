@@ -190,6 +190,9 @@ const courseResponseSchema = {
                       "videoSrc",
                       "videoMimeType",
                       "videoCaptions",
+                      "linkUrl",
+                      "linkLabel",
+                      "linkDescription",
                       "dividerStyle",
                       "dividerLabel",
                       "dividerCompletionType",
@@ -280,6 +283,9 @@ const courseResponseSchema = {
                       videoSrc: { type: "string" },
                       videoMimeType: { type: "string", enum: ["", "video/mp4", "video/webm"] },
                       videoCaptions: { type: "string" },
+                      linkUrl: { type: "string" },
+                      linkLabel: { type: "string" },
+                      linkDescription: { type: "string" },
                       dividerStyle: { type: "string", enum: ["line", "space", "continue"] },
                       dividerLabel: { type: "string" },
                       dividerCompletionType: { type: "string", enum: ["none", "completeAbove"] },
@@ -1300,6 +1306,9 @@ function emptyBlockSeed(
     videoSrc: "",
     videoMimeType: "",
     videoCaptions: "",
+    linkUrl: "",
+    linkLabel: "",
+    linkDescription: "",
     dividerStyle: "continue",
     dividerLabel: "Continue",
     dividerCompletionType: "none",
@@ -2163,7 +2172,7 @@ function courseUsesKhmer(targetLanguage: string) {
 function needsContinueAfter(
   block: GeneratedCourseSeed["sections"][number]["lessons"][number]["blocks"][number],
 ) {
-  if (["divider", "image", "gallery", "video", "knowledgeCheck", "survey", "heading", "labeledGraphic"].includes(block.type)) return false;
+  if (["divider", "image", "gallery", "video", "link", "knowledgeCheck", "survey", "heading", "labeledGraphic"].includes(block.type)) return false;
   if (block.type === "code") {
     return block.body.length >= 700 || block.body.split("\n").length >= 14 || (block.codeExample?.explanation.length ?? 0) >= 850;
   }
@@ -2477,6 +2486,22 @@ async function toContentBlock(
           src: seed.videoSrc.trim(),
           mimeType: seed.videoMimeType || undefined,
           captions: seed.videoCaptions.trim() || undefined,
+        },
+      }),
+      generatedImage: false,
+    };
+  }
+  if (seed.type === "link" && seed.linkUrl.trim()) {
+    return {
+      block: blockSchema.parse({
+        ...base,
+        type: "link",
+        data: {
+          label: seed.linkLabel.trim() || seed.title.trim() || "Open resource",
+          url: seed.linkUrl.trim(),
+          description: seed.linkDescription.trim() || seed.body.trim(),
+          style: "button",
+          openInNewTab: true,
         },
       }),
       generatedImage: false,

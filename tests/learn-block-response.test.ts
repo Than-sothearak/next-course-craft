@@ -10,6 +10,7 @@ const examples = {
   image: { imagePrompt: "A diagram explaining flexbox", imageAlt: "Flexbox diagram", imageLayout: "full", imageTitle: "", imageBody: "" },
   gallery: { galleryImages: [{ src: "https://example.test/source.png", alt: "Original source image" }] },
   video: { videoSrc: "https://example.test/source.mp4", videoMimeType: "video/mp4", videoCaptions: "A demonstration." },
+  link: { linkUrl: "https://example.test/guide", linkLabel: "Read the guide", linkDescription: "A source reference." },
   divider: { dividerStyle: "continue", dividerLabel: "Continue", dividerCompletionType: "none" },
   knowledgeCheck: { question: "Which rule enables flexbox?", options: ["display: flex", "display: block"], correctOptionIndex: 0, correctFeedback: "Correct.", incorrectFeedback: "Review the example." },
   survey: { question: "How confident are you?", minLabel: "Not confident", maxLabel: "Very confident" },

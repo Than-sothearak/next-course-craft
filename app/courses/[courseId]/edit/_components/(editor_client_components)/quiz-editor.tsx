@@ -281,7 +281,7 @@ export function QuizEditor({
                       aria-current={
                         activeQuestion.id === question.id ? "true" : undefined
                       }
-                      className={`min-h-14 min-w-0 flex-1 px-2 py-3 text-left text-xs leading-4 ${activeQuestion.id === question.id ? "bg-[#e7e7e7] text-black" : "text-slate-700 hover:bg-white/70"}`}
+                      className={`cursor-pointer min-h-14 min-w-0 flex-1 px-2 py-3 text-left text-xs leading-4 ${activeQuestion.id === question.id ? "bg-[#e7e7e7] text-black" : "text-slate-700 hover:bg-white/70"}`}
                     >
                       {question.prompt.trim() || `Question ${index + 1}`}
                     </button>
@@ -296,7 +296,7 @@ export function QuizEditor({
                         <button
                           type="button"
                           onClick={() => deleteQuestion(question.id)}
-                          className="flex w-full items-center gap-2 rounded px-2 py-2 text-left text-xs text-rose-700 hover:bg-rose-50"
+                          className="cursor-pointer flex w-full items-center gap-2 rounded px-2 py-2 text-left text-xs text-rose-700 hover:bg-rose-50"
                         >
                           <Trash2 size={13} />
                           Delete question

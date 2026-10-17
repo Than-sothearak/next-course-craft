@@ -98,6 +98,7 @@ function addBlockImages(doc: PDFKit.PDFDocument, block: HandoutSnapshot["lessons
       });
       return false;
     case "labeledGraphic":
+      if (block.data.interactionMode === "spotTarget") return false;
       return drawImage(doc, block.data.src, assets);
     case "flipCard":
       block.data.cards.forEach((card) => {

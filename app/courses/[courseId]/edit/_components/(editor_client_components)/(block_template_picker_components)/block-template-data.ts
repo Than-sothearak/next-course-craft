@@ -17,6 +17,7 @@ import {
 
 export const blockCategories = [
   "Text",
+  "Link",
   "Statement",
   "Quote",
   "List",
@@ -42,16 +43,21 @@ export type BlockTemplate = {
   html?: string;
   codeTemplate?: CodeExampleTemplate;
   dividerStyle?: "line" | "space" | "continue";
+  dividerLineStyle?: "solid" | "dashed" | "dotted" | "double";
+  dividerLineWeight?: number;
+  dividerLineColor?: string;
   dividerLabel?: string;
   dividerCompletionType?: DividerCompletionType;
   statement?: { style: StatementStyle; title: string; body: string };
   knowledgeCheck?: Extract<ContentBlock, { type: "knowledgeCheck" }>["data"];
   survey?: Extract<ContentBlock, { type: "survey" }>["data"];
-  flipCard?: Extract<ContentBlock, { type: "flipCard" }>["data"];
+  flipCard?: Partial<Extract<ContentBlock, { type: "flipCard" }>["data"]> & Pick<Extract<ContentBlock, { type: "flipCard" }>["data"], "cards">;
   accordion?: Extract<ContentBlock, { type: "accordion" }>["data"];
   labeledGraphic?: Extract<ContentBlock, { type: "labeledGraphic" }>["data"];
+  lessonMap?: Extract<ContentBlock, { type: "lessonMap" }>["data"];
   processSteps?: Extract<ContentBlock, { type: "processSteps" }>["data"];
   chart?: Extract<ContentBlock, { type: "chart" }>["data"];
+  link?: Extract<ContentBlock, { type: "link" }>['data'];
   imageLayout?: ImageLayout;
   imageTitle?: string;
   imageBody?: string;
@@ -388,208 +394,73 @@ export const blockTemplates: BlockTemplate[] = [
     preview: "video",
   },
   {
+    id: "link-button",
+    category: "Link",
+    title: "Resource button",
+    description: "Add a clear button that opens a trusted resource.",
+    type: "link",
+    link: {
+      label: "Open resource",
+      url: "https://example.com",
+      description: "Replace this with the resource your learners need.",
+      style: "button",
+      openInNewTab: true,
+    },
+    preview: "link",
+  },
+  {
+    id: "link-card",
+    category: "Link",
+    title: "Resource card",
+    description: "Present a resource with a short explanation.",
+    type: "link",
+    link: {
+      label: "Read the guide",
+      url: "https://example.com",
+      description: "Add a short description of what learners will find.",
+      style: "card",
+      openInNewTab: true,
+    },
+    preview: "link",
+  },
+  {
+    id: "link-inline",
+    category: "Link",
+    title: "Inline link",
+    description: "Add a compact text link within the lesson flow.",
+    type: "link",
+    link: {
+      label: "View the reference",
+      url: "https://example.com",
+      description: "",
+      style: "text",
+      openInNewTab: true,
+    },
+    preview: "link",
+  },
+  {
     id: "interactive-reveal",
     category: "Interactive",
     title: "Flip card",
-    description: "Let learners reveal an answer, hint, or explanation.",
+    description: "Ask learners to predict an outcome, then reveal a short explanation.",
     type: "flipCard",
     flipCard: {
       cards: [
         {
           id: "card-1",
-          frontLabel: "Think about it",
+          frontLabel: "Predict",
           front: {
             type: "text",
-            text: "What is one benefit of active recall?",
+            text: "What might change when you adjust a setting in a model, network, or field?",
           },
           backLabel: "Reveal",
           back: {
             type: "text",
-            text: "Trying to remember an idea strengthens learning and shows what you still need to review.",
+            text: "Compare your prediction with the result and look for evidence that explains the difference.",
           },
         },
       ],
     },
-    preview: "flip-card",
-  },
-  {
-    id: "interactive-term-definition",
-    category: "Interactive",
-    title: "Term and definition",
-    description: "Create a study card learners can flip to check a definition.",
-    type: "flipCard",
-    flipCard: {
-      cards: [
-        {
-          id: "card-1",
-          frontLabel: "Term",
-          front: { type: "text", text: "Active recall" },
-          backLabel: "Definition",
-          back: {
-            type: "text",
-            text: "Retrieving information from memory instead of simply rereading it.",
-          },
-        },
-      ],
-    },
-    preview: "flip-term",
-  },
-  {
-    id: "interactive-scenario-reveal",
-    category: "Interactive",
-    title: "Scenario and response",
-    description: "Invite a decision, then reveal a suggested response.",
-    type: "flipCard",
-    flipCard: {
-      cards: [
-        {
-          id: "card-1",
-          frontLabel: "Scenario",
-          front: {
-            type: "text",
-            text: "A learner is stuck on a difficult problem. What could they try next?",
-          },
-          backLabel: "Suggested response",
-          back: {
-            type: "text",
-            text: "Break the task into smaller steps, review a relevant example, and ask for feedback on the first step.",
-          },
-        },
-      ],
-    },
-    preview: "flip-scenario",
-  },
-  {
-    id: "interactive-flashcards-2",
-    category: "Interactive",
-    title: "Two-card study set",
-    description:
-      "Use two connected prompts to review a concept and its application.",
-    type: "flipCard",
-    flipCard: {
-      cards: [
-        {
-          id: "card-1",
-          frontLabel: "Concept",
-          front: { type: "text", text: "What is spaced practice?" },
-          backLabel: "Definition",
-          back: {
-            type: "text",
-            text: "Reviewing information over multiple sessions with time between them.",
-          },
-        },
-        {
-          id: "card-2",
-          frontLabel: "Apply it",
-          front: {
-            type: "text",
-            text: "How could you use spaced practice this week?",
-          },
-          backLabel: "Example",
-          back: {
-            type: "text",
-            text: "Schedule short review sessions across several days instead of one long study session.",
-          },
-        },
-      ],
-    },
-    width: "full",
-    preview: "flip-card",
-  },
-  {
-    id: "interactive-flashcards-3",
-    category: "Interactive",
-    title: "Three-card review",
-    description: "Build a short three-step recall activity for a lesson topic.",
-    type: "flipCard",
-    flipCard: {
-      cards: [
-        {
-          id: "card-1",
-          frontLabel: "Recall",
-          front: { type: "text", text: "What is the key idea?" },
-          backLabel: "Key idea",
-          back: {
-            type: "text",
-            text: "Write the main concept learners should remember.",
-          },
-        },
-        {
-          id: "card-2",
-          frontLabel: "Explain",
-          front: { type: "text", text: "Why does it matter?" },
-          backLabel: "Reason",
-          back: {
-            type: "text",
-            text: "Add a short explanation of why this idea is useful.",
-          },
-        },
-        {
-          id: "card-3",
-          frontLabel: "Apply",
-          front: { type: "text", text: "Where could you use it?" },
-          backLabel: "Example",
-          back: {
-            type: "text",
-            text: "Give a practical example from work, study, or daily life.",
-          },
-        },
-      ],
-    },
-    width: "full",
-    preview: "flip-card",
-  },
-  {
-    id: "interactive-flashcards-4",
-    category: "Interactive",
-    title: "Four-card key terms",
-    description: "Start a four-term vocabulary or concept review.",
-    type: "flipCard",
-    flipCard: {
-      cards: [
-        {
-          id: "card-1",
-          frontLabel: "Term 1",
-          front: { type: "text", text: "Add the first key term." },
-          backLabel: "Meaning",
-          back: {
-            type: "text",
-            text: "Write a clear definition or explanation.",
-          },
-        },
-        {
-          id: "card-2",
-          frontLabel: "Term 2",
-          front: { type: "text", text: "Add the second key term." },
-          backLabel: "Meaning",
-          back: {
-            type: "text",
-            text: "Write a clear definition or explanation.",
-          },
-        },
-        {
-          id: "card-3",
-          frontLabel: "Term 3",
-          front: { type: "text", text: "Add the third key term." },
-          backLabel: "Meaning",
-          back: {
-            type: "text",
-            text: "Write a clear definition or explanation.",
-          },
-        },
-        {
-          id: "card-4",
-          frontLabel: "Term 4",
-          front: { type: "text", text: "Add the fourth key term." },
-          backLabel: "Meaning",
-          back: {
-            type: "text",
-            text: "Write a clear definition or explanation.",
-          },
-        },
-      ],
-    },
-    width: "full",
     preview: "flip-card",
   },
   {
@@ -686,6 +557,64 @@ export const blockTemplates: BlockTemplate[] = [
     preview: "labeled-graphic",
   },
   {
+    id: "interactive-explore-data",
+    category: "Interactive",
+    title: "Explore: Data signals",
+    description: "Inspect a dashboard and open hotspots to investigate its signals.",
+    type: "labeledGraphic",
+    labeledGraphic: {
+      src: "",
+      alt: "Data dashboard showing a feature distribution and model monitoring signals.",
+      interactionMode: "explore",
+      sceneTheme: "data",
+      markers: [
+        { id: "records", label: "Record volume", description: "Compare the number of records across the current observation window.", x: 82, y: 23 },
+        { id: "feature-trend", label: "Feature trend", description: "Follow the plotted feature values and look for points that depart from the main pattern.", x: 78, y: 52 },
+        { id: "outlier", label: "Unusual reading", description: "Check an unusual reading against its source and time window before drawing a conclusion.", x: 77.5, y: 45 },
+      ],
+    },
+    preview: "labeled-graphic",
+  },
+  {
+    id: "interactive-explore-network",
+    category: "Interactive",
+    title: "Explore: Network path",
+    description: "Follow a packet across devices and inspect each connection point.",
+    type: "labeledGraphic",
+    labeledGraphic: {
+      src: "",
+      alt: "Network diagram showing a client, router, access point, and remote service.",
+      interactionMode: "explore",
+      sceneTheme: "network",
+      markers: [
+        { id: "client", label: "Client device", description: "The client starts the request and sends it to the network gateway.", x: 19, y: 53 },
+        { id: "router", label: "Router", description: "The router forwards packets toward the next network or service.", x: 39, y: 43 },
+        { id: "access-point", label: "Access point", description: "The access point connects wireless devices to the wired network.", x: 58, y: 53 },
+        { id: "service", label: "Remote service", description: "The destination responds after the request reaches the service.", x: 82, y: 43 },
+      ],
+    },
+    preview: "labeled-graphic",
+  },
+  {
+    id: "interactive-explore-field",
+    category: "Interactive",
+    title: "Explore: Crop field",
+    description: "Inspect plants and field conditions through clickable hotspots.",
+    type: "labeledGraphic",
+    labeledGraphic: {
+      src: "",
+      alt: "Illustrated crop field with rows of plants, soil, and a plant showing stress.",
+      interactionMode: "explore",
+      sceneTheme: "agriculture",
+      markers: [
+        { id: "healthy-row", label: "Healthy row", description: "Use nearby plants as a baseline when comparing crop health.", x: 30, y: 64 },
+        { id: "stressed-plant", label: "Stressed plant", description: "Discolored leaves are a sign to inspect water, nutrients, and pests before treating.", x: 77.5, y: 58 },
+        { id: "soil", label: "Soil condition", description: "Check soil moisture and texture to understand what may be affecting the plants.", x: 54, y: 82 },
+      ],
+    },
+    preview: "labeled-graphic",
+  },
+  {
     id: "interactive-process-steps",
     category: "Interactive",
     title: "Process steps",
@@ -708,6 +637,54 @@ export const blockTemplates: BlockTemplate[] = [
           title: "Review",
           body: "Check your result and decide whether any step needs another pass.",
         },
+      ],
+    },
+    preview: "process-steps",
+  },
+  {
+    id: "interactive-sequence-data",
+    category: "Interactive",
+    title: "Sequence: KDD process",
+    description: "Step through a data mining workflow from question to evaluation.",
+    type: "processSteps",
+    processSteps: {
+      steps: [
+        { id: "kdd-question", title: "Define the question", body: "Translate the business problem into a clear question that data can help answer." },
+        { id: "kdd-prepare", title: "Prepare the data", body: "Select relevant sources, clean inconsistent values, and choose useful features." },
+        { id: "kdd-mine", title: "Find patterns", body: "Apply a suitable method to discover patterns that address the question." },
+        { id: "kdd-evaluate", title: "Evaluate the result", body: "Check whether the pattern is reliable, useful, and supported by the data." },
+      ],
+    },
+    preview: "process-steps",
+  },
+  {
+    id: "interactive-sequence-it",
+    category: "Interactive",
+    title: "Sequence: Secure software setup",
+    description: "Walk through a safe software installation and verification sequence.",
+    type: "processSteps",
+    processSteps: {
+      steps: [
+        { id: "setup-source", title: "Verify the source", body: "Download the installer from an approved source and check its publisher." },
+        { id: "setup-review", title: "Review requirements", body: "Confirm device compatibility and understand the permissions the software requests." },
+        { id: "setup-install", title: "Install and configure", body: "Use the approved installation process and apply the required security settings." },
+        { id: "setup-test", title: "Test and update", body: "Check that the software works, then apply its latest approved updates." },
+      ],
+    },
+    preview: "process-steps",
+  },
+  {
+    id: "interactive-sequence-agriculture",
+    category: "Interactive",
+    title: "Sequence: Crop growing cycle",
+    description: "Guide learners through the main stages from soil preparation to harvest.",
+    type: "processSteps",
+    processSteps: {
+      steps: [
+        { id: "crop-soil", title: "Prepare the soil", body: "Check the field, improve the seedbed, and plan rows for the selected crop." },
+        { id: "crop-plant", title: "Plant the crop", body: "Choose suitable seed and plant at the recommended spacing and depth." },
+        { id: "crop-care", title: "Monitor and care", body: "Check moisture, nutrients, and crop health as the plants grow." },
+        { id: "crop-harvest", title: "Harvest and review", body: "Harvest at the right stage and record what worked for the next season." },
       ],
     },
     preview: "process-steps",
@@ -747,6 +724,63 @@ export const blockTemplates: BlockTemplate[] = [
     preview: "knowledge",
   },
   {
+    id: "interactive-next-step-data",
+    category: "Interactive",
+    title: "Decision: Investigate a data spike",
+    description: "Practice choosing a careful next step when a chart shows an outlier.",
+    type: "knowledgeCheck",
+    knowledgeCheck: {
+      question: "A dashboard shows a sudden spike. What should you check first?",
+      options: [
+        "Confirm the source and time window for the readings",
+        "Delete the unusual values before investigating",
+        "Assume the model has found a useful pattern",
+      ],
+      correctOptionIndex: 0,
+      correctFeedback: "Good choice. Verify the data source and observation window before interpreting the spike.",
+      incorrectFeedback: "Investigate the evidence first. Check the source and time window before changing or explaining the data.",
+    },
+    preview: "knowledge",
+  },
+  {
+    id: "interactive-next-step-it",
+    category: "Interactive",
+    title: "Decision: Troubleshoot a connection",
+    description: "Choose a safe first check when devices cannot reach a service.",
+    type: "knowledgeCheck",
+    knowledgeCheck: {
+      question: "Several devices cannot reach the same service. What is a useful first check?",
+      options: [
+        "Check the access point and network path shared by those devices",
+        "Disable security settings on every device",
+        "Reinstall the service before checking connectivity",
+      ],
+      correctOptionIndex: 0,
+      correctFeedback: "Correct. A shared network path is a useful place to investigate a fault affecting several devices.",
+      incorrectFeedback: "Start with a safe, shared point in the network path before changing device security or reinstalling software.",
+    },
+    preview: "knowledge",
+  },
+  {
+    id: "interactive-next-step-agriculture",
+    category: "Interactive",
+    title: "Decision: Respond to crop stress",
+    description: "Select an evidence-based next step when leaves begin to yellow.",
+    type: "knowledgeCheck",
+    knowledgeCheck: {
+      question: "A crop row has yellowing leaves after a dry week. What should you check first?",
+      options: [
+        "Inspect soil moisture and compare conditions across the field",
+        "Apply pesticide to the entire field immediately",
+        "Increase fertilizer without checking the soil",
+      ],
+      correctOptionIndex: 0,
+      correctFeedback: "Good choice. Check moisture and compare field conditions before deciding what treatment is appropriate.",
+      incorrectFeedback: "Gather evidence about water and field conditions before choosing fertilizer or pest treatment.",
+    },
+    preview: "knowledge",
+  },
+  {
     id: "interactive-confidence-poll",
     category: "Interactive",
     title: "Confidence rating",
@@ -758,6 +792,109 @@ export const blockTemplates: BlockTemplate[] = [
       maxLabel: "Very confident",
     },
     preview: "survey",
+  },
+  {
+    id: "interactive-mini-game-data",
+    category: "Interactive",
+    title: "Mini-game: Data detective",
+    description: "Scan a live-looking signal dashboard and tap the outlier to score.",
+    type: "labeledGraphic",
+    labeledGraphic: {
+      src: "",
+      alt: "A dark analytics dashboard with a scatter plot and one point far from the main cluster.",
+      interactionMode: "spotTarget",
+      sceneTheme: "data",
+      challengePrompt: "Find the point that breaks the pattern.",
+      successMessage: "Signal found! Check the source and time window before explaining an anomaly.",
+      markerColor: "#22d3ee",
+      radarColor: "#67e8f9",
+      markers: [
+        { id: "cluster-left", label: "Cluster point", description: "This point sits with the main pattern.", x: 52, y: 64, isTarget: false, missFeedback: "That point follows the trend. Scan farther from the cluster." },
+        { id: "outlier", label: "Outlier", description: "This point sits far outside the main cluster.", x: 77.5, y: 45, isTarget: true },
+        { id: "cluster-right", label: "Cluster point", description: "This point follows the nearby readings.", x: 65, y: 57, isTarget: false, missFeedback: "That reading is still near the trend. Keep looking for the isolated point." },
+      ],
+    },
+    preview: "labeled-graphic",
+  },
+  {
+    id: "interactive-mini-game-security",
+    category: "Interactive",
+    title: "Mini-game: Phishing hunt",
+    description: "Inspect an illustrated inbox and tap the suspicious destination.",
+    type: "labeledGraphic",
+    labeledGraphic: {
+      src: "",
+      alt: "An illustrated email warns of an account hold and contains a mismatched sign-in link.",
+      interactionMode: "spotTarget",
+      sceneTheme: "security",
+      challengePrompt: "Find the destination that does not match the sender.",
+      successMessage: "Risk spotted! Avoid the link and report the message through an approved channel.",
+      markerColor: "#38bdf8",
+      radarColor: "#7dd3fc",
+      markers: [
+        { id: "sender", label: "Sender address", description: "Inspect the sender carefully, but keep scanning the message.", x: 39, y: 36, isTarget: false, missFeedback: "Good instinct to check the sender. Now inspect where the sign-in link leads." },
+        { id: "urgent-subject", label: "Urgent subject", description: "Urgency can be suspicious, but inspect the destination too.", x: 51, y: 22, isTarget: false, missFeedback: "The urgent wording is a warning sign. Can you find the unsafe destination?" },
+        { id: "mismatched-link", label: "Sign-in destination", description: "The link domain does not match the trusted sender.", x: 42, y: 68, isTarget: true },
+      ],
+    },
+    preview: "labeled-graphic",
+  },
+  {
+    id: "interactive-mini-game-agriculture",
+    category: "Interactive",
+    title: "Mini-game: Crop scout",
+    description: "Survey a crop plot and tap the plant showing signs of stress.",
+    type: "labeledGraphic",
+    labeledGraphic: {
+      src: "",
+      alt: "An illustrated crop plot with one plant showing yellowed leaves among healthy plants.",
+      interactionMode: "spotTarget",
+      sceneTheme: "agriculture",
+      challengePrompt: "Find the plant that needs a closer inspection.",
+      successMessage: "Plant found! Compare field conditions and confirm the cause before choosing a treatment.",
+      markerColor: "#86efac",
+      radarColor: "#bbf7d0",
+      markers: [
+        { id: "healthy-left", label: "Healthy plant", description: "This plant looks similar to the healthy crop around it.", x: 30, y: 59, isTarget: false, missFeedback: "This plant appears consistent with its neighbors. Keep scanning the row." },
+        { id: "healthy-center", label: "Healthy plant", description: "This plant does not show the strongest visible change.", x: 46, y: 58, isTarget: false, missFeedback: "Look for the plant with noticeably discolored leaves." },
+        { id: "stressed-crop", label: "Stressed plant", description: "Discolored leaves make this plant worth inspecting more closely.", x: 77.5, y: 58, isTarget: true },
+      ],
+    },
+    preview: "labeled-graphic",
+  },
+  {
+    id: "interactive-lesson-map",
+    category: "Interactive",
+    title: "Lesson Map",
+    description: "Guide learners along an illustrated path through lessons or sections.",
+    type: "lessonMap",
+    lessonMap: {
+      template: "modernCity",
+      checkpoints: [
+        { id: "map-start", title: "Welcome", description: "Begin your learning journey here.", color: "#e27d55", icon: "flag", targetType: "lesson", targetId: "", x: 14, y: 69 },
+        { id: "map-discover", title: "Discover", description: "Explore the ideas that shape this topic.", color: "#4b86b4", icon: "book", targetType: "lesson", targetId: "", x: 35, y: 50 },
+        { id: "map-practice", title: "Practice", description: "Try a new skill and put it into practice.", color: "#62a36c", icon: "star", targetType: "lesson", targetId: "", x: 61, y: 39 },
+        { id: "map-finish", title: "Keep going", description: "Continue to your next course milestone.", color: "#9167a9", icon: "leaf", targetType: "lesson", targetId: "", x: 84, y: 62 },
+      ],
+    },
+    preview: "lessonMap",
+  },
+  {
+    id: "interactive-lesson-map-farm",
+    category: "Interactive",
+    title: "Explore: Farm field map",
+    description: "Let learners inspect fields, soil, water, and crop checkpoints on a map.",
+    type: "lessonMap",
+    lessonMap: {
+      template: "farmFields",
+      checkpoints: [
+        { id: "farm-field", title: "Crop rows", description: "Compare crop growth across the field before choosing where to investigate.", color: "#4f8b55", icon: "leaf", targetType: "lesson", targetId: "", x: 17, y: 67 },
+        { id: "farm-soil", title: "Soil check", description: "Inspect soil texture and moisture to understand the conditions around the roots.", color: "#a87542", icon: "star", targetType: "lesson", targetId: "", x: 39, y: 47 },
+        { id: "farm-water", title: "Water source", description: "Trace how water reaches the field and consider whether each area receives enough.", color: "#3d8da8", icon: "flag", targetType: "lesson", targetId: "", x: 64, y: 34 },
+        { id: "farm-barn", title: "Field notes", description: "Record observations and decide what evidence to gather next.", color: "#9167a9", icon: "book", targetType: "lesson", targetId: "", x: 84, y: 64 },
+      ],
+    },
+    preview: "lessonMap",
   },
   {
     id: "knowledge-choice",
@@ -924,6 +1061,64 @@ export const blockTemplates: BlockTemplate[] = [
     description: "Separate lesson content with a fine line.",
     type: "divider",
     dividerStyle: "line",
+    preview: "divider",
+  },
+  {
+    id: "divider-line-dashed",
+    category: "Divider",
+    title: "Dashed line",
+    description: "Separate sections with a soft dashed rule.",
+    type: "divider",
+    dividerStyle: "line",
+    dividerLineStyle: "dashed",
+    dividerLineWeight: 2,
+    dividerLineColor: "#94a3b8",
+    preview: "divider",
+  },
+  {
+    id: "divider-line-dotted",
+    category: "Divider",
+    title: "Dotted line",
+    description: "Add a light dotted break between lesson sections.",
+    type: "divider",
+    dividerStyle: "line",
+    dividerLineStyle: "dotted",
+    dividerLineWeight: 2,
+    dividerLineColor: "#64748b",
+    preview: "divider",
+  },
+  {
+    id: "divider-line-double",
+    category: "Divider",
+    title: "Double line",
+    description: "Mark a stronger section break with a double rule.",
+    type: "divider",
+    dividerStyle: "line",
+    dividerLineStyle: "double",
+    dividerLineWeight: 4,
+    dividerLineColor: "#64748b",
+    preview: "divider",
+  },
+  {
+    id: "divider-line-accent",
+    category: "Divider",
+    title: "Accent line",
+    description: "Use a thicker course-color line to emphasize a transition.",
+    type: "divider",
+    dividerStyle: "line",
+    dividerLineWeight: 4,
+    dividerLineColor: "#4f46e5",
+    preview: "divider",
+  },
+  {
+    id: "divider-line-bold",
+    category: "Divider",
+    title: "Bold line",
+    description: "Create a clear, heavy break between sections.",
+    type: "divider",
+    dividerStyle: "line",
+    dividerLineWeight: 6,
+    dividerLineColor: "#334155",
     preview: "divider",
   },
   {

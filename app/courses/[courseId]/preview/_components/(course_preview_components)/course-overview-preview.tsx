@@ -138,7 +138,7 @@ export function CourseOverviewPreview({
                             onClick={() => selectLesson(lesson.id)}
                             aria-label={`${lesson.title}${lockMessage ? `. Locked. ${lockMessage}` : ""}`}
                             title={lockMessage ?? undefined}
-                            className={`flex min-h-16 w-full items-start gap-3 px-2 py-3 text-left ${locked ? "cursor-not-allowed opacity-50" : "hover:bg-slate-50"}`}
+                            className={`cursor-pointer flex min-h-16 w-full items-start gap-3 px-2 py-3 text-left ${locked ? "cursor-not-allowed opacity-50" : "hover:bg-slate-50"}`}
                           >
                             <Icon
                               size={17}

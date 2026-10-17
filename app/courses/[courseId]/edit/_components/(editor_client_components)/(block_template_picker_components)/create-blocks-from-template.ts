@@ -19,6 +19,10 @@ function commonBlock(id: string, type: ContentBlock["type"]) {
 export function createBlocksFromTemplate(
   template: BlockTemplate,
   id: string,
+  courseTargets?: {
+    sections: { id: string; title: string; order: number }[];
+    lessons: { id: string; title: string; sectionId: string; order: number }[];
+  },
 ): ContentBlock[] {
   const isLineDivider =
     template.type === "divider" && (template.dividerStyle ?? "line") === "line";
@@ -49,7 +53,17 @@ export function createBlocksFromTemplate(
       throw new Error(
         `Flip card template "${template.id}" is missing its content.`,
       );
-    return [{ ...base, type: "flipCard", data: template.flipCard }];
+    return [{
+      ...base,
+      type: "flipCard",
+      data: {
+        ...template.flipCard,
+        cardsPerRow: template.flipCard.cardsPerRow ?? 3,
+        cardStyle: template.flipCard.cardStyle ?? "classic",
+        cardBackgroundColor: template.flipCard.cardBackgroundColor ?? "#ffffff",
+        cardTextColor: template.flipCard.cardTextColor ?? "#0f172a",
+      },
+    }];
   }
   if (template.type === "accordion") {
     if (!template.accordion)
@@ -65,6 +79,27 @@ export function createBlocksFromTemplate(
       );
     return [{ ...base, type: "labeledGraphic", data: template.labeledGraphic }];
   }
+  if (template.type === "lessonMap") {
+    if (!template.lessonMap)
+      throw new Error(`Lesson map template "${template.id}" is missing its data.`);
+    const orderedLessons = [...(courseTargets?.lessons ?? [])].sort((a, b) => {
+      const sectionOrder = (courseTargets?.sections.findIndex((section) => section.id === a.sectionId) ?? 0) -
+        (courseTargets?.sections.findIndex((section) => section.id === b.sectionId) ?? 0);
+      return sectionOrder || a.order - b.order;
+    });
+    return [{
+      ...base,
+      type: "lessonMap",
+      data: {
+        ...template.lessonMap,
+        checkpoints: template.lessonMap.checkpoints.map((checkpoint, index) => ({
+          ...checkpoint,
+          id: crypto.randomUUID(),
+          targetId: orderedLessons[Math.min(index, orderedLessons.length - 1)]?.id ?? "",
+        })),
+      },
+    }];
+  }
   if (template.type === "processSteps") {
     if (!template.processSteps)
       throw new Error(
@@ -76,6 +111,11 @@ export function createBlocksFromTemplate(
     if (!template.chart)
       throw new Error(`Chart template "${template.id}" is missing its data.`);
     return [{ ...base, type: "chart", data: template.chart }];
+  }
+  if (template.type === "link") {
+    if (!template.link)
+      throw new Error(`Link template "${template.id}" is missing its content.`);
+    return [{ ...base, type: "link", data: template.link }];
   }
   if (template.type === "statement") {
     if (!template.statement) {
@@ -134,7 +174,11 @@ export function createBlocksFromTemplate(
         label: template.dividerLabel ?? "Continue",
         completionType: template.dividerCompletionType ?? "none",
         ...(isLineDivider
-          ? { lineWeight: 1, lineColor: "#cbd5e1", lineStyle: "solid" as const }
+          ? {
+              lineWeight: template.dividerLineWeight ?? 1,
+              lineColor: template.dividerLineColor ?? "#cbd5e1",
+              lineStyle: template.dividerLineStyle ?? "solid",
+            }
           : {}),
       },
     },

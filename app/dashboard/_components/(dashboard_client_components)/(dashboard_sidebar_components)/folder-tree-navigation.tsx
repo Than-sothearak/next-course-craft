@@ -52,7 +52,7 @@ export function FolderTreeNavigation({
                 type="button"
                 onClick={() => onOpen(node.id)}
                 title={node.name}
-                className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-md text-left text-[13px] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-indigo-600"
+                className="cursor-pointer flex h-9 min-w-0 flex-1 items-center gap-2 rounded-md text-left text-[13px] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-indigo-600"
               >
                 <Folder
                   size={15}

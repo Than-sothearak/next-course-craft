@@ -71,30 +71,80 @@ body { margin: 0; min-height: 100vh; background: #f8fafc; color: #0f172a; font-f
   animation: labeled-graphic-radar 2.6s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
 .labeled-graphic-radar::after { animation-delay: 1.3s; }
-.labeled-graphic-popover { animation: labeled-graphic-popover-enter 280ms cubic-bezier(0.22, 1, 0.36, 1) both; }
+.labeled-graphic-popover {
+  box-sizing: border-box;
+  width: min(17rem, calc(100% - 1rem));
+  max-width: 17rem;
+  max-height: calc(100% - 1rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  animation: labeled-graphic-popover-enter 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
 .lesson-rich-text ul,
-.lesson-rich-text ol { margin-block: 0.75rem; padding-inline-start: 1.5rem; }
+.lesson-rich-text ol { margin-block: 1rem; padding-inline-start: 0; list-style: none; }
 .lesson-rich-text blockquote { margin-block: 1rem; border-inline-start: 3px solid #cbd5e1; padding-inline-start: 1rem; color: #334155; }
 .lesson-rich-text blockquote > p + p { color: #64748b; font-size: 0.875em; }
-.lesson-rich-text ul { list-style-type: disc; }
-.lesson-rich-text ul[data-list-style="circle"] { list-style-type: circle; }
-.lesson-rich-text ul[data-list-style="square"] { list-style-type: square; }
-.lesson-rich-text ul[data-list-style="dash"],
-.lesson-rich-text ul[data-list-style="check"] { list-style: none; padding-inline-start: 0; }
-.lesson-rich-text ul[data-list-style="dash"] li,
-.lesson-rich-text ul[data-list-style="check"] li { position: relative; padding-inline-start: 1.5rem; }
-.lesson-rich-text ul[data-list-style="dash"] li::before,
-.lesson-rich-text ul[data-list-style="check"] li::before { position: absolute; left: 0; color: var(--course-primary, #2f5f9f); font-weight: 700; }
-.lesson-rich-text ul[data-list-style="dash"] li::before { content: "–"; }
-.lesson-rich-text ul[data-list-style="check"] li::before { content: "✓"; }
-.lesson-rich-text ol { list-style-type: decimal; }
-.lesson-rich-text ol[type="A"] { list-style-type: upper-alpha; }
-.lesson-rich-text ol[type="a"] { list-style-type: lower-alpha; }
-.lesson-rich-text ol[type="I"] { list-style-type: upper-roman; }
-.lesson-rich-text ol[type="i"] { list-style-type: lower-roman; }
-.lesson-rich-text li { margin-block: 0.35rem; }
-.lesson-rich-text li::marker { color: var(--course-primary, #2f5f9f); font-size: inherit; }
+.lesson-rich-text ol { counter-reset: lesson-list-item; }
+.lesson-rich-text li {
+  display: grid;
+  grid-template-columns: 2.2em minmax(0, 1fr);
+  align-items: center;
+  column-gap: 0.8em;
+  margin-block: 0.75em;
+}
+.lesson-rich-text li > * { grid-column: 2; min-width: 0; }
+.lesson-rich-text li::before {
+  display: grid;
+  grid-column: 1;
+  grid-row: 1;
+  width: 2.4em;
+  height: 2.4em;
+  place-items: center;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--course-primary, #2f5f9f) 10%, white);
+  color: var(--course-primary, #2f5f9f);
+  font-size: 0.9em;
+  font-weight: 700;
+  line-height: 1;
+}
+.lesson-rich-text ul > li::before { content: "•"; }
+.lesson-rich-text ul[data-list-style="circle"] > li::before { content: "○"; }
+.lesson-rich-text ul[data-list-style="square"] > li::before { content: "▪"; }
+.lesson-rich-text ul[data-list-style="dash"] > li::before { content: "–"; }
+.lesson-rich-text ul[data-list-style="check"] > li::before { content: "✓"; }
+.lesson-rich-text :is(ul, ol) ul:not([data-list-style]) > li::before { content: "○"; }
+.lesson-rich-text :is(ul, ol) :is(ul, ol) ul:not([data-list-style]) > li::before { content: "▪"; }
+.lesson-rich-text ol > li { counter-increment: lesson-list-item; }
+.lesson-rich-text ol > li::before { content: counter(lesson-list-item) "."; }
+.lesson-rich-text ol[data-list-style="lower-alpha"] > li::before { content: counter(lesson-list-item, lower-alpha) "."; }
+.lesson-rich-text ol[data-list-style="upper-alpha"] > li::before { content: counter(lesson-list-item, upper-alpha) "."; }
+.lesson-rich-text ol[data-list-style="lower-roman"] > li::before { content: counter(lesson-list-item, lower-roman) "."; }
+.lesson-rich-text ol[data-list-style="upper-roman"] > li::before { content: counter(lesson-list-item, upper-roman) "."; }
+.lesson-rich-text ol[type="A"] > li::before { content: counter(lesson-list-item, upper-alpha) "."; }
+.lesson-rich-text ol[type="a"] > li::before { content: counter(lesson-list-item, lower-alpha) "."; }
+.lesson-rich-text ol[type="I"] > li::before { content: counter(lesson-list-item, upper-roman) "."; }
+.lesson-rich-text ol[type="i"] > li::before { content: counter(lesson-list-item, lower-roman) "."; }
+.lesson-rich-text ol ol:not([data-list-style]) > li::before { content: counter(lesson-list-item, lower-alpha) "."; }
+.lesson-rich-text ol ol ol:not([data-list-style]) > li::before { content: counter(lesson-list-item, lower-roman) "."; }
+.lesson-rich-text ul ul,
+.lesson-rich-text ul ol,
+.lesson-rich-text ol ul,
+.lesson-rich-text ol ol { margin-block: 0.75em; margin-inline-start: 1.25em; }
+.lesson-rich-text ul[data-list-style="check"] > li > p:first-child {
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5em;
+  background: #f8fafc;
+  padding: 0.5em 0.75em;
+}
+.lesson-rich-text ul[data-item-spacing="compact"] > li,
+.lesson-rich-text ol[data-item-spacing="compact"] > li { margin-block: 0.375em; }
+.lesson-rich-text ul[data-item-spacing="comfortable"] > li,
+.lesson-rich-text ol[data-item-spacing="comfortable"] > li { margin-block: 0.75em; }
+.lesson-rich-text ul[data-item-spacing="spacious"] > li,
+.lesson-rich-text ol[data-item-spacing="spacious"] > li { margin-block: 1.5em; }
 .lesson-rich-text li > p { margin-block: 0; }
+.lesson-rich-text .tiptap a { color: var(--course-primary, #2f5f9f); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 0.16em; }
+.lesson-rich-text .tiptap a:hover { text-decoration-thickness: 2px; }
 [data-preview-screen] .lesson-rich-text { min-width: 0; overflow-wrap: anywhere; }
 [data-preview-screen] .lesson-rich-text .tiptap table { display: block; max-width: 100%; overflow-x: auto; }
 .lesson-rich-text .tiptap h2 { margin-block: 0 0.75rem; font-size: 24px; font-weight: 700; line-height: 1.3; }

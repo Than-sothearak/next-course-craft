@@ -46,7 +46,7 @@ export function FolderCard({
       <div className="flex items-start justify-between gap-3">
         <button
           onClick={onOpen}
-          className="flex min-w-0 flex-1 items-start gap-3 rounded-lg text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+          className="cursor-pointer flex min-w-0 flex-1 items-start gap-3 rounded-lg text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
         >
           <span className="">
             <Folder size={20} aria-hidden="true" />

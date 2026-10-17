@@ -20,6 +20,11 @@ export function LessonBlocksPreview({
   onReveal,
   onUnlockAnimationEnd,
   onInteractiveProgress,
+  lessons,
+  visitedLessonIds,
+  passedQuizIds,
+  getLessonNavigationLockMessage,
+  onOpenLesson,
 }: {
   blocks: ContentBlock[];
   device: PreviewDevice;
@@ -32,6 +37,11 @@ export function LessonBlocksPreview({
   onReveal: (dividerId: string, nextBlockId?: string) => void;
   onUnlockAnimationEnd: (dividerId: string) => void;
   onInteractiveProgress: (progressId: string) => void;
+  lessons: { id: string; title: string; sectionId: string; order: number; lessonType?: "content" | "quiz" }[];
+  visitedLessonIds: ReadonlySet<string>;
+  passedQuizIds: ReadonlySet<string>;
+  getLessonNavigationLockMessage: (lessonId: string) => string | null;
+  onOpenLesson: (lessonId: string) => void;
 }) {
   const firstHiddenDividerIndex = blocks.findIndex(
     (block) =>
@@ -144,6 +154,11 @@ export function LessonBlocksPreview({
               animateListItems={animate}
               interactedContentIds={interactedContentIds}
               onInteractiveProgress={onInteractiveProgress}
+              lessons={lessons}
+              visitedLessonIds={visitedLessonIds}
+              passedQuizIds={passedQuizIds}
+              getLessonNavigationLockMessage={getLessonNavigationLockMessage}
+              onOpenLesson={onOpenLesson}
             />
           </div>
         );

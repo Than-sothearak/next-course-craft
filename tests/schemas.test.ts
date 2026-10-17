@@ -8,6 +8,38 @@ describe("shared authoring schemas", () => {
     expect(blockSchema.parse({ id: "b1", version: 1, type: "heading", data: { text: "Welcome", level: 1 } }).type).toBe("heading");
   });
 
+  it("validates resource link blocks and rejects unsafe destinations", () => {
+    expect(blockSchema.parse({
+      id: "resource-link",
+      version: 1,
+      type: "link",
+      data: { label: "Read the guide", url: "https://example.com/guide", style: "card" },
+    })).toMatchObject({
+      type: "link",
+      width: "small",
+      blockPadding: 40,
+      data: { label: "Read the guide", description: "", style: "card", openInNewTab: true },
+    });
+    expect(blockSchema.safeParse({
+      id: "unsafe-link",
+      version: 1,
+      type: "link",
+      data: { url: "javascript:alert(1)" },
+    }).success).toBe(false);
+    expect(blockSchema.safeParse({
+      id: "protocol-relative-link",
+      version: 1,
+      type: "link",
+      data: { url: "//example.com" },
+    }).success).toBe(false);
+    expect(blockSchema.safeParse({
+      id: "backslash-relative-link",
+      version: 1,
+      type: "link",
+      data: { url: "/\\example.com" },
+    }).success).toBe(false);
+  });
+
   it("rejects an unsupported block version", () => {
     expect(blockSchema.safeParse({ id: "b1", version: 2, type: "divider", data: { style: "line" } }).success).toBe(false);
   });
@@ -36,7 +68,7 @@ describe("shared authoring schemas", () => {
     expect(defaultBlockPaddingForBlock(block)).toBe(100);
     expect(normalizeBlockPaddingForBlock(undefined, block)).toBe(100);
     expect(blockSurfaceStyle(block)).toMatchObject({ paddingTop: "100px", paddingBottom: "100px" });
-    expect(blockSchema.parse({ id: "space", version: 1, type: "divider", data: { style: "space" } }).blockPadding).toBe(20);
+    expect(blockSchema.parse({ id: "space", version: 1, type: "divider", data: { style: "space" } }).blockPadding).toBe(40);
   });
 
   it.each([0, 20, 80, 120])("preserves custom Continue block padding of %ipx", (padding) => {
@@ -80,6 +112,10 @@ describe("shared authoring schemas", () => {
           front: { type: "text", text: "What is active recall?" },
           back: { type: "text", text: "Retrieving information from memory." },
         }],
+        cardsPerRow: 3,
+        cardStyle: "classic",
+        cardBackgroundColor: "#ffffff",
+        cardTextColor: "#0f172a",
       },
     });
 
@@ -95,8 +131,21 @@ describe("shared authoring schemas", () => {
           backLabel: "Answer",
           back: { type: "text", text: "The answer" },
         }],
+        cardsPerRow: 5,
+        cardStyle: "outlined",
+        cardBackgroundColor: "#fef3c7",
+        cardTextColor: "#1f2937",
       },
-    })).toMatchObject({ type: "flipCard", data: { cards: [{ front: { type: "image" }, back: { type: "text" } }] } });
+    })).toMatchObject({
+      type: "flipCard",
+      data: {
+        cardsPerRow: 5,
+        cardStyle: "outlined",
+        cardBackgroundColor: "#fef3c7",
+        cardTextColor: "#1f2937",
+        cards: [{ front: { type: "image" }, back: { type: "text" } }],
+      },
+    });
   });
 
   it("validates accordion, labeled graphic, and process step interactions", () => {
@@ -153,6 +202,43 @@ describe("shared authoring schemas", () => {
       data: { steps: [{ id: "step-a", title: "First", body: "Do this" }, { id: "step-b", title: "Next", body: "Then this" }] },
     });
     expect(steps).toMatchObject({ type: "processSteps", width: "medium", data: { steps: [{ title: "First" }, { title: "Next" }] } });
+  });
+
+  it("requires one winning hotspot and complete feedback for graphic mini-games", () => {
+    const game = {
+      id: "spot-target-game",
+      version: 1,
+      type: "labeledGraphic",
+      data: {
+        src: "",
+        alt: "A training scene with a hidden clue.",
+        interactionMode: "spotTarget",
+        sceneTheme: "security",
+        challengePrompt: "Find the suspicious link.",
+        successMessage: "Good catch. Report the message.",
+        markers: [
+          { id: "wrong", label: "Check here", description: "Try again.", x: 30, y: 40, isTarget: false },
+          { id: "right", label: "Clue", description: "This is the clue.", x: 60, y: 70, isTarget: true },
+        ],
+      },
+    } as const;
+
+    expect(blockSchema.parse(game)).toMatchObject({
+      type: "labeledGraphic",
+      data: { interactionMode: "spotTarget", sceneTheme: "security", markers: [{ isTarget: false }, { isTarget: true }] },
+    });
+    expect(blockSchema.safeParse({
+      ...game,
+      data: { ...game.data, markers: game.data.markers.map((marker) => ({ ...marker, isTarget: false })) },
+    }).success).toBe(false);
+    expect(blockSchema.safeParse({
+      ...game,
+      data: { ...game.data, markers: game.data.markers.map((marker) => ({ ...marker, isTarget: true })) },
+    }).success).toBe(false);
+    expect(blockSchema.safeParse({
+      ...game,
+      data: { ...game.data, successMessage: " " },
+    }).success).toBe(false);
   });
 
   it("normalizes legacy flip cards at the persisted-block read boundary", () => {

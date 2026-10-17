@@ -28,6 +28,7 @@ type LessonReaderPreviewProps = {
   initials: string;
   quizScores: Record<string, number>;
   passedQuizIds: ReadonlySet<string>;
+  visitedLessonIds: ReadonlySet<string>;
   revealedDividerIds: Set<string>;
   completedDividerIds: Set<string>;
   unlockingDividerIds: Set<string>;
@@ -36,6 +37,7 @@ type LessonReaderPreviewProps = {
   lessonBodyScrollRefs: RecordRef<HTMLDivElement>;
   markContentAboveComplete: (lesson: PreviewLesson, element: HTMLDivElement) => void;
   selectLesson: (lessonId: string) => void;
+  returnToCourse: () => void;
   getLessonNavigationLockMessage: (lessonId: string) => string | null;
   setQuizScores: Dispatch<SetStateAction<Record<string, number>>>;
   setPassedQuizIds: Dispatch<SetStateAction<Set<string>>>;
@@ -58,6 +60,7 @@ export function LessonReaderPreview({
   initials,
   quizScores,
   passedQuizIds,
+  visitedLessonIds,
   revealedDividerIds,
   completedDividerIds,
   unlockingDividerIds,
@@ -66,6 +69,7 @@ export function LessonReaderPreview({
   lessonBodyScrollRefs,
   markContentAboveComplete,
   selectLesson,
+  returnToCourse,
   getLessonNavigationLockMessage,
   setQuizScores,
   setPassedQuizIds,
@@ -113,11 +117,9 @@ export function LessonReaderPreview({
                 <Button
                   type="button"
                   variant="ghost"
-                  disabled={index <= 0}
-                  onClick={() =>
-                    lessons[index - 1] &&
-                    navigateSection(lessons[index - 1].id, "previous")
-                  }
+                  onClick={() => index === 0
+                    ? returnToCourse()
+                    : lessons[index - 1] && navigateSection(lessons[index - 1].id, "previous")}
                   className="relative h-auto min-h-20 w-full justify-center rounded-none border-0 bg-slate-100 px-14 py-4 text-center text-slate-700 hover:bg-slate-200"
                 >
                   <span className="flex min-w-0 flex-col items-center whitespace-normal leading-tight">
@@ -130,7 +132,7 @@ export function LessonReaderPreview({
                         aria-hidden="true"
                         className="shrink-0"
                       />
-                      {lessons[index - 1]?.title || "Start of course"}
+                      {lessons[index - 1]?.title || "Preview course"}
                     </span>
                   </span>
                 </Button>
@@ -188,6 +190,11 @@ export function LessonReaderPreview({
                   completedDividerIds={completedDividerIds}
                   unlockingDividerIds={unlockingDividerIds}
                   interactedContentIds={interactedContentIds}
+                  lessons={lessons}
+                  visitedLessonIds={visitedLessonIds}
+                  passedQuizIds={passedQuizIds}
+                  getLessonNavigationLockMessage={getLessonNavigationLockMessage}
+                  onOpenLesson={selectLesson}
                   onReveal={(dividerId, nextBlockId) => {
                     setRevealedDividerIds((previous) =>
                       new Set(previous).add(dividerId),

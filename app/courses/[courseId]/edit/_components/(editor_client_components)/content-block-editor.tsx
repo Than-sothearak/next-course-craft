@@ -8,6 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { CourseLinkBlock } from "@/components/course-link-block";
+import { isSafeLinkHref, normalizeLinkHref } from "@/lib/editor/link-utils";
 import { HeadingBlockEditor } from "./(content_block_editor_components)/heading-block-editor";
 import { RichTextBlockEditor } from "./(content_block_editor_components)/rich-text-block-editor";
 import { InputBlockPreview } from "./input-block-preview";
@@ -16,6 +19,7 @@ import { ProcessStepsSettings } from "./(content_block_editor_components)/proces
 import { InteractiveAccordion, InteractiveFlipCard, InteractiveLabeledGraphic, InteractiveProcessSteps } from "../../../preview/interactive-blocks";
 import { ImageBlockLayout } from "../image-block-layout";
 import { ChartBlockPreview } from "../../../preview/chart-block";
+import { LessonMapEditor } from "@/components/lesson-map";
 import { DraggableSettingsPanel } from "./draggable-settings-panel";
 import {
   MediaLibraryDialog,
@@ -37,11 +41,23 @@ export function ContentBlockEditor({
   courseId,
   onChange,
   onReplaceTemplate,
+  sections = [],
+  lessons = [],
+  saveState = "saved",
+  hasUnsavedChanges = false,
+  saveMessage = "",
+  onRetrySave = () => {},
 }: {
   block: ContentBlock;
   courseId: string;
   onChange: (block: ContentBlock) => void;
   onReplaceTemplate?: () => void;
+  sections?: { id: string; title: string; order: number }[];
+  lessons?: { id: string; title: string; sectionId: string; order: number; lessonType?: "content" | "quiz" }[];
+  saveState?: "saved" | "saving" | "error" | "conflict";
+  hasUnsavedChanges?: boolean;
+  saveMessage?: string;
+  onRetrySave?: () => void;
 }) {
   const [editing, setEditing] = useState(false);
   const [chartColorDraft, setChartColorDraft] = useState(
@@ -101,6 +117,7 @@ export function ContentBlockEditor({
       onChange({
         ...block,
         data: {
+          ...block.data,
           cards: block.data.cards.map((card) =>
             card.id !== mediaLibraryTarget.cardId
               ? card
@@ -125,6 +142,7 @@ export function ContentBlockEditor({
     onChange({
       ...block,
       data: {
+        ...block.data,
         cards: block.data.cards.map((card) => card.id === cardId ? update(card) : card),
       },
     });
@@ -219,9 +237,24 @@ export function ContentBlockEditor({
         <StatementContentEditor block={block} onChange={onChange} />
       </div>
     );
+  if (block.type === "lessonMap")
+    return (
+      <LessonMapEditor
+        block={block}
+        sections={sections}
+        lessons={lessons}
+        saveState={saveState}
+        hasUnsavedChanges={hasUnsavedChanges}
+        saveMessage={saveMessage}
+        onRetrySave={onRetrySave}
+        onChange={(next) => onChange(next)}
+      />
+    );
 
   const preview =
-    block.type === "chart" ? (
+    block.type === "link" ? (
+      <CourseLinkBlock data={block.data} interactive={false} />
+    ) : block.type === "chart" ? (
       <ChartBlockPreview data={block.data} />
     ) : block.type === "image" ? (
       <ImageBlockLayout
@@ -326,6 +359,10 @@ export function ContentBlockEditor({
       <InteractiveFlipCard
         blockId={block.id}
         cards={block.data.cards}
+        cardsPerRow={block.data.cardsPerRow}
+        cardStyle={block.data.cardStyle}
+        cardBackgroundColor={block.data.cardBackgroundColor}
+        cardTextColor={block.data.cardTextColor}
       />
     ) : block.type === "accordion" ? (
       <InteractiveAccordion
@@ -336,6 +373,7 @@ export function ContentBlockEditor({
       />
     ) : block.type === "labeledGraphic" ? (
       <InteractiveLabeledGraphic
+        key={`${block.id}:${block.data.sceneTheme ?? ""}:${block.data.challengePrompt ?? ""}:${block.data.markers.map((marker) => `${marker.id}-${marker.isTarget ? "target" : "option"}`).join(":")}`}
         blockId={block.id}
         src={block.data.src}
         alt={block.data.alt}
@@ -343,6 +381,10 @@ export function ContentBlockEditor({
         markerColor={block.data.markerColor ?? block.data.markers[0]?.color ?? "#2f5f9f"}
         textColor={block.data.textColor ?? "#ffffff"}
         radarColor={block.data.radarColor ?? block.data.markerColor ?? block.data.markers[0]?.color ?? "#2f5f9f"}
+        interactionMode={block.data.interactionMode}
+        sceneTheme={block.data.sceneTheme}
+        challengePrompt={block.data.challengePrompt}
+        successMessage={block.data.successMessage}
         editable
         onMarkerPositionChange={(markerId, position) => onChange({
           ...block,
@@ -385,6 +427,76 @@ export function ContentBlockEditor({
           panelClassName="w-[min(380px,calc(100vw-3rem))]"
         >
           {replaceTemplateAction()}
+          {block.type === "link" && (
+            <div className="space-y-2">
+              <Input
+                aria-label="Link text"
+                value={block.data.label}
+                maxLength={200}
+                onChange={(event) => onChange({
+                  ...block,
+                  data: { ...block.data, label: event.target.value },
+                })}
+                placeholder="Link text"
+                className="h-9"
+              />
+              <div>
+                <Input
+                  aria-label="Link URL"
+                  type="text"
+                  value={block.data.url}
+                  maxLength={2048}
+                  onChange={(event) => onChange({
+                    ...block,
+                    data: { ...block.data, url: event.target.value },
+                  })}
+                  onBlur={(event) => {
+                    const url = normalizeLinkHref(event.target.value);
+                    if (url) onChange({ ...block, data: { ...block.data, url } });
+                  }}
+                  placeholder="https://example.com"
+                  className="h-9"
+                />
+                {!isSafeLinkHref(block.data.url) && (
+                  <p className="mt-1 text-xs text-rose-600">Enter a safe web, email, phone, or relative link.</p>
+                )}
+              </div>
+              <Textarea
+                aria-label="Link description"
+                value={block.data.description}
+                maxLength={1000}
+                onChange={(event) => onChange({
+                  ...block,
+                  data: { ...block.data, description: event.target.value },
+                })}
+                placeholder="Short description (optional)"
+                className="min-h-16 resize-y"
+              />
+              <Select
+                aria-label="Link style"
+                value={block.data.style}
+                onChange={(event) => onChange({
+                  ...block,
+                  data: { ...block.data, style: event.target.value as typeof block.data.style },
+                })}
+                className="h-9 w-full"
+              >
+                <option value="button">Button</option>
+                <option value="card">Resource card</option>
+                <option value="text">Inline text</option>
+              </Select>
+              <label className="flex items-center gap-2 text-xs text-slate-600">
+                <Checkbox
+                  checked={block.data.openInNewTab}
+                  onChange={(event) => onChange({
+                    ...block,
+                    data: { ...block.data, openInNewTab: event.target.checked },
+                  })}
+                />
+                Open in a new tab
+              </label>
+            </div>
+          )}
           {block.type === "chart" && (
             <div className="space-y-3">
               <Input
@@ -833,7 +945,8 @@ export function ContentBlockEditor({
                             lineStyle: event.target.value as
                               | "solid"
                               | "dashed"
-                              | "dotted",
+                              | "dotted"
+                              | "double",
                           },
                         })
                       }
@@ -842,6 +955,7 @@ export function ContentBlockEditor({
                       <option value="solid">Solid</option>
                       <option value="dashed">Dashed</option>
                       <option value="dotted">Dotted</option>
+                      <option value="double">Double</option>
                     </Select>
                   </label>
                 </>
@@ -888,6 +1002,67 @@ export function ContentBlockEditor({
           )}
           {block.type === "flipCard" && (
             <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <label className="space-y-1 text-xs font-medium text-slate-600">
+                  <span>Cards per row</span>
+                  <Select
+                    aria-label="Cards per row"
+                    value={String(block.data.cardsPerRow)}
+                    onChange={(event) => onChange({
+                      ...block,
+                      data: { ...block.data, cardsPerRow: Number(event.target.value) as 1 | 2 | 3 | 4 | 5 },
+                    })}
+                    className="h-9"
+                  >
+                    {[1, 2, 3, 4, 5].map((count) => <option key={count} value={count}>{count}</option>)}
+                  </Select>
+                </label>
+                <label className="space-y-1 text-xs font-medium text-slate-600">
+                  <span>Card style</span>
+                  <Select
+                    aria-label="Card style"
+                    value={block.data.cardStyle}
+                    onChange={(event) => onChange({
+                      ...block,
+                      data: { ...block.data, cardStyle: event.target.value as typeof block.data.cardStyle },
+                    })}
+                    className="h-9"
+                  >
+                    <option value="classic">Classic</option>
+                    <option value="soft">Soft</option>
+                    <option value="outlined">Outlined</option>
+                    <option value="elevated">Elevated</option>
+                  </Select>
+                </label>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="space-y-1 text-xs font-medium text-slate-600">
+                  <span>Card background</span>
+                  <Input
+                    aria-label="Card background color"
+                    type="color"
+                    value={block.data.cardBackgroundColor}
+                    onChange={(event) => onChange({
+                      ...block,
+                      data: { ...block.data, cardBackgroundColor: event.target.value },
+                    })}
+                    className="h-9 cursor-pointer p-1"
+                  />
+                </label>
+                <label className="space-y-1 text-xs font-medium text-slate-600">
+                  <span>Card text</span>
+                  <Input
+                    aria-label="Card text color"
+                    type="color"
+                    value={block.data.cardTextColor}
+                    onChange={(event) => onChange({
+                      ...block,
+                      data: { ...block.data, cardTextColor: event.target.value },
+                    })}
+                    className="h-9 cursor-pointer p-1"
+                  />
+                </label>
+              </div>
               {block.data.cards.map((card, index) => (
                 <details key={card.id} open={index === 0} className="group/card relative rounded-lg border border-slate-200">
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-3 py-2.5 pr-12 text-sm font-medium text-slate-700">
@@ -902,7 +1077,7 @@ export function ContentBlockEditor({
                       aria-label={`Delete flip card ${index + 1}`}
                       onClick={() => onChange({
                         ...block,
-                        data: { cards: block.data.cards.filter((item) => item.id !== card.id) },
+                        data: { ...block.data, cards: block.data.cards.filter((item) => item.id !== card.id) },
                       })}
                       className="absolute right-1 top-1 size-8 text-slate-400 hover:bg-rose-50 hover:text-rose-700"
                     >
@@ -993,6 +1168,7 @@ export function ContentBlockEditor({
                 onClick={() => onChange({
                   ...block,
                   data: {
+                    ...block.data,
                     cards: [...block.data.cards, {
                       id: `card-${crypto.randomUUID()}`,
                       frontLabel: "Question",
@@ -1098,33 +1274,111 @@ export function ContentBlockEditor({
           )}
           {block.type === "labeledGraphic" && (
             <div className="space-y-3">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setMediaLibraryTarget("labeledGraphic")}
+              <Select
+                aria-label="Graphic interaction mode"
+                value={block.data.interactionMode ?? "explore"}
+                onChange={(event) => {
+                  const interactionMode = event.target.value as "explore" | "spotTarget";
+                  const markers = interactionMode === "spotTarget"
+                    ? block.data.markers.map((marker, index) => ({
+                        ...marker,
+                        isTarget: block.data.markers.some((entry) => entry.isTarget)
+                          ? Boolean(marker.isTarget)
+                          : index === 0,
+                      }))
+                    : block.data.markers;
+                  onChange({
+                    ...block,
+                    data: {
+                      ...block.data,
+                      interactionMode,
+                      ...(interactionMode === "spotTarget" ? {
+                        sceneTheme: block.data.sceneTheme ?? "data",
+                        challengePrompt: block.data.challengePrompt ?? "Find the clue in the scene.",
+                        successMessage: block.data.successMessage ?? "Clue found! Great work scanning the scene.",
+                      } : {}),
+                      markers,
+                    },
+                  });
+                }}
+                className="h-9 w-full"
               >
-                Choose graphic from media library
-              </Button>
-              <Input
-                aria-label="Graphic image URL"
-                type="url"
-                value={block.data.src}
-                onChange={(event) => onChange({ ...block, data: { ...block.data, src: event.target.value } })}
-                placeholder="Image URL"
-                className="h-9"
-              />
+                <option value="explore">Explore hotspots</option>
+                <option value="spotTarget">Spot the clue mini-game</option>
+              </Select>
+              {block.data.interactionMode === "spotTarget" ? (
+                <>
+                  <Select
+                    aria-label="Mini-game scene"
+                    value={block.data.sceneTheme ?? "data"}
+                    onChange={(event) => onChange({
+                      ...block,
+                      data: { ...block.data, sceneTheme: event.target.value as NonNullable<typeof block.data.sceneTheme> },
+                    })}
+                    className="h-9 w-full"
+                  >
+                    <option value="data">Data dashboard</option>
+                    <option value="security">Security inbox</option>
+                    <option value="network">Network map</option>
+                    <option value="agriculture">Crop field</option>
+                  </Select>
+                  <Textarea
+                    aria-label="Mini-game challenge"
+                    value={block.data.challengePrompt ?? ""}
+                    maxLength={300}
+                    onChange={(event) => onChange({
+                      ...block,
+                      data: { ...block.data, challengePrompt: event.target.value },
+                    })}
+                    placeholder="What should learners find?"
+                    className="min-h-16 resize-y"
+                  />
+                  <Textarea
+                    aria-label="Mini-game success message"
+                    value={block.data.successMessage ?? ""}
+                    maxLength={500}
+                    onChange={(event) => onChange({
+                      ...block,
+                      data: { ...block.data, successMessage: event.target.value },
+                    })}
+                    placeholder="What should learners learn after finding it?"
+                    className="min-h-16 resize-y"
+                  />
+                  <p className="text-xs text-slate-500">Choose exactly one winning hotspot. Drag the points on the graphic to line them up with scene details.</p>
+                </>
+              ) : (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setMediaLibraryTarget("labeledGraphic")}
+                  >
+                    Choose graphic from media library
+                  </Button>
+                  <Input
+                    aria-label="Graphic image URL"
+                    type="url"
+                    value={block.data.src}
+                    onChange={(event) => onChange({ ...block, data: { ...block.data, src: event.target.value } })}
+                    placeholder="Image URL"
+                    className="h-9"
+                  />
+                </>
+              )}
               <Input
                 aria-label="Graphic alternative text"
                 value={block.data.alt}
                 maxLength={500}
                 onChange={(event) => onChange({ ...block, data: { ...block.data, alt: event.target.value } })}
-                placeholder="Describe the image"
+                placeholder="Describe the image or game scene"
                 className="h-9"
               />
-              <p className="text-xs text-slate-500">
-                Drag a point on the image to position it. Click a point to preview its popup.
-              </p>
+              {block.data.interactionMode !== "spotTarget" && (
+                <p className="text-xs text-slate-500">
+                  Drag a point on the image to position it. Click a point to preview its popup.
+                </p>
+              )}
               <div className="grid grid-cols-1 gap-3 rounded-lg border border-slate-200 p-3 sm:grid-cols-3">
                 <label className="flex items-center justify-between gap-2 text-xs font-medium text-slate-600">
                   Point color
@@ -1208,6 +1462,38 @@ export function ContentBlockEditor({
                     placeholder="What should learners know about this part?"
                     className="min-h-16 resize-y"
                   />
+                  {block.data.interactionMode === "spotTarget" && (
+                    <>
+                      <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
+                        <Checkbox
+                          aria-label={`Mark hotspot ${index + 1} as the correct target`}
+                          checked={Boolean(marker.isTarget)}
+                          onChange={(event) => onChange({
+                            ...block,
+                            data: {
+                              ...block.data,
+                              markers: block.data.markers.map((entry) => ({
+                                ...entry,
+                                isTarget: event.target.checked ? entry.id === marker.id : entry.id === marker.id ? false : entry.isTarget,
+                              })),
+                            },
+                          })}
+                        />
+                        Correct target
+                      </label>
+                      <Textarea
+                        aria-label={`Graphic marker ${index + 1} retry hint`}
+                        value={marker.missFeedback ?? ""}
+                        maxLength={500}
+                        onChange={(event) => onChange({
+                          ...block,
+                          data: { ...block.data, markers: block.data.markers.map((entry) => entry.id === marker.id ? { ...entry, missFeedback: event.target.value } : entry) },
+                        })}
+                        placeholder="Hint shown when this point is missed"
+                        className="min-h-14 resize-y"
+                      />
+                    </>
+                  )}
                 </div>
               ))}
               <Button
@@ -1217,7 +1503,7 @@ export function ContentBlockEditor({
                 disabled={block.data.markers.length >= 20}
                 onClick={() => onChange({
                   ...block,
-                  data: { ...block.data, markers: [...block.data.markers, { id: crypto.randomUUID(), label: "New marker", description: "", x: 50, y: 50 }] },
+                  data: { ...block.data, markers: [...block.data.markers, { id: crypto.randomUUID(), label: "New marker", description: "", x: 50, y: 50, ...(block.data.interactionMode === "spotTarget" ? { isTarget: false } : {}) }] },
                 })}
                 className="w-full justify-center"
               >

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isSafeLinkHref } from "@/lib/editor/link-utils";
 
 export const blockTypes = [
   "heading",
@@ -6,6 +7,7 @@ export const blockTypes = [
   "image",
   "gallery",
   "video",
+  "link",
   "divider",
   "knowledgeCheck",
   "survey",
@@ -66,7 +68,7 @@ const blockBase = (
 });
 
 export const headingBlockSchema = z.object({
-  ...blockBase("medium", 20),
+  ...blockBase("medium", 40),
   type: z.literal("heading"),
   data: z.object({
     text: z.string().max(500),
@@ -75,12 +77,12 @@ export const headingBlockSchema = z.object({
   }),
 });
 export const richTextBlockSchema = z.object({
-  ...blockBase("medium", 20),
+  ...blockBase("medium", 40),
   type: z.literal("richText"),
   data: z.object({ html: z.string().max(100_000) }),
 });
 export const imageBlockSchema = z.object({
-  ...blockBase("small", 20),
+  ...blockBase("small", 40),
   type: z.literal("image"),
   data: z.object({
     src: z.string().url().or(z.string().startsWith("/")),
@@ -92,7 +94,7 @@ export const imageBlockSchema = z.object({
   }),
 });
 export const galleryBlockSchema = z.object({
-  ...blockBase("small", 20),
+  ...blockBase("small", 40),
   type: z.literal("gallery"),
   data: z.object({
     images: z
@@ -107,7 +109,7 @@ export const galleryBlockSchema = z.object({
   }),
 });
 export const videoBlockSchema = z.object({
-  ...blockBase("small", 20),
+  ...blockBase("small", 40),
   type: z.literal("video"),
   data: z.object({
     src: z.string().url().or(z.string().startsWith("/")),
@@ -115,10 +117,21 @@ export const videoBlockSchema = z.object({
     captions: z.string().optional(),
   }),
 });
+export const linkBlockSchema = z.object({
+  ...blockBase("small", 40),
+  type: z.literal("link"),
+  data: z.object({
+    label: z.string().max(200).default("Open resource"),
+    url: z.string().trim().min(1).max(2_048).refine(isSafeLinkHref, "Enter a safe http, https, mailto, tel, or relative URL."),
+    description: z.string().max(1_000).default(""),
+    style: z.enum(["button", "card", "text"]).default("button"),
+    openInNewTab: z.boolean().default(true),
+  }),
+});
 export const dividerCompletionTypeSchema = z.enum(["none", "completeAbove"]);
 export type DividerCompletionType = z.infer<typeof dividerCompletionTypeSchema>;
 export const dividerBlockSchema = z.object({
-  ...blockBase("small", 20),
+  ...blockBase("small", 40),
   type: z.literal("divider"),
   data: z.object({
     style: z.enum(["line", "space", "continue"]),
@@ -126,11 +139,11 @@ export const dividerBlockSchema = z.object({
     completionType: dividerCompletionTypeSchema.default("none"),
     lineWeight: z.number().int().min(1).max(16).optional(),
     lineColor: z.string().regex(/^#[\da-fA-F]{6}$/).optional(),
-    lineStyle: z.enum(["solid", "dashed", "dotted"]).optional(),
+    lineStyle: z.enum(["solid", "dashed", "dotted", "double"]).optional(),
   }),
 });
 export const knowledgeCheckBlockSchema = z.object({
-  ...blockBase("small", 20),
+  ...blockBase("small", 40),
   type: z.literal("knowledgeCheck"),
   data: z
     .object({
@@ -151,7 +164,7 @@ export const knowledgeCheckBlockSchema = z.object({
     }),
 });
 export const surveyBlockSchema = z.object({
-  ...blockBase("small", 20),
+  ...blockBase("small", 40),
   type: z.literal("survey"),
   data: z.object({
     question: z.string().max(1_000),
@@ -177,6 +190,10 @@ export const flipCardItemSchema = z.object({
 const flipCardCollectionDataSchema = z
   .object({
     cards: z.array(flipCardItemSchema).min(1).max(30),
+    cardsPerRow: z.number().int().min(1).max(5).default(3),
+    cardStyle: z.enum(["classic", "soft", "outlined", "elevated"]).default("classic"),
+    cardBackgroundColor: z.string().default("#ffffff"),
+    cardTextColor: z.string().default("#0f172a"),
   })
   .superRefine((data, context) => {
     const ids = new Set<string>();
@@ -196,15 +213,23 @@ const legacyFlipCardDataSchema = z.object({
   front: z.string().max(1_000),
   backLabel: z.string().max(80),
   back: z.string().max(2_000),
+  cardsPerRow: z.number().int().min(1).max(5).default(3),
+  cardStyle: z.enum(["classic", "soft", "outlined", "elevated"]).default("classic"),
+  cardBackgroundColor: z.string().default("#ffffff"),
+  cardTextColor: z.string().default("#0f172a"),
 });
 export const flipCardBlockSchema = z.object({
-  ...blockBase("full", 20),
+  ...blockBase("full", 40),
   type: z.literal("flipCard"),
   data: z
     .union([flipCardCollectionDataSchema, legacyFlipCardDataSchema])
     .transform((data) => {
       if ("cards" in data) return data;
       return {
+        cardsPerRow: data.cardsPerRow,
+        cardStyle: data.cardStyle,
+        cardBackgroundColor: data.cardBackgroundColor,
+        cardTextColor: data.cardTextColor,
         cards: [
           {
             id: "card-1",
@@ -218,7 +243,7 @@ export const flipCardBlockSchema = z.object({
     }),
 });
 export const accordionBlockSchema = z.object({
-  ...blockBase("medium", 20),
+  ...blockBase("medium", 40),
   type: z.literal("accordion"),
   data: z.object({
     layout: z.enum(["accordion", "tabs"]).default("accordion"),
@@ -236,14 +261,18 @@ export const accordionBlockSchema = z.object({
   }),
 });
 export const labeledGraphicBlockSchema = z.object({
-  ...blockBase("full", 20),
+  ...blockBase("full", 40),
   type: z.literal("labeledGraphic"),
   data: z.object({
-    src: z.string().url().or(z.string().startsWith("/")),
+    src: z.string().url().or(z.string().startsWith("/")).or(z.literal("")),
     alt: z.string().max(500),
     markerColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
     textColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
     radarColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+    interactionMode: z.enum(["explore", "spotTarget"]).optional(),
+    sceneTheme: z.enum(["data", "security", "network", "agriculture"]).optional(),
+    challengePrompt: z.string().max(300).optional(),
+    successMessage: z.string().max(500).optional(),
     markers: z
       .array(
         z.object({
@@ -253,16 +282,31 @@ export const labeledGraphicBlockSchema = z.object({
           x: z.number().min(0).max(100),
           y: z.number().min(0).max(100),
           color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+          isTarget: z.boolean().optional(),
+          missFeedback: z.string().max(500).optional(),
         }),
       )
       .min(1)
       .max(20),
+  }).superRefine((data, context) => {
+    if (data.interactionMode === "spotTarget") {
+      if (!data.sceneTheme)
+        context.addIssue({ code: "custom", path: ["sceneTheme"], message: "Choose a graphic scene for the mini-game." });
+      if (!data.challengePrompt?.trim())
+        context.addIssue({ code: "custom", path: ["challengePrompt"], message: "Mini-games need a challenge prompt." });
+      if (!data.successMessage?.trim())
+        context.addIssue({ code: "custom", path: ["successMessage"], message: "Mini-games need a success message." });
+      if (data.markers.filter((marker) => marker.isTarget).length !== 1)
+        context.addIssue({ code: "custom", path: ["markers"], message: "Choose exactly one correct hotspot." });
+    } else if (!data.src && !data.sceneTheme) {
+      context.addIssue({ code: "custom", path: ["src"], message: "Explore graphics need an image." });
+    }
   }),
 });
 export const processStepsStyleSchema = z.enum(["cards", "numbered", "timeline", "spotlight", "minimal"]);
 export type ProcessStepsStyle = z.infer<typeof processStepsStyleSchema>;
 export const processStepsBlockSchema = z.object({
-  ...blockBase("medium", 20),
+  ...blockBase("medium", 40),
   type: z.literal("processSteps"),
   data: z.object({
     style: processStepsStyleSchema.optional(),
@@ -287,8 +331,43 @@ export const chartTypeSchema = z.enum([
   "donut",
   "stacked",
 ]);
+export const lessonMapTemplateSchema = z.enum([
+  "modernCity",
+  "farmFields",
+  "cityProvince",
+  "learningRoad",
+]);
+export const lessonMapCheckpointIconSchema = z.enum([
+  "flag",
+  "book",
+  "star",
+  "leaf",
+  "pin",
+  "sparkles",
+]);
+export const lessonMapBlockSchema = z.object({
+  ...blockBase("full", 40),
+  type: z.literal("lessonMap"),
+  data: z.object({
+    template: lessonMapTemplateSchema.default("modernCity"),
+    checkpoints: z.array(z.object({
+      id: z.string().min(1).max(64),
+      title: z.string().max(160),
+      description: z.string().max(1_000),
+      color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default("#e27d55"),
+      icon: lessonMapCheckpointIconSchema.default("flag"),
+      targetType: z.enum(["lesson", "section"]).default("lesson"),
+      targetId: z.string().max(64).default(""),
+      x: z.number().min(0).max(100),
+      y: z.number().min(0).max(100),
+    })).max(30),
+  }),
+});
+export type LessonMapTemplate = z.infer<typeof lessonMapTemplateSchema>;
+export type LessonMapCheckpointIcon = z.infer<typeof lessonMapCheckpointIconSchema>;
+
 export const chartBlockSchema = z.object({
-  ...blockBase("medium", 20),
+  ...blockBase("medium", 40),
   type: z.literal("chart"),
   data: z.object({
     chartType: chartTypeSchema,
@@ -308,7 +387,7 @@ export const chartBlockSchema = z.object({
   }),
 });
 export const statementBlockSchema = z.object({
-  ...blockBase("small", 20),
+  ...blockBase("small", 40),
   type: z.literal("statement"),
   data: z.object({
     style: statementStyleSchema,
@@ -325,6 +404,7 @@ const contentBlockSchema = z.discriminatedUnion("type", [
   imageBlockSchema,
   galleryBlockSchema,
   videoBlockSchema,
+  linkBlockSchema,
   dividerBlockSchema,
   knowledgeCheckBlockSchema,
   surveyBlockSchema,
@@ -333,6 +413,7 @@ const contentBlockSchema = z.discriminatedUnion("type", [
   accordionBlockSchema,
   labeledGraphicBlockSchema,
   processStepsBlockSchema,
+  lessonMapBlockSchema,
   chartBlockSchema,
 ]);
 export const blockSchema = z.preprocess((value) => {
@@ -371,7 +452,7 @@ export function defaultBlockWidth(
   type: ContentBlock["type"],
 ): ContentBlock["width"] {
   if (type === "heading" || type === "richText") return "medium";
-  if (type === "flipCard" || type === "labeledGraphic") return "full";
+  if (type === "flipCard" || type === "labeledGraphic" || type === "lessonMap") return "full";
   if (type === "accordion" || type === "processSteps" || type === "chart") return "medium";
   return "small";
 }
@@ -383,7 +464,7 @@ export function defaultBlockWidthForBlock(block: ContentBlock): ContentBlock["wi
 
 export function defaultBlockPadding(_type: ContentBlock["type"]): number {
   void _type;
-  return 20;
+  return 40;
 }
 
 export function defaultBlockPaddingForBlock(block: ContentBlock): number {
