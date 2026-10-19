@@ -67,15 +67,47 @@ cp .env.example .env.local
 Open `.env.local` and configure the required environment variables.
 
 ```env
+
 # Database
-MONGODB_URI=mongodb://localhost:27017/coursecraft
+# The hostname "mongo" refers to your MongoDB Docker service.
+MONGODB_URI=mongodb://coursecraft_app:YOUR_APP_DB_PASSWORD@mongo:27017/coursecraft?authSource=coursecraft
 
 # Authentication
-AUTH_SECRET=your-auth-secret
+AUTH_SECRET=REPLACE_WITH_GENERATED_SECRET
+AUTH_URL=https://course.example.com
+AUTH_TRUST_HOST=true
+
+# Super Admin maintenance
+# Only set these when running authorized maintenance commands.
+ADMIN_MAINTENANCE_ACTOR_ID=
+BOOTSTRAP_SUPER_ADMIN_USER_ID=
 
 # Google OAuth
 AUTH_GOOGLE_ID=your-google-client-id
 AUTH_GOOGLE_SECRET=your-google-client-secret
+
+# GitHub OAuth
+AUTH_GITHUB_ID=your-github-client-id
+AUTH_GITHUB_SECRET=your-github-client-secret
+
+# Media Storage
+MEDIA_LOCAL_DIRECTORY=/data/coursecraft/uploads
+MEDIA_LOCAL_ROOT=/data/coursecraft
+
+# AWS S3
+AWS_REGION=ap-southeast-1
+AWS_S3_BUCKET=your-private-s3-bucket
+
+# Leave unset if using an EC2 IAM role.
+# AWS_ACCESS_KEY_ID=
+# AWS_SECRET_ACCESS_KEY=
+# AWS_SESSION_TOKEN=
+
+# OpenAI
+OPENAI_API_KEY=your-openai-api-key
+OPENAI_TEXT_MODEL=YOUR_SUPPORTED_TEXT_MODEL
+OPENAI_IMAGE_MODEL=YOUR_SUPPORTED_IMAGE_MODEL
+
 ```
 
 GitHub OAuth is also supported. Refer to `.env.example` for additional provider configuration.
