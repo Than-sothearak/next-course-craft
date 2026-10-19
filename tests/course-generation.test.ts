@@ -5,6 +5,7 @@ import { Asset } from "../models/Asset";
 import { GenerationCheckpoint } from "../models/GenerationCheckpoint";
 import { GenerationJob } from "../models/GenerationJob";
 import * as mediaStorage from "../lib/media/storage";
+import * as mediaService from "../lib/media/service";
 import {
   courseGenerationInputSchema,
   generatedBlockSeedSchema,
@@ -1293,7 +1294,8 @@ describe("AI course generation contracts", () => {
         output: [{ type: "image_generation_call", result: "iVBORw0KGgo=" }],
       }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
-    vi.spyOn(mediaStorage, "storeGeneratedImage").mockResolvedValue(undefined);
+    vi.spyOn(mediaService, "activeStorageConfiguration").mockResolvedValue({ provider: "s3" });
+    vi.spyOn(mediaStorage, "putMediaObject").mockResolvedValue(undefined);
     const deleteMediaObject = vi.spyOn(mediaStorage, "deleteMediaObject").mockResolvedValue(undefined);
     vi.spyOn(Asset, "create").mockRejectedValue(new Error("asset record unavailable"));
 

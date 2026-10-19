@@ -15,7 +15,7 @@ export type MediaLibraryAsset = {
   createdAt: string;
 };
 
-type MediaKind = "image" | "video";
+type MediaKind = "image" | "video" | "audio" | "document";
 
 function formatMediaSize(size: number) {
   if (size < 1024 * 1024) return `${Math.max(1, Math.round(size / 1024))} KB`;
@@ -52,9 +52,9 @@ export function MediaLibraryDialog({
   const [error, setError] = useState<string | null>(null);
   const apiPath = `/api/courses/${courseId}/assets`;
   const visibleAssets = (assets ?? []).filter((asset) =>
-    kind === "image"
-      ? asset.contentType.startsWith("image/")
-      : asset.contentType.startsWith("video/"),
+    kind === "document"
+      ? ["application/pdf", "text/plain"].includes(asset.contentType)
+      : asset.contentType.startsWith(`${kind}/`),
   );
 
   useEffect(() => {
@@ -104,6 +104,7 @@ export function MediaLibraryDialog({
         assetId: string;
         uploadUrl: string;
         fields: Record<string, string>;
+        method?: "POST" | "PUT";
       };
 
       const formData = new FormData();
@@ -113,15 +114,16 @@ export function MediaLibraryDialog({
       let storageResponse: Response;
       try {
         storageResponse = await fetch(upload.uploadUrl, {
-          method: "POST",
-          body: formData,
+          method: upload.method ?? "POST",
+          headers: upload.method === "PUT" ? { "Content-Type": file.type } : undefined,
+          body: upload.method === "PUT" ? file : formData,
         });
       } catch {
-        throw new Error(mediaStorageUploadError(window.location.origin));
+        throw new Error(upload.method === "PUT" ? "The upload could not reach local storage. Please try again." : mediaStorageUploadError(window.location.origin));
       }
       if (!storageResponse.ok)
         throw new Error(
-          mediaStorageUploadError(
+          upload.method === "PUT" ? await responseError(storageResponse) : mediaStorageUploadError(
             window.location.origin,
             storageResponse.status,
           ),
@@ -152,7 +154,7 @@ export function MediaLibraryDialog({
   async function deleteAsset(asset: MediaLibraryAsset) {
     if (
       !window.confirm(
-        `Delete “${asset.originalName}” from this media library and S3? Course content using this file will no longer display it.`,
+        `Delete “${asset.originalName}” from this media library and storage? Course content using this file will no longer display it.`,
       )
     )
       return;
@@ -178,7 +180,7 @@ export function MediaLibraryDialog({
   }
 
   if (!open) return null;
-  const kindLabel = kind === "image" ? "image" : "video";
+  const kindLabel = kind;
 
   return (
     <div
@@ -202,7 +204,7 @@ export function MediaLibraryDialog({
               Media library
             </h2>
             <p className="mt-1 text-xs text-slate-500">
-              Choose an {kindLabel} or upload a new file.
+              Choose a {kindLabel} or upload a new file.
             </p>
           </div>
           <Button
@@ -222,7 +224,9 @@ export function MediaLibraryDialog({
             accept={
               kind === "image"
                 ? "image/avif,image/gif,image/jpeg,image/png,image/webp"
-                : "video/mp4,video/webm"
+                : kind === "video" ? "video/mp4,video/webm"
+                : kind === "audio" ? "audio/mpeg,audio/mp4,audio/ogg,audio/wav,audio/webm"
+                : "application/pdf,text/plain"
             }
             className="sr-only"
             aria-label={`Upload ${kindLabel}`}

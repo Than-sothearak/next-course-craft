@@ -27,5 +27,7 @@ export default auth(async (request) => {
 });
 
 export const config = {
-  matcher: ["/((?!login|api/auth|_next/static|_next/image|favicon.ico|.*\\..*).*)"],
+  // The local upload route independently checks session, current permissions,
+  // ownership and origin; skip Proxy buffering so request bodies can stream.
+  matcher: ["/((?!login|api/auth|api/courses/[^/]+/assets/[^/]+/upload|_next/static|_next/image|favicon.ico|.*\\..*).*)"],
 };

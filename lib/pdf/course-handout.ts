@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { Asset } from "@/models/Asset";
 import { getCourseEditor } from "@/lib/editor/services/course";
 import { DashboardError } from "@/lib/dashboard/rules";
-import { createMediaReadUrl } from "@/lib/media/storage";
+import { storedMediaBytes } from "@/lib/media/service";
 import { parseScorm12Snapshot } from "@/lib/scorm12/snapshot";
 import { getHandoutBlockText, getQuizQuestionHandoutText, htmlToHandoutText } from "./content";
 
@@ -244,15 +244,7 @@ async function loadReferencedImages(course: HandoutSnapshot, ownerId: string, co
     const batch = await Promise.all(images.slice(offset, offset + 8).map(async (asset) => {
       const id = String(asset._id).toLowerCase();
       const mimeType = asset.mimeType.split(";")[0].trim().toLowerCase();
-      const readUrl = await createMediaReadUrl({ objectKey: asset.objectKey, contentType: asset.mimeType });
-      let response: Response;
-      try {
-        response = await fetch(readUrl);
-      } catch {
-        throw new DashboardError(`Could not include image ${asset.originalName} in the PDF handout.`, 502);
-      }
-      if (!response.ok) throw new DashboardError(`Could not include image ${asset.originalName} in the PDF handout.`, 502);
-      const bytes = Buffer.from(await response.arrayBuffer());
+      const bytes = await storedMediaBytes(asset);
       if (bytes.length !== asset.size) throw new DashboardError(`Image ${asset.originalName} changed while it was being exported.`, 409);
       return { id, mimeType, bytes };
     }));

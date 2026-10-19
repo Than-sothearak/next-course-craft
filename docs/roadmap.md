@@ -21,3 +21,5 @@ Work one phase at a time; stop after the requested phase.
 Current status: Phases 1 through 9, 11, 12, and 13 are complete. Phase 14 AI generation remains in progress by request; Phase 10 is unstarted.
 
 Requested Phase 15 administration scope is implemented: account approval, immutable Super Admin bootstrap, constrained platform RBAC, administration dashboards, explicit course assignments, ownership transfer, current database authorization, transactional audit logs, and focused security/regression verification. Deployment requires the explicit migration and bootstrap steps in `docs/admin-operations.md`. Other production hardening remains outside this administration scope.
+
+Requested Phase 15 Media Storage scope extends the existing administration and media systems with Super Admin provider switching, private persistent local storage, legacy S3 compatibility, and provider-independent HTML/SCORM/PDF publishing. No other unfinished phase is included.

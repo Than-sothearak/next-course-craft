@@ -29,6 +29,10 @@ import { GET as mediaFile } from "@/app/api/assets/[assetId]/file/route";
 import { POST as mediaUpload } from "@/app/api/courses/[courseId]/assets/route";
 import { PUT as editorSave } from "@/app/api/courses/[courseId]/editor/route";
 import { POST as lessonCreate } from "@/app/api/courses/[courseId]/lessons/route";
+import { GET as storageSettingsApi, PUT as saveStorageSettingsApi } from "@/app/api/admin/settings/media-storage/route";
+import { POST as testStorageApi } from "@/app/api/admin/settings/media-storage/test/route";
+import * as mediaService from "@/lib/media/service";
+import { updateMediaStorageSettings } from "@/lib/media/settings";
 import { POST as generation } from "@/app/api/courses/[courseId]/generate/route";
 
 const identity = vi.hoisted(() => ({ id: null as string | null }));
@@ -223,6 +227,72 @@ describe.skipIf(!uri)("administration against transactional MongoDB", () => {
     expect(await db.collection("accounts").findOne({ userId: legacyId })).toMatchObject(account);
     await expect(requireActiveUser(legacyId.toString())).rejects.toMatchObject({ status: 403 });
     expect(await User.findById(users.super._id).lean()).toMatchObject({ role: "super_admin", status: "active" });
+  });
+
+  it("denies Media Storage reads, probes and saves to every non-Super Admin session", async () => {
+    const probe = vi.spyOn(mediaService, "testStorageConnection");
+    try {
+      for (const account of [users.admin, users.editor, users.other, users.viewer, users.pending, null]) {
+        identity.id = account ? id(account) : null;
+        const status = account ? 403 : 401;
+        expect((await storageSettingsApi(new NextRequest("http://localhost/api/admin/settings/media-storage"))).status).toBe(status);
+        expect((await testStorageApi(jsonRequest("/api/admin/settings/media-storage/test", { provider: "local" }))).status).toBe(status);
+        expect((await saveStorageSettingsApi(jsonRequest("/api/admin/settings/media-storage", { provider: "local", revision: 0 }, "PUT"))).status).toBe(status);
+      }
+      expect(probe).not.toHaveBeenCalled();
+      expect(await PlatformSettings.countDocuments()).toBe(0);
+    } finally { probe.mockRestore(); }
+  });
+
+  it("atomically switches Media Storage without changing AI settings or existing asset locations", async () => {
+    await PlatformSettings.create({ _id: "platform", aiEnabled: false });
+    const legacy = await Asset.create({ ownerId: users.editor._id, objectKey: "legacy/s3-key", originalName: "image.png", mimeType: "image/png", size: 8, status: "ready" });
+    const probe = vi.spyOn(mediaService, "testStorageConnection").mockResolvedValue({ provider: "local", connected: true, checkedAt: new Date().toISOString(), message: "Passed" });
+    try {
+      identity.id = id(users.super);
+      const response = await saveStorageSettingsApi(jsonRequest("/api/admin/settings/media-storage", { provider: "local", revision: 0 }, "PUT"));
+      expect(response.status).toBe(200);
+      expect(await PlatformSettings.findById("platform").lean()).toMatchObject({ aiEnabled: false, mediaStorageProvider: "local", mediaStorageRevision: 1 });
+      expect(await mediaService.activeStorageProvider()).toBe("local");
+      const original = await Asset.findById(legacy._id).lean();
+      expect(mediaService.mediaLocation(original!)).toEqual({ provider: "s3", key: "legacy/s3-key" });
+      expect(await AuditLog.countDocuments({ action: "settings.media-storage" })).toBe(1);
+    } finally { probe.mockRestore(); }
+  });
+
+  it("does not change the active storage provider after a connection failure", async () => {
+    await PlatformSettings.create({ _id: "platform", mediaStorageProvider: "s3" });
+    const probe = vi.spyOn(mediaService, "testStorageConnection").mockRejectedValue(new Error("Disconnected"));
+    try {
+      await expect(updateMediaStorageSettings(id(users.super), { provider: "local", revision: 0 })).rejects.toThrow("Disconnected");
+      expect(await PlatformSettings.findById("platform").lean()).toMatchObject({ mediaStorageProvider: "s3", mediaStorageRevision: 0 });
+      expect(await AuditLog.countDocuments({ action: "settings.media-storage" })).toBe(0);
+    } finally { probe.mockRestore(); }
+  });
+
+  it("serializes competing storage saves and rejects the stale revision", async () => {
+    await PlatformSettings.create({ _id: "platform" });
+    const probe = vi.spyOn(mediaService, "testStorageConnection").mockResolvedValue({ provider: "local", connected: true, checkedAt: new Date().toISOString(), message: "Passed" });
+    try {
+      const results = await Promise.allSettled([
+        updateMediaStorageSettings(id(users.super), { provider: "local", revision: 0 }),
+        updateMediaStorageSettings(id(users.super), { provider: "s3", revision: 0 }),
+      ]);
+      expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+      expect(results.find((result) => result.status === "rejected")).toMatchObject({ reason: { status: 409 } });
+      expect((await PlatformSettings.findById("platform").lean())?.mediaStorageRevision).toBe(1);
+      expect(await AuditLog.countDocuments({ action: "settings.media-storage" })).toBe(1);
+    } finally { probe.mockRestore(); }
+  });
+
+  it("rolls back a storage switch if its audit event cannot be recorded", async () => {
+    await PlatformSettings.create({ _id: "platform", aiEnabled: false });
+    const probe = vi.spyOn(mediaService, "testStorageConnection").mockResolvedValue({ provider: "local", connected: true, checkedAt: new Date().toISOString(), message: "Passed" });
+    const failedAudit = vi.spyOn(AuditLog, "create").mockRejectedValueOnce(new Error("Audit unavailable"));
+    try {
+      await expect(updateMediaStorageSettings(id(users.super), { provider: "local", revision: 0 })).rejects.toThrow("Audit unavailable");
+      expect(await PlatformSettings.findById("platform").lean()).toMatchObject({ aiEnabled: false, mediaStorageProvider: "s3", mediaStorageRevision: 0 });
+    } finally { failedAudit.mockRestore(); probe.mockRestore(); }
   });
 
   it("applies protected settings only for Super Admin and rolls back failed mutations with their audit events", async () => {

@@ -7,7 +7,7 @@ import { dashboardErrorResponse, requireOwnerId } from "@/lib/dashboard/http";
 import { DashboardError } from "@/lib/dashboard/rules";
 import { getCourseEditor } from "@/lib/editor/services/course";
 import { Asset } from "@/models/Asset";
-import { createMediaReadUrl } from "@/lib/media/storage";
+import { storedMediaBytes } from "@/lib/media/service";
 import { validateQuizAssessments } from "@/lib/interactive/quiz-assessment";
 import { inlineLocalFontAssets } from "@/lib/export/inline-font-assets";
 import { resolveCourseAccess } from "@/lib/workspaces/access";
@@ -49,10 +49,7 @@ export async function POST(_request: NextRequest, context: { params: Promise<{ c
     if (media.length !== referencedAssetIds.size) throw new DashboardError("One or more course media files could not be included. Check that they still belong to this course.", 409);
     const embeddedAssets = new Map<string, string>();
     await Promise.all(media.map(async (asset) => {
-      const readUrl = await createMediaReadUrl({ objectKey: asset.objectKey, contentType: asset.mimeType });
-      const response = await fetch(readUrl);
-      if (!response.ok) throw new DashboardError(`Could not include media file ${asset.originalName} in the HTML5 package.`, 502);
-      const bytes = Buffer.from(await response.arrayBuffer());
+      const bytes = await storedMediaBytes(asset);
       embeddedAssets.set(String(asset._id), `data:${asset.mimeType};base64,${bytes.toString("base64")}`);
     }));
     const authorName = await getCourseAuthorName(ownerId, parsed.data.courseId);

@@ -2,11 +2,9 @@ import { Types } from "mongoose";
 import { Asset } from "@/models/Asset";
 import { DashboardError } from "@/lib/dashboard/rules";
 import { mediaUploadInputSchema, type MediaUploadInput } from "../schemas";
-import {
-  createMediaUploadPost,
-  deleteMediaObject,
-  inspectMediaObject,
-} from "../storage";
+import { createMediaUploadPost } from "../storage";
+import { activeStorageConfiguration, deleteStoredMedia, mediaLocation, storageProvider } from "../service";
+import { validateStoredMediaType } from "../validate-file";
 
 export async function beginMediaUpload(
   ownerId: string,
@@ -15,6 +13,7 @@ export async function beginMediaUpload(
 ) {
   const parsed = mediaUploadInputSchema.parse(input);
   const assetId = new Types.ObjectId();
+  const { provider, directory } = await activeStorageConfiguration();
   const objectKey = `${ownerId}/${courseId}/${assetId.toString()}`;
   const safeName = parsed.fileName.replace(/[\u0000-\u001f\u007f]/g, "").trim();
   const asset = await Asset.create({
@@ -22,6 +21,9 @@ export async function beginMediaUpload(
     ownerId,
     courseId,
     objectKey,
+    storageProvider: provider,
+    storageKey: objectKey,
+    ...(directory ? { storageDirectory: directory } : {}),
     originalName: safeName,
     mimeType: parsed.contentType,
     size: parsed.size,
@@ -29,6 +31,13 @@ export async function beginMediaUpload(
   });
 
   try {
+    if (provider === "local") return {
+      assetId: assetId.toString(),
+      uploadUrl: `/api/courses/${courseId}/assets/${assetId}/upload`,
+      method: "PUT" as const,
+      fields: {},
+      storageProvider: provider,
+    };
     const upload = await createMediaUploadPost({
       objectKey,
       assetId: assetId.toString(),
@@ -39,6 +48,8 @@ export async function beginMediaUpload(
       assetId: assetId.toString(),
       uploadUrl: upload.url,
       fields: upload.fields,
+      method: "POST" as const,
+      storageProvider: provider,
     };
   } catch (error) {
     await Asset.deleteOne({ _id: asset._id, ownerId });
@@ -61,7 +72,8 @@ export async function completeMediaUpload(
 
   let uploaded;
   try {
-    uploaded = await inspectMediaObject(asset.objectKey);
+    const location = mediaLocation(asset);
+    uploaded = await storageProvider(location.provider, asset.storageDirectory).metadata(location.key);
   } catch (error) {
     if (error instanceof DashboardError) throw error;
     throw new DashboardError(
@@ -70,21 +82,26 @@ export async function completeMediaUpload(
     );
   }
 
-  const metadataAssetId = uploaded.Metadata?.["asset-id"];
   if (
-    uploaded.ContentLength !== asset.size ||
-    uploaded.ContentType !== asset.mimeType ||
-    metadataAssetId !== assetId
+    uploaded.size !== asset.size ||
+    (mediaLocation(asset).provider === "s3" && (uploaded.contentType !== asset.mimeType || uploaded.assetId !== assetId))
   ) {
-    try {
-      await deleteMediaObject(asset.objectKey);
-    } finally {
-      await Asset.deleteOne({ _id: asset._id, ownerId });
-    }
+    await deleteStoredMedia(asset);
+    await Asset.deleteOne({ _id: asset._id, ownerId, courseId, status: "pending" });
     throw new DashboardError(
       "The uploaded file did not match its validated details.",
       400,
     );
+  }
+
+  try {
+    await validateStoredMediaType(asset);
+  } catch (error) {
+    if (!(error instanceof DashboardError) || error.status !== 400) throw error;
+    // Preserve the record on cleanup failure so operators can retry deletion.
+    await deleteStoredMedia(asset);
+    await Asset.deleteOne({ _id: asset._id, ownerId, courseId, status: "pending" });
+    throw error;
   }
 
   asset.status = "ready";

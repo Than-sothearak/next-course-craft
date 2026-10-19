@@ -27,7 +27,9 @@ function getStorage() {
 
   s3Client ??= new S3Client({
     region,
-    ...(accessKeyId && secretAccessKey ? { credentials: { accessKeyId, secretAccessKey } } : {}),
+    maxAttempts: 2,
+    requestHandler: { connectionTimeout: 5_000, requestTimeout: 30_000 },
+    ...(accessKeyId && secretAccessKey ? { credentials: { accessKeyId, secretAccessKey, ...(process.env.AWS_SESSION_TOKEN ? { sessionToken: process.env.AWS_SESSION_TOKEN } : {}) } } : {}),
   });
   return { client: s3Client, bucket };
 }
@@ -97,14 +99,16 @@ export async function storeGeneratedImage({
   assetId: string;
   body: Buffer;
 }) {
+  await putMediaObject({ objectKey, assetId, body, contentType: "image/png", metadata: { source: "ai-course-generation" } });
+}
+
+export async function putMediaObject({ objectKey, assetId, contentType, body, metadata }: {
+  objectKey: string; assetId: string; contentType: string; body: Buffer; metadata?: Record<string, string>;
+}) {
   const { client, bucket } = getStorage();
   await client.send(new PutObjectCommand({
-    Bucket: bucket,
-    Key: objectKey,
-    Body: body,
-    ContentType: "image/png",
-    CacheControl: "private, max-age=300",
-    Metadata: { "asset-id": assetId, source: "ai-course-generation" },
+    Bucket: bucket, Key: objectKey, Body: body, ContentType: contentType,
+    CacheControl: "private, max-age=300", Metadata: { ...metadata, "asset-id": assetId },
   }));
 }
 

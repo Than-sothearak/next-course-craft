@@ -3,7 +3,7 @@ import { join, relative, sep } from "node:path";
 import { Asset } from "@/models/Asset";
 import { getCourseEditor } from "@/lib/editor/services/course";
 import { DashboardError } from "@/lib/dashboard/rules";
-import { createMediaReadUrl } from "@/lib/media/storage";
+import { storedMediaBytes } from "@/lib/media/service";
 import { createScorm12Manifest } from "../scorm12/manifest";
 import { createScorm2004Manifest } from "./manifest-2004";
 import { parseScorm12Snapshot } from "../scorm12/snapshot";
@@ -30,6 +30,7 @@ const extensionsByMimeType: Record<string, string> = {
   "video/webm": "webm",
   "text/vtt": "vtt",
   "application/pdf": "pdf",
+  "text/plain": "txt",
 };
 
 async function listFiles(directory: string): Promise<string[]> {
@@ -122,17 +123,7 @@ async function buildScormPackage({
       }
       const assetId = String(asset._id).toLowerCase();
       const path = `media/${assetId}.${extension}`;
-      const readUrl = await createMediaReadUrl({ objectKey: asset.objectKey, contentType: asset.mimeType });
-      let response: Response;
-      try {
-        response = await fetch(readUrl);
-      } catch {
-        throw new DashboardError(`Could not include media file ${asset.originalName} in the SCORM package.`, 502);
-      }
-      if (!response.ok) {
-        throw new DashboardError(`Could not include media file ${asset.originalName} in the SCORM package.`, 502);
-      }
-      const bytes = Buffer.from(await response.arrayBuffer());
+      const bytes = await storedMediaBytes(asset);
       if (bytes.length !== asset.size) {
         throw new DashboardError(`Media file ${asset.originalName} changed while it was being exported.`, 409);
       }

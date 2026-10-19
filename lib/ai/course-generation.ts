@@ -27,7 +27,7 @@ import {
   type SourceCoverageReport,
   type SourceGenerationJobSnapshot,
 } from "./course-generation-schemas";
-import { deleteMediaObject, storeGeneratedImage } from "@/lib/media/storage";
+import { activeStorageConfiguration, deleteStoredMedia, storageProvider } from "@/lib/media/service";
 import { createLearnBlockResponseSchema, expandLearnBlockResponse } from "./learn-block-response";
 import { advanceSourceLearnWork, createSourceLearnWork, isLearnCapacityError, sourceLearnWorkSchema, type SourceLearnWork } from "./source-learn-work";
 import {
@@ -2111,13 +2111,18 @@ async function createGeneratedImageAssetNow(
   const assetIdText = assetId.toString();
   const objectKey = `${ownerId}/${courseId}/${assetIdText}`;
   const checksum = createHash("sha256").update(bytes).digest("hex");
-  await storeGeneratedImage({ objectKey, assetId: assetIdText, body: bytes });
+  const { provider, directory } = await activeStorageConfiguration();
+  const stored = { objectKey, storageKey: objectKey, storageProvider: provider, storageDirectory: directory, mimeType: "image/png", size: bytes.length };
   try {
+    await storageProvider(provider, directory).upload({ key: objectKey, assetId: assetIdText, body: bytes, contentType: "image/png", size: bytes.length });
     const asset = await Asset.create({
       _id: assetId,
       ownerId,
       courseId,
       objectKey,
+      storageProvider: provider,
+      storageKey: objectKey,
+      ...(directory ? { storageDirectory: directory } : {}),
       originalName: `ai-generated-${assetIdText}.png`,
       mimeType: "image/png",
       size: bytes.length,
@@ -2127,7 +2132,7 @@ async function createGeneratedImageAssetNow(
     });
     return { src: `/api/assets/${asset._id}/file`, id: assetIdText };
   } catch {
-    await deleteMediaObject(objectKey).catch(() => undefined);
+    await deleteStoredMedia(stored).catch(() => undefined);
     throw new DashboardError(
       "The generated image could not be saved to course media storage.",
       502,
@@ -2949,15 +2954,13 @@ async function assembleCourseDraft({
   } catch (error) {
     const assets = createdAssetIds.length
       ? await Asset.find({ _id: { $in: createdAssetIds }, ownerId, courseId })
-          .select("objectKey _id")
+          .select("objectKey storageProvider storageKey storageDirectory mimeType size _id")
           .lean()
       : [];
     await Promise.allSettled(
       assets.map(async (asset) => {
-        await Promise.allSettled([
-          deleteMediaObject(asset.objectKey),
-          Asset.deleteOne({ _id: asset._id, ownerId, courseId }),
-        ]);
+        await deleteStoredMedia(asset);
+        await Asset.deleteOne({ _id: asset._id, ownerId, courseId });
       }),
     );
     throw error;

@@ -3,7 +3,8 @@ import { Asset, Course, Lesson } from "@/models";
 import { getCourseEditor } from "@/lib/editor/services/course";
 import { editorSnapshotSchema } from "@/lib/editor/schemas";
 import { courseAssetIds, remapCourseAssetUrls } from "@/lib/media/asset-references";
-import { copyMediaObject, deleteMediaObject } from "@/lib/media/storage";
+import { copyMediaObject } from "@/lib/media/storage";
+import { activeStorageConfiguration, deleteStoredMedia, mediaLocation, storageProvider, storedMediaBytes } from "@/lib/media/service";
 import { DashboardError } from "../rules";
 import { ownerObjectId } from "./internal";
 
@@ -44,6 +45,7 @@ export async function duplicateCourse(
   const targetWorkspaceId = destination ? destination.workspaceId : source.workspaceId?.toString() ?? null;
   const targetFolderId = targetWorkspaceId === (source.workspaceId?.toString() ?? null) ? source.folderId : null;
   const copiedKeys: string[] = [];
+  const { provider, directory } = await activeStorageConfiguration();
   const mediaSources = new Map<string, string>();
   try {
     for (const asset of assets) {
@@ -52,13 +54,19 @@ export async function duplicateCourse(
       // Track attempted writes too: a lost response can leave a successfully copied object.
       copiedKeys.push(objectKey);
       try {
-        await copyMediaObject({ sourceKey: asset.objectKey, objectKey, assetId: assetId.toString(), contentType: asset.mimeType });
+        if (provider === "s3" && mediaLocation(asset).provider === "s3") {
+          await copyMediaObject({ sourceKey: mediaLocation(asset).key, objectKey, assetId: assetId.toString(), contentType: asset.mimeType });
+        } else {
+          await storageProvider(provider, directory).upload({ key: objectKey, assetId: assetId.toString(), contentType: asset.mimeType, size: asset.size, body: await storedMediaBytes(asset) });
+        }
       } catch (error) {
         if (error instanceof DashboardError) throw error;
         throw new DashboardError(`Could not copy media file "${asset.originalName}". Please try duplicating the course again.`, 502);
       }
       await Asset.create({
         _id: assetId, ownerId: destinationOwner, courseId: copyId, objectKey,
+        storageProvider: provider, storageKey: objectKey,
+        ...(directory ? { storageDirectory: directory } : {}),
         originalName: asset.originalName, mimeType: asset.mimeType, size: asset.size,
         status: "ready", checksum: asset.checksum, metadata: structuredClone(asset.metadata ?? {}),
       });
@@ -84,7 +92,7 @@ export async function duplicateCourse(
       Course.deleteOne({ _id: copyId, ownerId: destinationOwner }),
       Lesson.deleteMany({ courseId: copyId }),
       Asset.deleteMany({ courseId: copyId, ownerId: destinationOwner }),
-      ...copiedKeys.map((key) => deleteMediaObject(key)),
+      ...copiedKeys.map((key) => deleteStoredMedia({ objectKey: key, storageKey: key, storageProvider: provider, storageDirectory: directory, mimeType: "", size: 0 })),
     ]);
     if (cleanup.some((result) => result.status === "rejected"))
       console.error("Course duplication cleanup failed", { courseId: copyId.toString(), failedOperations: cleanup.filter((result) => result.status === "rejected").length });

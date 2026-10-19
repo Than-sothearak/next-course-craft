@@ -5,8 +5,13 @@ import { duplicateCourse } from "../lib/dashboard/services/courses";
 import { getCourseEditor } from "../lib/editor/services/course";
 import { editorSnapshotSchema } from "../lib/editor/schemas";
 import { copyMediaObject, deleteMediaObject } from "../lib/media/storage";
+import { activeStorageConfiguration } from "../lib/media/service";
+import { LocalStorageProvider } from "../lib/media/providers/local";
+import { S3StorageProvider } from "../lib/media/providers/s3";
 import { courseAssetIds } from "../lib/media/asset-references";
 import { parseScorm12Snapshot } from "../lib/scorm12/snapshot";
+
+vi.mock("../lib/media/service", async (original) => ({ ...await original<typeof import("../lib/media/service")>(), activeStorageConfiguration: vi.fn(async () => ({ provider: "s3" })) }));
 
 vi.mock("../lib/editor/services/course", () => ({ getCourseEditor: vi.fn() }));
 vi.mock("../lib/media/storage", () => ({ copyMediaObject: vi.fn(), deleteMediaObject: vi.fn() }));
@@ -57,6 +62,7 @@ describe("course duplication with independent media", () => {
   let data: ReturnType<typeof fixture>;
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(activeStorageConfiguration).mockResolvedValue({ provider: "s3" });
     data = fixture();
     vi.spyOn(Course, "findOne").mockReturnValue({ lean: async () => data.source } as never);
     vi.spyOn(Course, "exists").mockResolvedValue({ _id: data.source._id });
@@ -72,6 +78,40 @@ describe("course duplication with independent media", () => {
     vi.mocked(deleteMediaObject).mockResolvedValue(undefined);
   });
   afterEach(() => vi.restoreAllMocks());
+
+  it.each(["local", "s3"] as const)("copies mixed source providers to the selected %s provider", async (target) => {
+    data.assets[0].storageProvider = "local";
+    data.assets[0].storageKey = "original/local/key";
+    vi.mocked(activeStorageConfiguration).mockResolvedValue({ provider: target, ...(target === "local" ? { directory: "/data/coursecraft/chosen-folder" } : {}) });
+    const localRead = vi.spyOn(LocalStorageProvider.prototype, "read").mockImplementation(async () => new Response(new Uint8Array(100)));
+    vi.spyOn(S3StorageProvider.prototype, "read").mockImplementation(async () => new Response(new Uint8Array(100)));
+    const localUpload = vi.spyOn(LocalStorageProvider.prototype, "upload").mockResolvedValue();
+    const s3Upload = vi.spyOn(S3StorageProvider.prototype, "upload").mockResolvedValue();
+    await duplicateCourse(ownerId, courseId);
+    expect(localRead).toHaveBeenCalledWith(expect.objectContaining({ key: "original/local/key" }), undefined);
+    const created = vi.mocked(Asset.create).mock.calls.map(([value]) => value as unknown as Record<string, unknown>);
+    expect(created.every((asset) => asset.storageProvider === target && asset.storageKey === asset.objectKey)).toBe(true);
+    if (target === "local") {
+      expect(created.every((asset) => asset.storageDirectory === "/data/coursecraft/chosen-folder")).toBe(true);
+      expect(localUpload).toHaveBeenCalledTimes(3);
+      expect(copyMediaObject).not.toHaveBeenCalled();
+    } else {
+      expect(s3Upload).toHaveBeenCalledOnce();
+      expect(copyMediaObject).toHaveBeenCalledTimes(2);
+    }
+  });
+
+  it("cleans failed local copies through their destination provider without deleting source keys", async () => {
+    vi.mocked(activeStorageConfiguration).mockResolvedValue({ provider: "local" });
+    vi.spyOn(S3StorageProvider.prototype, "read").mockImplementation(async () => new Response(new Uint8Array(100)));
+    vi.spyOn(LocalStorageProvider.prototype, "upload").mockResolvedValue();
+    const remove = vi.spyOn(LocalStorageProvider.prototype, "delete").mockResolvedValue();
+    vi.mocked(Course.create).mockRejectedValueOnce(new Error("Course write failed"));
+    await expect(duplicateCourse(ownerId, courseId)).rejects.toThrow("Course write failed");
+    expect(remove).toHaveBeenCalledTimes(3);
+    for (const [key] of remove.mock.calls) expect(data.assets.map((asset) => asset.objectKey)).not.toContain(key);
+    expect(deleteMediaObject).not.toHaveBeenCalled();
+  });
 
   it("copies all lessons and ready media, remapping every image location and both covers", async () => {
     const before = JSON.stringify(data);

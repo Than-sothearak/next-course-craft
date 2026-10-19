@@ -1,7 +1,7 @@
 import { Asset } from "@/models/Asset";
 import { DashboardError } from "@/lib/dashboard/rules";
 import { resolveCourseAccess } from "@/lib/workspaces/access";
-import { deleteMediaObject } from "../storage";
+import { deleteStoredMedia } from "../service";
 
 export async function assertCourseOwner(ownerId: string, courseId: string) {
   return (await resolveCourseAccess(ownerId, courseId, "edit")).ownerId;
@@ -27,7 +27,7 @@ export async function deleteCourseMediaAsset(ownerId: string, courseId: string, 
   if (!asset) throw new DashboardError("Media asset not found.", 404);
 
   try {
-    await deleteMediaObject(asset.objectKey);
+    await deleteStoredMedia(asset);
   } catch {
     throw new DashboardError("The file could not be deleted from storage. Please try again.", 502);
   }
