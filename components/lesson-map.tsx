@@ -22,6 +22,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { ContentBlock, LessonMapCheckpointIcon, LessonMapTemplate } from "@/lib/schemas/block";
 import { LessonMapArtwork, lessonMapTemplates } from "@/components/lesson-map-artwork";
+import { createClientId } from "@/lib/client-id";
 
 type LessonMapBlock = Extract<ContentBlock, { type: "lessonMap" }>;
 type LessonMapData = LessonMapBlock["data"];
@@ -245,7 +246,7 @@ export function LessonMapEditor({
     const position = checkpointPosition(block.data.template, index);
     const targetLesson = orderedLessons[Math.min(index, orderedLessons.length - 1)];
     const checkpoint: LessonMapCheckpoint = {
-      id: crypto.randomUUID(),
+      id: createClientId(),
       title: `Checkpoint ${index + 1}`,
       description: "Add a short description to guide learners at this stop.",
       color: "#e27d55",

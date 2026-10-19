@@ -2,6 +2,7 @@
 
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { createClientId } from "@/lib/client-id";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -48,7 +49,7 @@ export function ProcessStepsSettings({ block, onChange }: { block: ProcessBlock;
           <Textarea aria-label={`Process step ${index + 1} instructions`} value={step.body} maxLength={5000} onChange={(event) => update({ steps: block.data.steps.map((entry) => entry.id === step.id ? { ...entry, body: event.target.value } : entry) })} placeholder="Instructions for this step" className="min-h-16 resize-y" />
         </div>
       ))}
-      <Button type="button" variant="outline" size="sm" disabled={block.data.steps.length >= 20} onClick={() => update({ steps: [...block.data.steps, { id: crypto.randomUUID(), title: "New step", body: "" }] })} className="w-full justify-center"><Plus size={14} /> Add step</Button>
+      <Button type="button" variant="outline" size="sm" disabled={block.data.steps.length >= 20} onClick={() => update({ steps: [...block.data.steps, { id: createClientId(), title: "New step", body: "" }] })} className="w-full justify-center"><Plus size={14} /> Add step</Button>
     </div>
   );
 }

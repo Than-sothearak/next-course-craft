@@ -19,6 +19,7 @@ import {
 } from "@dnd-kit/sortable";
 import { Check, ImagePlus, MoreHorizontal, Plus, Trash2 } from "lucide-react";
 import type { QuizQuestion } from "@/lib/schemas/quiz";
+import { createClientId } from "@/lib/client-id";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -32,7 +33,7 @@ const simpleTextareaClass =
   "min-h-16 resize-y rounded-none border-0 bg-transparent px-0 shadow-none focus-visible:border-0 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0";
 
 function newId() {
-  return crypto.randomUUID();
+  return createClientId();
 }
 
 function imagePreviewSource(value: string) {

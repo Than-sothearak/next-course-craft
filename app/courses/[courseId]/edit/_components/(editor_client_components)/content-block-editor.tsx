@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { LayoutGrid, LockKeyhole, Play, Plus, Settings2, Trash2 } from "lucide-react";
 import type { ContentBlock } from "@/lib/schemas/block";
+import { createClientId } from "@/lib/client-id";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -633,7 +634,7 @@ export function ContentBlockEditor({
                     data: {
                       ...block.data,
                       fields: [...block.data.fields, {
-                        id: crypto.randomUUID(),
+                        id: createClientId(),
                         label: `Field ${block.data.fields.length + 1}`,
                         value: 0,
                       }],
@@ -1170,7 +1171,7 @@ export function ContentBlockEditor({
                   data: {
                     ...block.data,
                     cards: [...block.data.cards, {
-                      id: `card-${crypto.randomUUID()}`,
+                      id: `card-${createClientId()}`,
                       frontLabel: "Question",
                       front: { type: "text", text: "" },
                       backLabel: "Answer",
@@ -1264,7 +1265,7 @@ export function ContentBlockEditor({
                 disabled={block.data.items.length >= 12}
                 onClick={() => onChange({
                   ...block,
-                  data: { ...block.data, items: [...block.data.items, { id: crypto.randomUUID(), title: "New section", body: "" }] },
+                  data: { ...block.data, items: [...block.data.items, { id: createClientId(), title: "New section", body: "" }] },
                 })}
                 className="w-full justify-center"
               >
@@ -1503,7 +1504,7 @@ export function ContentBlockEditor({
                 disabled={block.data.markers.length >= 20}
                 onClick={() => onChange({
                   ...block,
-                  data: { ...block.data, markers: [...block.data.markers, { id: crypto.randomUUID(), label: "New marker", description: "", x: 50, y: 50, ...(block.data.interactionMode === "spotTarget" ? { isTarget: false } : {}) }] },
+                  data: { ...block.data, markers: [...block.data.markers, { id: createClientId(), label: "New marker", description: "", x: 50, y: 50, ...(block.data.interactionMode === "spotTarget" ? { isTarget: false } : {}) }] },
                 })}
                 className="w-full justify-center"
               >

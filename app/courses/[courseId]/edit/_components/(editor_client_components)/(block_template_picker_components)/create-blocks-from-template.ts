@@ -1,3 +1,4 @@
+import { createClientId } from "@/lib/client-id";
 import {
   defaultBlockPadding,
   defaultBlockWidth,
@@ -94,7 +95,7 @@ export function createBlocksFromTemplate(
         ...template.lessonMap,
         checkpoints: template.lessonMap.checkpoints.map((checkpoint, index) => ({
           ...checkpoint,
-          id: crypto.randomUUID(),
+          id: createClientId(),
           targetId: orderedLessons[Math.min(index, orderedLessons.length - 1)]?.id ?? "",
         })),
       },

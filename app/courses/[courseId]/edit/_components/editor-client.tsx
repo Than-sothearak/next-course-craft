@@ -81,6 +81,7 @@ import { applyProcessStepsPreset } from "@/lib/editor/process-steps";
 import { useFocusedContentBlock } from "./(editor_client_components)/use-focused-content-block";
 import { duplicateLessonContent, moveLessonToSection } from "@/lib/editor/course-content";
 import type { Permission } from "@/lib/auth/policy";
+import { createClientId } from "@/lib/client-id";
 
 type InitialData = { courseId: string } & EditorSnapshotInput;
 type Draft = Omit<EditorSnapshotInput, "revision">;
@@ -89,7 +90,7 @@ type TemplatePickerState =
   | { mode: "replace"; blockId: string; category: BlockCategory };
 
 function newId() {
-  return crypto.randomUUID();
+  return createClientId();
 }
 
 function contrastTextColor(hex: string) {
