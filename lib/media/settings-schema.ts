@@ -16,7 +16,7 @@ export type MediaStorageSettings = {
   local: {
     directory: string | null;
     browseRoot: string | null;
-    capacity: { totalBytes: number; freeBytes: number } | null;
+    capacity: { totalBytes: number; freeBytes: number; usedBytes: number } | null;
   };
   s3: { bucket: string | null; region: string | null };
 };

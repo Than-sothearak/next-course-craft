@@ -11,11 +11,12 @@ let provider = "s3";
 let failure: string | null;
 let localDirectory = "/data/coursecraft/uploads";
 let folderFailure = false;
+let usedBytesOverride: number | null = null;
 const calls: Array<{ url: string; method: string; body: Record<string, unknown> }> = [];
 async function flush() { await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); }); }
 function button(text: string) { return [...container.querySelectorAll("button")].find((node) => node.textContent === text)!; }
 beforeEach(async () => {
-  provider = "s3"; failure = null; folderFailure = false; localDirectory = "/data/coursecraft/uploads"; calls.length = 0;
+  provider = "s3"; failure = null; folderFailure = false; usedBytesOverride = null; localDirectory = "/data/coursecraft/uploads"; calls.length = 0;
   Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value: function (this: HTMLDialogElement) { this.setAttribute("open", ""); } });
   Object.defineProperty(HTMLDialogElement.prototype, "close", { configurable: true, value: function (this: HTMLDialogElement) { this.removeAttribute("open"); } });
   vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
@@ -27,8 +28,10 @@ beforeEach(async () => {
     }
     if (!init?.method) {
       const requestedDirectory = new URL(url, "https://coursecraft.example").searchParams.get("localDirectory");
-      const freeBytes = requestedDirectory?.endsWith("new-folder") ? 100_000_000 : 400_000_000;
-      return new Response(JSON.stringify({ provider, revision: 2, local: { directory: localDirectory, browseRoot: "/data/coursecraft", capacity: { totalBytes: 1_000_000_000, freeBytes } }, s3: { bucket: "private-course-media", region: "ap-southeast-1" } }));
+      const totalBytes = 1024 ** 3;
+      const freeBytes = (requestedDirectory?.endsWith("new-folder") ? 100 : 400) * 1024 ** 2;
+      const usedBytes = usedBytesOverride ?? totalBytes - freeBytes;
+      return new Response(JSON.stringify({ provider, revision: 2, local: { directory: localDirectory, browseRoot: "/data/coursecraft", capacity: { totalBytes, freeBytes, usedBytes } }, s3: { bucket: "private-course-media", region: "ap-southeast-1" } }));
     }
     const body = JSON.parse(String(init.body));
     calls.push({ url, method: init.method, body });
@@ -60,9 +63,10 @@ describe("Media Storage settings UI", () => {
   it("tests the selected local directory without changing the active provider", async () => {
     await chooseLocalWithDefault();
     expect(container.querySelector<HTMLInputElement>("#media-directory")?.value).toBe("/data/coursecraft/uploads");
-    expect(container.querySelector('[role="progressbar"]')?.getAttribute("aria-valuenow")).toBe("60");
+    expect(container.querySelector('[role="progressbar"]')?.getAttribute("aria-valuenow")).toBe(String(624 / 1024 * 100));
     expect(container.textContent).toContain("400 MB free");
-    expect(container.textContent).toContain("600 MB used of 1 GB total volume capacity");
+    expect(container.textContent).toContain("624 MB used and 400 MB free of 1 GB total volume");
+    expect(container.textContent).not.toContain("usable capacity");
     expect(container.querySelector('[role="progressbar"]')?.getAttribute("aria-label")).toBe("Used local storage volume");
     act(() => button("Test Connection").click()); await flush();
     expect(calls).toEqual([{ url: "/api/admin/settings/media-storage/test", method: "POST", body: { provider: "local", localDirectory: "/data/coursecraft/uploads" } }]);
@@ -86,7 +90,7 @@ describe("Media Storage settings UI", () => {
     act(() => button("Use this folder").click());
     expect(container.querySelector<HTMLInputElement>("#media-directory")?.value).toBe("/data/coursecraft/new-folder");
     await flush();
-    expect(container.querySelector('[role="progressbar"]')?.getAttribute("aria-valuenow")).toBe("90");
+    expect(container.querySelector('[role="progressbar"]')?.getAttribute("aria-valuenow")).toBe(String(924 / 1024 * 100));
     expect(container.textContent).toContain("100 MB free");
     expect(calls).toHaveLength(0);
     act(() => button("Save Settings").click()); await flush(); await flush();
@@ -101,6 +105,16 @@ describe("Media Storage settings UI", () => {
     act(() => button("Cancel").click());
     expect(container.querySelector<HTMLInputElement>("#media-directory")?.value).toBe("/data/coursecraft/uploads");
     expect(calls).toHaveLength(0);
+  });
+
+  it("shows used blocks separately from filesystem-reserved space", async () => {
+    usedBytesOverride = 300 * 1024 ** 2;
+    act(() => container.querySelector<HTMLInputElement>('[value="local"]')!.click()); await flush();
+    act(() => button("Storage folders").click()); await flush();
+    act(() => button("New folder").click()); await flush();
+    act(() => button("Use this folder").click()); await flush();
+    expect(container.textContent).toContain("300 MB used and 100 MB free of 1 GB total volume");
+    expect(container.querySelector('[role="progressbar"]')?.getAttribute("aria-valuenow")).toBe("75");
   });
 
   it("shows connection errors and leaves the existing provider active on save failure", async () => {

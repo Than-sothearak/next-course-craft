@@ -87,11 +87,11 @@ describe("Super Admin storage settings", () => {
     vi.unstubAllEnvs();
   });
   it("checks the requested local folder capacity only after Super Admin authorization and folder validation", async () => {
-    mocks.capacity.mockResolvedValue({ totalBytes: 1_000_000_000, freeBytes: 250_000_000 });
+    mocks.capacity.mockResolvedValue({ totalBytes: 1_000_000_000, freeBytes: 250_000_000, usedBytes: 500_000_000 });
     const result = await getMediaStorageSettings("super", "/data/coursecraft/new-folder");
     expect(mocks.validateDirectory).toHaveBeenCalledWith("/data/coursecraft/new-folder");
     expect(mocks.capacity).toHaveBeenCalledWith("/data/coursecraft/new-folder");
-    expect(result.local.capacity).toEqual({ totalBytes: 1_000_000_000, freeBytes: 250_000_000 });
+    expect(result.local.capacity).toEqual({ totalBytes: 1_000_000_000, freeBytes: 250_000_000, usedBytes: 500_000_000 });
     expect(mocks.requireRole.mock.invocationCallOrder[0]).toBeLessThan(mocks.validateDirectory.mock.invocationCallOrder[0]);
   });
   it("rejects unrecognized providers, credentials, and missing revision", async () => {

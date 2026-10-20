@@ -20,11 +20,11 @@ type Provider = MediaStorageSettings["provider"];
 type NoticeValue = { error: boolean; message: string } | null;
 
 function formatStorageBytes(bytes: number) {
-  if (bytes < 1000) return `${bytes} bytes`;
+  if (bytes < 1024) return `${bytes} bytes`;
   const units = ["KB", "MB", "GB", "TB", "PB"];
   let value = bytes;
   let unit = -1;
-  do { value /= 1000; unit += 1; } while (value >= 1000 && unit < units.length - 1);
+  do { value /= 1024; unit += 1; } while (value >= 1024 && unit < units.length - 1);
   return `${Number(value.toFixed(value < 10 ? 1 : 0))} ${units[unit]}`;
 }
 
@@ -43,6 +43,10 @@ export function MediaStorageManagement() {
     ? (capacityResult?.directory === directorySelection ? capacityResult.capacity : null)
     : resource.data?.local.capacity ?? null;
   const capacityLoading = directorySelection !== null && capacityResult?.directory !== directorySelection;
+  const usableCapacityBytes = capacity ? capacity.usedBytes + capacity.freeBytes : 0;
+  const usedVolumePercent = usableCapacityBytes > 0 && capacity
+    ? capacity.usedBytes / usableCapacityBytes * 100
+    : 0;
 
   useEffect(() => {
     if (!directorySelection) return;
@@ -106,7 +110,7 @@ export function MediaStorageManagement() {
           <div><label htmlFor="media-directory" className="text-sm font-medium">Storage directory</label><Input id="media-directory" readOnly value={directory ?? "Not configured"} className="mt-2" /><Button variant="outline" className="mt-3" disabled={busy !== null} onClick={() => setFolderDialogOpen(true)}>Choose folder…</Button></div>
           <div className="space-y-2" aria-label="Local storage capacity">
             <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm"><span className="font-medium">Free space on this volume</span><span className="font-semibold text-slate-900">{capacity ? `${formatStorageBytes(capacity.freeBytes)} free` : capacityLoading ? "Checking…" : "Unavailable"}</span></div>
-            {capacity ? <><Progress aria-label="Used local storage volume" aria-valuetext={`${formatStorageBytes(capacity.totalBytes - capacity.freeBytes)} used, ${formatStorageBytes(capacity.freeBytes)} free of ${formatStorageBytes(capacity.totalBytes)}`} value={capacity.totalBytes > 0 ? (capacity.totalBytes - capacity.freeBytes) / capacity.totalBytes * 100 : 0} /><p className="text-xs text-slate-500">{formatStorageBytes(capacity.totalBytes - capacity.freeBytes)} used of {formatStorageBytes(capacity.totalBytes)} total volume capacity</p></> : !capacityLoading && <p className="text-sm leading-6 text-slate-500">Free-space information is unavailable. Check the selected folder and server volume.</p>}
+            {capacity ? <><Progress aria-label="Used local storage volume" aria-valuetext={`${formatStorageBytes(capacity.usedBytes)} used, ${formatStorageBytes(capacity.freeBytes)} free of ${formatStorageBytes(capacity.totalBytes)} total volume`} value={usedVolumePercent} /><p className="text-xs text-slate-500">{formatStorageBytes(capacity.usedBytes)} used and {formatStorageBytes(capacity.freeBytes)} free of {formatStorageBytes(capacity.totalBytes)} total volume</p></> : !capacityLoading && <p className="text-sm leading-6 text-slate-500">Free-space information is unavailable. Check the selected folder and server volume.</p>}
           </div>
           <p className="text-sm leading-6 text-slate-500">Choose a storage folder on the server. New uploads use this folder after you save; existing files stay in their original folders. Use persistent storage and include every media folder in backups.</p>
         </> : <div className="grid gap-4 sm:grid-cols-2"><div><label htmlFor="media-bucket" className="text-sm font-medium">Bucket</label><Input id="media-bucket" readOnly value={resource.data.s3.bucket ?? "Not configured"} className="mt-2" /></div><div><label htmlFor="media-region" className="text-sm font-medium">Region</label><Input id="media-region" readOnly value={resource.data.s3.region ?? "Not configured"} className="mt-2" /></div><p className="text-sm leading-6 text-slate-500 sm:col-span-2">Bucket, region, and credentials are managed in the server environment or through an IAM role. AWS S3 has no fixed bucket capacity to show as free space; review your AWS account limits and usage. Keep this bucket available for existing S3 files.</p></div>}
