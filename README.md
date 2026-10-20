@@ -233,6 +233,7 @@ Detailed technical documentation is available in the `docs/` directory.
 | Document | Description |
 |----------|-------------|
 | [Project Guide](docs/project-guide.md) | Project workflows, folder structure, UI libraries, and source files |
+| [Host on Ubuntu 26](docs/CourseCraft_Private_Server_Guide.md) | MongoDB collections, models, and relationships |
 | [Architecture](docs/architecture.md) | Application architecture and technical design |
 | [Database Schema](docs/database-schema.md) | MongoDB collections, models, and relationships |
 | [SCORM Specification](docs/scorm-specification.md) | SCORM implementation and LMS integration |
