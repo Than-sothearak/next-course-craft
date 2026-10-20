@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/auth/authorization";
 import { audit, securityTransaction } from "@/lib/admin/transactions";
 import { DashboardError } from "@/lib/dashboard/rules";
 import { testStorageConnection } from "./service";
+import { getLocalStorageCapacity } from "./capacity";
 import { mediaStorageSettingsSchema, mediaStorageTestSchema, type MediaStorageSettings } from "./settings-schema";
 import { localBrowserRoot, validateLocalDirectorySelection } from "./local-browser";
 
@@ -11,13 +12,17 @@ export async function requireStorageAdmin(actorId: string, session?: ClientSessi
   return requireRole(["super_admin"], actorId, session);
 }
 
-export async function getMediaStorageSettings(actorId: string): Promise<MediaStorageSettings> {
+export async function getMediaStorageSettings(actorId: string, requestedLocalDirectory?: string): Promise<MediaStorageSettings> {
   await requireStorageAdmin(actorId);
   const settings = await PlatformSettings.findById("platform").lean();
+  const configuredDirectory = settings?.mediaLocalDirectory || process.env.MEDIA_LOCAL_DIRECTORY || null;
+  const directory = requestedLocalDirectory
+    ? (await validateLocalDirectorySelection(requestedLocalDirectory)).path
+    : configuredDirectory;
   return {
     provider: settings?.mediaStorageProvider === "local" ? "local" : "s3",
     revision: settings?.mediaStorageRevision ?? 0,
-    local: { directory: settings?.mediaLocalDirectory || process.env.MEDIA_LOCAL_DIRECTORY || null, browseRoot: localBrowserRoot() },
+    local: { directory: configuredDirectory, browseRoot: localBrowserRoot(), capacity: await getLocalStorageCapacity(directory) },
     s3: { bucket: process.env.AWS_S3_BUCKET || null, region: process.env.AWS_REGION || null },
   };
 }

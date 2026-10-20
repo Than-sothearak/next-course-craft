@@ -30,6 +30,7 @@ const extensionsByMimeType: Record<string, string> = {
   "video/webm": "webm",
   "text/vtt": "vtt",
   "application/pdf": "pdf",
+  "application/octet-stream": "bin",
   "text/plain": "txt",
 };
 

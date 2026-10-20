@@ -74,6 +74,20 @@ describe("new template block spacing", () => {
   });
 });
 
+describe("prebuilt file attachment block", () => {
+  it("adds a downloadable file block with an attachment library preview", () => {
+    const template = blockTemplates.find((item) => item.id === "media-attachment");
+    expect(template).toMatchObject({ category: "Attachment", type: "attachment" });
+    const [block] = createBlocksFromTemplate(template!, "attachment-1");
+    expect(blockSchema.parse(block)).toMatchObject({
+      type: "attachment",
+      data: { src: "", fileName: "", size: 0 },
+    });
+    const preview = renderToStaticMarkup(createElement(TemplatePreview, { template: template! }));
+    expect(preview).toContain("Download a file");
+  });
+});
+
 describe("prebuilt code snippet template", () => {
   it("offers every code theme and explanation layout as an editable native text template", () => {
     const templates = blockTemplates.filter((template) => template.category === "Code");

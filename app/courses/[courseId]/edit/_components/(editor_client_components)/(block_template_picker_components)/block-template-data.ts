@@ -24,6 +24,7 @@ export const blockCategories = [
   "Image",
   "Gallery",
   "Multimedia",
+  "Attachment",
   "Interactive",
   "Knowledge check",
   "Survey",
@@ -392,6 +393,14 @@ export const blockTemplates: BlockTemplate[] = [
     description: "Add a video link with a large preview area.",
     type: "video",
     preview: "video",
+  },
+  {
+    id: "media-attachment",
+    category: "Attachment",
+    title: "File attachment",
+    description: "Upload a file for learners to download from this lesson.",
+    type: "attachment",
+    preview: "attachment",
   },
   {
     id: "link-button",

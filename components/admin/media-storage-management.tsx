@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Cloud, HardDrive, LoaderCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
 import { Radio } from "@/components/ui/radio";
 import type { MediaStorageSettings } from "@/lib/media/settings-schema";
 import { AdminLoading } from "./admin-loading";
@@ -18,9 +19,19 @@ const endpoint = "/api/admin/settings/media-storage";
 type Provider = MediaStorageSettings["provider"];
 type NoticeValue = { error: boolean; message: string } | null;
 
+function formatStorageBytes(bytes: number) {
+  if (bytes < 1000) return `${bytes} bytes`;
+  const units = ["KB", "MB", "GB", "TB", "PB"];
+  let value = bytes;
+  let unit = -1;
+  do { value /= 1000; unit += 1; } while (value >= 1000 && unit < units.length - 1);
+  return `${Number(value.toFixed(value < 10 ? 1 : 0))} ${units[unit]}`;
+}
+
 export function MediaStorageManagement() {
-  const resource = useAdminResource<MediaStorageSettings>(endpoint);
   const [directorySelection, setDirectorySelection] = useState<string | null>(null);
+  const resource = useAdminResource<MediaStorageSettings>(endpoint);
+  const [capacityResult, setCapacityResult] = useState<{ directory: string; capacity: MediaStorageSettings["local"]["capacity"] } | null>(null);
   const [folderDialogOpen, setFolderDialogOpen] = useState(false);
   const [selection, setSelection] = useState<Provider | null>(null);
   const [busy, setBusy] = useState<"test" | "save" | null>(null);
@@ -28,6 +39,24 @@ export function MediaStorageManagement() {
   const [test, setTest] = useState<{ provider: Provider; ok: boolean; checkedAt: string } | null>(null);
   const selected = selection ?? resource.data?.provider ?? "s3";
   const directory = directorySelection ?? resource.data?.local.directory ?? null;
+  const capacity = directorySelection
+    ? (capacityResult?.directory === directorySelection ? capacityResult.capacity : null)
+    : resource.data?.local.capacity ?? null;
+  const capacityLoading = directorySelection !== null && capacityResult?.directory !== directorySelection;
+
+  useEffect(() => {
+    if (!directorySelection) return;
+    const controller = new AbortController();
+    fetch(`${endpoint}?localDirectory=${encodeURIComponent(directorySelection)}`, { signal: controller.signal, cache: "no-store" })
+      .then(async (response) => {
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Could not read local storage capacity.");
+        return result as MediaStorageSettings;
+      })
+      .then((settings) => { if (!controller.signal.aborted) setCapacityResult({ directory: directorySelection, capacity: settings.local.capacity }); })
+      .catch(() => { if (!controller.signal.aborted) setCapacityResult({ directory: directorySelection, capacity: null }); });
+    return () => controller.abort();
+  }, [directorySelection]);
 
   async function submit(action: "test" | "save") {
     if (!resource.data || busy) return;
@@ -73,7 +102,14 @@ export function MediaStorageManagement() {
       </fieldset>
       <Card className="space-y-4 p-5 sm:p-6">
         <h2 className="font-semibold">{selected === "local" ? "Local storage configuration" : "S3 configuration"}</h2>
-        {selected === "local" ? <><div><label htmlFor="media-directory" className="text-sm font-medium">Storage directory</label><Input id="media-directory" readOnly value={directory ?? "Not configured"} className="mt-2" /><Button variant="outline" className="mt-3" disabled={busy !== null} onClick={() => setFolderDialogOpen(true)}>Choose folder…</Button></div><p className="text-sm leading-6 text-slate-500">Choose a storage folder on the server. New uploads use this folder after you save; existing files stay in their original folders. Use persistent storage and include every media folder in backups.</p></> : <div className="grid gap-4 sm:grid-cols-2"><div><label htmlFor="media-bucket" className="text-sm font-medium">Bucket</label><Input id="media-bucket" readOnly value={resource.data.s3.bucket ?? "Not configured"} className="mt-2" /></div><div><label htmlFor="media-region" className="text-sm font-medium">Region</label><Input id="media-region" readOnly value={resource.data.s3.region ?? "Not configured"} className="mt-2" /></div><p className="text-sm leading-6 text-slate-500 sm:col-span-2">Bucket, region, and credentials are managed in the server environment or through an IAM role. Keep this bucket available for existing S3 files.</p></div>}
+        {selected === "local" ? <>
+          <div><label htmlFor="media-directory" className="text-sm font-medium">Storage directory</label><Input id="media-directory" readOnly value={directory ?? "Not configured"} className="mt-2" /><Button variant="outline" className="mt-3" disabled={busy !== null} onClick={() => setFolderDialogOpen(true)}>Choose folder…</Button></div>
+          <div className="space-y-2" aria-label="Local storage capacity">
+            <div className="flex flex-wrap items-baseline justify-between gap-2 text-sm"><span className="font-medium">Free space on this volume</span><span className="font-semibold text-slate-900">{capacity ? `${formatStorageBytes(capacity.freeBytes)} free` : capacityLoading ? "Checking…" : "Unavailable"}</span></div>
+            {capacity ? <><Progress aria-label="Used local storage volume" aria-valuetext={`${formatStorageBytes(capacity.totalBytes - capacity.freeBytes)} used, ${formatStorageBytes(capacity.freeBytes)} free of ${formatStorageBytes(capacity.totalBytes)}`} value={capacity.totalBytes > 0 ? (capacity.totalBytes - capacity.freeBytes) / capacity.totalBytes * 100 : 0} /><p className="text-xs text-slate-500">{formatStorageBytes(capacity.totalBytes - capacity.freeBytes)} used of {formatStorageBytes(capacity.totalBytes)} total volume capacity</p></> : !capacityLoading && <p className="text-sm leading-6 text-slate-500">Free-space information is unavailable. Check the selected folder and server volume.</p>}
+          </div>
+          <p className="text-sm leading-6 text-slate-500">Choose a storage folder on the server. New uploads use this folder after you save; existing files stay in their original folders. Use persistent storage and include every media folder in backups.</p>
+        </> : <div className="grid gap-4 sm:grid-cols-2"><div><label htmlFor="media-bucket" className="text-sm font-medium">Bucket</label><Input id="media-bucket" readOnly value={resource.data.s3.bucket ?? "Not configured"} className="mt-2" /></div><div><label htmlFor="media-region" className="text-sm font-medium">Region</label><Input id="media-region" readOnly value={resource.data.s3.region ?? "Not configured"} className="mt-2" /></div><p className="text-sm leading-6 text-slate-500 sm:col-span-2">Bucket, region, and credentials are managed in the server environment or through an IAM role. AWS S3 has no fixed bucket capacity to show as free space; review your AWS account limits and usage. Keep this bucket available for existing S3 files.</p></div>}
         <p role="status" className="text-sm text-slate-600">{selected === "local" ? "Writable-directory test" : "Connection status"}: {test?.provider === selected ? `${test.ok ? "Passed" : "Failed"} at ${test.checkedAt}` : "Not tested in this session"}</p>
       </Card>
       <p className="text-sm leading-6 text-slate-500">Saving tests the selected provider again before activation. Switching providers does not move or delete files.</p>

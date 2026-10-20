@@ -5,6 +5,7 @@ export const localDirectorySchema = z.string().trim().min(1).max(4096).refine((v
 export const mediaStorageTestSchema = z.object({ provider: storageProviderSchema, localDirectory: localDirectorySchema.optional() }).strict();
 export const mediaStorageSettingsSchema = mediaStorageTestSchema.extend({ revision: z.number().int().min(0) });
 export const mediaStorageFolderQuerySchema = z.object({ path: localDirectorySchema.optional() }).strict();
+export const mediaStorageSettingsQuerySchema = z.object({ localDirectory: localDirectorySchema.optional() }).strict();
 export type MediaStorageFolders = {
   root: string; path: string; parent: string | null;
   folders: { name: string; path: string }[]; truncated: boolean;
@@ -12,6 +13,10 @@ export type MediaStorageFolders = {
 export type MediaStorageSettings = {
   provider: z.infer<typeof storageProviderSchema>;
   revision: number;
-  local: { directory: string | null; browseRoot: string | null };
+  local: {
+    directory: string | null;
+    browseRoot: string | null;
+    capacity: { totalBytes: number; freeBytes: number } | null;
+  };
   s3: { bucket: string | null; region: string | null };
 };

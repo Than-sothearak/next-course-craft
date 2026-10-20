@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({ requireRole: vi.fn(), findById: vi.fn(), updateOne: vi.fn(), probe: vi.fn(), audit: vi.fn(), transaction: vi.fn(), validateDirectory: vi.fn() }));
+const mocks = vi.hoisted(() => ({ requireRole: vi.fn(), findById: vi.fn(), updateOne: vi.fn(), probe: vi.fn(), audit: vi.fn(), transaction: vi.fn(), validateDirectory: vi.fn(), capacity: vi.fn() }));
 vi.mock("@/lib/auth/authorization", () => ({ requireRole: mocks.requireRole }));
 vi.mock("@/models/PlatformSettings", () => ({ PlatformSettings: { findById: mocks.findById, updateOne: mocks.updateOne } }));
 vi.mock("@/lib/media/service", () => ({ testStorageConnection: mocks.probe }));
+vi.mock("@/lib/media/capacity", () => ({ getLocalStorageCapacity: mocks.capacity }));
 vi.mock("@/lib/admin/transactions", () => ({ audit: mocks.audit, securityTransaction: mocks.transaction }));
 vi.mock("@/lib/media/local-browser", async (original) => ({ ...await original<typeof import("@/lib/media/local-browser")>(), validateLocalDirectorySelection: mocks.validateDirectory }));
 import { getMediaStorageSettings, updateMediaStorageSettings, testMediaStorageSettings } from "@/lib/media/settings";
@@ -13,6 +14,7 @@ beforeEach(() => {
   mocks.requireRole.mockResolvedValue({ id: "super", role: "super_admin" });
   mocks.probe.mockResolvedValue({ connected: true });
   mocks.validateDirectory.mockImplementation(async (path: string) => ({ root: "/data/coursecraft", path }));
+  mocks.capacity.mockResolvedValue(null);
   mocks.findById.mockImplementation(() => {
     const query = { session: () => query, lean: async () => ({ aiEnabled: false, mediaStorageProvider: "s3", mediaStorageRevision: 3 }) };
     return query;
@@ -83,6 +85,14 @@ describe("Super Admin storage settings", () => {
     expect(result).not.toHaveProperty("aiEnabled");
     expect(JSON.stringify(result)).not.toContain("never-return-this");
     vi.unstubAllEnvs();
+  });
+  it("checks the requested local folder capacity only after Super Admin authorization and folder validation", async () => {
+    mocks.capacity.mockResolvedValue({ totalBytes: 1_000_000_000, freeBytes: 250_000_000 });
+    const result = await getMediaStorageSettings("super", "/data/coursecraft/new-folder");
+    expect(mocks.validateDirectory).toHaveBeenCalledWith("/data/coursecraft/new-folder");
+    expect(mocks.capacity).toHaveBeenCalledWith("/data/coursecraft/new-folder");
+    expect(result.local.capacity).toEqual({ totalBytes: 1_000_000_000, freeBytes: 250_000_000 });
+    expect(mocks.requireRole.mock.invocationCallOrder[0]).toBeLessThan(mocks.validateDirectory.mock.invocationCallOrder[0]);
   });
   it("rejects unrecognized providers, credentials, and missing revision", async () => {
     for (const input of [{ provider: "other", revision: 3 }, { provider: "s3", revision: 3, secret: "bad" }, { provider: "s3" }]) {

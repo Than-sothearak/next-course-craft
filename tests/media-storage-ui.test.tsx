@@ -25,7 +25,11 @@ beforeEach(async () => {
       const path = new URL(url, "https://coursecraft.example").searchParams.get("path") || root;
       return new Response(JSON.stringify({ root, path, parent: path === root ? null : root, folders: path === root ? [{ name: "New folder", path: `${root}/new-folder` }, { name: "uploads", path: `${root}/uploads` }] : [], truncated: false }));
     }
-    if (!init?.method) return new Response(JSON.stringify({ provider, revision: 2, local: { directory: localDirectory, browseRoot: "/data/coursecraft" }, s3: { bucket: "private-course-media", region: "ap-southeast-1" } }));
+    if (!init?.method) {
+      const requestedDirectory = new URL(url, "https://coursecraft.example").searchParams.get("localDirectory");
+      const freeBytes = requestedDirectory?.endsWith("new-folder") ? 100_000_000 : 400_000_000;
+      return new Response(JSON.stringify({ provider, revision: 2, local: { directory: localDirectory, browseRoot: "/data/coursecraft", capacity: { totalBytes: 1_000_000_000, freeBytes } }, s3: { bucket: "private-course-media", region: "ap-southeast-1" } }));
+    }
     const body = JSON.parse(String(init.body));
     calls.push({ url, method: init.method, body });
     if (failure) return new Response(JSON.stringify({ error: failure }), { status: 503 });
@@ -49,12 +53,17 @@ describe("Media Storage settings UI", () => {
     expect(container.querySelector<HTMLInputElement>('[name="storage-provider"][value="s3"]')?.checked).toBe(true);
     expect(container.querySelector<HTMLInputElement>("#media-bucket")?.value).toBe("private-course-media");
     expect(container.querySelector<HTMLInputElement>("#media-region")?.readOnly).toBe(true);
+    expect(container.textContent).toContain("AWS S3 has no fixed bucket capacity");
     expect(container.querySelectorAll('[type="radio"]')).toHaveLength(2);
     expect(container.querySelector("fieldset")?.textContent).toContain("Select storage provider");
   });
   it("tests the selected local directory without changing the active provider", async () => {
     await chooseLocalWithDefault();
     expect(container.querySelector<HTMLInputElement>("#media-directory")?.value).toBe("/data/coursecraft/uploads");
+    expect(container.querySelector('[role="progressbar"]')?.getAttribute("aria-valuenow")).toBe("60");
+    expect(container.textContent).toContain("400 MB free");
+    expect(container.textContent).toContain("600 MB used of 1 GB total volume capacity");
+    expect(container.querySelector('[role="progressbar"]')?.getAttribute("aria-label")).toBe("Used local storage volume");
     act(() => button("Test Connection").click()); await flush();
     expect(calls).toEqual([{ url: "/api/admin/settings/media-storage/test", method: "POST", body: { provider: "local", localDirectory: "/data/coursecraft/uploads" } }]);
     expect(container.textContent).toContain("Currently active: AWS S3");
@@ -76,6 +85,9 @@ describe("Media Storage settings UI", () => {
     expect(container.querySelector('[aria-label="Current folder"]')?.textContent).toBe("/data/coursecraft/new-folder");
     act(() => button("Use this folder").click());
     expect(container.querySelector<HTMLInputElement>("#media-directory")?.value).toBe("/data/coursecraft/new-folder");
+    await flush();
+    expect(container.querySelector('[role="progressbar"]')?.getAttribute("aria-valuenow")).toBe("90");
+    expect(container.textContent).toContain("100 MB free");
     expect(calls).toHaveLength(0);
     act(() => button("Save Settings").click()); await flush(); await flush();
     expect(calls[0].body).toEqual({ provider: "local", localDirectory: "/data/coursecraft/new-folder", revision: 2 });

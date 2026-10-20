@@ -6,6 +6,7 @@ import { LayoutGrid, LockKeyhole, Play, Plus, Settings2, Trash2 } from "lucide-r
 import type { ContentBlock } from "@/lib/schemas/block";
 import { createClientId } from "@/lib/client-id";
 import { Button } from "@/components/ui/button";
+import { FileAttachmentLink } from "@/components/file-attachment-link";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -34,6 +35,7 @@ type MediaLibraryTarget =
   | "image"
   | "gallery"
   | "video"
+  | "attachment"
   | "labeledGraphic"
   | { type: "flipCard"; cardId: string; side: FlipCardSide };
 
@@ -98,6 +100,11 @@ export function ContentBlockEditor({
           src: asset.fileUrl,
           mimeType: asset.contentType as "video/mp4" | "video/webm",
         },
+      });
+    if (block.type === "attachment")
+      onChange({
+        ...block,
+        data: { src: asset.fileUrl, fileName: asset.originalName, size: asset.size },
       });
     if (block.type === "gallery" && selectedGalleryImageIndex !== null) {
       onChange({
@@ -255,6 +262,8 @@ export function ContentBlockEditor({
   const preview =
     block.type === "link" ? (
       <CourseLinkBlock data={block.data} interactive={false} />
+    ) : block.type === "attachment" ? (
+      <FileAttachmentLink href={block.data.src} fileName={block.data.fileName} size={block.data.size} />
     ) : block.type === "chart" ? (
       <ChartBlockPreview data={block.data} />
     ) : block.type === "image" ? (
@@ -868,6 +877,20 @@ export function ContentBlockEditor({
                 placeholder="Captions URL (optional)"
                 className="h-9"
               />
+            </div>
+          )}
+          {block.type === "attachment" && (
+            <div className="space-y-2">
+              <p className="text-xs leading-5 text-slate-500">Upload PDF, Word, PowerPoint, or any other file up to 250 MB. Learners download attachments from the lesson.</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setMediaLibraryTarget("attachment")}
+              >
+                Choose or upload file
+              </Button>
+              {block.data.fileName && <p className="truncate text-xs text-slate-600">Selected: {block.data.fileName}</p>}
             </div>
           )}
           {block.type === "divider" && (
@@ -1651,7 +1674,7 @@ export function ContentBlockEditor({
       )}
       <MediaLibraryDialog
         courseId={courseId}
-        kind={mediaLibraryTarget === "video" ? "video" : "image"}
+        kind={mediaLibraryTarget === "attachment" ? "attachment" : mediaLibraryTarget === "video" ? "video" : "image"}
         open={mediaLibraryTarget !== null}
         onClose={() => {
           setMediaLibraryTarget(null);

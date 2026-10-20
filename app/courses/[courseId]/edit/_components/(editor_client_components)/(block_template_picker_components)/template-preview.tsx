@@ -1,4 +1,4 @@
-import { LockKeyhole, Video } from "lucide-react";
+import { FileDown, LockKeyhole, Video } from "lucide-react";
 import type { BlockTemplate } from "./block-template-data";
 import { InputBlockPreview } from "../input-block-preview";
 import { StatementBlockPreview } from "../../statement-block-preview";
@@ -145,6 +145,13 @@ export function TemplatePreview({ template }: { template: BlockTemplate }) {
         <span className="absolute left-2 top-2 text-[9px] font-medium text-white/90">
           Course introduction
         </span>
+      </div>
+    );
+  if (kind === "attachment")
+    return (
+      <div className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+        <span className="grid size-8 shrink-0 place-items-center rounded-md bg-indigo-50 text-indigo-700"><FileDown size={17} /></span>
+        <span className="min-w-0"><span className="block text-[10px] font-semibold text-slate-700">Lesson resource</span><span className="mt-0.5 block truncate text-[9px] text-slate-500">Download a file</span></span>
       </div>
     );
   if (kind === "divider")

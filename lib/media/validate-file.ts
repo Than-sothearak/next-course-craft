@@ -17,6 +17,9 @@ export function hasMediaSignature(type: string, bytes: Buffer) {
     case "audio/wav": return starts("RIFF") && at(8, "WAVE");
     case "audio/mpeg": return starts("ID3") || (bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0);
     case "application/pdf": return starts("%PDF-");
+    // Opaque attachments are always downloaded with nosniff; their file format
+    // is not interpreted by the course player.
+    case "application/octet-stream": return true;
     case "text/plain": return !bytes.includes(0) && !starts("MZ") && !starts("\x7fELF") && !starts("#!");
     default: return false;
   }

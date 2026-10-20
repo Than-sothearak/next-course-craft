@@ -37,6 +37,7 @@ export async function beginMediaUpload(
       method: "PUT" as const,
       fields: {},
       storageProvider: provider,
+      contentType: parsed.contentType,
     };
     const upload = await createMediaUploadPost({
       objectKey,
@@ -50,6 +51,7 @@ export async function beginMediaUpload(
       fields: upload.fields,
       method: "POST" as const,
       storageProvider: provider,
+      contentType: parsed.contentType,
     };
   } catch (error) {
     await Asset.deleteOne({ _id: asset._id, ownerId });

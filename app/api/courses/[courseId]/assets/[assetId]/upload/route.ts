@@ -22,7 +22,12 @@ export async function PUT(request: NextRequest, { params }: Context) {
     const ownerId = await assertCourseOwner(userId, courseId);
     const asset = await Asset.findOne({ _id: assetId, ownerId, courseId, status: "pending", storageProvider: "local" });
     if (!asset) throw new DashboardError("Pending local upload not found.", 404);
-    mediaUploadInputSchema.parse({ fileName: asset.originalName, contentType: asset.mimeType, size: asset.size });
+    mediaUploadInputSchema.parse({
+      fileName: asset.originalName,
+      contentType: asset.mimeType,
+      ...(asset.mimeType === "application/octet-stream" ? { purpose: "attachment" as const } : {}),
+      size: asset.size,
+    });
     if (!request.body || request.headers.get("content-type") !== asset.mimeType) throw new DashboardError("The upload content type does not match.", 400);
     const length = request.headers.get("content-length");
     if (length !== null && Number(length) !== asset.size) throw new DashboardError("The upload size does not match.", 400);

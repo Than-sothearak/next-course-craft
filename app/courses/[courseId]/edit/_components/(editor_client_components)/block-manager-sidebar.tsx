@@ -75,6 +75,7 @@ function blockTitle(block: ContentBlock) {
   if (block.type === "processSteps") return block.data.steps[0]?.title.trim() || "Process steps";
   if (block.type === "lessonMap") return `${block.data.checkpoints.length} map checkpoint${block.data.checkpoints.length === 1 ? "" : "s"}`;
   if (block.type === "chart") return block.data.title.trim() || "Chart";
+  if (block.type === "attachment") return block.data.fileName.trim() || "File attachment";
   if (block.type === "knowledgeCheck") return block.data.question.trim() || "Knowledge check";
   return block.data.question.trim() || "Survey";
 }

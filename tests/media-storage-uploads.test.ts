@@ -72,6 +72,22 @@ describe("existing upload lifecycle with provider switching", () => {
     expect(save).toHaveBeenCalledOnce();
     expect((await PUT(request(), context())).status).toBe(404);
   });
+  it("stores and completes arbitrary attachment bytes as a downloadable opaque file", async () => {
+    const bytes = Buffer.from("PowerPoint or other attachment bytes");
+    const attachment = {
+      fileName: "lesson-material.pptx",
+      contentType: "application/octet-stream" as const,
+      purpose: "attachment" as const,
+      size: bytes.length,
+    };
+    const upload = await beginMediaUpload(ownerId, courseId, attachment);
+    expect(upload.contentType).toBe("application/octet-stream");
+    expect(pending.mimeType).toBe("application/octet-stream");
+    expect((await PUT(request(bytes, { "Content-Type": "application/octet-stream" }), context(upload.assetId))).status).toBe(204);
+    await expect(completeMediaUpload(ownerId, courseId, upload.assetId)).resolves.toMatchObject({ originalName: "lesson-material.pptx" });
+    expect(await new LocalStorageProvider(directory).metadata(String(pending.storageKey))).toEqual({ size: bytes.length });
+    expect(save).toHaveBeenCalledOnce();
+  });
   it("rejects foreign records and cross-origin requests before writing", async () => {
     await beginMediaUpload(ownerId, courseId, input);
     const upload = vi.spyOn(LocalStorageProvider.prototype, "upload");

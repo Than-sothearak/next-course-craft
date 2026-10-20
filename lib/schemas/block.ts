@@ -7,6 +7,7 @@ export const blockTypes = [
   "image",
   "gallery",
   "video",
+  "attachment",
   "link",
   "divider",
   "knowledgeCheck",
@@ -115,6 +116,15 @@ export const videoBlockSchema = z.object({
     src: z.string().url().or(z.string().startsWith("/")),
     mimeType: z.enum(["video/mp4", "video/webm"]).optional(),
     captions: z.string().optional(),
+  }),
+});
+export const attachmentBlockSchema = z.object({
+  ...blockBase("small", 40),
+  type: z.literal("attachment"),
+  data: z.object({
+    src: z.string().regex(/^\/api\/assets\/[a-f\d]{24}\/file$/i).or(z.literal("")),
+    fileName: z.string().max(255).default(""),
+    size: z.number().int().min(0).max(250 * 1024 * 1024).default(0),
   }),
 });
 export const linkBlockSchema = z.object({
@@ -404,6 +414,7 @@ const contentBlockSchema = z.discriminatedUnion("type", [
   imageBlockSchema,
   galleryBlockSchema,
   videoBlockSchema,
+  attachmentBlockSchema,
   linkBlockSchema,
   dividerBlockSchema,
   knowledgeCheckBlockSchema,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlignLeft, BarChart3, CheckCircle2, Code2, FilePlus2, Image as ImageIcon, Images, Link2, List, Minus, Quote, RotateCcw, Type, Video, X } from "lucide-react";
+import { AlignLeft, BarChart3, CheckCircle2, Code2, FileDown, FilePlus2, Image as ImageIcon, Images, Link2, List, Minus, Quote, RotateCcw, Type, Video, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { blockCategories, blockTemplates, type BlockCategory, type BlockTemplate } from "./(block_template_picker_components)/block-template-data";
 import { TemplatePreview } from "./(block_template_picker_components)/template-preview";
@@ -15,6 +15,7 @@ const categoryIcons = {
   Image: ImageIcon,
   Gallery: Images,
   Multimedia: Video,
+  Attachment: FileDown,
   Interactive: RotateCcw,
   "Knowledge check": CheckCircle2,
   Survey: CheckCircle2,
