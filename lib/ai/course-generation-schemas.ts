@@ -50,6 +50,7 @@ VISUAL AND DATA BLOCKS
 - image: one useful generated illustration. Provide imagePrompt and accessible imageAlt. imageLayout may be full, banner, text-left, text-right, text-overlay, or card; title/body are optional accompanying copy.
 - gallery: presents 1–8 images. Use galleryImages only with image URLs explicitly present in the source; never invent image URLs.
 - video: embeds a playable direct MP4/WebM source. Use videoSrc only when a direct video URL appears in the source, and provide videoMimeType and captions when available. Never invent a URL.
+- attachment: authors add uploaded files manually after generation. Do not generate attachment blocks or invent file download URLs.
 - link: adds a resource button, card, or inline link only when the source explicitly includes its destination URL. Set linkUrl to that exact safe destination, linkLabel to useful learner-facing text, and linkDescription to a brief explanation. Never invent or guess a destination.
 - labeledGraphic: explains parts of a generated visual with 1–20 markers. Provide imagePrompt, imageAlt, and concise marker labels/descriptions with x/y positions from 0 to 100.
 - chart: visualizes data actually present in the source. Choose bar, column, line, donut, or stacked; provide a title, optional description, and 1–20 labeled numeric fields. Never invent data.

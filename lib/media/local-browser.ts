@@ -1,5 +1,5 @@
 import { lstat, opendir, realpath } from "node:fs/promises";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { dirname, isAbsolute, join, parse, relative, resolve, sep } from "node:path";
 import { DashboardError } from "@/lib/dashboard/rules";
 import { localStorageDirectory } from "./providers/local";
 import type { MediaStorageFolders } from "./settings-schema";
@@ -19,10 +19,10 @@ function within(root: string, path: string) {
 // narrow the browse root later without making existing media inaccessible.
 export async function validateLocalDirectorySelection(input?: string) {
   const configuredRoot = localBrowserRoot();
-  if (!configuredRoot || !isAbsolute(configuredRoot) || resolve(configuredRoot) === sep) throw new DashboardError("Set MEDIA_LOCAL_ROOT to an absolute storage parent directory before browsing folders.", 503);
+  if (!configuredRoot || !isAbsolute(configuredRoot) || resolve(configuredRoot) === parse(resolve(configuredRoot)).root) throw new DashboardError("Set MEDIA_LOCAL_ROOT to an absolute storage parent directory before browsing folders.", 503);
   if (input !== undefined && (!isAbsolute(input) || input.includes("\0"))) throw new DashboardError("Choose an absolute server directory.", 400);
   const root = await realpath(configuredRoot).catch(() => { throw new DashboardError("The configured storage parent directory is unavailable. Check MEDIA_LOCAL_ROOT and server permissions.", 503); });
-  if (root === sep) throw new DashboardError("The folder browser cannot use the filesystem root.", 503);
+  if (root === parse(root).root) throw new DashboardError("The folder browser cannot use the filesystem root.", 503);
   const requested = input === undefined ? root : resolve(input);
   // Check lexical boundaries before accessing an arbitrary path.
   const base = within(root, requested) ? root : resolve(configuredRoot);

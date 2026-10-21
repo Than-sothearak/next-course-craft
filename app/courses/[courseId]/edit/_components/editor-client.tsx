@@ -83,8 +83,9 @@ import { duplicateLessonContent, moveLessonToSection } from "@/lib/editor/course
 import type { Permission } from "@/lib/auth/policy";
 import { createClientId } from "@/lib/client-id";
 
+import { useEditorDraft, type Draft } from "./_components/use-editor-draft";
+
 type InitialData = { courseId: string } & EditorSnapshotInput;
-type Draft = Omit<EditorSnapshotInput, "revision">;
 type TemplatePickerState =
   | { mode: "add"; index: number; category: BlockCategory }
   | { mode: "replace"; blockId: string; category: BlockCategory };
@@ -158,29 +159,13 @@ export function EditorClient({
     sections: initialData.sections,
     lessons: initialData.lessons,
   };
-  const [draft, setDraft] = useState(initialDraft);
-  const draftRef = useRef(draft);
-  const revisionRef = useRef(initialData.revision);
-  const lastSavedRef = useRef(JSON.stringify(initialDraft));
-  const saveInFlight = useRef(false);
-  const savePending = useRef(false);
-  const pendingRouteRef = useRef<string | null>(null);
-  const conflictRef = useRef(false);
-  const historyRef = useRef<Draft[]>([]);
-  const redoRef = useRef<Draft[]>([]);
-  const [canUndo, setCanUndo] = useState(false);
-  const [canRedo, setCanRedo] = useState(false);
   const [activeLessonId, setSelectedLessonId] = useState<string | null>(
     focusedLessonId ?? null,
   );
   const [blockManagerOpen, setBlockManagerOpen] = useState(false);
-  const [saveState, setSaveState] = useState<
-    "saved" | "saving" | "error" | "conflict"
-  >("saved");
-  const [saveMessage, setSaveMessage] = useState("");
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [titleValid, setTitleValid] = useState(true);
   const titleValidRef = useRef(true);
+  const { draft, draftRef, pendingRouteRef, canUndo, canRedo, saveState, saveMessage, hasUnsavedChanges, updateDraft, openRouteAfterSave, undo, redo, saveLatest, clearSaveError } = useEditorDraft({ initialDraft, initialRevision: initialData.revision, courseId: initialData.courseId, titleValid, titleValidRef, onNavigate: router.push });
   const courseTitleRef = useRef<HTMLTextAreaElement>(null);
   const [templatePicker, setTemplatePicker] =
     useState<TemplatePickerState | null>(null);
@@ -212,21 +197,6 @@ export function EditorClient({
     );
     if (window.history.length > 1 && hasSameOriginHistory) router.back();
     else router.push("/dashboard");
-  }
-
-  function commit(next: Draft) {
-    if (JSON.stringify(next) === JSON.stringify(draftRef.current)) return;
-    historyRef.current = [...historyRef.current.slice(-79), draftRef.current];
-    redoRef.current = [];
-    setCanUndo(true);
-    setCanRedo(false);
-    draftRef.current = next;
-    setDraft(next);
-    setHasUnsavedChanges(JSON.stringify(next) !== lastSavedRef.current);
-  }
-
-  function updateDraft(update: (current: Draft) => Draft) {
-    commit(update(draftRef.current));
   }
 
   function applyGeneratedCourse(
@@ -278,18 +248,6 @@ export function EditorClient({
     return () => window.removeEventListener("resize", resize);
   }, [draft.title]);
 
-  function openRouteAfterSave(path: string) {
-    if (
-      JSON.stringify(draftRef.current) === lastSavedRef.current &&
-      !saveInFlight.current
-    ) {
-      router.push(path);
-      return;
-    }
-    pendingRouteRef.current = path;
-    void saveLatest();
-  }
-
   function openLesson(id: string) {
     openRouteAfterSave(`/courses/${initialData.courseId}/edit/lessons/${id}`);
   }
@@ -299,106 +257,6 @@ export function EditorClient({
     const lessonQuery = lessonId ? `?lessonId=${encodeURIComponent(lessonId)}` : "";
     openRouteAfterSave(`/courses/${initialData.courseId}/preview${lessonQuery}`);
   }
-
-  function undo() {
-    const previous = historyRef.current.pop();
-    if (!previous) return;
-    redoRef.current.push(draftRef.current);
-    setCanUndo(historyRef.current.length > 0);
-    setCanRedo(true);
-    draftRef.current = previous;
-    setDraft(previous);
-    setHasUnsavedChanges(JSON.stringify(previous) !== lastSavedRef.current);
-  }
-
-  function redo() {
-    const next = redoRef.current.pop();
-    if (!next) return;
-    historyRef.current.push(draftRef.current);
-    setCanUndo(true);
-    setCanRedo(redoRef.current.length > 0);
-    draftRef.current = next;
-    setDraft(next);
-    setHasUnsavedChanges(JSON.stringify(next) !== lastSavedRef.current);
-  }
-
-  async function saveLatest() {
-    if (conflictRef.current || !titleValidRef.current) return;
-    if (saveInFlight.current) {
-      savePending.current = true;
-      return;
-    }
-    const snapshot = draftRef.current;
-    const serialized = JSON.stringify(snapshot);
-    if (serialized === lastSavedRef.current) return;
-    saveInFlight.current = true;
-    setSaveState("saving");
-    setSaveMessage("");
-    try {
-      const response = await fetch(
-        `/api/courses/${initialData.courseId}/editor`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...snapshot, revision: revisionRef.current }),
-        },
-      );
-      const result = await response.json();
-      if (response.status === 409) {
-        conflictRef.current = true;
-        setSaveState("conflict");
-        setSaveMessage(
-          result.error ?? "This course changed elsewhere. Reload to continue.",
-        );
-        return;
-      }
-      if (!response.ok)
-        throw new Error(result.error ?? "Your changes could not be saved.");
-      revisionRef.current = result.revision;
-      lastSavedRef.current = serialized;
-      setHasUnsavedChanges(JSON.stringify(draftRef.current) !== serialized);
-      setSaveState("saved");
-      const pendingRoute = pendingRouteRef.current;
-      if (pendingRoute && JSON.stringify(draftRef.current) === serialized) {
-        pendingRouteRef.current = null;
-        router.push(pendingRoute);
-      }
-    } catch (error) {
-      setSaveState("error");
-      setSaveMessage(
-        error instanceof Error
-          ? error.message
-          : "Your changes could not be saved.",
-      );
-    } finally {
-      saveInFlight.current = false;
-      const saveAgain = savePending.current;
-      savePending.current = false;
-      // A draft may have changed after this request captured its snapshot. Do
-      // not rely on a second debounce timer having fired while the request was
-      // in flight; immediately queue the latest version after this save ends.
-      const hasUnsavedChanges =
-        JSON.stringify(draftRef.current) !== lastSavedRef.current;
-      if ((saveAgain || hasUnsavedChanges) && !conflictRef.current) {
-        window.setTimeout(
-          () => void saveLatest(),
-          hasUnsavedChanges ? 250 : 500,
-        );
-      }
-    }
-  }
-
-  useEffect(() => {
-    if (
-      JSON.stringify(draft) === lastSavedRef.current ||
-      saveState === "conflict"
-    )
-      return;
-    const timer = window.setTimeout(() => void saveLatest(), 700);
-    return () => window.clearTimeout(timer);
-    // saveLatest reads the current draft from a ref so saves stay serialized.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft, saveState, titleValid]);
 
   function addSection() {
     const id = newId();
@@ -1100,10 +958,7 @@ export function EditorClient({
                         const valid = title.trim().length > 0;
                         titleValidRef.current = valid;
                         setTitleValid(valid);
-                        if (saveState === "error") {
-                          setSaveState("saved");
-                          setSaveMessage("");
-                        }
+                        clearSaveError();
                         updateDraft((current) => ({
                           ...current,
                           title,

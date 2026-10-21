@@ -15,7 +15,9 @@ Coursecraft is one Next.js App Router application. Server routes and server comp
 - `lib/<domain>/services/`: server-side operations grouped by the dashboard, editor, and media page/API areas that use them.
 - `export/`: standalone static export entry point and build configuration. It must not import Next.js server code, MongoDB, Auth.js, or private storage credentials.
 - `models/`: Mongoose models; lessons and assets are independent documents rather than a giant course document.
-- `tests/`: Vitest unit tests and Playwright end-to-end tests.
+- `tests/`: Vitest unit, component, and transactional integration tests.
+- `e2e/`: Playwright tests against an isolated production build of this application.
+- `scripts/testing/`: disposable replica-set lifecycle, synthetic fixtures, and production application verification; never uses the application's database configuration.
 
 The standalone export runtime is bundled separately by Vite as a build tool inside this repository. Its build output consists only of static HTML, CSS, and JavaScript. The authenticated HTML publishing route embeds that bundle, the validated course snapshot, and owner-scoped course media in one downloadable HTML file. The SCORM 1.2 publishing route packages the same compiled export runtime with a validated snapshot, owner-scoped media, the root-level `imsmanifest.xml`, and the referenced schema files. SCORM 2004 uses the same runtime and packaged media with its own manifest and `API_1484_11` adapter. The PDF handout route validates the same course snapshot, includes owner-scoped PNG and JPEG images, and renders lesson and activity text with bundled Latin and Khmer fonts. Quiz handouts show prompts and choices without answer keys or feedback. The browser-only export saves resume and completion state through either LMS API when available; without an LMS it falls back to browser storage.
 
@@ -88,6 +90,18 @@ Workspace administration at `/admin/workspaces` and `/api/admin/workspaces` requ
 ## Runtime and deployment
 
 Mongo-backed route handlers use the Node.js runtime. The export bundle is built with `npm run build:export` into `public/course-export`; this is static output that publishing routes package as HTML or SCORM. Export work belongs in isolated server-side service modules and must respect hosting request and memory limits.
+
+## AI and editor module boundaries
+
+`lib/ai/course-generation.ts` coordinates generation workflows, jobs, checkpoints, and application of drafts. Its `generation/` modules own provider calls/retries, response contracts, prompts and language, block conversion, source inventory/ranges/coverage, and image generation/storage. Public entry points remain available through `course-generation.ts`; leaf modules do not import the coordinator. Image concurrency stays process-wide. Attachments require an uploaded file and are excluded from AI-generated block seeds.
+
+The course editor keeps page-specific components under its route's `_components`. `content-block-editor.tsx` coordinates the active block and media selection, while its nested `_components/block-settings/` contains individual block settings and `content-block-preview.tsx` owns the settings preview. `use-editor-draft.ts` owns revision-checked saves, serialized pending edits, debounce, conflict state, save-before-navigation, and undo/redo. The editor client retains course UI and lesson operations. These source boundaries do not introduce a separate application or background worker.
+
+## Verification and performance
+
+`npm run check` runs zero-warning lint, generates route types before strict TypeScript checking, and runs all Vitest tests with a disposable transactional MongoDB. A missing database prerequisite fails the full check instead of silently skipping integration coverage. `npm run test:unit` is the explicit database-free subset. Browser tests and the HTTP author workload seed synthetic users and sessions into randomly named databases, start this application's production build on loopback, and remove their databases afterward. Provider credentials are disabled for those journeys.
+
+The CI workflow runs full checks, the static learner build, and production browser tests on Linux, plus unit/type checks on Windows. The 100-author performance job is an optional manual CI run; its reports record workload, environment, percentiles, failures, and persisted saves. See [the verification baseline](verification-baseline.md) for prerequisites, commands, results, and measurement limits.
 
 ## Media Storage settings
 

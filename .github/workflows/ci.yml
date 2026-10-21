@@ -1,0 +1,83 @@
+name: Verification
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      performance:
+        description: Run the 100-author HTTP workload after verification
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verification-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verification:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      RBAC_TEST_MONGODB_URI: mongodb://127.0.0.1:27018/?replicaSet=coursecraft_ci&directConnection=true
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - name: Start isolated MongoDB replica set
+        shell: bash
+        run: |
+          docker run --detach --name coursecraft-ci-mongo --publish 127.0.0.1:27018:27017 mongo:7.0 --replSet coursecraft_ci --bind_ip_all
+          for attempt in {1..60}; do
+            if docker exec coursecraft-ci-mongo mongosh --quiet --eval 'db.adminCommand({ping: 1})'; then break; fi
+            sleep 1
+          done
+          docker exec coursecraft-ci-mongo mongosh --quiet --eval 'rs.initiate({_id: "coursecraft_ci", members: [{_id: 0, host: "localhost:27017"}]})'
+          for attempt in {1..60}; do
+            if docker exec coursecraft-ci-mongo mongosh --quiet --eval 'if (!db.hello().isWritablePrimary) quit(1)'; then exit 0; fi
+            sleep 1
+          done
+          exit 1
+      - name: Lint, types, unit and transactional integration tests
+        run: npm run check
+      - name: Build standalone learner assets
+        run: npm run build:export
+      - name: Install browser
+        run: npx playwright install --with-deps chromium
+      - name: Production build and authoring browser tests
+        run: npm run test:e2e
+      - name: Measure 100 concurrent authors
+        if: github.event_name == 'workflow_dispatch' && inputs.performance
+        run: npm run perf:authors -- --authors 100 --duration 60 --skip-build
+      - name: Upload browser traces and performance report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: verification-results
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Stop test database
+        if: always()
+        run: docker rm --force coursecraft-ci-mongo
+
+  windows-unit:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - name: Unit tests including Windows storage boundaries
+        run: npm run test:unit

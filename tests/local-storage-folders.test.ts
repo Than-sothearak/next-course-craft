@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, parse } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { listLocalStorageFolders, localBrowserRoot, validateLocalDirectorySelection } from "@/lib/media/local-browser";
 
@@ -34,8 +34,9 @@ describe("server storage folder browser boundaries", () => {
     await expect(listLocalStorageFolders(join(root, ".hidden"))).rejects.toMatchObject({ status: 403 });
   });
   it("does not list or follow symbolic links, including links back inside the root", async () => {
-    await symlink("/etc", join(root, "external"));
-    await symlink(join(root, "uploads"), join(root, "internal"));
+    const linkType = process.platform === "win32" ? "junction" : "dir";
+    await symlink(join(root, ".."), join(root, "external"), linkType);
+    await symlink(join(root, "uploads"), join(root, "internal"), linkType);
     expect((await listLocalStorageFolders()).folders.map((folder) => folder.name)).toEqual(["More lessons", "uploads"]);
     await expect(validateLocalDirectorySelection(join(root, "external"))).rejects.toMatchObject({ status: 400 });
     await expect(validateLocalDirectorySelection(join(root, "internal"))).rejects.toMatchObject({ status: 400 });
@@ -47,7 +48,7 @@ describe("server storage folder browser boundaries", () => {
   it("requires an explicit bounded root and prevents selecting the application directory", async () => {
     vi.stubEnv("MEDIA_LOCAL_ROOT", "/");
     await expect(listLocalStorageFolders()).rejects.toMatchObject({ status: 503 });
-    await symlink("/", join(root, "root-alias"));
+    await symlink(parse(root).root, join(root, "root-alias"), process.platform === "win32" ? "junction" : "dir");
     vi.stubEnv("MEDIA_LOCAL_ROOT", join(root, "root-alias"));
     await expect(listLocalStorageFolders(join(root, "root-alias", "etc"))).rejects.toMatchObject({ status: 503 });
     vi.stubEnv("MEDIA_LOCAL_ROOT", process.cwd());

@@ -25,3 +25,5 @@ Requested Phase 15 administration scope is implemented: account approval, immuta
 The requested administration extension adds Super Admin workspace listings, details, name updates, and audited deletion of empty workspaces. Existing courses (including recently deleted courses) and folders block workspace deletion.
 
 Requested Phase 15 Media Storage scope extends the existing administration and media systems with Super Admin provider switching, private persistent local storage, legacy S3 compatibility, and provider-independent HTML/SCORM/PDF publishing. No other unfinished phase is included.
+
+Requested Phase 15 verification scope adds a reproducible full test baseline with transactional MongoDB, production browser smoke tests, CI checks, focused AI/editor module splits, and an isolated workload for 100 concurrent authors browsing and editing. Results and remaining performance limits are recorded in `docs/verification-baseline.md`. This scope does not complete all production hardening or the unfinished generation/template phases.

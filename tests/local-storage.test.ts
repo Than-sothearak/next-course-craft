@@ -1,6 +1,6 @@
-import { mkdtemp, rm, readFile, readdir, realpath, symlink, writeFile } from "node:fs/promises";
+import { link, mkdtemp, rm, readFile, readdir, realpath, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, parse } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LocalStorageProvider, localStorageDirectory } from "@/lib/media/providers/local";
 
@@ -59,17 +59,20 @@ describe("persistent private local storage", () => {
     await expect(provider.upload({ ...file, key, body: Buffer.from("0123456789") })).rejects.toMatchObject({ status: 400 });
   });
 
-  it("rejects symlinked parents and files", async () => {
-    await symlink(directory, join(directory, "owner"));
+  it("rejects linked parent directories and files", async () => {
+    await symlink(directory, join(directory, "owner"), process.platform === "win32" ? "junction" : "dir");
     await expect(provider.upload({ ...file, body: Buffer.from("0123456789") })).rejects.toThrow("Unsafe upload directory");
     await rm(join(directory, "owner"));
     await writeFile(join(directory, "outside"), "secret");
-    await symlink(join(directory, "outside"), join(directory, "link"));
+    // Junctions and hard links need no Windows symlink privilege. Linux CI also
+    // exercises O_NOFOLLOW against a real file symlink.
+    if (process.platform === "win32") await link(join(directory, "outside"), join(directory, "link"));
+    else await symlink(join(directory, "outside"), join(directory, "link"), "file");
     await expect(provider.read({ ...file, key: "link" })).rejects.toThrow();
   });
 
   it("requires an absolute directory outside the application", () => {
-    for (const configured of ["", "./uploads", process.cwd(), join(process.cwd(), "public/uploads"), "/"]) {
+    for (const configured of ["", "./uploads", process.cwd(), join(process.cwd(), "public/uploads"), "/", parse(process.cwd()).root]) {
       vi.stubEnv("MEDIA_LOCAL_DIRECTORY", configured);
       expect(() => localStorageDirectory()).toThrow();
     }

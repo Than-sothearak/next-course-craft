@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { constants } from "node:fs";
 import { link, lstat, mkdir, open, realpath, unlink } from "node:fs/promises";
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { dirname, isAbsolute, join, parse, relative, resolve, sep } from "node:path";
 import { Readable } from "node:stream";
 import { DashboardError } from "@/lib/dashboard/rules";
 import type { StorageFile, StorageProvider, StorageUpload } from "./types";
@@ -11,7 +11,7 @@ export function localStorageDirectory(directory?: string) {
   if (!configured || !isAbsolute(configured)) throw new DashboardError("Set MEDIA_LOCAL_DIRECTORY to an absolute persistent upload directory.", 503);
   const root = resolve(configured);
   const fromApp = relative(process.cwd(), root);
-  if (root === sep || fromApp === "" || (!fromApp.startsWith(`..${sep}`) && fromApp !== ".." && !isAbsolute(fromApp))) {
+  if (root === parse(root).root || fromApp === "" || (!fromApp.startsWith(`..${sep}`) && fromApp !== ".." && !isAbsolute(fromApp))) {
     throw new DashboardError("The upload directory must be outside the application directory.", 503);
   }
   return root;

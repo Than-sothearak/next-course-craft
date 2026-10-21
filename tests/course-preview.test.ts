@@ -64,7 +64,7 @@ describe("shared course preview experience", () => {
 
     expect(themed).toContain("--course-primary:#24734f");
     expect(themed).toContain("--course-accent:#f2a65a");
-    expect(themed).toContain("font-family:Georgia, &#x27;Times New Roman&#x27;, serif");
+    expect(themed).toContain("font-family:Georgia, &#x27;Nokora&#x27;, &#x27;Noto Sans Khmer&#x27;, &#x27;Times New Roman&#x27;, serif");
   });
 
   it("opens directly in the selected lesson when a lesson is requested", () => {

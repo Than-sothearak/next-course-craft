@@ -89,9 +89,9 @@ describe("process-step styles", () => {
     expect(container.querySelector("article")?.textContent).toContain("Prepare");
   });
 
-  it("provides five valid prebuilt process styles with previews and preserves SCORM settings", () => {
+  it("provides templates for every process style with previews and preserves SCORM settings", () => {
     const templates = blockTemplates.filter((template) => template.type === "processSteps");
-    expect(templates).toHaveLength(5);
+    expect(new Set(templates.map((template) => template.processSteps?.style ?? "cards"))).toEqual(new Set(processStepsStyleSchema.options));
     const blocks = templates.map((template) => {
       const parsed = blockSchema.parse(createBlocksFromTemplate(template, `block-${template.id}`)[0]);
       expect(parsed.type).toBe("processSteps");

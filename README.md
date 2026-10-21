@@ -7,6 +7,8 @@ CourseCraft is a web-based application for creating responsive, interactive lear
 
 The platform combines course management, lesson authoring, interactive content, and publishing tools within a single Next.js application.
 
+To find the file for a UI, API, or business-rule change, start with the [feature-to-file map](docs/project-guide.md#find-the-file-for-a-change). It links common workspace, admin, editor, and AI changes to their current source files and explains how to follow routes and imports.
+
 ## Features
 
 - **Course Management** — Create, edit, and organize courses and lessons.
@@ -164,6 +166,10 @@ The dashboard requires an active MongoDB connection.
 | `npm run typecheck` | Check TypeScript types |
 | `npm run lint` | Run code quality checks |
 | `npm test` | Run automated tests |
+| `npm run check` | Run lint, strict types, and all tests with isolated MongoDB |
+| `npm run test:unit` | Run the database-free test subset |
+| `npm run test:e2e` | Build production and run isolated authoring browser tests |
+| `npm run perf:authors` | Measure 100 concurrent synthetic authors locally |
 | `npm run build:export` | Generate the course export runtime |
 
 ## Course Publishing
@@ -270,14 +276,12 @@ For Docker-based deployments, ensure that:
 Before submitting changes or deploying, run:
 
 ```bash
-npm run typecheck
-npm run lint
-npm test
+npm run check
 npm run build:export
-npm run build
+npm run test:e2e
 ```
 
-These commands help verify that the application and export runtime are ready for deployment.
+The full check requires a local `mongod` binary or an explicitly configured dedicated test replica set. Install the browser once with `npx playwright install chromium`. The browser command builds and starts the existing application with isolated test data. See [Verification baseline](docs/verification-baseline.md) for CI, database isolation, performance commands, and recorded results.
 
 ## Project Structure
 

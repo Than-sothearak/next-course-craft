@@ -259,11 +259,16 @@ describe("admin course preview progress", () => {
     expect(getLessonCircle()?.getAttribute("aria-label")).toBe("Lesson 75% complete");
     expect(getSecondLesson()?.disabled).toBe(true);
 
-    await act(async () => {
+    act(() => {
       container.querySelector<HTMLButtonElement>(
         'button[aria-label="Flip card 2 to reveal the back"]',
       )?.click();
-      await new Promise((resolve) => window.setTimeout(resolve, 10));
+    });
+    // The interaction commits first; the reading/completion effect then runs
+    // on the next animation frame. Waiting inside the click's act callback can
+    // finish before React schedules that effect.
+    await act(async () => {
+      await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
     });
     expect(getFirstLesson()?.querySelector('[aria-label="Lesson complete"]')).not.toBeNull();
     expect(getSecondLesson()?.disabled).toBe(false);

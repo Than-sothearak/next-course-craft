@@ -9,6 +9,7 @@ vi.mock("../lib/editor/services/course", () => ({ getCourseEditor, getCourseAuth
 vi.mock("../lib/workspaces/access", () => ({ resolveCourseAccess: vi.fn(async () => ({ ownerId: "owner-1", role: "owner", workspaceId: null })) }));
 vi.mock("next/navigation", () => ({ notFound, redirect: () => { throw new Error("Login required"); } }));
 vi.mock("../app/courses/[courseId]/edit/_components/editor-client", () => ({ EditorClient: () => null }));
+vi.mock("@/app/dashboard/actions", () => ({ signOutAction: vi.fn() }));
 
 async function renderLessonEditContent(props: ComponentProps<typeof LessonEditPage>) {
   const page = LessonEditPage(props) as ReactElement<{ children: ReactElement }>;

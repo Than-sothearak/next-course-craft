@@ -451,8 +451,8 @@ describe("AI course generation contracts", () => {
     expect(restored).toMatchObject({ jobId: jobId.toString(), status: "completed", course: draft });
   });
 
-  it("keeps the AI block catalog synchronized with every native project block type", () => {
-    expect(generatedBlockTypeValues).toEqual([...blockTypes, "text", "code"]);
+  it("supports every native block except attachments that require a manual file upload", () => {
+    expect(generatedBlockTypeValues).toEqual([...blockTypes.filter((type) => type !== "attachment"), "text", "code"]);
   });
 
   it("validates the project-specific fields for rich interactive block intents", () => {
