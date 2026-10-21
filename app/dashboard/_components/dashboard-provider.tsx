@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import type { DashboardFilters, DashboardNavigation } from "@/lib/dashboard/types";
 import { dashboardHref } from "@/lib/dashboard/query";
 
+type WorkspaceDialogMode = "create" | "manage" | null;
+
 type DashboardContextValue = {
   filters: DashboardFilters;
   setFilters: Dispatch<SetStateAction<DashboardFilters>>;
@@ -19,8 +21,8 @@ type DashboardContextValue = {
   setShowNewFolder: Dispatch<SetStateAction<boolean>>;
   showNewCourse: boolean;
   setShowNewCourse: Dispatch<SetStateAction<boolean>>;
-  showWorkspaceManager: boolean;
-  setShowWorkspaceManager: Dispatch<SetStateAction<boolean>>;
+  workspaceDialogMode: WorkspaceDialogMode;
+  setWorkspaceDialogMode: Dispatch<SetStateAction<WorkspaceDialogMode>>;
 };
 
 const DashboardContext = createContext<DashboardContextValue | null>(null);
@@ -32,7 +34,7 @@ export function DashboardProvider({ initialFilters, children }: { initialFilters
   const [busy, setBusy] = useState(false);
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [showNewCourse, setShowNewCourse] = useState(false);
-  const [showWorkspaceManager, setShowWorkspaceManager] = useState(false);
+  const [workspaceDialogMode, setWorkspaceDialogMode] = useState<WorkspaceDialogMode>(null);
   const [navigating, startTransition] = useTransition();
 
   function navigateToFolder(folderId: string | null) {
@@ -45,7 +47,7 @@ export function DashboardProvider({ initialFilters, children }: { initialFilters
     startTransition(() => router.push(dashboardHref({ ...filters, workspaceId, folderId: null })));
   }
 
-  return <DashboardContext.Provider value={{ filters, setFilters, navigation, setNavigation, navigating, navigateToFolder, navigateToWorkspace, busy, setBusy, showNewFolder, setShowNewFolder, showNewCourse, setShowNewCourse, showWorkspaceManager, setShowWorkspaceManager }}>
+  return <DashboardContext.Provider value={{ filters, setFilters, navigation, setNavigation, navigating, navigateToFolder, navigateToWorkspace, busy, setBusy, showNewFolder, setShowNewFolder, showNewCourse, setShowNewCourse, workspaceDialogMode, setWorkspaceDialogMode }}>
     {children}
   </DashboardContext.Provider>;
 }

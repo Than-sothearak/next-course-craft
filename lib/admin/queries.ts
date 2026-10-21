@@ -37,6 +37,7 @@ export async function listAdminCourses(actorId: string, query: ListQuery): Promi
   if (!can(actor, "courses.view")) throw new DashboardError("Access denied.", 403);
   const filter: Record<string, unknown> = {};
   if (query.ownerId) filter.ownerId = query.ownerId;
+  if (query.workspaceId) filter.workspaceId = query.workspaceId;
   if (query.courseStatus === "deleted") filter.deletedAt = { $ne: null };
   else if (query.courseStatus) { filter.status = query.courseStatus; filter.deletedAt = null; }
   if (query.q) filter.title = new RegExp(escapeRegex(query.q), "i");

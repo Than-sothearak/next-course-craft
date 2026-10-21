@@ -6,6 +6,7 @@ const WorkspaceSchema = new Schema({
 }, { timestamps: true });
 
 WorkspaceSchema.index({ ownerId: 1, createdAt: -1 });
+WorkspaceSchema.index({ updatedAt: -1, _id: -1 });
 
 export type WorkspaceDocument = InferSchemaType<typeof WorkspaceSchema>;
 export const Workspace = (models.Workspace as Model<WorkspaceDocument> | undefined) ?? model<WorkspaceDocument>("Workspace", WorkspaceSchema);

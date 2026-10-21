@@ -5,8 +5,8 @@ import { ArrowUp, Folder, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import type { MediaStorageFolders } from "@/lib/media/settings-schema";
-import { Notice } from "./admin-common";
-import { useAdminResource } from "./use-admin-resource";
+import { Notice } from "@/app/admin/_components/shared/admin-common";
+import { useAdminResource } from "@/app/admin/_components/shared/use-admin-resource";
 
 export function ServerFolderDialog({ initialPath, onClose, onSelect }: {
   initialPath: string | null; onClose: () => void; onSelect: (path: string) => void;

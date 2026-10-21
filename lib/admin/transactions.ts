@@ -29,7 +29,7 @@ export async function securityTransaction<T>(work: (session: ClientSession) => P
 export async function audit(session: ClientSession, event: {
   actorId: string;
   action: string;
-  targetType: "user" | "course" | "role" | "settings";
+  targetType: "user" | "course" | "workspace" | "role" | "settings";
   targetId?: string | null;
   metadata?: Record<string, unknown>;
 }) {

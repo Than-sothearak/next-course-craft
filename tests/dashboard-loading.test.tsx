@@ -52,10 +52,10 @@ describe("dashboard loading and shared controls", () => {
     Reflect.deleteProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT");
   });
 
-  function render(initialFilters = filters) {
+  function render(initialFilters = filters, initialData = data) {
     act(() => root.render(<DashboardProvider initialFilters={initialFilters}>
-      <DashboardNavigationClient initialNavigation={data} initialError={null} />
-      <DashboardClient initialData={data} initialError={null} userName="Test Author" />
+      <DashboardNavigationClient initialNavigation={initialData} initialError={null} />
+      <DashboardClient initialData={initialData} initialError={null} userName="Test Author" />
     </DashboardProvider>));
   }
 
@@ -66,6 +66,94 @@ describe("dashboard loading and shared controls", () => {
       element.dispatchEvent(new Event("change", { bubbles: true }));
     });
   }
+
+  function teamData(role: DashboardData["workspaceRole"] = "owner"): DashboardData {
+    return {
+      ...data,
+      workspaceId: "workspace-1",
+      workspaceName: "Existing team",
+      workspaceRole: role,
+      workspaces: [{ id: "workspace-1", name: "Existing team", role, memberCount: 2 }],
+    };
+  }
+
+  function createWorkspaceButton(surface: "sidebar" | "mobile" = "sidebar") {
+    return [...container.querySelectorAll<HTMLButtonElement>('button[aria-label="Create team workspace"]')]
+      .find((button) => Boolean(button.closest("aside")) === (surface === "sidebar"))!;
+  }
+
+  it.each(["sidebar", "mobile"] as const)("opens only workspace creation from the %s plus button while a team is selected", (surface) => {
+    render({ ...filters, workspaceId: "workspace-1" }, teamData());
+    act(() => createWorkspaceButton(surface).click());
+    const dialog = container.querySelector('[role="dialog"]')!;
+    expect(dialog.querySelector("h2")?.textContent).toBe("Create a team workspace");
+    expect(dialog.querySelector('input[name="name"]')).not.toBeNull();
+    expect(dialog.querySelector('input[name="email"]')).toBeNull();
+    expect(dialog.textContent).not.toContain("Invite a teammate");
+    expect(dialog.textContent).not.toContain("Members");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("creates a new workspace even when the current workspace grants viewer access", async () => {
+    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ id: "workspace-2", name: "New team", role: "owner", memberCount: 1 }) });
+    render({ ...filters, workspaceId: "workspace-1" }, teamData("viewer"));
+    act(() => createWorkspaceButton().click());
+    const dialog = container.querySelector('[role="dialog"]')!;
+    dialog.querySelector<HTMLInputElement>('input[name="name"]')!.value = "New team";
+    await act(async () => {
+      dialog.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    });
+    expect(fetchMock).toHaveBeenCalledExactlyOnceWith("/api/workspaces", expect.objectContaining({ method: "POST", body: JSON.stringify({ name: "New team" }) }));
+    expect(router.push).toHaveBeenCalledWith("/dashboard?workspaceId=workspace-2");
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+  });
+
+  it("keeps the creation form open with the entered name when creation fails", async () => {
+    fetchMock.mockResolvedValueOnce({ ok: false, json: async () => ({ error: "Could not create this workspace." }) });
+    render({ ...filters, workspaceId: "workspace-1" }, teamData());
+    act(() => createWorkspaceButton().click());
+    const dialog = container.querySelector('[role="dialog"]')!;
+    dialog.querySelector<HTMLInputElement>('input[name="name"]')!.value = "New team";
+    await act(async () => {
+      dialog.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    });
+    expect(dialog.querySelector('[role="alert"]')?.textContent).toBe("Could not create this workspace.");
+    expect(dialog.querySelector<HTMLInputElement>('input[name="name"]')?.value).toBe("New team");
+    expect(dialog.querySelector<HTMLButtonElement>('button[type="submit"]')?.disabled).toBe(false);
+    expect(router.push).not.toHaveBeenCalled();
+  });
+
+  it("opens team details only through Manage team and resets the dialog before creation", async () => {
+    fetchMock.mockResolvedValueOnce({ ok: true, json: async () => ({ workspace: { id: "workspace-1", name: "Existing team", role: "owner" }, members: [], invitations: [] }) });
+    render({ ...filters, workspaceId: "workspace-1" }, teamData());
+    await act(async () => {
+      [...container.querySelectorAll<HTMLButtonElement>("aside button")].find((button) => button.textContent?.includes("Manage team"))!.click();
+    });
+    let dialog = container.querySelector('[role="dialog"]')!;
+    expect(dialog.querySelector("h2")?.textContent).toBe("Existing team");
+    expect(dialog.querySelector('input[name="email"]')).not.toBeNull();
+    expect(dialog.querySelector('input[name="name"]')).toBeNull();
+    expect(fetchMock).toHaveBeenCalledExactlyOnceWith("/api/workspaces/workspace-1/invitations", expect.objectContaining({ cache: "no-store" }));
+    act(() => [...dialog.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === "Done")!.click());
+    act(() => createWorkspaceButton().click());
+    dialog = container.querySelector('[role="dialog"]')!;
+    expect(dialog.querySelector("h2")?.textContent).toBe("Create a team workspace");
+    expect(dialog.querySelector('input[name="email"]')).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens workspace creation from Personal without loading a team roster", () => {
+    render();
+    act(() => createWorkspaceButton().click());
+    expect(container.querySelector('[role="dialog"] h2')?.textContent).toBe("Create a team workspace");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("hides workspace creation when the account lacks workspace management permission", () => {
+    render(filters, { ...data, permissions: [...roleCeilings.viewer] });
+    expect(container.querySelector('button[aria-label="Create team workspace"]')).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 
   it("uses streamed data without immediately fetching the dashboard again", async () => {
     render();

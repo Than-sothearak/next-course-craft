@@ -1,13 +1,14 @@
 import { Suspense } from "react";
 import { requirePagePermission } from "@/lib/auth/pages";
 import type { Permission } from "@/lib/auth/policy";
-import { AdminLoading } from "./admin-loading";
-import { AdminOverview } from "./admin-overview";
-import { UserDetail, UserManagement } from "./user-management";
-import { CourseManagement } from "./course-management";
-import { RoleManagement } from "./role-management";
-import { AuditManagement } from "./audit-management";
-import { SettingsManagement } from "./settings-management";
+import { AdminLoading } from "@/app/admin/_components/admin-loading";
+import { AdminOverview } from "@/app/admin/_components/admin-overview";
+import { UserManagement } from "../users/_components/user-management";
+import { UserDetail } from "../users/[userId]/_components/user-detail";
+import { CourseManagement } from "@/app/admin/courses/_components/course-management";
+import { RoleManagement } from "@/app/admin/roles/_components/role-management";
+import { AuditManagement } from "@/app/admin/audit-logs/_components/audit-management";
+import { SettingsManagement } from "@/app/admin/settings/_components/settings-management";
 
 export type AdminSectionName = "overview" | "users" | "approvals" | "roles" | "courses" | "audit-logs" | "settings";
 const permissions: Record<AdminSectionName, Permission> = { overview: "users.view", users: "users.view", approvals: "users.approve", roles: "roles.manage", courses: "courses.manage_all", "audit-logs": "audit.view", settings: "settings.manage" };

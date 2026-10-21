@@ -6,6 +6,7 @@ Coursecraft is one Next.js App Router application. Server routes and server comp
 
 - `app/`: routes, layouts, and API handlers.
 - `components/`: reusable authoring and learner UI.
+- `app/admin/**/_components/`: admin UI colocated with the page that owns it, including dynamic user/workspace detail pages and nested settings pages. Shared navigation, loading UI, request hooks, and display helpers live in `app/admin/_components/`, alongside the `/admin` overview. Page-specific dialogs and supporting child modules live in nested `_components/` folders; reused user and workspace dialogs stay with their parent route.
 - `lib/db/`: cached MongoDB connection and Mongoose model registration.
 - `lib/auth/`: Auth.js configuration and server session helpers.
 - `lib/schemas/`: versioned, runtime-validated content contracts shared by authoring, preview, and export.
@@ -81,6 +82,8 @@ Platform authorization lives in `lib/auth/policy.ts` and `lib/auth/authorization
 Existing owner/workspace checks in `lib/workspaces/access.ts` now intersect platform permissions with ownership, workspace membership, and explicit `CourseAssignment` roles. Administrators need `courses.manage_all` plus the requested operation; author roles never grant access to another private course by themselves. Media, editor, generation, publishing and exports share these checks. Publishing requires both publish and export permissions. Media files stream through the authenticated route instead of exposing reusable private download URLs; static learner exports stay independent of authentication APIs.
 
 `lib/admin/` provides scoped queries and transactional mutations for `/admin` and its APIs. A singleton security control serializes mutations and bootstrap so simultaneous changes cannot remove the last active Super Admin. Sensitive changes and their safe audit metadata commit together. Ownership transfer updates course/asset/job scopes, preserves creator/content IDs, moves the course into the target's personal root, and rejects active saves, generation leases/jobs or upload policies. Maintenance scripts explicitly migrate legacy accounts to pending when status is absent and bootstrap one existing account by protected ID and operator confirmation. Administration requires authenticated transactional MongoDB; see `docs/admin-operations.md` for rollout, migration, bootstrap and test instructions.
+
+Workspace administration at `/admin/workspaces` and `/api/admin/workspaces` requires a current active Super Admin, independently of workspace membership and the ordinary `workspaces.manage` permission. It provides paginated name/owner search, owner and content counts, bounded member/invitation/course details, and workspace name updates. Updates and deletions check the workspace's `updatedAt` value to reject stale requests. Deletion requires the exact workspace name and rejects any workspace with courses (including recently deleted courses) or folders. An empty workspace, its memberships and its invitations are removed in the same transaction as the audit event. Course administration accepts a workspace filter for navigation from workspace details.
 
 ## Runtime and deployment
 

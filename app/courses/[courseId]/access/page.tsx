@@ -3,8 +3,8 @@ import Link from "next/link";
 import { requirePageUser, requirePageCourseAccess } from "@/lib/auth/pages";
 import { Course } from "@/models";
 import { DashboardNavbar, DashboardUserProfile } from "@/app/dashboard/_components/dashboard-navbar";
-import { CourseAccessManager } from "@/components/admin/course-access-manager";
-import { AdminLoading } from "@/components/admin/admin-loading";
+import { CourseAccessManager } from "@/app/courses/[courseId]/access/_components/course-access-manager";
+import { AdminLoading } from "@/app/admin/_components/admin-loading";
 
 export default function CourseAccessPage({ params }: { params: Promise<{ courseId: string }> }) {
   return <Suspense fallback={<AdminLoading />}><Content params={params} /></Suspense>;

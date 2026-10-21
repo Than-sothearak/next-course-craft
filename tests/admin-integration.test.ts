@@ -4,7 +4,7 @@ import type { MongoClient, ObjectId } from "mongodb";
 import { MongoDBAdapter } from "@auth/mongodb-adapter";
 import { NextRequest } from "next/server";
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { User, Course, CourseAssignment, AuditLog, RolePermission, SecurityControl, PlatformSettings, Workspace, WorkspaceMembership, Asset, GenerationJob, GenerationCheckpoint, ExportJob, Lesson } from "@/models";
+import { User, Course, CourseAssignment, AuditLog, RolePermission, SecurityControl, PlatformSettings, Workspace, WorkspaceMembership, WorkspaceInvitation, Folder, Asset, GenerationJob, GenerationCheckpoint, ExportJob, Lesson } from "@/models";
 import { approvalAdapter } from "@/lib/auth/adapter";
 import { requireActiveUser, requirePermission } from "@/lib/auth/authorization";
 import { requireOwnerId } from "@/lib/dashboard/http";
@@ -12,6 +12,9 @@ import { resolveCourseAccess, courseAccessFilter } from "@/lib/workspaces/access
 import { mutateUser } from "@/lib/admin/users";
 import { updateRolePermissions, updateSettings } from "@/lib/admin/roles";
 import { assignCourse, mutateCourse } from "@/lib/admin/courses";
+import { deleteAdminWorkspace, getAdminWorkspace, listAdminWorkspaces, updateAdminWorkspace } from "@/lib/admin/workspaces";
+import { listQuerySchema } from "@/lib/admin/schemas";
+import { listWorkspaces } from "@/lib/workspaces/services";
 import { getDashboardListing } from "@/lib/dashboard/services/list";
 import { acquireGenerationLease, releaseGenerationLease } from "@/lib/ai/generation-lease";
 import type { UserDocument } from "@/models/User";
@@ -45,7 +48,7 @@ vi.mock("@/lib/media/storage", async (original) => ({ ...await original<typeof i
 
 const uri = process.env.RBAC_TEST_MONGODB_URI;
 const database = `coursecraft_rbac_test_${randomUUID().replaceAll("-", "")}`;
-const models = [User, Course, CourseAssignment, AuditLog, RolePermission, SecurityControl, PlatformSettings, Workspace, WorkspaceMembership, Asset, GenerationJob, GenerationCheckpoint, ExportJob, Lesson];
+const models = [User, Course, CourseAssignment, AuditLog, RolePermission, SecurityControl, PlatformSettings, Workspace, WorkspaceMembership, WorkspaceInvitation, Folder, Asset, GenerationJob, GenerationCheckpoint, ExportJob, Lesson];
 type Account = HydratedDocument<UserDocument>;
 let users: Record<"super" | "admin" | "editor" | "other" | "viewer" | "pending", Account>;
 const id = (account: Account) => account._id.toString();
@@ -92,6 +95,56 @@ describe.skipIf(!uri)("administration against transactional MongoDB", () => {
     expect(response.status).toBe(201);
     expect((await Course.findOne().lean())?.ownerId.toString()).toBe(identity.id);
     expect(await AuditLog.countDocuments({ action: "users.approve", targetId: users.pending._id })).toBe(1);
+  });
+
+  it("restricts workspace administration to Super Admin and reflects renamed workspaces for members", async () => {
+    const workspace = await Workspace.create({ name: "Original team", ownerId: users.other._id });
+    await WorkspaceMembership.create({ workspaceId: workspace._id, userId: users.editor._id, role: "editor" });
+    for (const account of [users.admin, users.editor, users.viewer, users.pending]) {
+      await expect(listAdminWorkspaces(id(account), listQuerySchema.parse({}))).rejects.toMatchObject({ status: 403 });
+      await expect(getAdminWorkspace(id(account), workspace._id.toString())).rejects.toMatchObject({ status: 403 });
+    }
+    expect((await listAdminWorkspaces(id(users.super), listQuerySchema.parse({ q: "Original team" }))).items).toMatchObject([{ name: "Original team", memberCount: 2 }]);
+    await updateAdminWorkspace(id(users.super), workspace._id.toString(), { name: "Renamed team", expectedUpdatedAt: workspace.updatedAt.toISOString() });
+    expect(await listWorkspaces(id(users.editor))).toMatchObject([{ name: "Renamed team" }]);
+    expect(await AuditLog.countDocuments({ targetType: "workspace", targetId: workspace._id, action: "workspaces.update" })).toBe(1);
+  });
+
+  it("blocks workspace deletion for active/deleted courses and folders, then removes only the empty workspace relationships", async () => {
+    const workspace = await Workspace.create({ name: "Empty only", ownerId: users.other._id });
+    const other = await Workspace.create({ name: "Keep team", ownerId: users.other._id });
+    await WorkspaceMembership.create([{ workspaceId: workspace._id, userId: users.editor._id, role: "editor" }, { workspaceId: other._id, userId: users.editor._id, role: "viewer" }]);
+    await WorkspaceInvitation.create([{ workspaceId: workspace._id, inviterId: users.other._id, email: "invite@example.com", role: "editor", tokenHash: "first", expiresAt: new Date(Date.now() + 86400000) }, { workspaceId: other._id, inviterId: users.other._id, email: "keep@example.com", role: "viewer", tokenHash: "second", expiresAt: new Date(Date.now() + 86400000) }]);
+    const course = await Course.create({ title: "Must move first", ownerId: users.other._id, workspaceId: workspace._id });
+    const input = { confirmName: workspace.name, expectedUpdatedAt: workspace.updatedAt.toISOString() };
+    const remove = () => deleteAdminWorkspace(id(users.super), workspace._id.toString(), input);
+    await expect(remove()).rejects.toMatchObject({ status: 409 });
+    await Course.updateOne({ _id: course._id }, { $set: { deletedAt: new Date() } });
+    await expect(remove()).rejects.toMatchObject({ status: 409 });
+    await Course.updateOne({ _id: course._id }, { $set: { workspaceId: null } });
+    const folder = await Folder.create({ name: "Folder", normalizedName: "folder", ownerId: users.other._id, workspaceId: workspace._id });
+    await expect(remove()).rejects.toMatchObject({ status: 409 });
+    await Folder.deleteOne({ _id: folder._id });
+    await remove();
+    expect(await Workspace.findById(workspace._id)).toBeNull();
+    expect(await WorkspaceMembership.countDocuments({ workspaceId: workspace._id })).toBe(0);
+    expect(await WorkspaceInvitation.countDocuments({ workspaceId: workspace._id })).toBe(0);
+    expect(await WorkspaceMembership.countDocuments({ workspaceId: other._id })).toBe(1);
+    expect(await WorkspaceInvitation.countDocuments({ workspaceId: other._id })).toBe(1);
+    expect(await Course.findById(course._id)).not.toBeNull();
+    expect(await AuditLog.countDocuments({ targetId: workspace._id, action: "workspaces.delete" })).toBe(1);
+  });
+
+  it("rolls back workspace deletion and relationship cleanup when audit logging fails", async () => {
+    const workspace = await Workspace.create({ name: "Keep if audit fails", ownerId: users.other._id });
+    await WorkspaceMembership.create({ workspaceId: workspace._id, userId: users.editor._id, role: "editor" });
+    const failedAudit = vi.spyOn(AuditLog, "create").mockRejectedValueOnce(new Error("Audit unavailable"));
+    try {
+      await expect(deleteAdminWorkspace(id(users.super), workspace._id.toString(), { confirmName: workspace.name, expectedUpdatedAt: workspace.updatedAt.toISOString() })).rejects.toThrow("Audit unavailable");
+      expect(await Workspace.findById(workspace._id)).not.toBeNull();
+      expect(await WorkspaceMembership.countDocuments({ workspaceId: workspace._id })).toBe(1);
+      expect(await AuditLog.countDocuments({ action: "workspaces.delete" })).toBe(0);
+    } finally { failedAudit.mockRestore(); }
   });
 
   it("combines assigned course roles with global permissions and hides unassigned private courses", async () => {

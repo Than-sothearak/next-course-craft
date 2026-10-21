@@ -2,7 +2,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { MediaStorageManagement } from "@/components/admin/media-storage-management";
+import { MediaStorageManagement } from "@/app/admin/settings/media-storage/_components/media-storage-management";
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 let container: HTMLDivElement;

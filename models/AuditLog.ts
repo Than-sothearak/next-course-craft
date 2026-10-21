@@ -3,7 +3,7 @@ import { Schema, model, models, type InferSchemaType, type Model } from "mongoos
 const schema = new Schema({
   actorId: { type: Schema.Types.ObjectId, ref: "User", required: true },
   action: { type: String, required: true, maxlength: 80 },
-  targetType: { type: String, enum: ["user", "course", "role", "settings"], required: true },
+  targetType: { type: String, enum: ["user", "course", "workspace", "role", "settings"], required: true },
   targetId: { type: Schema.Types.ObjectId, default: null },
   metadata: { type: Schema.Types.Mixed, default: {} },
 }, { timestamps: { createdAt: true, updatedAt: false } });

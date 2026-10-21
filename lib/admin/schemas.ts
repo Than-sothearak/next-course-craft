@@ -1,8 +1,11 @@
 import { z } from "zod";
 import { accountStatuses, permissionIds, platformRoles } from "@/lib/auth/policy";
+import { workspaceNameSchema } from "@/lib/workspaces/schemas";
 
 export const idSchema = z.string().regex(/^[a-f\d]{24}$/i, "Invalid identifier.");
 const expectedUpdatedAt = z.iso.datetime();
+export const updateAdminWorkspaceSchema = z.object({ name: workspaceNameSchema, expectedUpdatedAt }).strict();
+export const deleteAdminWorkspaceSchema = z.object({ confirmName: z.string().min(1).max(120), expectedUpdatedAt }).strict();
 export const userMutationSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("approve"), role: z.enum(platformRoles), expectedUpdatedAt }).strict(),
   z.object({ action: z.literal("reject"), expectedUpdatedAt }).strict(),
@@ -29,6 +32,7 @@ export const listQuerySchema = z.object({
   status: z.enum(accountStatuses).optional(),
   courseStatus: z.enum(["draft", "published", "archived", "deleted"]).optional(),
   ownerId: idSchema.optional(),
+  workspaceId: idSchema.optional(),
   actorId: idSchema.optional(),
   action: z.string().trim().max(80).optional(),
   from: z.iso.date().optional(),

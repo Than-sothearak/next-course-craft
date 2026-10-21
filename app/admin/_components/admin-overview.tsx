@@ -6,9 +6,9 @@ import type { AdminSummary } from "@/lib/admin/types";
 import type { Permission } from "@/lib/auth/policy";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { AdminLoading } from "./admin-loading";
-import { dateLabel, Notice, StatusBadge, UserAvatar } from "./admin-common";
-import { useAdminResource } from "./use-admin-resource";
+import { AdminLoading } from "@/app/admin/_components/admin-loading";
+import { dateLabel, Notice, StatusBadge, UserAvatar } from "@/app/admin/_components/shared/admin-common";
+import { useAdminResource } from "@/app/admin/_components/shared/use-admin-resource";
 
 export function AdminOverview({ permissions }: { permissions: Permission[] }) {
   const resource = useAdminResource<AdminSummary>("/api/admin");

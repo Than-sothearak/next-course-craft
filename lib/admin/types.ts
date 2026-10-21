@@ -2,6 +2,14 @@ import type { AccountStatus, Permission, PlatformRole } from "@/lib/auth/policy"
 
 export type AdminUser = { id: string; name: string; email: string | null; image: string | null; role: string; status: AccountStatus; createdAt: string; updatedAt: string; lastLoginAt: string | null; deletedAt: string | null; suspensionReason?: string };
 export type AdminCourse = { id: string; title: string; status: string; ownerId: string; ownerName: string; ownerEmail: string | null; createdAt: string; updatedAt: string; deletedAt: string | null; workspaceId: string | null };
+export type AdminWorkspace = { id: string; name: string; ownerId: string; ownerName: string; ownerEmail: string | null; memberCount: number; courseCount: number; folderCount: number; createdAt: string; updatedAt: string };
+export type AdminWorkspaceDetail = {
+  workspace: AdminWorkspace;
+  members: Array<{ userId: string; name: string; email: string | null; role: "owner" | "admin" | "editor" | "viewer" }>;
+  invitations: Array<{ id: string; email: string; role: string; expiresAt: string }>;
+  invitationCount: number;
+  courses: Array<{ id: string; title: string; status: string; deletedAt: string | null; updatedAt: string }>;
+};
 export type AuditEntry = { id: string; actorId: string; actorName: string; action: string; targetType: string; targetId: string | null; metadata: Record<string, unknown>; createdAt: string };
 export type PageResult<T> = { items: T[]; page: number; pageSize: number; total: number };
 export type RolePolicy = { role: PlatformRole; permissions: Permission[]; ceiling: Permission[] };

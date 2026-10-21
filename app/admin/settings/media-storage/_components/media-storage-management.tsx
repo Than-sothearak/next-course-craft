@@ -10,23 +10,15 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Radio } from "@/components/ui/radio";
 import type { MediaStorageSettings } from "@/lib/media/settings-schema";
-import { AdminLoading } from "./admin-loading";
-import { Notice } from "./admin-common";
-import { useAdminResource } from "./use-admin-resource";
-import { ServerFolderDialog } from "./server-folder-dialog";
+import { AdminLoading } from "@/app/admin/_components/admin-loading";
+import { Notice } from "@/app/admin/_components/shared/admin-common";
+import { useAdminResource } from "@/app/admin/_components/shared/use-admin-resource";
+import { ServerFolderDialog } from "./_components/server-folder-dialog";
+import { formatStorageBytes } from "./_components/format-storage-bytes";
 
 const endpoint = "/api/admin/settings/media-storage";
 type Provider = MediaStorageSettings["provider"];
 type NoticeValue = { error: boolean; message: string } | null;
-
-function formatStorageBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} bytes`;
-  const units = ["KB", "MB", "GB", "TB", "PB"];
-  let value = bytes;
-  let unit = -1;
-  do { value /= 1024; unit += 1; } while (value >= 1024 && unit < units.length - 1);
-  return `${Number(value.toFixed(value < 10 ? 1 : 0))} ${units[unit]}`;
-}
 
 export function MediaStorageManagement() {
   const [directorySelection, setDirectorySelection] = useState<string | null>(null);

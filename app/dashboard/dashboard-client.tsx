@@ -54,8 +54,8 @@ export default function DashboardClient({
     setShowNewFolder,
     showNewCourse,
     setShowNewCourse,
-    showWorkspaceManager,
-    setShowWorkspaceManager,
+    workspaceDialogMode,
+    setWorkspaceDialogMode,
   } = useDashboard();
   const { q: query, status, sort } = filters;
   const queryKey = dashboardQueryKey(filters);
@@ -220,10 +220,11 @@ export default function DashboardClient({
                 variant="outline"
                 size="sm"
                 disabled={disabled}
-                onClick={() => setShowWorkspaceManager(true)}
+                onClick={() => setWorkspaceDialogMode("create")}
+                aria-label="Create team workspace"
               >
                 <Plus size={15} />
-                Team
+                New workspace
               </Button>
             )}
             {data.permissions?.includes("workspaces.manage") &&
@@ -235,7 +236,7 @@ export default function DashboardClient({
                   variant="outline"
                   size="sm"
                   disabled={disabled}
-                  onClick={() => setShowWorkspaceManager(true)}
+                  onClick={() => setWorkspaceDialogMode("manage")}
                   aria-label="Manage team"
                 >
                   <Users size={15} />
@@ -301,13 +302,13 @@ export default function DashboardClient({
       )}
 
       <WorkspaceManagerDialog
-        key={filters.workspaceId ?? "create-workspace"}
-        open={showWorkspaceManager}
-        workspaceId={filters.workspaceId}
+        key={`${workspaceDialogMode ?? "closed"}:${filters.workspaceId ?? "personal"}`}
+        open={workspaceDialogMode !== null}
+        workspaceId={workspaceDialogMode === "manage" ? filters.workspaceId : null}
         role={data.workspaceRole}
-        onClose={() => setShowWorkspaceManager(false)}
+        onClose={() => setWorkspaceDialogMode(null)}
         onCreated={(workspace) => {
-          setShowWorkspaceManager(false);
+          setWorkspaceDialogMode(null);
           navigateToWorkspace(workspace.id);
         }}
       />

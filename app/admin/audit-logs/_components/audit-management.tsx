@@ -6,9 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { AdminLoading } from "./admin-loading";
-import { dateLabel, Notice, Pagination } from "./admin-common";
-import { useAdminResource } from "./use-admin-resource";
+import { AdminLoading } from "@/app/admin/_components/admin-loading";
+import { dateLabel, Notice, Pagination } from "@/app/admin/_components/shared/admin-common";
+import { useAdminResource } from "@/app/admin/_components/shared/use-admin-resource";
 
 export function AuditManagement() {
   const [filters, setFilters] = useState({ q: "", action: "", from: "", to: "", page: 1 });
