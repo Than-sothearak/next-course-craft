@@ -13,9 +13,9 @@ export function handlePageAuthorizationError(error: unknown): never {
   throw error;
 }
 
-export async function requirePageUser() {
+export async function requirePageUser(options?: { allowPrefetch?: boolean }) {
   try {
-    const identity = await requireAuthenticatedUser();
+    const identity = await requireAuthenticatedUser(options);
     const principal = await getFreshPrincipal(identity.id);
     if (principal.status !== "active") redirect("/account-status");
     return principal;
@@ -24,8 +24,8 @@ export async function requirePageUser() {
   }
 }
 
-export async function requirePagePermission(permission: Permission, admin = false) {
-  const principal = await requirePageUser();
+export async function requirePagePermission(permission: Permission, admin = false, options?: { allowPrefetch?: boolean }) {
+  const principal = await requirePageUser(options);
   if (!can(principal, permission) || (admin && !["admin", "super_admin"].includes(principal.role))) redirect("/access-denied");
   // Subsequent API operations always re-read the database.
   return principal;

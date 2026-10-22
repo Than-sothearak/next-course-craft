@@ -1,7 +1,7 @@
 "use client";
 
+import { AdminPrefetchLink } from "@/app/admin/_components/shared/admin-prefetch-link";
 import { useState, type FormEvent } from "react";
-import Link from "next/link";
 import type { AdminWorkspace, PageResult } from "@/lib/admin/types";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -43,12 +43,12 @@ export function WorkspaceManagement() {
       {resource.loading ? <AdminLoading /> : <>
         <Table><TableHeader><TableRow>{["Workspace", "Owner", "Members", "Courses", "Folders", "Updated", "Actions"].map((label) => <TableHead key={label}>{label}</TableHead>)}</TableRow></TableHeader>
           <TableBody>{resource.data?.items.map((workspace) => <TableRow key={workspace.id}>
-            <TableCell className="min-w-48"><Link href={`/admin/workspaces/${workspace.id}`} className="font-medium text-indigo-700 hover:underline">{workspace.name}</Link></TableCell>
+            <TableCell className="min-w-48"><AdminPrefetchLink href={`/admin/workspaces/${workspace.id}`} className="font-medium text-indigo-700 hover:underline">{workspace.name}</AdminPrefetchLink></TableCell>
             <TableCell><p>{workspace.ownerName}</p><p className="text-xs text-slate-500">{workspace.ownerEmail ?? workspace.ownerId}</p></TableCell>
             <TableCell>{workspace.memberCount}</TableCell><TableCell>{workspace.courseCount}</TableCell><TableCell>{workspace.folderCount}</TableCell>
             <TableCell className="whitespace-nowrap text-xs text-slate-500">{dateLabel(workspace.updatedAt)}</TableCell>
             <TableCell><div className="flex flex-wrap gap-2">
-              <Link href={`/admin/workspaces/${workspace.id}`} className={buttonVariants({ size: "sm", variant: "ghost" })}>View</Link>
+              <AdminPrefetchLink href={`/admin/workspaces/${workspace.id}`} className={buttonVariants({ size: "sm", variant: "ghost" })}>View</AdminPrefetchLink>
               <Button size="sm" variant="outline" onClick={() => setSelected({ workspace, action: "update" })}>Update</Button>
               <Button size="sm" variant="destructive" onClick={() => setSelected({ workspace, action: "delete" })}>Delete</Button>
             </div></TableCell>

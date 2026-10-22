@@ -1,15 +1,22 @@
 // @vitest-environment jsdom
-import { act, type ReactNode } from "react";
+import { act, type AnchorHTMLAttributes, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AdminWorkspace, AdminWorkspaceDetail } from "@/lib/admin/types";
 import { WorkspaceManagement } from "@/app/admin/workspaces/_components/workspace-management";
 import { WorkspaceDetail } from "@/app/admin/workspaces/[workspaceId]/_components/workspace-detail";
 import { AdminNavigation } from "@/app/admin/_components/admin-navigation";
+import { CourseManagement } from "@/app/admin/courses/_components/course-management";
+import { AdminResourceProvider } from "@/app/admin/_components/shared/admin-resource-provider";
 import { roleCeilings } from "@/lib/auth/policy";
 
-const navigation = vi.hoisted(() => ({ push: vi.fn() }));
+const navigation = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn() }));
+const invalidateNavigation = vi.hoisted(() => vi.fn(async () => undefined));
 vi.mock("next/navigation", () => ({ useRouter: () => navigation, usePathname: () => "/admin/workspaces" }));
+vi.mock("@/app/admin/actions", () => ({ invalidateAdminNavigation: invalidateNavigation }));
+vi.mock("next/link", () => ({
+  default: ({ prefetch, ...props }: AnchorHTMLAttributes<HTMLAnchorElement> & { prefetch?: boolean }) => <a {...props} data-prefetch={String(prefetch)} />,
+}));
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 let container: HTMLDivElement;
@@ -70,6 +77,29 @@ describe("workspace administration UI", () => {
     expect(container.querySelector('a[href="/admin/workspaces"]')?.getAttribute("aria-current")).toBe("page");
   });
 
+  it("does not prefetch administration sections just because their links are visible", async () => {
+    await render(<AdminNavigation permissions={[...roleCeilings.super_admin]} role="super_admin" />);
+    for (const href of ["/admin", "/admin/users", "/admin/approvals", "/admin/roles", "/admin/courses", "/admin/workspaces", "/admin/audit-logs", "/admin/settings"]) {
+      expect(container.querySelector(`a[href="${href}"]`)?.getAttribute("data-prefetch")).toBe("false");
+    }
+    expect(calls).toHaveLength(0);
+  });
+
+  it.each(["hover", "focus", "touch"])("prefetches only the intended Admin destination on %s", async (intent) => {
+    await render(<AdminNavigation permissions={[...roleCeilings.super_admin]} role="super_admin" />);
+    const target = container.querySelector<HTMLAnchorElement>('a[href="/admin/users"]')!;
+    act(() => {
+      if (intent === "hover") target.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+      else if (intent === "focus") target.focus();
+      else target.dispatchEvent(new Event("touchstart", { bubbles: true }));
+    });
+    expect(target.getAttribute("data-prefetch")).toBe("true");
+    for (const link of container.querySelectorAll("a")) {
+      if (link !== target) expect(link.getAttribute("data-prefetch")).toBe("false");
+    }
+    expect(calls).toHaveLength(0);
+  });
+
   it("lists workspaces and supports search and pagination", async () => {
     await render(<WorkspaceManagement />);
     expect(container.textContent).toContain("Learning team");
@@ -80,6 +110,56 @@ describe("workspace administration UI", () => {
     setInput('[name="q"]', "Owner");
     act(() => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }))); await flush();
     expect(calls.at(-1)?.url).toContain("q=Owner&page=1");
+  });
+
+  it("uses the private server payload without duplicate API requests on entry or return", async () => {
+    const initialResource = { url: "/api/admin/workspaces?q=&page=1", data: { items: [workspace], page: 1, pageSize: 20, total: 1 } };
+    const content = <AdminResourceProvider initialResource={initialResource}><WorkspaceManagement /></AdminResourceProvider>;
+    await render(content);
+    expect(container.textContent).toContain("Learning team");
+    expect(calls).toHaveLength(0);
+
+    await render(<p>Another admin page</p>);
+    await render(content);
+
+    expect(container.textContent).toContain("Learning team");
+    expect(calls).toHaveLength(0);
+    act(() => button("Refresh").click()); await flush();
+    expect(invalidateNavigation).toHaveBeenCalledTimes(1);
+    expect(calls.filter((call) => call.method === "GET")).toHaveLength(1);
+  });
+
+  it("fetches data for a URL not included in the private server payload", async () => {
+    const initialResource = { url: "/api/admin/workspaces?q=Other&page=1", data: { items: [], page: 1, pageSize: 20, total: 0 } };
+    await render(<AdminResourceProvider initialResource={initialResource}><WorkspaceManagement /></AdminResourceProvider>);
+    expect(container.textContent).toContain("Learning team");
+    expect(calls.filter((call) => call.method === "GET")).toHaveLength(1);
+  });
+
+  it("renders server-provided course filters and data without waiting for a client search-params read", async () => {
+    const ownerId = workspace.ownerId;
+    const workspaceId = workspace.id;
+    const initialResource = {
+      url: `/api/admin/courses?page=1&q=&ownerId=${ownerId}&workspaceId=${workspaceId}&courseStatus=`,
+      data: { items: [], page: 1, pageSize: 20, total: 0 },
+    };
+    await render(<AdminResourceProvider initialResource={initialResource}>
+      <CourseManagement permissions={[...roleCeilings.super_admin]} initialOwnerId={ownerId} initialWorkspaceId={workspaceId} />
+    </AdminResourceProvider>);
+    expect(container.querySelector<HTMLInputElement>('[name="ownerId"]')?.value).toBe(ownerId);
+    expect(container.querySelector<HTMLInputElement>('[name="workspaceId"]')?.value).toBe(workspaceId);
+    expect(container.textContent).toContain("No courses match your filters.");
+    expect(calls).toHaveLength(0);
+  });
+
+  it("invalidates private navigation data after a workspace mutation", async () => {
+    const initialResource = { url: `/api/admin/workspaces/${workspace.id}`, data: detail() };
+    await render(<AdminResourceProvider initialResource={initialResource}><WorkspaceDetail workspaceId={workspace.id} /></AdminResourceProvider>);
+    act(() => button("Delete").click());
+    setInput("#workspace-confirmation", workspace.name);
+    act(() => button("Delete workspace").click()); await flush();
+    expect(invalidateNavigation).toHaveBeenCalledTimes(1);
+    expect(navigation.push).toHaveBeenCalledWith("/admin/workspaces");
   });
 
   it("updates the name with a stale-write check and refreshes the list", async () => {

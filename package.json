@@ -48,6 +48,7 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
+    "@next/playwright": "^16.4.0",
     "@playwright/test": "^1.55.0",
     "@tailwindcss/postcss": "^4.1.13",
     "@types/node": "^24.5.0",

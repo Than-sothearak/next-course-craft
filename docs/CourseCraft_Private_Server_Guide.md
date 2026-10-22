@@ -1,137 +1,176 @@
-# COURSECRAFT
-## Complete private-server deployment & operations handbook
-**Revised 20 October 2026 · Detailed, copy-paste edition · Word + Markdown**
+# CourseCraft — Ubuntu Docker Deployment & Operations Guide
 
-**Environment:** Ubuntu Server 26.04 · Docker Compose · Next.js 16 (standalone) + Vite export player · MongoDB 8.2.7 (`rs0`) · Caddy HTTPS (Cloudflare DNS challenge) · local uploads · optional MongoDB Compass over SSH.
+**Updated:** 22 October 2026  
+**Current deployment:** Private-IP Ubuntu VPS → Cloudflare Tunnel → Next.js 16 → MongoDB 8.2.7 replica set  
+**Optional future deployment:** Public-IP VPS → Nginx + Let's Encrypt → Next.js → MongoDB  
+**Domain:** `coursecraft.sothearak.online`  
+**Project:** `/opt/coursecraft/next-course-craft`  
+**Persistent media:** `/data/coursecraft/uploads`
 
-| Setting | Value |
-| --- | --- |
-| Server | Than-Sothearak-Server |
-| SSH | `sothearak@192.168.71.30` (Mac, through VPN) |
-| Website | `https://coursecraft.sothearak.online` (VPN access) |
-| Project | `/opt/coursecraft/next-course-craft` |
-| Uploads | `/data/coursecraft/uploads` |
-| Database | Docker service `mongo`, database `coursecraft` |
-| Application | Docker service `app`, port 3000 inside Compose |
-| Reverse proxy | Docker service `caddy`, host ports 80 and 443 |
-
-**Status legend:** **PRIMARY** = needed for this deployment or first-time setup. **OPTIONAL** = run only if its condition applies. **MAINTENANCE** = run for ongoing operations. **MAC** and **UBUNTU** identify where a command runs. A primary step already completed does not need to be repeated.
-
-**Security first:** The original notes contained an SSH password, database password, OAuth client secrets, AWS credentials, a Cloudflare token and an OpenAI API key. All real values are deliberately omitted here. Treat previously shared values as compromised: rotate/revoke them. Keep `.env`, `.env.production`, `.env.caddy`, and `mongo-keyfile` private; never upload them to GitHub.
-
-**Source fidelity:** Sections 1–44 below correspond to the original 44-step checklist. All seven original copy-paste files are restored in the same practical order. Changes required by your real private-server deployment are identified, instead of silently reproducing old EC2-only examples or known syntax errors.
+> **Security warning:** The source document included what appear to be live passwords, API keys, OAuth secrets, and a Cloudflare tunnel token. They have **not** been copied into this Markdown. Rotate/revoke exposed credentials. Never commit `.env`, `.env.production`, tunnel tokens, or MongoDB keyfiles to Git.
 
 ## Table of contents
 
-- 1. Forty-four-step deployment checklist (source mapping)
-- 2. The seven complete configuration files (copy-paste)
-- 3. Private VPN, DNS, HTTPS and Google OAuth
-- 4. MongoDB initialization, authentication and verification
-- 5. MongoDB Compass graphical connection (optional)
-- 6. Docker management, deploy updates and monitoring
-- 7. Database and media backups
-- 8. Troubleshooting — errors you encountered
-- 9. Source-preservation and security checklist
+1. [Architecture and prerequisites](#1-architecture-and-prerequisites)
+2. [Initial Ubuntu and Docker installation](#2-initial-ubuntu-and-docker-installation)
+3. [Project layout and checkout](#3-project-layout-and-checkout)
+4. [Build files](#4-build-files)
+5. [Environment configuration](#5-environment-configuration)
+6. [MongoDB keyfile and persistent uploads](#6-mongodb-keyfile-and-persistent-uploads)
+7. [Complete private-IP Docker Compose](#7-complete-private-ip-docker-compose)
+8. [First-time replica-set initialization](#8-first-time-replica-set-initialization)
+9. [Cloudflare Tunnel setup](#9-cloudflare-tunnel-setup)
+10. [Deployment and verification](#10-deployment-and-verification)
+11. [Authentication and Google OAuth](#11-authentication-and-google-oauth)
+12. [MongoDB Compass over SSH](#12-mongodb-compass-over-ssh)
+13. [Updates and routine operations](#13-updates-and-routine-operations)
+14. [Backup and restore planning](#14-backup-and-restore-planning)
+15. [Troubleshooting](#15-troubleshooting)
+16. [Optional future public-IP deployment with Nginx](#16-optional-future-public-ip-deployment-with-nginx)
+17. [Production checklist](#17-production-checklist)
 
-## 1. Original 44-step checklist — corrected for your private server
+---
 
-All steps below retain their **original numbers** for cross-reference. Old EC2-only steps are explicitly marked optional/not applicable, rather than silently removed. Run each command separately; only `mongosh` commands belong at the MongoDB shell prompt.
+## 1. Architecture and prerequisites
 
-| Original step | Status & command to do | Description, reason or check |
-| --- | --- | --- |
-| 1 | **OPTIONAL / NOT APPLICABLE** — `Existing private Ubuntu VPS` | Original: AWS EC2 → Launch Instance. Your server already exists at 192.168.71.30; no EC2 instance, public IP, security group or .pem key is required. |
-| 2 | **OPTIONAL / NOT APPLICABLE** — `chmod 400 coursecraft-key.pem` | Original SSH key-permission step. Skip when authenticating with your Ubuntu username and password; only applicable to PEM-key SSH. |
-| 3 | **PRIMARY / MAC** — `ssh sothearak@192.168.71.30` | Connect FortiClient VPN first; enter your Ubuntu password. The next commands run on Ubuntu. |
-| 4 | **OPTIONAL** — `sudo apt update && sudo apt upgrade -y` | Refresh package metadata and install security updates on a fresh system. Reboot only if instructed and reconnect. |
-| 5 | **PRIMARY IF MISSING** — `sudo apt install -y git curl ca-certificates openssl` | Needed for Git, Docker repository setup, TLS certificates, and generating MongoDB/Auth.js secrets. |
-| 6 | **OPTIONAL / DOCKER INSTALL** — `sudo install -m 0755 -d /etc/apt/keyrings` | Create signing-key directory only if setting up Docker’s APT repository. |
-| 7 | **OPTIONAL / DOCKER INSTALL** — `sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc` | Download Docker’s public signing key. |
-| 8 | **OPTIONAL / DOCKER INSTALL** — `sudo chmod a+r /etc/apt/keyrings/docker.asc` | Make the key readable by APT. |
-| 9 | **OPTIONAL / DOCKER INSTALL** — `Create /etc/apt/sources.list.d/docker.sources` | Use the complete corrected heredoc in §2.0; the original `Suites:` expression was malformed. |
-| 10 | **OPTIONAL / DOCKER INSTALL** — `sudo apt update` | Read Docker package metadata. Stop if the Docker repository reports 404. |
-| 11 | **OPTIONAL / DOCKER INSTALL** — `apt-cache policy docker-ce` | Verify a real Candidate exists before attempting installation. |
-| 12 | **OPTIONAL / DOCKER INSTALL** — `sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin` | Install official Docker Engine and Compose plugin only if needed. |
-| 13 | **PRIMARY** — `sudo systemctl enable --now docker` | Start Docker now and after reboots. |
-| 14 | **OPTIONAL CHECK** — `sudo docker run hello-world` | Smoke-test image download and container execution. |
-| 15 | **OPTIONAL / SECURITY** — `sudo usermod -aG docker sothearak` | Allows Docker without sudo after reconnect; grants root-equivalent powers. This guide instead consistently uses sudo. |
-| 16 | **PRIMARY CHECK** — `sudo docker --version && sudo docker compose version` | Confirm Docker and Compose v2 commands are working. |
-| 17 | **PRIMARY FIRST INSTALL** — `sudo mkdir -p /opt/coursecraft && sudo chown "$USER":"$(id -gn)" /opt/coursecraft` | Create writable deployment parent; can skip if existing permissions work. |
-| 18 | **PRIMARY** — `cd /opt/coursecraft` | Enter deployment parent directory. |
-| 19 | **PRIMARY FIRST INSTALL** — `git clone https://github.com/Than-sothearak/next-course-craft.git next-course-craft` | Clone once; if already present, simply cd into the repository. Private repos need authorized Git access. |
-| 20 | **PRIMARY IF CONFIGURING** — `nano Dockerfile` | Complete Node 24 multi-stage Dockerfile is in §2.1; retain build:export and BuildKit secret mount. |
-| 21 | **PRIMARY** — `nano .dockerignore` | Complete ignore file is in §2.2; keeps secrets and build artifacts out of Docker context. |
-| 22 | **PRIMARY** — `nano next.config.ts` | Ensure `output: "standalone"` while preserving all existing Next.js settings. §2.3. |
-| 23 | **PRIMARY** — `nano .env.production` | Complete environment template in §2.4 includes Auth.js, Google/GitHub, OpenAI key/models, AWS/S3, media, and maintenance variables. |
-| 24 | **PRIMARY** — `nano .env` | Set Compose `MONGO_USER` and `MONGO_PASSWORD`; match existing stored database credentials. §2.5. |
-| 25 | **PRIMARY** — `chmod 600 .env .env.production` | Restrict credential-file read/write access to owner. |
-| 26 | **PRIMARY** — `nano compose.yaml` | All three services, healthcheck, rs0 URI, build secret, named volumes, private Compass binding, prebuilt Caddy image. §2.6. |
-| 27 | **PRIMARY** — `sudo mkdir -p /data/coursecraft/uploads` | Create persistent local media directory on Ubuntu host. |
-| 28 | **PRIMARY** — `sudo chown -R 1000:1000 /data/coursecraft/uploads && sudo chmod 750 /data/coursecraft/uploads` | Node container writes uploads. Confirm the actual app UID if permission errors occur. |
-| 29 | **PRIMARY** — `nano Caddyfile` | Complete HTTPS / Cloudflare DNS challenge config in §2.7. |
-| 30 | **OPTIONAL / OLD HTTP TEST** — `HTTP by EC2 public IP — SKIP` | Original HTTP-only / public-IP test is replaced by your real VPN-only HTTPS domain. |
-| 31 | **PRIMARY** — `sudo docker compose config --quiet` | Validate YAML and variable interpolation without dumping secrets. |
-| 32 | **PRIMARY FIRST DEPLOY** — `sudo docker compose up -d mongo` | First start MongoDB, initialize rs0 if new (§4), then `sudo docker compose up -d --build app caddy`; avoids app starting before PRIMARY. |
-| 33 | **PRIMARY CHECK** — `sudo docker compose ps -a` | Verify app/caddy Up and mongo healthy; check 443 is bound on host. |
-| 34 | **PRIMARY CHECK** — `sudo docker compose logs -f app` | Inspect Next.js/authentication; Ctrl+C exits log follow. |
-| 35 | **PRIMARY CHECK** — `sudo docker compose logs --tail=50 mongo` | Inspect MongoDB startup, keyfile, auth, or kernel errors. |
-| 36 | **PRIMARY CHECK** — `sudo docker compose exec app printenv MEDIA_LOCAL_DIRECTORY` | Expected: `/data/coursecraft/uploads`. |
-| 37 | **PRIMARY FIRST DB** — `mongosh: rs.status() / rs.initiate(...) once` | Database login, initialization (only NotYetInitialized), collection checks, and optional admin bootstrap in §4. |
-| 38 | **PRIMARY CHECK** — `curl -I https://coursecraft.sothearak.online` | Replaces obsolete EC2 public-address check. Correct redirect must stay on HTTPS domain. |
-| 39 | **MAINTENANCE** — `git pull origin main` | Fetch changed code; branch must match actual remote. Does not update running image. |
-| 40 | **MAINTENANCE** — `sudo docker compose up -d --build app` | Rebuild and apply app source changes; MongoDB volumes remain intact. |
-| 41 | **OPTIONAL RECOVERY** — `sudo docker compose restart app` | Restart same image and same environment; does not reload changed env files. |
-| 42 | **MAINTENANCE / ENV** — `sudo docker compose up -d --no-deps --force-recreate app` | Reload changed runtime .env values without rebuilding app source. |
-| 43 | **PRIMARY / BACKUP** — `mongodump --archive --gzip > mongodb-backup.gz` | Full checked command and prerequisites in §7; verify backup and copy off-server. |
-| 44 | **PRIMARY / BACKUP** — `sudo tar -czf uploads-backup.tar.gz -C /data/coursecraft uploads` | Backup media separately; MongoDB alone does not contain files on host uploads volume. |
+### Current: private IP only
 
-## 2. Complete copy-paste configuration files
-
-Open the project folder first on **UBUNTU**:
-
-```bash
-cd /opt/coursecraft/next-course-craft
-pwd
+```text
+Public visitor
+    │ HTTPS
+    ▼
+Cloudflare edge
+    │ outbound-managed tunnel
+    ▼
+cloudflared (Docker)
+    │ http://app:3000 (internal Docker network)
+    ▼
+CourseCraft / Next.js 16 (Docker: app)
+    │ mongodb://mongo:27017 (internal Docker network)
+    ▼
+MongoDB 8.2.7 replica set rs0 (Docker: mongo)
+    ├── named Docker volume: mongodb_data
+    └── uploads are a separate host bind mount
 ```
 
-### 2.0 Optional fresh-install command — Docker repository source
+Cloudflare Tunnel needs **outbound internet access**, but **no public VPS IP, inbound port forwarding, Nginx, Certbot, or Caddy**. Your VPS can still be administered over an existing VPN and SSH connection.
 
-This is the **full corrected Step 9**, not the broken version from the original notes. Only run it if Docker’s official repository is not configured; if Docker already works, skip steps 6–12.
+### Optional later: public IP
+
+```text
+Public visitor → VPS public IP:443 → Nginx → app:3000 → mongo:27017
+                                  ↳ Let's Encrypt certificate
+```
+
+Use this only after the server actually receives a public IP and the domain points to that IP. Switching proxies does not guarantee better performance: benchmark first.
+
+### Important paths
+
+| Purpose | Path or hostname |
+|---|---|
+| SSH over VPN (example private address from original guide) | `ssh sothearak@192.168.71.30` |
+| Website | `https://coursecraft.sothearak.online` |
+| Project | `/opt/coursecraft/next-course-craft` |
+| Compose variables | `.env` |
+| Next.js runtime/build variables | `.env.production` |
+| MongoDB keyfile | `/opt/coursecraft/mongo-keyfile` |
+| Local uploads | `/data/coursecraft/uploads` |
+
+> SSH over the VPN is only needed if that is how you reach your VPS. Do not publish private IP addresses as public A records.
+
+---
+
+## 2. Initial Ubuntu and Docker installation
+
+If Docker and Compose already work (`sudo docker compose version`), **skip the installation steps**.
+
+```bash
+sudo apt update
+sudo apt upgrade -y
+sudo apt install -y git curl ca-certificates openssl
+```
+
+Install Docker Engine from Docker's official Ubuntu APT repository if needed:
 
 ```bash
 sudo install -m 0755 -d /etc/apt/keyrings
-sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
+  -o /etc/apt/keyrings/docker.asc
 sudo chmod a+r /etc/apt/keyrings/docker.asc
-sudo tee /etc/apt/sources.list.d/docker.sources > /dev/null <<EOF
+
+sudo tee /etc/apt/sources.list.d/docker.sources > /dev/null <<EOF_DOCKER
 Types: deb
 URIs: https://download.docker.com/linux/ubuntu
 Suites: $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")
 Components: stable
 Architectures: $(dpkg --print-architecture)
 Signed-By: /etc/apt/keyrings/docker.asc
-EOF
+EOF_DOCKER
+
 sudo apt update
 apt-cache policy docker-ce
+sudo apt install -y docker-ce docker-ce-cli containerd.io \
+  docker-buildx-plugin docker-compose-plugin
+sudo systemctl enable --now docker
+sudo docker --version
+sudo docker compose version
 ```
 
-After confirming a Docker CE candidate exists: `sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin`. Do not bypass signature errors or substitute a random Ubuntu codename.
+If `docker-ce` has no candidate, fix the repository configuration rather than bypassing signature errors. Use `sudo docker` in the examples; adding yourself to the `docker` group grants root-equivalent access.
 
-### 2.1 File 1/7 — Dockerfile (complete)
+---
 
-**PRIMARY.** Builds Vite export player first, then Next.js standalone app, and runs as the non-root `node` user. **This full file was missing in the short guide.** Save as `Dockerfile` in the repo root; verify `npm run build:export` exists in `package.json`. The Node tag is preserved from the original, not a promise it is always the latest.
+## 3. Project layout and checkout
 
 ```bash
-nano Dockerfile
+sudo mkdir -p /opt/coursecraft
+sudo chown "$USER":"$(id -gn)" /opt/coursecraft
+cd /opt/coursecraft
 ```
+
+For a **new checkout only**:
+
+```bash
+git clone https://github.com/Than-sothearak/next-course-craft.git next-course-craft
+cd next-course-craft
+```
+
+For an existing checkout:
+
+```bash
+cd /opt/coursecraft/next-course-craft
+```
+
+Expected structure:
+
+```text
+/opt/coursecraft/
+├── mongo-keyfile                   # created once; never commit
+└── next-course-craft/
+    ├── Dockerfile
+    ├── .dockerignore
+    ├── next.config.ts
+    ├── compose.yaml
+    ├── .env                        # Compose interpolation, secrets
+    ├── .env.production             # Next.js runtime/build secrets
+    ├── app/ ...
+    ├── public/
+    └── package.json
+/data/coursecraft/uploads/          # host-persistent media
+```
+
+---
+
+## 4. Build files
+
+### 4.1 Dockerfile — Next.js standalone + Vite export player
+
+This reflects the original handbook's build workflow. Verify that your `package.json` contains a `build:export` script and that your project still produces `.next/standalone`. **If your current Dockerfile works, do not replace it unnecessarily.**
 
 ```dockerfile
 # syntax=docker/dockerfile:1.7
-# ============================================
-# CourseCraft Production Dockerfile
-# Next.js 16 + Vite Export Player
-# ============================================
 ARG NODE_VERSION=24.13.0-slim
 
-# Stage 1: Install dependencies
 FROM node:${NODE_VERSION} AS dependencies
 WORKDIR /app
 COPY package.json yarn.lock* package-lock.json* pnpm-lock.yaml* pnpm-workspace.yaml* .npmrc* ./
@@ -145,16 +184,14 @@ RUN --mount=type=cache,target=/root/.npm \
     elif [ -f pnpm-lock.yaml ]; then \
       corepack enable pnpm && pnpm install --frozen-lockfile --prod=false; \
     else \
-      echo "No lockfile found." && exit 1; \
+      echo 'No lockfile found' && exit 1; \
     fi
 
-# Stage 2: Build export player and Next.js
 FROM node:${NODE_VERSION} AS builder
 WORKDIR /app
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-# Mount runtime env only for this RUN as a BuildKit secret.
 RUN --mount=type=secret,id=coursecraft_env,target=/app/.env.production,required=true \
     if [ -f package-lock.json ]; then \
       npm run build:export && npm run build; \
@@ -163,10 +200,9 @@ RUN --mount=type=secret,id=coursecraft_env,target=/app/.env.production,required=
     elif [ -f pnpm-lock.yaml ]; then \
       corepack enable pnpm && pnpm build:export && pnpm build; \
     else \
-      echo "No lockfile found." && exit 1; \
+      echo 'No lockfile found' && exit 1; \
     fi
 
-# Stage 3: Lightweight production runtime
 FROM node:${NODE_VERSION} AS runner
 WORKDIR /app
 ENV NODE_ENV=production
@@ -182,136 +218,206 @@ EXPOSE 3000
 CMD ["node", "server.js"]
 ```
 
-**What it means:** `dependencies` restores lockfile dependencies; `builder` builds both Vite and Next.js; `runner` copies the standalone production output. `required=true` means Compose MUST provide `coursecraft_env` at build time. Unlike `env_file`, this secret is used by `docker build`; ensure application code does not bake confidential values into client assets or print them to build logs.
+The build uses a BuildKit secret so production environment values are mounted only for the build command. Prevent secrets from being printed or included in client bundles; `NEXT_PUBLIC_*` variables are intentionally public.
 
-**If the build fails:** Confirm `build:export` exists (`node -p "require('./package.json').scripts['build:export']"`), ensure `public/` exists, preserve custom Next.js settings, and inspect the actual build errors before editing the recipe.
-
-### 2.2 File 2/7 — .dockerignore (complete)
-
-**PRIMARY.** Keeps large and sensitive local files out of the Docker build context. Docker BuildKit still receives `.env.production` from `build.secrets`; `.dockerignore` does not disable that mechanism.
+Check the export script:
 
 ```bash
-nano .dockerignore
+node -p "require('./package.json').scripts['build:export']"
 ```
 
-```text
+### 4.2 `.dockerignore`
+
+```gitignore
 node_modules
+.pnpm-store
 .next
+out
+dist
+build
+.vercel
+coverage
+__tests__
+__mocks__
+cypress
+playwright-report
+test-results
+.vitest
 .git
+.vscode
+.idea
+*.log
 .env
 .env.*
-uploads
-coverage
-backups
-*.log
+*.pem
+mongo-keyfile
+backups/
+Dockerfile*
+compose.yaml
+compose.yml
+docker-compose*.yml
+docker-compose*.yaml
+.dockerignore
+.github
+.cache
+.turbo
+*.tsbuildinfo
+.DS_Store
 ```
 
-### 2.3 File 3/7 — next.config.ts (merge, do not erase existing settings)
+**Note:** `.env.production` is intentionally excluded from the build context because the Dockerfile receives it through `build.secrets`. If your build requires non-secret environment configuration, provide it intentionally through the build setup.
 
-**PRIMARY.** Preserve all of your current Next.js configuration; add `output: "standalone"` to your existing `nextConfig`. Only use this entire template if your current config has no other options.
+### 4.3 `next.config.ts`
 
-```typescript
+Add `output: "standalone"` to your **existing** Next.js configuration, preserving any redirects, image settings, or other options:
+
+```ts
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  // Keep any existing rewrites, redirects, images, or webpack options here.
+  // Preserve your project's existing settings here.
 };
 
 export default nextConfig;
 ```
 
-Why it matters: the Dockerfile copies `.next/standalone/server.js`. Without standalone output, the production runner cannot start.
+---
 
-### 2.4 File 4/7 — .env.production (complete template, including OpenAI)
+## 5. Environment configuration
 
-**PRIMARY.** All original variable names are retained below. **All secret values are placeholders**, including OpenAI, GitHub/Google OAuth and AWS. Replace only the integrations you actually use. Keep exactly ONE `AUTH_URL`, `NEXTAUTH_URL`, and `AUTH_TRUST_HOST`; the duplicate `AUTH_URL` in your prior installation caused redirects to `192.168.71.30`.
+Keep the two files separate:
+
+- **`.env`**: automatically read by Compose for `${...}` interpolation.
+- **`.env.production`**: loaded into the Next.js app by `env_file:` and provided as a build secret.
+
+**Do not run** `docker compose --env-file .env.production ...` for this documented setup; it can omit `MONGO_USER`, `MONGO_PASSWORD`, and `TUNNEL_TOKEN` from Compose interpolation.
+
+### 5.1 `.env`
+
+```bash
+cd /opt/coursecraft/next-course-craft
+nano .env
+```
+
+```dotenv
+MONGO_USER=YOUR_EXISTING_MONGO_USERNAME
+MONGO_PASSWORD=YOUR_EXISTING_MONGO_PASSWORD
+TUNNEL_TOKEN=YOUR_CLOUDFLARE_TUNNEL_TOKEN
+```
+
+The tunnel token is **not** `CLOUDFLARE_API_TOKEN`. It is the token provided by the dashboard for **the specific Cloudflare Tunnel connector**. Avoid surrounding it with the entire `docker run` command.
+
+For a **new** MongoDB install, generate a URI-friendly random password if needed:
+
+```bash
+openssl rand -hex 32
+```
+
+For an **existing** database, keep the correct stored username/password: changing environment variables **does not reset MongoDB's existing administrator account**. Credentials interpolated into a MongoDB URI must be percent-encoded when they contain URI-reserved characters.
+
+### 5.2 `.env.production`
 
 ```bash
 nano .env.production
 ```
 
+The following is a **safe placeholder template**, not a request to overwrite all working application settings:
+
 ```dotenv
-# ===== Auth.js / NextAuth =====
-AUTH_SECRET=REPLACE_WITH_LONG_RANDOM_SECRET
+# Auth.js
 AUTH_URL=https://coursecraft.sothearak.online
 NEXTAUTH_URL=https://coursecraft.sothearak.online
 AUTH_TRUST_HOST=true
+AUTH_SECRET=REPLACE_WITH_YOUR_EXISTING_SECRET
 
-# ===== Google OAuth: needed if Google sign-in is enabled =====
-AUTH_GOOGLE_ID=REPLACE_WITH_GOOGLE_CLIENT_ID
-AUTH_GOOGLE_SECRET=REPLACE_WITH_GOOGLE_CLIENT_SECRET
+# OAuth providers — only those enabled in your application
+AUTH_GOOGLE_ID=YOUR_GOOGLE_CLIENT_ID
+AUTH_GOOGLE_SECRET=YOUR_GOOGLE_CLIENT_SECRET
+AUTH_GITHUB_ID=YOUR_GITHUB_CLIENT_ID
+AUTH_GITHUB_SECRET=YOUR_GITHUB_CLIENT_SECRET
 
-# ===== GitHub OAuth: optional =====
-AUTH_GITHUB_ID=REPLACE_WITH_GITHUB_CLIENT_ID
-AUTH_GITHUB_SECRET=REPLACE_WITH_GITHUB_CLIENT_SECRET
-
-# ===== Maintenance/bootstrap: leave blank for normal operation =====
+# Administration / bootstrap — leave blank during normal use
 ADMIN_MAINTENANCE_ACTOR_ID=
 BOOTSTRAP_SUPER_ADMIN_USER_ID=
 
-# ===== Persistent local media =====
+# Local media
 MEDIA_LOCAL_DIRECTORY=/data/coursecraft/uploads
 MEDIA_LOCAL_ROOT=/data/coursecraft
 
-# ===== S3: optional, only if existing or new assets require it =====
-AWS_REGION=REPLACE_WITH_AWS_REGION
-AWS_S3_BUCKET=REPLACE_WITH_BUCKET_NAME
-AWS_ACCESS_KEY_ID=REPLACE_WITH_IAM_ACCESS_KEY
-AWS_SECRET_ACCESS_KEY=REPLACE_WITH_IAM_SECRET_KEY
+# Optional S3 integration
+AWS_REGION=YOUR_AWS_REGION
+AWS_S3_BUCKET=YOUR_BUCKET
+AWS_ACCESS_KEY_ID=YOUR_S3_ACCESS_KEY
+AWS_SECRET_ACCESS_KEY=YOUR_S3_SECRET_KEY
 
-# ===== OpenAI: optional AI generation settings from original guide =====
-OPENAI_API_KEY=REPLACE_WITH_NEW_OPENAI_API_KEY
-OPENAI_TEXT_MODEL=REPLACE_WITH_SUPPORTED_TEXT_MODEL_ID
-OPENAI_IMAGE_MODEL=REPLACE_WITH_SUPPORTED_IMAGE_MODEL_ID
-
-# Do not duplicate MONGODB_URI here; compose.yaml injects it for app.
+# Optional CourseCraft AI integration
+OPENAI_API_KEY=YOUR_OPENAI_API_KEY
+OPENAI_TEXT_MODEL=YOUR_VERIFIED_MODEL_ID
+OPENAI_IMAGE_MODEL=YOUR_VERIFIED_IMAGE_MODEL_ID
 ```
 
-**OpenAI-specific notes:** `OPENAI_API_KEY` is the secret required by the CourseCraft AI integration if enabled. The original guide also specified `OPENAI_TEXT_MODEL` and `OPENAI_IMAGE_MODEL`; its example model IDs are **not verified**, so this template deliberately uses supported-model placeholders. Confirm your code reads exactly these variable names and your API account supports the chosen model identifiers. OpenAI settings are optional when AI generation is disabled.
-
-**AWS-specific notes:** If you still need existing S3 media, keep bucket/region and credentials properly configured; on a private Ubuntu VPS there is no automatic EC2 role. Prefer narrowly scoped credentials rather than root keys. **Never store `.env.production` in Git.**
-
-Generate a new Auth.js secret (UBUNTU):
-
-```bash
-openssl rand -base64 32
-```
-
-Check for duplicate auth variable definitions without showing provider secrets:
-
-```bash
-grep -nE '^(AUTH_URL|NEXTAUTH_URL|AUTH_TRUST_HOST)=' .env.production
-```
-
-### 2.5 File 5/7 — .env (MongoDB Compose interpolation)
-
-**PRIMARY.** Used by Docker Compose to substitute `${MONGO_USER}` and `${MONGO_PASSWORD}`. MongoDB credentials are created only on first initialization of an empty data volume. If your existing database password differs, changing this file alone does NOT change MongoDB’s stored user.
-
-```bash
-nano .env
-```
-
-```dotenv
-MONGO_USER=coursecraft_root
-MONGO_PASSWORD=REPLACE_WITH_EXISTING_OR_NEW_STRONG_URI_SAFE_PASSWORD
-```
-
-Generate a URI-safe random password with `openssl rand -hex 32` for a **new** installation. For an existing database, verify the current username/password first. If the username resolves as the literal `MONGOUSER`, fix `.env` and Compose interpolation. Use a special-character-safe encoded password when embedding one in a URI.
+Use **only** environment variable names actually read by your code, and verify API model IDs rather than copying unverified values from old notes. Keep exactly one definition of each Auth.js URL variable. The app's `MONGODB_URI` comes from Compose; do not add a competing value to `.env.production`.
 
 ```bash
 chmod 600 .env .env.production
+grep -nE '^(AUTH_URL|NEXTAUTH_URL|AUTH_TRUST_HOST)=' .env.production
 ```
 
-### 2.6 File 6/7 — compose.yaml (complete corrected current setup)
+Do not regenerate your existing `AUTH_SECRET` without considering active sessions. For a new install, `openssl rand -base64 32` can generate a new secret.
 
-**PRIMARY.** This reproduces all three services and fixes the original broken healthcheck. It uses MongoDB 8.2.7 because that image was running on your Ubuntu 26.04 host. This is not a universal compatibility guarantee; do not change database image versions on an existing data volume without a documented upgrade path and backups.
+Add to `.gitignore`:
 
-The MongoDB `127.0.0.1:27017:27017` mapping is **OPTIONAL** and exists solely for MongoDB Compass through an SSH tunnel; it does not publish MongoDB on the VPN interface. Remove those two `ports` lines if you do not need Compass.
+```gitignore
+/.env
+/.env.*
+!/example.env
+/mongo-keyfile
+/backups/
+```
+
+---
+
+## 6. MongoDB keyfile and persistent uploads
+
+### 6.1 MongoDB replica-set keyfile
+
+The source configuration uses MongoDB authentication with `--replSet rs0` and a keyfile. **Only create the keyfile for a new installation if it does not already exist.**
 
 ```bash
-nano compose.yaml
+sudo mkdir -p /opt/coursecraft
+if ! sudo test -f /opt/coursecraft/mongo-keyfile; then
+  openssl rand -base64 756 | sudo tee /opt/coursecraft/mongo-keyfile > /dev/null
+fi
+sudo chown 999:999 /opt/coursecraft/mongo-keyfile
+sudo chmod 400 /opt/coursecraft/mongo-keyfile
+sudo ls -l /opt/coursecraft/mongo-keyfile
 ```
+
+Confirm UID `999` is appropriate for the chosen MongoDB image. Do not casually regenerate an in-use keyfile, erase the MongoDB data volume, or change MongoDB versions without a backup and tested upgrade path.
+
+### 6.2 Persistent uploaded course media
+
+```bash
+sudo mkdir -p /data/coursecraft/uploads
+sudo chown -R 1000:1000 /data/coursecraft/uploads
+sudo chmod 750 /data/coursecraft/uploads
+sudo ls -ld /data/coursecraft/uploads
+```
+
+The original setup assumes the application runs as `node` with UID 1000. If uploads fail, inspect the actual application user before changing ownership:
+
+```bash
+sudo docker compose exec app id
+sudo docker compose exec app printenv MEDIA_LOCAL_DIRECTORY
+```
+
+---
+
+## 7. Complete private-IP Docker Compose
+
+**File:** `/opt/coursecraft/next-course-craft/compose.yaml`  
+**Current recommended services:** `app`, `mongo`, `cloudflared`.
 
 ```yaml
 services:
@@ -324,7 +430,7 @@ services:
     env_file:
       - .env.production
     environment:
-      MONGODB_URI: "mongodb://${MONGO_USER}:${MONGO_PASSWORD}@mongo:27017/coursecraft?authSource=admin&replicaSet=rs0"
+      MONGODB_URI: "mongodb://${MONGO_USER:?MONGO_USER required}:${MONGO_PASSWORD:?MONGO_PASSWORD required}@mongo:27017/coursecraft?authSource=admin&replicaSet=rs0"
     volumes:
       - /data/coursecraft/uploads:/data/coursecraft/uploads
     depends_on:
@@ -336,7 +442,7 @@ services:
   mongo:
     image: mongo:8.2.7
     restart: unless-stopped
-    # OPTIONAL: remove both lines below unless using MongoDB Compass through SSH.
+    # Optional: for Compass only, over an SSH tunnel.
     ports:
       - "127.0.0.1:27017:27017"
     command:
@@ -347,8 +453,8 @@ services:
       - --keyFile
       - /etc/mongo-keyfile
     environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD}
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:?MONGO_USER required}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:?MONGO_PASSWORD required}
     volumes:
       - mongodb_data:/data/db
       - /opt/coursecraft/mongo-keyfile:/etc/mongo-keyfile:ro
@@ -366,301 +472,559 @@ services:
       retries: 10
       start_period: 30s
 
-  caddy:
-    image: caddybuilds/caddy-cloudflare:2.11.6
+  cloudflared:
+    image: cloudflare/cloudflared:latest
     restart: unless-stopped
-    env_file:
-      - .env.caddy
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?TUNNEL_TOKEN required}
     depends_on:
       - app
 
 volumes:
   mongodb_data:
-  caddy_data:
-  caddy_config:
 
 secrets:
   coursecraft_env:
     file: ./.env.production
 ```
 
-**Critical differences:** `build.secrets` plus the top-level `secrets` entry fix `secret coursecraft_env: not found`; `environment.MONGODB_URI` overrides any same key from the app env file; `replicaSet=rs0` enables replica-set discovery; `$$` in healthcheck passes the environment references into the container. `env_file: .env.caddy` supplies the Cloudflare token at Caddy runtime. The prebuilt Caddy image is community-maintained, not the official `caddy:2` image; verify its source and pin a trusted digest for long-lived production use.
+The localhost-only MongoDB port mapping is optional. Removing it prevents even localhost access from the host but does not affect the `app → mongo` connection. The public application is reached **only** through the Cloudflare Tunnel. No Nginx/Caddy/Certbot service is needed for the current private-IP setup.
 
-**Keyfile — required first-time setup, preserved from original notes:** Only create it if it does not already exist. Never regenerate an in-use replica-set keyfile casually.
+> **Existing volume safety:** Keep the Compose project name and existing volume `mongodb_data`. Do **not** use `sudo docker compose down -v`: it removes named volumes and may erase your database.
 
-```bash
-sudo test -f /opt/coursecraft/mongo-keyfile ||   (sudo openssl rand -base64 756 | sudo tee /opt/coursecraft/mongo-keyfile > /dev/null)
-sudo chown 999:999 /opt/coursecraft/mongo-keyfile
-sudo chmod 400 /opt/coursecraft/mongo-keyfile
-sudo ls -l /opt/coursecraft/mongo-keyfile
-```
+---
 
-Ensure UID 999 is actually the MongoDB image user on your image. If startup logs show keyfile ownership/permissions errors, verify the container UID rather than changing permissions blindly.
+## 8. First-time replica-set initialization
 
-### 2.7 File 7/7 — Caddyfile (HTTPS / Cloudflare DNS)
-
-**PRIMARY for Google Login.** Your real hostname is `coursecraft.sothearak.online`, not `coursecraft.yourdomain.com`. DNS-01 certification works without making your private server public, provided the Cloudflare token can edit the authoritative zone and Caddy has outbound access.
+For a **new** MongoDB volume only:
 
 ```bash
-nano Caddyfile
-```
-
-```caddyfile
-coursecraft.sothearak.online {
-    tls {
-        dns cloudflare {env.CLOUDFLARE_API_TOKEN}
-    }
-
-    encode zstd gzip
-    reverse_proxy app:3000
-}
-```
-
-**Secret file used by Caddy (additional file, beyond the original seven):**
-
-```bash
-nano .env.caddy
-```
-
-```dotenv
-CLOUDFLARE_API_TOKEN=REPLACE_WITH_NEW_CLOUDFLARE_DNS_TOKEN
-```
-
-```bash
-chmod 600 .env.caddy
-```
-
-The original discussion also considered writing `dns cloudflare "YOUR_TOKEN"` directly into Caddyfile. That syntax can work but is **less secure** because the token then lives in readable configuration. The environment-file method is the recommended copy-paste form. In all cases, rotate the previously shared token.
-
-Add these patterns to `.gitignore` if absent:
-
-```gitignore
-/.env
-/.env.*
-!/example.env
-/mongo-keyfile
-/backups/
-```
-
-**Note:** `.env.caddy` is read by the Caddy service (Compose `env_file`). No need to rebuild CourseCraft or MongoDB when updating only Caddyfile or token; recreate Caddy for environment changes.
-
-## 3. DNS, VPN, HTTPS and Google OAuth — end to end
-
-| Status | Where | Exact action / check |
-| --- | --- | --- |
-| PRIMARY | Cloudflare DNS | A record `coursecraft` → `192.168.71.30`, DNS only (grey cloud), OR equivalent private VPN DNS. A CNAME is not required for a direct IP target. |
-| PRIMARY | VPN routing | FortiClient clients must have a route to `192.168.71.30` and be allowed to access TCP 443; DNS resolution alone does not guarantee connectivity. |
-| PRIMARY | Cloudflare API token | Scope permissions to the `sothearak.online` zone; typically DNS Edit and Zone Read. Do not expose token in Git or logs. |
-| PRIMARY | Caddy image | Use the Cloudflare-enabled image with `dns.providers.cloudflare`; default `caddy:2` lacks this module. |
-| PRIMARY | Google Cloud Console | Authorized JS origin: `https://coursecraft.sothearak.online`; callback: `https://coursecraft.sothearak.online/api/auth/callback/google`. |
-| PRIMARY | Auth.js URL | `AUTH_URL=https://coursecraft.sothearak.online`, optional compatibility `NEXTAUTH_URL` same value, `AUTH_TRUST_HOST=true`. |
-| OPTIONAL | Internal-only DNS | Private/VPN DNS avoids publishing RFC1918 private address via public DNS; Cloudflare authoritative DNS is still used for DNS-01 certificate challenge. |
-
-```bash
-# On Ubuntu — validate, start/recreate Caddy, verify module and certificate
-sudo docker compose config --quiet
-sudo docker compose pull caddy
-sudo docker compose up -d --no-deps --force-recreate caddy
-sudo docker compose exec caddy caddy list-modules | grep cloudflare
-sudo docker compose logs --tail=100 caddy
-curl -I https://coursecraft.sothearak.online
-```
-
-Correct results: `dns.providers.cloudflare` exists; Caddy logs show certificate issuance for the **real** domain; `curl -I` returns an HTTP response, often `307` to `/login` on the HTTPS hostname, and Auth.js cookies are `Secure`. Example valid redirect: `https://coursecraft.sothearak.online/login?callbackUrl=%2F`.
-
-```bash
-# Check for duplicate Auth URLs (do not print secrets)
-grep -nE '^(AUTH_URL|NEXTAUTH_URL|AUTH_TRUST_HOST)=' .env.production
-sudo docker compose up -d --no-deps --force-recreate app
-sudo docker compose exec app node -e 'for (const k of ["AUTH_URL","NEXTAUTH_URL","AUTH_TRUST_HOST"]) console.log(k, process.env[k]||"MISSING")' 
-```
-
-**Auth.js redirect behavior:** If your browser gets an SSL error for `192.168.71.30`, an old IP-based redirect is still present. Fix duplicate `.env.production` keys or hardcoded redirects; recreate app. Because Dockerfile mounts the build env file, an app rebuild may be necessary if your code reads/embeds those values during build.
-
-## 4. MongoDB 8.2.7, replica set, credentials, Auth.js
-
-**New MongoDB installation:** create the keyfile (§2.6), then start only MongoDB. Since your app uses transactions and Auth.js MongoDB Adapter, `rs0` must be initialized and PRIMARY before you rely on database operations.
-
-```bash
-sudo docker compose config --quiet
+cd /opt/coursecraft/next-course-craft
+sudo docker compose config -q
 sudo docker compose up -d mongo
-sudo docker compose ps -a
 sudo docker compose logs --tail=100 mongo
-sudo docker compose exec mongo mongosh -u coursecraft_root --authenticationDatabase admin -p
 ```
 
-Run the next commands **inside `mongosh`** (prompt such as `test>` or `rs0 [direct: primary] test>`), not at `sothearak@...$`:
+Enter MongoDB shell (it will prompt for the existing administrator password):
+
+```bash
+sudo docker compose exec mongo mongosh \
+  -u YOUR_EXISTING_MONGO_USERNAME \
+  --authenticationDatabase admin -p
+```
+
+**The following commands run inside `mongosh`, not in the Ubuntu shell:**
 
 ```javascript
-// Check before initializing:
 rs.status()
-// Only if NotYetInitialized, execute once:
+```
+
+Only if you receive `NotYetInitialized`, initialize once:
+
+```javascript
 rs.initiate({
   _id: "rs0",
   members: [{ _id: 0, host: "mongo:27017" }]
 })
-// Wait until elected primary:
+```
+
+Then verify primary election:
+
+```javascript
 rs.status()
-db.hello()       // setName: "rs0", isWritablePrimary: true
+db.hello() // Look for isWritablePrimary: true
 use coursecraft
 show collections
 db.runCommand({ ping: 1 })
 exit
 ```
 
-If the prompt already says `rs0 [direct: primary]`, initialization is complete; `AlreadyInitialized` is harmless confirmation. **Do not erase volumes**, reinitialize repeatedly, or run `use admin` in the Ubuntu shell.
+If you see `rs0 [direct: primary]`, the set is already initialized; **do not reinitialize**.
 
-After MongoDB is PRIMARY, start the remaining services (first-time deployment):
-
-```bash
-sudo docker compose up -d --build app caddy
-sudo docker compose ps -a
-```
-
-**Database authentication check, without leaking secrets:** The root account may have been created with older credentials. `.env` edits will not reset it. Use this direct connection test from the running CourseCraft container:
+### Verify the application's MongoDB connection
 
 ```bash
 sudo docker compose exec app node -e '
 const { MongoClient } = require("mongodb");
 (async () => {
-  const client = new MongoClient(process.env.MONGODB_URI, {serverSelectionTimeoutMS:5000});
+  const client = new MongoClient(process.env.MONGODB_URI, { serverSelectionTimeoutMS: 5000 });
   try {
     await client.connect();
-    await client.db("admin").command({ping:1});
+    await client.db("admin").command({ ping: 1 });
     console.log("MongoDB authentication successful");
-  } catch (error) { console.error(error.name + ": " + error.message); }
-  finally { await client.close(); }
+  } catch (e) {
+    console.error(e.name + ": " + e.message);
+    process.exitCode = 1;
+  } finally {
+    await client.close();
+  }
 })();
-' 
+'
 ```
 
-If the app URI shows the literal username `MONGOUSER`, correct `MONGO_USER` in `.env` and recreate app. If MongoDB itself rejects the password, authenticate with the **existing** administrator password and change that user through `db.changeUserPassword("coursecraft_root", passwordPrompt())` inside `mongosh` on the `admin` database; do not assume a password in `.env` automatically matches stored database credentials.
+Super-admin account promotion should only be done through a verified application bootstrap procedure and confirmed role schema—not by blindly editing user records from an old example.
 
-**Original optional admin bootstrap preserved:** Only after a real user record exists and you have confirmed CourseCraft’s role values/schema, you can inspect or update that user in `db.users`. The original guide included `db.users.updateOne({email: "..."}, {$set: {role: "super_admin", status: "active"}})`; this is intentionally **not executable with a real email here** because role names and privileged access must be verified in application code first.
+---
 
-## 5. MongoDB Compass desktop dashboard — OPTIONAL
+## 9. Cloudflare Tunnel setup
 
-You already added localhost-only MongoDB port binding in Compose. It is safer than publishing port 27017 to your VPN. Install MongoDB Compass on Mac using the official MongoDB website.
+### 9.1 Create and configure tunnel
 
-| Step / location | Command or setting | Check |
-| --- | --- | --- |
-| 1 · UBUNTU | `sudo docker compose ps mongo` | MongoDB Up (healthy). |
-| 2 · UBUNTU | `sudo ss -lntp \| grep 27017` | Shows `127.0.0.1:27017`, not `0.0.0.0:27017`. |
-| 3 · MAC / VPN | `ssh -N -L 27018:127.0.0.1:27017 sothearak@192.168.71.30` | Keep Terminal open; password prompt is SSH login. |
-| 4 · COMPASS | `mongodb://127.0.0.1:27018/coursecraft?authSource=admin&directConnection=true` | Enter real MongoDB username/password in Authentication options. |
-| 5 · COMPASS | Open `coursecraft` | Browse documents/collections/indexes; avoid accidental production edits. |
+1. Open [Cloudflare Zero Trust](https://one.dash.cloudflare.com/).
+2. Select **Networks → Tunnels** (label/location may vary).
+3. Create or select the `coursecraft` **Cloudflared** tunnel.
+4. Choose **Add connector** and **Docker**.
+5. Copy **only the token after `--token`** into `TUNNEL_TOKEN` in `.env`.
+6. Under **Routes / Published application**, configure:
 
-The SSH tunnel forwards Mac localhost:27018 → Ubuntu localhost:27017 → MongoDB container. `directConnection=true` avoids replica-set host discovery to inaccessible Docker hostname `mongo`. Compass is primarily a DB browser, not a full historical CPU/RAM monitoring system.
+| Setting | Value |
+|---|---|
+| Hostname | `coursecraft.sothearak.online` |
+| Service type | `HTTP` |
+| Service URL | `http://app:3000` |
 
-## 6. Day-to-day operations, Git updates and monitoring
+The URL **must include `http://`**. `app` is the Docker service hostname. `localhost:3000` in the cloudflared container is not the Next.js application.
 
-Run on **UBUNTU**, from `/opt/coursecraft/next-course-craft`. `sudo` is used because your username is not required to belong to the root-equivalent Docker group.
+Cloudflare should create the appropriate proxied DNS record for the tunnel. You **do not need an A record** for your private VPS IP. If there is a conflicting DNS record at `coursecraft`, correct the conflict.
 
-| Category | Command | What it does |
-| --- | --- | --- |
-| Monitor | `sudo docker compose ps -a` | List status and published ports. |
-| Monitor | `sudo docker stats` | Live CPU, memory and network per container; Ctrl+C exits. |
-| Logs | `sudo docker compose logs -f app` | Live Next.js/Auth.js logs. |
-| Logs | `sudo docker compose logs --tail=50 mongo` | MongoDB health, authentication, keyfile/kernel warnings. |
-| Logs | `sudo docker compose logs --tail=100 caddy` | TLS certificate and proxy errors. |
-| DB shell | `sudo docker compose exec mongo mongosh -u coursecraft_root --authenticationDatabase admin -p` | Authenticated MongoDB shell; use stored credentials. |
-| DB usage | `use coursecraft` then `db.stats(1024*1024)` | Database storage in MiB inside mongosh. |
-| DB load | `db.serverStatus().connections` | Server connection counts inside mongosh. |
-| DB status | `rs.status()` | Replica set PRIMARY and member health inside mongosh. |
-| Storage | `sudo docker volume inspect next-course-craft_mongodb_data` | Find actual persisted volume path. |
-| Update source | `git pull origin main` | Pull repository changes; review git diff and conflicts. |
-| Rebuild | `sudo docker compose up -d --build app` | Build updated app image after code changes. |
-| Restart | `sudo docker compose restart app` | Restart same image and same env (no reload). |
-| Reload env | `sudo docker compose up -d --no-deps --force-recreate app` | Recreate app with new runtime environment. |
-| Test site | `curl -I https://coursecraft.sothearak.online` | Expect HTTPS response and correct login redirect. |
-
-**Original steps 39–42 explained:** `git pull` does not update a running image; `restart` does not reload environment files; `up --force-recreate` reloads runtime env; `up --build` is needed for source/Dockerfile changes. Keep your database backup plan independent of image builds.
-
-## 7. Backups — MongoDB + uploaded files
-
-**PRIMARY OPERATIONAL SAFETY.** MongoDB named volume (`next-course-craft_mongodb_data`) stores database documents; `/data/coursecraft/uploads` stores media. You need both. Ensure backups are private and copied to another location, not left only on the same Ubuntu disk.
-
-```bash
-# Run in project directory; verify mongodump is installed in this image
-sudo docker compose exec mongo sh -c 'command -v mongodump'
-
-# Save a gzip-compressed MongoDB archive on the Ubuntu host.
-# This uses database username/password env inside mongo container.
-umask 077
-sudo docker compose exec -T mongo sh -c   'mongodump --username "$MONGO_INITDB_ROOT_USERNAME" --password "$MONGO_INITDB_ROOT_PASSWORD" --authenticationDatabase admin --db coursecraft --archive --gzip'   > mongodb-backup.gz
-
-# Back up all uploaded media files from host filesystem
-sudo tar -czf uploads-backup.tar.gz -C /data/coursecraft uploads
-
-# Validate archives
-ls -lh mongodb-backup.gz uploads-backup.tar.gz
-tar -tzf uploads-backup.tar.gz | head
-```
-
-Some MongoDB images do not include `mongodump`. If command check fails, use a compatible `mongodb-database-tools` package or a matching tools container; do not claim the backup succeeded when a tool is missing. For binary backups, avoid `docker compose exec` without `-T` because pseudo-terminal output can corrupt archives. Periodically test a restore into a separate environment.
-
-**Never use `sudo docker compose down -v`** for routine deployment or troubleshooting; `-v` removes named MongoDB volumes. Likewise, do not regenerate MongoDB keyfile or downgrade database binaries on an existing data volume without supported procedures and backups.
-
-## 8. Troubleshooting — issues encountered in your deployment
-
-| Symptom / log | Likely reason | What to check / fix |
-| --- | --- | --- |
-| `docker-ce` candidate none / 404 | Malformed `Suites:`; repository unsupported | Use corrected Docker source heredoc (§2.0); check `apt-cache policy docker-ce`. |
-| `secret coursecraft_env: not found` | Dockerfile requires BuildKit secret | Add `app.build.secrets` and top-level `secrets` in §2.6. |
-| `go-yaml load error` | Indentation/tabs/curly quotes | Use spaces; `sudo docker compose config --quiet`; inspect `nl -ba compose.yaml`. |
-| MongoDB kernel 6.19+ warning | Image/kernel compatibility detection | Your server ran MongoDB 8.2.7; confirm logs and image/kernel compatibility before upgrades. |
-| `mongo is unhealthy` | Startup, credentials or keyfile | `sudo docker compose logs --tail=100 mongo`; check permissions and healthcheck. |
-| `NotYetInitialized` | New rs0 replica set | Run `rs.initiate` once on new instance, then wait for PRIMARY. |
-| `AlreadyInitialized` | Replica set already configured | Normal if already PRIMARY; do not rerun initialization. |
-| `AdapterError: Topology is closed` | Driver topology closed or replica not ready | Confirm PRIMARY and app→MongoDB connection; inspect adapter connection lifecycle if persistent. |
-| `MongoServerError Authentication failed` | MongoDB stored credentials differ or literal username placeholder | Inspect app URI username safely; fix `.env`; test MongoDB admin password. |
-| `dns.providers.cloudflare` not registered | Running standard `caddy:2` image | Run Cloudflare-plugin image, recreate only Caddy, check `caddy list-modules`. |
-| `expected 1 zone, got 0` | Wrong domain or scoped Cloudflare token | Ensure actual `coursecraft.sothearak.online` hostname and token zone. |
-| `curl ... port 443 could not connect` | Old Caddy container exposed only port 80 | Recreate Caddy with `443:443`; verify `docker compose ps` and firewall. |
-| Redirect to `192.168.71.30/login` | Duplicate/old `AUTH_URL` | Remove duplicates in `.env.production`, recreate app; rebuild only if build-time embedded. |
-| Google OAuth `redirect_uri_mismatch` | Callback URL mismatch | Use exact HTTPS origin and `/api/auth/callback/google` in Google Console. |
-| Compass SSH timeout | VPN/SSH tunnel/host localhost port | Check tunnel command and `127.0.0.1:27017` listener. |
-| `ss: bison bellows` | Typed `\\|` instead of pipe | Use actual shell pipe: `sudo ss -lntp \| grep 27017`. |
-| `use admin` shell command not found | Running mongosh syntax in Ubuntu shell | Enter `mongosh` first, then run `use admin`. |
-| Uploads `EACCES` | App UID mismatch or mount folder permissions | `sudo docker compose exec app id` and ownership of `/data/coursecraft/uploads`. |
-| Changes invisible after `git pull` | Docker image not rebuilt | Run `sudo docker compose up -d --build app`. |
-| No Compose configuration found | Wrong working directory | `cd /opt/coursecraft/next-course-craft` before Compose commands. |
-
-## 9. Security, files and original-source coverage
-
-| File / element | Scope | Included / instruction |
-| --- | --- | --- |
-| `Dockerfile` | PRIMARY | Full 3-stage Node/Vite/Next.js copy-paste source (§2.1). |
-| `.dockerignore` | PRIMARY | Complete exclusions (§2.2). |
-| `next.config.ts` | PRIMARY | Standalone output config (§2.3); merge into existing settings. |
-| `.env.production` | PRIMARY | All original keys, **including OpenAI secret, text/image model settings, AWS/S3, Google/GitHub, media, admin** (§2.4). |
-| `.env` | PRIMARY | Compose DB username/password (§2.5). |
-| `compose.yaml` | PRIMARY | Complete app+MongoDB+Caddy, build secret, healthcheck, all volumes (§2.6). |
-| `Caddyfile` | PRIMARY | Real HTTPS domain and Cloudflare DNS (§2.7). |
-| `.env.caddy` | ADDED | Secure token injection for DNS-01. |
-| `mongo-keyfile` | PRIMARY NEW INSTALL | Original OpenSSL/chown/chmod commands preserved. |
-| EC2 public instance / PEM / HTTP test | OPTIONAL / OUTDATED | Original steps explicitly preserved in §1 as not applicable to VPN server. |
-| Original admin record promotion | OPTIONAL / SENSITIVE | Documented in §4 but not blindly executable. |
-| Original MongoDB and media backups | PRIMARY OPERATIONS | Full commands and preconditions preserved in §7. |
-
-**Final deployment verification (UBUNTU):**
+### 9.2 Start and check
 
 ```bash
 cd /opt/coursecraft/next-course-craft
-sudo docker compose config --quiet
+sudo docker compose config -q
+sudo docker compose up -d --build
+sudo docker compose ps
+sudo docker compose logs --tail=50 cloudflared
+```
+
+Healthy tunnel logs contain `Registered tunnel connection` (multiple connections are normal). The Cloudflared image may lack `sh`; `docker compose exec cloudflared sh` failing is **not** a tunnel problem.
+
+Test your site:
+
+```bash
+curl -I https://coursecraft.sothearak.online
+```
+
+A `200` or the application's expected login redirect (`307`) is acceptable. If your tunnel is connected but the domain does not resolve, check the published hostname route and Cloudflare DNS.
+
+**No origin TLS certificate is required** when Cloudflare is terminating public HTTPS and connecting through the tunnel to `http://app:3000`.
+
+---
+
+## 10. Deployment and verification
+
+### First-time deployment
+
+```bash
+cd /opt/coursecraft/next-course-craft
+sudo docker compose config -q
+sudo docker compose up -d mongo
+# For a NEW database, initialize rs0 as described in §8.
+sudo docker compose up -d --build app cloudflared
 sudo docker compose ps -a
-sudo docker compose logs --tail=40 mongo
-sudo docker compose logs --tail=40 caddy
+```
+
+Expected services:
+
+| Service | Healthy outcome |
+|---|---|
+| `mongo` | `Up (healthy)`; replica set PRIMARY |
+| `app` | Up; Next.js ready and responding |
+| `cloudflared` | Up; registered tunnel connections |
+
+### Verify runtime
+
+```bash
+sudo docker compose logs --tail=50 app
+sudo docker compose logs --tail=50 mongo
+sudo docker compose logs --tail=50 cloudflared
 sudo docker compose exec app printenv MEDIA_LOCAL_DIRECTORY
 curl -I https://coursecraft.sothearak.online
 ```
 
-**Readiness check:** `app`/`caddy` Up, MongoDB healthy and PRIMARY, HTTPS certificate for the correct hostname, secure auth cookies, Google OAuth callback pointing to your domain, actual MongoDB credentials working, uploads writable, and tested backups safely stored elsewhere.
+### Test application vs public-network latency
 
+```bash
+sudo docker compose exec app node -e '
+const t = performance.now();
+fetch("http://127.0.0.1:3000/login")
+.then(async r => { await r.arrayBuffer(); console.log(r.status, Math.round(performance.now()-t)+" ms"); })
+.catch(console.error);
+'
+
+curl -o /dev/null -sS \
+  -w 'DNS=%{time_namelookup}s TTFB=%{time_starttransfer}s Total=%{time_total}s\n' \
+  https://coursecraft.sothearak.online/login
+```
+
+Compare repeated measurements; a slower public response does not by itself establish that Cloudflare is the only cause.
+
+---
+
+## 11. Authentication and Google OAuth
+
+For the deployed hostname, use:
+
+```dotenv
+AUTH_URL=https://coursecraft.sothearak.online
+NEXTAUTH_URL=https://coursecraft.sothearak.online
+AUTH_TRUST_HOST=true
+```
+
+Keep a valid secret and provider credentials in `.env.production`. In Google Cloud Console, configure (if Google OAuth is enabled):
+
+- **Authorized JavaScript origin:** `https://coursecraft.sothearak.online`
+- **Authorized redirect URI:** `https://coursecraft.sothearak.online/api/auth/callback/google`
+
+Check duplicate URL definitions without printing secrets:
+
+```bash
+grep -nE '^(AUTH_URL|NEXTAUTH_URL|AUTH_TRUST_HOST)=' .env.production
+```
+
+After changing runtime variables:
+
+```bash
+sudo docker compose up -d --no-deps --force-recreate app
+```
+
+If the values are embedded during the Next.js build, rebuild with `sudo docker compose up -d --build app`. A normal `restart app` does **not** reload changed environment files.
+
+---
+
+## 12. MongoDB Compass over SSH
+
+The optional binding `127.0.0.1:27017:27017` exposes MongoDB on the **Ubuntu host's localhost only**, not publicly.
+
+On Ubuntu:
+
+```bash
+sudo docker compose ps mongo
+sudo ss -lntp | grep 27017
+```
+
+From a Mac that can access the VPS over VPN:
+
+```bash
+ssh -N -L 27018:127.0.0.1:27017 sothearak@192.168.71.30
+```
+
+In MongoDB Compass use:
+
+```text
+mongodb://127.0.0.1:27018/coursecraft?authSource=admin&directConnection=true
+```
+
+Enter the actual username/password using Compass authentication controls. `directConnection=true` avoids the Compass client trying to resolve Docker's internal hostname `mongo` from your Mac.
+
+---
+
+## 13. Updates and routine operations
+
+Run from `/opt/coursecraft/next-course-craft`.
+
+| Task | Command |
+|---|---|
+| Containers | `sudo docker compose ps -a` |
+| Live resources | `sudo docker stats` |
+| Next.js logs | `sudo docker compose logs -f app` |
+| MongoDB logs | `sudo docker compose logs --tail=100 mongo` |
+| Tunnel logs | `sudo docker compose logs --tail=100 cloudflared` |
+| Confirm Compose | `sudo docker compose config -q` |
+| Restart app, same env | `sudo docker compose restart app` |
+| Reload changed app env | `sudo docker compose up -d --no-deps --force-recreate app` |
+| Rebuild app source | `sudo docker compose up -d --build app` |
+| Recreate tunnel after token change | `sudo docker compose up -d --force-recreate cloudflared` |
+| VPS disk space | `df -h` |
+| VPS RAM | `free -h` |
+| Test public site | `curl -I https://coursecraft.sothearak.online` |
+
+### Deploy from GitHub
+
+```bash
+cd /opt/coursecraft/next-course-craft
+git status
+git pull origin main
+sudo docker compose up -d --build app
+sudo docker compose ps
+sudo docker compose logs --tail=50 app
+```
+
+Use the actual branch name if different. `git pull` alone does not update an already-running image.
+
+### Database shell
+
+```bash
+sudo docker compose exec mongo mongosh \
+  -u YOUR_EXISTING_MONGO_USERNAME --authenticationDatabase admin -p
+```
+
+In `mongosh`:
+
+```javascript
+rs.status()
+use coursecraft
+db.stats(1024*1024)
+db.serverStatus().connections
+```
+
+---
+
+## 14. Backup and restore planning
+
+**Both** MongoDB and uploaded media require backups, and backups must be stored somewhere other than only on the same VPS disk.
+
+Check MongoDB database tools availability:
+
+```bash
+sudo docker compose exec mongo sh -c 'command -v mongodump'
+```
+
+If available, create a compressed archive (without a TTY, to avoid corrupting binary output):
+
+```bash
+cd /opt/coursecraft/next-course-craft
+umask 077
+sudo docker compose exec -T mongo sh -c \
+  'mongodump --username "$MONGO_INITDB_ROOT_USERNAME" \
+  --password "$MONGO_INITDB_ROOT_PASSWORD" \
+  --authenticationDatabase admin --db coursecraft --archive --gzip' \
+  > mongodb-backup.gz
+```
+
+Back up host-stored course media:
+
+```bash
+sudo tar -czf uploads-backup.tar.gz -C /data/coursecraft uploads
+ls -lh mongodb-backup.gz uploads-backup.tar.gz
+tar -tzf uploads-backup.tar.gz | head
+```
+
+If `mongodump` is absent, install/use compatible MongoDB Database Tools; do not claim the database has been backed up without a successful tool result. Schedule encrypted off-server backups and test a restore to an isolated environment. Never restore over production without a recovery plan.
+
+---
+
+## 15. Troubleshooting
+
+| Symptom | Check / action |
+|---|---|
+| `unknown shorthand flag: 'd'` | Use `sudo docker compose up -d --build`, not `docker compose -d --build` |
+| `secret coursecraft_env not found` | Define `app.build.secrets` and top-level `secrets.coursecraft_env` |
+| Compose YAML invalid | Spaces, consistent indentation, `sudo docker compose config -q` |
+| `MongoParseError: URI contained empty userinfo section` | Check `MONGO_USER` and `MONGO_PASSWORD` in `.env`; avoid `--env-file .env.production` with this setup |
+| MongoDB authentication fails | Existing DB credentials may differ from `.env`; changes to `.env` do not update existing users |
+| MongoDB unhealthy | Check `mongo` logs, keyfile ownership/permissions, healthcheck |
+| `NotYetInitialized` | Initialize `rs0` once only, then verify PRIMARY |
+| `AlreadyInitialized` | Already configured; do not initialize again |
+| `AdapterError: Topology is closed` | Check PRIMARY, DB connectivity, and app adapter/client lifecycle |
+| `Provided Tunnel token is not valid` | Use tunnel connector token, not Cloudflare DNS API token; recreate cloudflared |
+| `exec: "sh": executable file not found` for cloudflared | Normal for minimal image; inspect Docker logs instead |
+| Invalid service URL `nginx:80` | Use full URL; current direct route is `http://app:3000` |
+| Tunnel connects but website fails DNS | Check published application hostname and proxied Cloudflare tunnel DNS record |
+| Cloudflare `502` | Verify target `http://app:3000`, app service health, and shared Compose network |
+| `curl` fails on 443 | Confirm public DNS route and tunnel health; do not use origin Certbot on private IP |
+| OAuth `redirect_uri_mismatch` | Match exact public HTTPS redirect URI in provider console |
+| Auth redirects to old IP | Remove duplicate/old auth URL variables and recreate/rebuild app as needed |
+| Uploads `EACCES` | Check actual app UID, bind mount ownership, `MEDIA_LOCAL_DIRECTORY` |
+| Compass SSH timeout | Check VPN, SSH access, and localhost MongoDB port mapping |
+| Changes invisible after `git pull` | Run Compose app image rebuild |
+| No Compose file found | `cd /opt/coursecraft/next-course-craft` first |
+| Video upload larger than 100 MB | Cloudflare Free proxied requests have size limits; use chunked/direct object-storage upload design |
+
+---
+
+## 16. Optional future public-IP deployment with Nginx
+
+**Not required today.** Keep Cloudflare Tunnel until the new public-IP path is tested. Do not try to issue an HTTP-01 certificate until public DNS points to your public server and inbound TCP 80 is reachable.
+
+### 16.1 Add optional Nginx and Certbot services
+
+In `compose.yaml`, keep `app`, `mongo`, the MongoDB volume, and the build secret. Add these services **when ready**, while temporarily retaining the tunnel for a planned migration:
+
+```yaml
+  nginx:
+    image: nginx:stable-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - certbot_www:/var/www/certbot:ro
+      - certbot_certs:/etc/letsencrypt:ro
+    depends_on:
+      - app
+
+  certbot:
+    image: certbot/certbot:latest
+    profiles: [tools]
+    volumes:
+      - certbot_www:/var/www/certbot
+      - certbot_certs:/etc/letsencrypt
+```
+
+Also add `certbot_www:` and `certbot_certs:` under your **existing top-level** `volumes:` block without removing `mongodb_data:`:
+
+```yaml
+volumes:
+  mongodb_data:
+  certbot_www:
+  certbot_certs:
+```
+
+### 16.2 Start with HTTP-only Nginx
+
+```bash
+mkdir -p nginx/conf.d
+nano nginx/conf.d/coursecraft.conf
+```
+
+```nginx
+server {
+    listen 80;
+    server_name coursecraft.sothearak.online;
+    client_max_body_size 500M;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+        try_files $uri =404;
+    }
+
+    location / {
+        proxy_pass http://app:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 300s;
+    }
+}
+```
+
+```bash
+sudo docker compose config -q
+sudo docker compose up -d nginx
+sudo docker compose exec nginx nginx -t
+curl -I -H 'Host: coursecraft.sothearak.online' http://127.0.0.1
+```
+
+The app may return its expected login redirect. Nginx must remain HTTP-only until an actual certificate exists.
+
+### 16.3 DNS and certificate
+
+Once a public IP is assigned, create a Cloudflare `A` record for `coursecraft` pointing to it, **replacing the conflicting tunnel hostname DNS route at cutover**. Choose **DNS only** while using the HTTP-01 challenge. Open inbound TCP 80/443 on both the provider firewall and the host firewall.
+
+You can avoid downtime by issuing via **DNS-01** before the hostname cutover, but that requires Certbot's DNS plugin and a separately scoped Cloudflare DNS API token. The following simple HTTP-01 commands are for after public DNS and port 80 are working:
+
+```bash
+sudo docker compose --profile tools run --rm certbot \
+  certonly --webroot -w /var/www/certbot \
+  -d coursecraft.sothearak.online \
+  --email YOUR_EMAIL@example.com --agree-tos --no-eff-email
+```
+
+Verify Certbot reports the real certificate files before enabling HTTPS.
+
+### 16.4 Switch Nginx to HTTPS **after** issuance
+
+```nginx
+server {
+    listen 80;
+    server_name coursecraft.sothearak.online;
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+        try_files $uri =404;
+    }
+    location / { return 301 https://$host$request_uri; }
+}
+
+server {
+    listen 443 ssl;
+    server_name coursecraft.sothearak.online;
+    ssl_certificate /etc/letsencrypt/live/coursecraft.sothearak.online/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/coursecraft.sothearak.online/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    client_max_body_size 500M;
+
+    location / {
+        proxy_pass http://app:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+    }
+}
+```
+
+```bash
+sudo docker compose exec nginx nginx -t
+sudo docker compose exec nginx nginx -s reload
+curl -I https://coursecraft.sothearak.online
+```
+
+If using Cloudflare's orange-cloud proxy on the public-IP route, set **SSL/TLS → Full (strict)** and confirm the origin certificate is valid. Cloudflare request-size limits can still apply when proxied.
+
+### 16.5 Automatic renewal for Nginx deployment
+
+Create `/opt/coursecraft/renew-ssl.sh`:
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+cd /opt/coursecraft/next-course-craft
+sudo docker compose --profile tools run --rm certbot renew
+sudo docker compose exec -T nginx nginx -s reload
+```
+
+When run from root's cron, remove the two `sudo` prefixes if desired. Configure:
+
+```bash
+sudo chmod 700 /opt/coursecraft/renew-ssl.sh
+sudo crontab -e
+```
+
+```cron
+0 3 * * * /opt/coursecraft/renew-ssl.sh >> /var/log/coursecraft-ssl.log 2>&1
+```
+
+Test renewals with Certbot's dry-run mode and verify Nginx reloads before relying on automation.
+
+### 16.6 Safely retire the tunnel after cutover
+
+1. Verify the Nginx HTTPS endpoint independently of the old tunnel (using a host override or temporary test hostname if necessary).
+2. Migrate the domain's DNS record to the public-IP path.
+3. Check HTTPS, authentication, uploads, and API operations from outside the VPS.
+4. **Only then** stop and remove `cloudflared` from Compose.
+5. Keep MongoDB and uploads volumes unchanged.
+
+---
+
+## 17. Production checklist
+
+- [ ] `mongo` healthy, `rs0` PRIMARY, and application can authenticate.
+- [ ] Existing data volume kept; no `down -v` used.
+- [ ] Persistent local uploads mount exists and is writable.
+- [ ] `cloudflared` has registered connections (private-IP mode).
+- [ ] Cloudflare published application URL is `http://app:3000`.
+- [ ] Public `https://coursecraft.sothearak.online` responds successfully.
+- [ ] OAuth redirect URIs use the same public HTTPS domain.
+- [ ] No passwords, API tokens, or keyfiles tracked by Git.
+- [ ] Previously exposed credentials are rotated.
+- [ ] MongoDB and uploads backed up separately and **off-server**.
+- [ ] A restore rehearsal has been completed.
+- [ ] Upload-size needs and Cloudflare limits are accounted for.
+- [ ] Performance checked with local and public timings.
+- [ ] Optional public-IP/Nginx procedure is used only once the VPS has a real public route.
+
+---
+
+**Maintainer note:** This Markdown adapts the uploaded 18-page private-server handbook to the *current* Cloudflare Tunnel deployment. It preserves the useful Next.js/Vite build, Docker/MongoDB replica set, environment, local-storage, operations, backup and SSH/Compass steps; removes the old Caddy and `.env.caddy` workflow; and keeps a distinct optional Nginx path for a future public-IP VPS. Commands remain templates—verify your actual source code, credentials, provider settings, and live production state before applying changes.

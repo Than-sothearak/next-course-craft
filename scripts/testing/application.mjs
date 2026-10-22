@@ -16,7 +16,7 @@ export function runNode(args, env = process.env) {
   });
 }
 
-export async function withTestApplication(work, { authors = 2, build = true } = {}) {
+export async function withTestApplication(work, { authors = 2, build = true, exposeTestingApi = false } = {}) {
   return withTestMongoDB(async (uri) => {
     const database = `coursecraft_verification_${randomUUID().replaceAll("-", "")}`;
     const databaseUrl = new URL(uri);
@@ -31,7 +31,7 @@ export async function withTestApplication(work, { authors = 2, build = true } = 
       const socket = createServer(); socket.listen(0, "127.0.0.1"); await once(socket, "listening");
       const port = socket.address().port; await new Promise((done) => socket.close(done));
       const origin = `http://127.0.0.1:${port}`;
-      const env = { ...process.env, NODE_ENV: "production", MONGODB_URI: databaseUrl.toString(), AUTH_URL: origin, AUTH_SECRET: randomBytes(32).toString("hex"),
+      const env = { ...process.env, NODE_ENV: "production", EXPOSE_TESTING_API: exposeTestingApi ? "1" : "0", MONGODB_URI: databaseUrl.toString(), AUTH_URL: origin, AUTH_SECRET: randomBytes(32).toString("hex"),
         AUTH_GOOGLE_ID: "synthetic-google-client", AUTH_GOOGLE_SECRET: "synthetic-google-secret", AUTH_GITHUB_ID: "synthetic-github-client", AUTH_GITHUB_SECRET: "synthetic-github-secret",
         OPENAI_API_KEY: "", AWS_ACCESS_KEY_ID: "", AWS_SECRET_ACCESS_KEY: "", AWS_SESSION_TOKEN: "", AWS_S3_BUCKET: "", NEXT_TELEMETRY_DISABLED: "1" };
       const next = resolve("node_modules/next/dist/bin/next");

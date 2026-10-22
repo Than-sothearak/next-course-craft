@@ -1,14 +1,16 @@
 import { Types, type ClientSession } from "mongoose";
 import { connection } from "next/server";
+import { cookies } from "next/headers";
 import { connectToDatabase } from "@/lib/db/mongodb";
 import { User, RolePermission, PlatformSettings } from "@/models";
 import { DashboardError } from "@/lib/dashboard/rules";
 import { accountStatuses, platformRoles, effectivePermissions, can, type Permission, type PlatformRole, type AccountStatus, type Principal } from "./policy";
 
-export async function requireAuthenticatedUser() {
-  // Auth.js creates cryptographic values while resolving a session. Keep that
-  // work outside Cache Components / partial-prefetch prerenders.
-  await connection();
+export async function requireAuthenticatedUser(options?: { allowPrefetch?: boolean }) {
+  // Defer Auth.js cryptography until request data is available. Private cache
+  // scopes allow cookies(), but prohibit the ordinary connection() gate.
+  if (options?.allowPrefetch) await cookies();
+  else await connection();
   const { auth } = await import("@/lib/auth");
   const session = await auth();
   if (!session?.user?.id || !Types.ObjectId.isValid(session.user.id)) {

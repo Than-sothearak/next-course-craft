@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { AdminPrefetchLink } from "@/app/admin/_components/shared/admin-prefetch-link";
 import { useEffect, useState } from "react";
 import { Cloud, HardDrive, LoaderCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -77,7 +77,7 @@ export function MediaStorageManagement() {
   }
 
   return <div className="max-w-4xl space-y-6">
-    <div><Link href="/admin/settings" className="text-sm text-indigo-700 hover:underline">Settings</Link><h1 className="mt-3 text-3xl font-semibold tracking-tight">Media Storage</h1><p className="mt-2 text-sm leading-6 text-slate-500">Super Admin controls storage for new uploads. Existing media stays in its original location.</p></div>
+    <div><AdminPrefetchLink href="/admin/settings" className="text-sm text-indigo-700 hover:underline">Settings</AdminPrefetchLink><h1 className="mt-3 text-3xl font-semibold tracking-tight">Media Storage</h1><p className="mt-2 text-sm leading-6 text-slate-500">Super Admin controls storage for new uploads. Existing media stays in its original location.</p></div>
     <Notice notice={notice} />
     <Notice notice={resource.error ? { error: true, message: resource.error } : null} />
     {resource.error && <Button variant="outline" onClick={resource.reload}>Reload settings</Button>}

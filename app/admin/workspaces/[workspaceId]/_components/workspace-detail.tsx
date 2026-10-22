@@ -1,5 +1,6 @@
 "use client";
 
+import { AdminPrefetchLink } from "@/app/admin/_components/shared/admin-prefetch-link";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -19,7 +20,7 @@ export function WorkspaceDetail({ workspaceId }: { workspaceId: string }) {
   const [selected, setSelected] = useState<WorkspaceAction | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   if (resource.loading) return <AdminLoading />;
-  const back = <Link href="/admin/workspaces" className="text-sm font-medium text-indigo-700 hover:underline">← All workspaces</Link>;
+  const back = <AdminPrefetchLink href="/admin/workspaces" className="text-sm font-medium text-indigo-700 hover:underline">← All workspaces</AdminPrefetchLink>;
   if (!resource.data) return <div className="space-y-6">{back}<Notice notice={{ error: true, message: resource.error ?? "Workspace is unavailable." }} /><Button variant="outline" onClick={resource.reload}>Retry</Button></div>;
   const { workspace, members, invitations, invitationCount, courses } = resource.data;
 
@@ -42,16 +43,16 @@ export function WorkspaceDetail({ workspaceId }: { workspaceId: string }) {
     </div>
     <Notice notice={message ? { error: false, message } : null} />
     <Card className="p-6"><dl className="grid gap-5 text-sm sm:grid-cols-2 xl:grid-cols-3">
-      <div><dt className="text-slate-500">Owner</dt><dd className="mt-1 break-words font-medium"><Link href={`/admin/users/${workspace.ownerId}`} className="text-indigo-700 hover:underline">{workspace.ownerName}</Link><p className="mt-1 text-xs font-normal text-slate-500">{workspace.ownerEmail ?? workspace.ownerId}</p></dd></div>
+      <div><dt className="text-slate-500">Owner</dt><dd className="mt-1 break-words font-medium"><AdminPrefetchLink href={`/admin/users/${workspace.ownerId}`} className="text-indigo-700 hover:underline">{workspace.ownerName}</AdminPrefetchLink><p className="mt-1 text-xs font-normal text-slate-500">{workspace.ownerEmail ?? workspace.ownerId}</p></dd></div>
       <div><dt className="text-slate-500">Workspace ID</dt><dd className="mt-1 break-all font-mono text-xs">{workspace.id}</dd></div>
       <div><dt className="text-slate-500">Contents</dt><dd className="mt-1">{workspace.courseCount} courses · {workspace.folderCount} folders</dd></div>
       <div><dt className="text-slate-500">Created</dt><dd className="mt-1">{dateLabel(workspace.createdAt)}</dd></div>
       <div><dt className="text-slate-500">Updated</dt><dd className="mt-1">{dateLabel(workspace.updatedAt)}</dd></div>
     </dl></Card>
     <Card className="overflow-hidden"><div className="p-5"><h2 className="text-lg font-semibold">Members ({workspace.memberCount})</h2>{members.length < workspace.memberCount && <p className="mt-1 text-sm text-slate-500">Showing the first {members.length} members.</p>}</div>
-      <Table><TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Email</TableHead><TableHead>Workspace role</TableHead></TableRow></TableHeader><TableBody>{members.map((member) => <TableRow key={member.userId}><TableCell><Link href={`/admin/users/${member.userId}`} className="font-medium text-indigo-700 hover:underline">{member.name}</Link></TableCell><TableCell>{member.email ?? "No email"}</TableCell><TableCell><StatusBadge status={member.role} /></TableCell></TableRow>)}</TableBody></Table>
+      <Table><TableHeader><TableRow><TableHead>Name</TableHead><TableHead>Email</TableHead><TableHead>Workspace role</TableHead></TableRow></TableHeader><TableBody>{members.map((member) => <TableRow key={member.userId}><TableCell><AdminPrefetchLink href={`/admin/users/${member.userId}`} className="font-medium text-indigo-700 hover:underline">{member.name}</AdminPrefetchLink></TableCell><TableCell>{member.email ?? "No email"}</TableCell><TableCell><StatusBadge status={member.role} /></TableCell></TableRow>)}</TableBody></Table>
     </Card>
-    <Card className="overflow-hidden"><div className="flex flex-wrap items-center justify-between gap-3 p-5"><div><h2 className="text-lg font-semibold">Courses ({workspace.courseCount})</h2><p className="mt-1 text-sm text-slate-500">Includes recently deleted courses.{courses.length < workspace.courseCount && ` Showing the ${courses.length} most recently updated.`}</p></div><Link href={`/admin/courses?workspaceId=${workspace.id}`} className={buttonVariants({ size: "sm", variant: "outline" })}>View all courses</Link></div>
+    <Card className="overflow-hidden"><div className="flex flex-wrap items-center justify-between gap-3 p-5"><div><h2 className="text-lg font-semibold">Courses ({workspace.courseCount})</h2><p className="mt-1 text-sm text-slate-500">Includes recently deleted courses.{courses.length < workspace.courseCount && ` Showing the ${courses.length} most recently updated.`}</p></div><AdminPrefetchLink href={`/admin/courses?workspaceId=${workspace.id}`} className={buttonVariants({ size: "sm", variant: "outline" })}>View all courses</AdminPrefetchLink></div>
       <Table><TableHeader><TableRow><TableHead>Course</TableHead><TableHead>Status</TableHead><TableHead>Updated</TableHead></TableRow></TableHeader><TableBody>{courses.map((course) => <TableRow key={course.id}><TableCell>{course.deletedAt ? course.title : <Link href={`/courses/${course.id}/preview`} className="font-medium text-indigo-700 hover:underline">{course.title}</Link>}</TableCell><TableCell><StatusBadge status={course.deletedAt ? "deleted" : course.status} /></TableCell><TableCell className="text-xs text-slate-500">{dateLabel(course.updatedAt)}</TableCell></TableRow>)}</TableBody></Table>
       {!courses.length && <p className="p-6 text-sm text-slate-500">This workspace has no courses.</p>}
     </Card>

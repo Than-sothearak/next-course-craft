@@ -52,7 +52,12 @@ describe("course preview loading boundary", () => {
 
     expect(page.type).toBe(Suspense);
     expect(mocks.auth).not.toHaveBeenCalled();
-    expect(renderToStaticMarkup(page.props.fallback)).toContain('aria-label="Loading course preview"');
+    const fallbackMarkup = renderToStaticMarkup(page.props.fallback);
+    expect(fallbackMarkup).toContain('aria-label="Loading course preview"');
+    expect(fallbackMarkup).toContain('data-preview-viewport');
+    expect(fallbackMarkup).toContain('data-preview-frame="desktop"');
+    expect(fallbackMarkup).toContain('data-preview-screen');
+    expect(fallbackMarkup).toContain('aria-label="Loading course outline"');
 
     const loadCourse = page.props.children.type as (input: CoursePreviewPageProps) => Promise<ReactElement>;
     const content = await loadCourse(page.props.children.props);

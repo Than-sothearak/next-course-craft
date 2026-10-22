@@ -2,7 +2,6 @@
 
 import { useState, type FormEvent } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import type { AdminCourse, PageResult } from "@/lib/admin/types";
 import type { Permission } from "@/lib/auth/policy";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -15,9 +14,8 @@ import { dateLabel, Notice, Pagination, StatusBadge } from "@/app/admin/_compone
 import { useAdminMutation, useAdminResource } from "@/app/admin/_components/shared/use-admin-resource";
 import { CourseMutationDialog } from "./_components/course-mutation-dialog";
 
-export function CourseManagement({ permissions }: { permissions: Permission[] }) {
-  const search = useSearchParams();
-  const [filters, setFilters] = useState({ page: 1, q: "", ownerId: search.get("ownerId") ?? "", workspaceId: search.get("workspaceId") ?? "", courseStatus: "" });
+export function CourseManagement({ permissions, initialOwnerId = "", initialWorkspaceId = "" }: { permissions: Permission[]; initialOwnerId?: string; initialWorkspaceId?: string }) {
+  const [filters, setFilters] = useState({ page: 1, q: "", ownerId: initialOwnerId, workspaceId: initialWorkspaceId, courseStatus: "" });
   const [selected, setSelected] = useState<AdminCourse | null>(null);
   const resource = useAdminResource<PageResult<AdminCourse>>(`/api/admin/courses?${new URLSearchParams({ ...filters, page: String(filters.page) })}`);
   const mutation = useAdminMutation(resource.reload);
