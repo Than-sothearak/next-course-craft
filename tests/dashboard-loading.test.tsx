@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { act } from "react";
+import { act, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import DashboardClient from "@/app/dashboard/dashboard-client";
@@ -8,10 +8,34 @@ import { DashboardProvider } from "@/app/dashboard/_components/dashboard-provide
 import { DashboardNavigationClient } from "@/app/dashboard/_components/dashboard-navigation-client";
 import { roleCeilings } from "@/lib/auth/policy";
 import type { DashboardData, DashboardFilters } from "@/lib/dashboard/types";
+import { dashboardQueryKey } from "@/lib/dashboard/query";
 
 const router = vi.hoisted(() => ({ push: vi.fn() }));
+const linkNavigation = vi.hoisted(() => ({ navigate: vi.fn<() => Promise<void>>() }));
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
 vi.mock("@/app/dashboard/actions", () => ({ signOutAction: vi.fn() }));
+vi.mock("next/link", async (importOriginal) => {
+  const { default: Link, ...actual } = await importOriginal<typeof import("next/link")>();
+  const { createContext, useContext, useState } = await import("react");
+  const LinkStatus = createContext({ pending: false });
+
+  return {
+    ...actual,
+    useLinkStatus: () => useContext(LinkStatus),
+    default: function TestLink({ children, ...props }: ComponentProps<typeof Link>) {
+      const [pending, setPending] = useState(false);
+      return <Link {...props} onClick={(event) => {
+        props.onClick?.(event);
+        if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        setPending(true);
+        void linkNavigation.navigate().then(() => setPending(false), () => setPending(false));
+      }}>
+        <LinkStatus.Provider value={{ pending }}>{children}</LinkStatus.Provider>
+      </Link>;
+    },
+  };
+});
 
 const filters: DashboardFilters = { workspaceId: null, folderId: null, q: "", status: "all", sort: "updated" };
 const data: DashboardData = {
@@ -22,6 +46,10 @@ const data: DashboardData = {
   folderTree: [{ id: "folder-1", name: "Training", courseCount: 1, children: [] }],
   courses: [{ id: "course-1", title: "Sample course", description: "A course", coverImage: null, folderId: null, status: "draft", revision: 1, updatedAt: "2026-10-14T00:00:00.000Z", lessonCount: 2, accessRole: "owner", permissions: [...roleCeilings.editor] }],
   workspaces: [], workspaceId: null, workspaceName: "Personal", workspaceRole: "owner", permissions: [...roleCeilings.editor],
+};
+const cardFolder = {
+  id: "folder-2", name: "Card folder", parentId: "folder-0", courseCount: 2, subfolderCount: 0,
+  createdAt: "2026-10-14T00:00:00.000Z", updatedAt: "2026-10-14T00:00:00.000Z",
 };
 
 function response(body: DashboardData) {
@@ -36,6 +64,7 @@ describe("dashboard loading and shared controls", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
+    linkNavigation.navigate.mockReset().mockResolvedValue(undefined);
     Object.defineProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT", { configurable: true, value: true });
     fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
@@ -53,7 +82,7 @@ describe("dashboard loading and shared controls", () => {
   });
 
   function render(initialFilters = filters, initialData = data) {
-    act(() => root.render(<DashboardProvider initialFilters={initialFilters}>
+    act(() => root.render(<DashboardProvider key={dashboardQueryKey(initialFilters)} initialFilters={initialFilters}>
       <DashboardNavigationClient initialNavigation={initialData} initialError={null} />
       <DashboardClient initialData={initialData} initialError={null} userName="Test Author" />
     </DashboardProvider>));
@@ -200,10 +229,144 @@ describe("dashboard loading and shared controls", () => {
     expect(container.querySelector('[role="dialog"]')).toBeNull();
   });
 
-  it("preserves search and filters when navigating to another folder", () => {
-    render({ ...filters, q: "alpha", status: "published", sort: "title" });
-    act(() => container.querySelector<HTMLButtonElement>('button[title="Training"]')!.click());
-    expect(router.push).toHaveBeenCalledWith("/dashboard?folderId=folder-1&q=alpha&status=published&sort=title");
+  it.each([null, "workspace-1"])("preserves search, filters, and workspace %s in folder links", (workspaceId) => {
+    render({ ...filters, workspaceId, q: "alpha & beta", status: "published", sort: "title" }, workspaceId ? teamData() : data);
+    const link = container.querySelector<HTMLAnchorElement>('a[title="Training"]')!;
+    expect(link).not.toBeNull();
+    expect(link.getAttribute("href")).toBe(`/dashboard?${workspaceId ? `workspaceId=${workspaceId}&` : ""}folderId=folder-1&q=alpha+%26+beta&status=published&sort=title`);
+    expect(link.hasAttribute("aria-current")).toBe(false);
+    expect(router.push).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { view: "grid", workspaceId: null },
+    { view: "list", workspaceId: null },
+    { view: "grid", workspaceId: "workspace-1" },
+    { view: "list", workspaceId: "workspace-1" },
+  ])("uses folder card links in $view view for workspace $workspaceId", ({ view, workspaceId }) => {
+    render({ ...filters, workspaceId, folderId: "folder-0", q: "alpha & beta", status: "published", sort: "title" }, {
+      ...(workspaceId ? teamData() : data), folders: [cardFolder],
+    });
+    if (view === "list") act(() => container.querySelector<HTMLButtonElement>('button[aria-label="List view"]')!.click());
+    const section = container.querySelector<HTMLElement>('section[aria-labelledby="folders-title"]')!;
+    const link = section.querySelector<HTMLAnchorElement>("article a")!;
+    expect(link.textContent).toContain("Card folder");
+    expect(link.getAttribute("href")).toBe(`/dashboard?${workspaceId ? `workspaceId=${workspaceId}&` : ""}folderId=folder-2&q=alpha+%26+beta&status=published&sort=title`);
+    expect(link.querySelector("button, details, form")).toBeNull();
+    expect(section.querySelector('summary[aria-label="Manage Card folder"]')).not.toBeNull();
+    expect(linkNavigation.navigate).not.toHaveBeenCalled();
+    expect(router.push).not.toHaveBeenCalled();
+  });
+
+  it.each(["grid", "list"])("keeps skeletons visible during folder card navigation in %s view", async (view) => {
+    let finishNavigation!: () => void;
+    linkNavigation.navigate.mockImplementationOnce(() => new Promise<void>((resolve) => { finishNavigation = resolve; }));
+    render(filters, { ...data, folders: [cardFolder] });
+    if (view === "list") act(() => container.querySelector<HTMLButtonElement>('button[aria-label="List view"]')!.click());
+    const section = container.querySelector<HTMLElement>('section[aria-labelledby="folders-title"]')!;
+    const link = section.querySelector<HTMLAnchorElement>("article a")!;
+    act(() => link.click());
+
+    expect(container.querySelector('[aria-label="Loading courses"]')).not.toBeNull();
+    expect(container.querySelector('[aria-label="Loading folders"]')).not.toBeNull();
+    expect(section.hidden).toBe(true);
+    expect(link.isConnected).toBe(true);
+    expect(container.textContent).not.toContain("Sample course");
+    expect(linkNavigation.navigate).toHaveBeenCalledTimes(1);
+    expect(router.push).not.toHaveBeenCalled();
+
+    await act(async () => { finishNavigation(); });
+    render({ ...filters, folderId: cardFolder.id }, { ...data, courses: [{ ...data.courses[0], title: "Folder course" }] });
+    expect(container.querySelector('[aria-label="Loading courses"]')).toBeNull();
+    expect(container.querySelector('[aria-label="Loading folders"]')).toBeNull();
+    expect(container.textContent).toContain("Folder course");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("restores folder cards when link navigation fails", async () => {
+    let failNavigation!: (error: Error) => void;
+    linkNavigation.navigate.mockImplementationOnce(() => new Promise<void>((_, reject) => { failNavigation = reject; }));
+    render(filters, { ...data, folders: [cardFolder] });
+    const section = container.querySelector<HTMLElement>('section[aria-labelledby="folders-title"]')!;
+    const link = section.querySelector<HTMLAnchorElement>("article a")!;
+    act(() => link.click());
+    expect(section.hidden).toBe(true);
+    await act(async () => { failNavigation(new Error("Navigation failed")); });
+    expect(container.querySelector('[aria-label="Loading folders"]')).toBeNull();
+    expect(section.hidden).toBe(false);
+    expect(link.isConnected).toBe(true);
+    expect(container.textContent).toContain("Sample course");
+  });
+
+  it("links All courses to the workspace root while preserving search and filters", () => {
+    render({ ...filters, workspaceId: "workspace-1", folderId: "folder-1", q: "alpha", status: "published", sort: "title" }, teamData());
+    const link = [...container.querySelectorAll<HTMLAnchorElement>("aside a")].find((element) => element.textContent?.includes("All courses"))!;
+    expect(link.getAttribute("href")).toBe("/dashboard?workspaceId=workspace-1&q=alpha&status=published&sort=title");
+    expect(link.hasAttribute("aria-current")).toBe(false);
+    expect(container.querySelector('a[title="Training"]')?.getAttribute("aria-current")).toBe("page");
+  });
+
+  it("keeps nested folder expansion on buttons and renders children as links", () => {
+    const initialData = {
+      ...teamData(),
+      folderTree: [{ ...data.folderTree[0], children: [{ id: "folder-2", name: "Nested", courseCount: 0, children: [] }] }],
+    };
+    render({ ...filters, workspaceId: "workspace-1", folderId: "folder-2", q: "alpha" }, initialData);
+    expect(container.querySelector('a[title="Nested"]')?.getAttribute("href")).toBe("/dashboard?workspaceId=workspace-1&folderId=folder-2&q=alpha");
+    expect(container.querySelector('a[title="Nested"]')?.getAttribute("aria-current")).toBe("page");
+    act(() => container.querySelector<HTMLButtonElement>('button[aria-label="Collapse Training"]')!.click());
+    expect(container.querySelector('a[title="Nested"]')).toBeNull();
+    expect(container.querySelector('a[title="Training"]')).not.toBeNull();
+    act(() => container.querySelector<HTMLButtonElement>('button[aria-label="Expand Training"]')!.click());
+    expect(container.querySelector('a[title="Nested"]')).not.toBeNull();
+    expect(router.push).not.toHaveBeenCalled();
+  });
+
+  it.each(["folder-1", null])("shows skeletons while navigating through a link to folder %s", async (folderId) => {
+    let finishNavigation!: () => void;
+    linkNavigation.navigate.mockImplementationOnce(() => new Promise<void>((resolve) => { finishNavigation = resolve; }));
+    const initialFilters = { ...filters, workspaceId: "workspace-1", folderId: "folder-0" };
+    render(initialFilters, teamData());
+    const link = folderId
+      ? container.querySelector<HTMLAnchorElement>('a[title="Training"]')!
+      : [...container.querySelectorAll<HTMLAnchorElement>("aside a")].find((element) => element.textContent?.includes("All courses"))!;
+
+    act(() => link.click());
+    expect(container.querySelector('[aria-label="Loading courses"]')).not.toBeNull();
+    expect(container.querySelector('[aria-label="Loading folders"]')).not.toBeNull();
+    expect(container.textContent).not.toContain("Sample course");
+    expect(container.querySelector<HTMLButtonElement>('button[aria-label="Create folder"]')?.disabled).toBe(true);
+
+    await act(async () => { finishNavigation(); });
+    render({ ...initialFilters, folderId }, { ...teamData(), courses: [{ ...data.courses[0], title: "Destination course" }] });
+    expect(container.querySelector('[aria-label="Loading courses"]')).toBeNull();
+    expect(container.querySelector('[aria-label="Loading folders"]')).toBeNull();
+    expect(container.textContent).toContain("Destination course");
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(router.push).not.toHaveBeenCalled();
+  });
+
+  it("keeps skeletons visible when another folder link is still pending", async () => {
+    const completions: Array<() => void> = [];
+    linkNavigation.navigate.mockImplementation(() => new Promise<void>((resolve) => { completions.push(resolve); }));
+    render(filters, { ...data, folderTree: [...data.folderTree, { id: "folder-2", name: "Second folder", courseCount: 0, children: [] }] });
+    act(() => container.querySelector<HTMLAnchorElement>('a[title="Training"]')!.click());
+    act(() => container.querySelector<HTMLAnchorElement>('a[title="Second folder"]')!.click());
+    await act(async () => { completions[0](); });
+    expect(container.querySelector('[aria-label="Loading courses"]')).not.toBeNull();
+    await act(async () => { completions[1](); });
+    expect(container.querySelector('[aria-label="Loading courses"]')).toBeNull();
+  });
+
+  it("clears skeletons when link navigation fails", async () => {
+    let failNavigation!: (error: Error) => void;
+    linkNavigation.navigate.mockImplementationOnce(() => new Promise<void>((_, reject) => { failNavigation = reject; }));
+    render();
+    act(() => container.querySelector<HTMLAnchorElement>('a[title="Training"]')!.click());
+    expect(container.querySelector('[aria-label="Loading courses"]')).not.toBeNull();
+    await act(async () => { failNavigation(new Error("Navigation failed")); });
+    expect(container.querySelector('[aria-label="Loading courses"]')).toBeNull();
+    expect(container.textContent).toContain("Sample course");
   });
 
   it("ends skeleton loading on failure and lets the user retry", async () => {

@@ -1,27 +1,27 @@
 ﻿"use client";
 import { ChevronDown, ChevronRight, Folder } from "lucide-react";
-import type { FolderTreeNode } from "@/lib/dashboard/types";
+import type { DashboardFilters, FolderTreeNode } from "@/lib/dashboard/types";
+import { dashboardHref } from "@/lib/dashboard/query";
 import { Button } from "@/components/ui/button";
+import { DashboardLink } from "../../dashboard-link";
 
 export function FolderTreeNavigation({
   nodes,
-  currentFolderId,
+  filters,
   expanded,
   onToggle,
-  onOpen,
 }: {
   nodes: FolderTreeNode[];
-  currentFolderId: string | null;
+  filters: DashboardFilters;
   expanded: Set<string>;
   onToggle: (id: string) => void;
-  onOpen: (id: string) => void;
 }) {
   return (
     <ul className="space-y-0.5" role="tree" aria-label="Folders">
       {nodes.map((node) => {
         const hasChildren = node.children.length > 0;
         const isExpanded = expanded.has(node.id);
-        const selected = currentFolderId === node.id;
+        const selected = filters.folderId === node.id;
         return (
           <li key={node.id} role="none">
             <div
@@ -48,9 +48,9 @@ export function FolderTreeNavigation({
               ) : (
                 <span className="size-7 shrink-0" aria-hidden="true" />
               )}
-              <button
-                type="button"
-                onClick={() => onOpen(node.id)}
+              <DashboardLink
+                href={dashboardHref({ ...filters, folderId: node.id })}
+                aria-current={selected ? "page" : undefined}
                 title={node.name}
                 className="cursor-pointer flex h-9 min-w-0 flex-1 items-center gap-2 rounded-md text-left text-[13px] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-indigo-600"
               >
@@ -65,16 +65,15 @@ export function FolderTreeNavigation({
                 >
                   {node.courseCount}
                 </span>
-              </button>
+              </DashboardLink>
             </div>
             {hasChildren && isExpanded && (
               <div className="ml-[13px] border-l border-slate-200 pl-1.5">
                 <FolderTreeNavigation
                   nodes={node.children}
-                  currentFolderId={currentFolderId}
+                  filters={filters}
                   expanded={expanded}
                   onToggle={onToggle}
-                  onOpen={onOpen}
                 />
               </div>
             )}

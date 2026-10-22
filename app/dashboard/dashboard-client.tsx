@@ -11,7 +11,7 @@ import {
   Plus,
 } from "lucide-react";
 import type { DashboardData } from "@/lib/dashboard/types";
-import { dashboardQueryKey } from "@/lib/dashboard/query";
+import { dashboardHref, dashboardQueryKey } from "@/lib/dashboard/query";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { DashboardDialogs } from "./_components/(dashboard_client_components)/dashboard-dialogs";
@@ -459,7 +459,7 @@ export default function DashboardClient({
         </div>
       </div>
 
-      {loading ? (
+      {loading && (
         <>
           <p role="status" className="sr-only">
             Loading your folders and courses…
@@ -467,45 +467,47 @@ export default function DashboardClient({
           <DashboardFoldersSkeleton view={folderView} />
           <DashboardCoursesSkeleton />
         </>
-      ) : (
-        !unavailable && (
-          <>
-            {data.folders.length > 0 && (
-              <section className="mt-5" aria-labelledby="folders-title">
-                <div className="mb-3 flex items-center justify-between">
-                  <h2
-                    id="folders-title"
-                    className="text-sm font-semibold text-slate-700"
-                  >
-                    Folders
-                  </h2>
-                  <span className="text-xs text-slate-400">
-                    {data.folders.length} shown
-                  </span>
-                </div>
-                <div
-                  className={
-                    folderView === "grid"
-                      ? "grid gap-3 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
-                      : "grid gap-2"
-                  }
+      )}
+      {!unavailable && (
+        <>
+          {/* Keep folder links mounted while their pending state drives the skeletons. */}
+          {data.folders.length > 0 && (
+            <section hidden={loading} className="mt-5" aria-labelledby="folders-title">
+              <div className="mb-3 flex items-center justify-between">
+                <h2
+                  id="folders-title"
+                  className="text-sm font-semibold text-slate-700"
                 >
-                  {data.folders.map((folder) => (
-                    <FolderCard
-                      key={folder.id}
-                      folder={folder}
-                      data={data}
-                      disabled={disabled || readOnly}
-                      busy={busy}
-                      onOpen={() => navigateToFolder(folder.id)}
-                      onSubmit={submit}
-                      onRequest={request}
-                    />
-                  ))}
-                </div>
-              </section>
-            )}
+                  Folders
+                </h2>
+                <span className="text-xs text-slate-400">
+                  {data.folders.length} shown
+                </span>
+              </div>
+              <div
+                className={
+                  folderView === "grid"
+                    ? "grid gap-3 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
+                    : "grid gap-2"
+                }
+              >
+                {data.folders.map((folder) => (
+                  <FolderCard
+                    key={folder.id}
+                    folder={folder}
+                    data={data}
+                    disabled={disabled || readOnly}
+                    busy={busy}
+                    href={dashboardHref({ ...filters, folderId: folder.id })}
+                    onSubmit={submit}
+                    onRequest={request}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
 
+          {!loading && (
             <section className="mt-8" aria-labelledby="courses-title">
               <div className="mb-3 flex items-center justify-between">
                 <h2
@@ -542,8 +544,8 @@ export default function DashboardClient({
                 />
               )}
             </section>
-          </>
-        )
+          )}
+        </>
       )}
     </section>
   );

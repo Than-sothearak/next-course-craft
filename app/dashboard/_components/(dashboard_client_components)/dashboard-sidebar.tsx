@@ -1,8 +1,11 @@
 "use client";
 import { BookOpen, FolderPlus, Sparkles, Users, Plus } from "lucide-react";
-import type { DashboardData } from "@/lib/dashboard/types";
-import { Button } from "@/components/ui/button";
+import type { DashboardData, DashboardFilters } from "@/lib/dashboard/types";
+import { dashboardHref } from "@/lib/dashboard/query";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
+import { DashboardLink } from "../dashboard-link";
 import { FolderTreeNavigation } from "./(dashboard_sidebar_components)/folder-tree-navigation";
 
 type SidebarProps = {
@@ -16,11 +19,10 @@ type SidebarProps = {
     | "permissions"
   >;
   error?: string | null;
-  currentFolderId: string | null;
+  filters: DashboardFilters;
   expandedFolders: Set<string>;
   disabled: boolean;
   onToggleFolder: (id: string) => void;
-  onOpenFolder: (id: string | null) => void;
   onNewFolder: () => void;
   onNewCourse: () => void;
   onWorkspaceChange: (workspaceId: string | null) => void;
@@ -31,11 +33,10 @@ type SidebarProps = {
 export function DashboardSidebar({
   data,
   error,
-  currentFolderId,
+  filters,
   expandedFolders,
   disabled,
   onToggleFolder,
-  onOpenFolder,
   onNewFolder,
   onNewCourse,
   onWorkspaceChange,
@@ -100,13 +101,16 @@ export function DashboardSidebar({
               <Users size={15} aria-hidden="true" /> Manage team
             </Button>
           )}
-        <Button
-          variant={currentFolderId === null ? "secondary" : "ghost"}
-          onClick={() => onOpenFolder(null)}
-          className="mt-3 w-full justify-start rounded-lg px-3 text-left"
+        <DashboardLink
+          href={dashboardHref({ ...filters, folderId: null })}
+          aria-current={filters.folderId === null ? "page" : undefined}
+          className={cn(
+            buttonVariants({ variant: filters.folderId === null ? "secondary" : "ghost" }),
+            "mt-3 w-full justify-start rounded-lg px-3 text-left",
+          )}
         >
           <BookOpen size={17} aria-hidden="true" /> All courses
-        </Button>
+        </DashboardLink>
         <div className="mt-7 flex items-center justify-between px-3">
           <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
             Folders
@@ -129,10 +133,9 @@ export function DashboardSidebar({
           ) : data.folderTree.length > 0 ? (
             <FolderTreeNavigation
               nodes={data.folderTree}
-              currentFolderId={currentFolderId}
+              filters={filters}
               expanded={expandedFolders}
               onToggle={onToggleFolder}
-              onOpen={onOpenFolder}
             />
           ) : (
             <p className="px-3 py-2 text-sm text-slate-400">

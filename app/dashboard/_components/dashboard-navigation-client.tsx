@@ -13,14 +13,14 @@ function expandedFolderIds(nodes: FolderTreeNode[]): Set<string> {
 }
 
 export function DashboardNavigationClient({ initialNavigation, initialError }: { initialNavigation: DashboardNavigation; initialError: string | null }) {
-  const { navigation, filters, navigating, busy, navigateToFolder, navigateToWorkspace, setShowNewFolder, setShowNewCourse, setWorkspaceDialogMode } = useDashboard();
+  const { navigation, filters, navigating, busy, navigateToWorkspace, setShowNewFolder, setShowNewCourse, setWorkspaceDialogMode } = useDashboard();
   const data = navigation ?? initialNavigation;
   const [expandedFolders, setExpandedFolders] = useState(() => expandedFolderIds(data.folderTree));
 
   return <DashboardSidebar
     data={data}
     error={initialError}
-    currentFolderId={filters.folderId}
+    filters={filters}
     expandedFolders={expandedFolders}
     disabled={Boolean(initialError) || busy || navigating}
     onToggleFolder={(id) => setExpandedFolders((previous) => {
@@ -29,7 +29,6 @@ export function DashboardNavigationClient({ initialNavigation, initialError }: {
       else next.add(id);
       return next;
     })}
-    onOpenFolder={navigateToFolder}
     onNewFolder={() => setShowNewFolder(true)}
     onNewCourse={() => setShowNewCourse(true)}
     onWorkspaceChange={navigateToWorkspace}
