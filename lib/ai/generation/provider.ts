@@ -1,5 +1,6 @@
 import { DashboardError } from "@/lib/dashboard/rules";
-import { createGenerationBudget, GenerationProviderError, generationRetryDelay, providerRetryAfterMs, type GenerationBudget } from "../generation-retry";
+import { createGenerationBudget, generationConnectionErrorCode, GenerationProviderError, generationRetryDelay, providerRetryAfterMs, type GenerationBudget } from "../generation-retry";
+import { requestGenerationResponse } from "./transport";
 
 async function readOutputText(response: Response) {
   const body: unknown = await response.json().catch(() => null);
@@ -130,13 +131,9 @@ export async function requestStructuredJson({
     budget.remainingAttempts -= 1;
     let outputText: string;
     try {
-      const response = await fetch("https://api.openai.com/v1/responses", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+      const response = await requestGenerationResponse(
+        apiKey,
+        JSON.stringify({
           model,
           store: false,
           reasoning: model.startsWith("gpt-6") ? { effort: reasoningEffort } : undefined,
@@ -160,8 +157,8 @@ export async function requestStructuredJson({
             },
           },
         }),
-        signal: AbortSignal.timeout(remainingMs),
-      });
+        AbortSignal.timeout(remainingMs),
+      );
       outputText = await readOutputText(response);
     } catch (error) {
       const delayMs = generationRetryDelay(error, budget);
@@ -187,14 +184,7 @@ export async function requestStructuredJson({
 }
 
 export function providerConnectionError(error: unknown, subject: string) {
-  const cause = error instanceof Error ? error.cause : undefined;
-  const code =
-    typeof cause === "object" &&
-    cause !== null &&
-    "code" in cause &&
-    typeof cause.code === "string"
-      ? cause.code
-      : undefined;
+  const code = generationConnectionErrorCode(error);
   const name = error instanceof Error ? error.name : "UnknownError";
   console.error("AI generation provider connection failed", {
     subject,

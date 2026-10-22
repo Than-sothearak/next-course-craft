@@ -1,10 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+
 import { Types } from "mongoose";
 import { GenerationJob } from "../models/GenerationJob";
 import { GenerationCheckpoint } from "../models/GenerationCheckpoint";
 import { advanceSourceGenerationJob, startSourceGenerationJob } from "../lib/ai/course-generation";
 import { courseGenerationInputSchema } from "../lib/ai/course-generation-schemas";
 import { parseScorm12Snapshot } from "../lib/scorm12/snapshot";
+
+vi.mock("../lib/ai/generation/transport", () => ({
+  requestGenerationResponse: (apiKey: string, body: string, signal: AbortSignal) => fetch("https://api.openai.com/v1/responses", {
+    method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, body, signal,
+  }),
+}));
 
 const sourceText = "Display determines how an element participates in the layout. Flexbox arranges children along a main axis.";
 const sourceCode = ".container {\n  display: flex;\n  gap: 16px;\n}";
@@ -167,5 +174,45 @@ describe("Learn-stage timeout recovery", () => {
     expect(saved.coverageIssues.some((issue) => issue.includes("correction timed out"))).toBe(true);
     expect(saved.coverageIssues.some((issue) => issue.includes("p2-e1"))).toBe(true);
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("shares the course activity budget across timeout-recovery parts and repairs excess questions", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const store = mockLearnJob();
+    const question = (prompt: string) => ({
+      type: "knowledgeCheck", title: "", sourceElementIds: [], question: prompt,
+      options: ["Use the supplied layout", "Guess a different rule"], correctOptionIndex: 0,
+      correctFeedback: "Use the supplied evidence.", incorrectFeedback: "Read the explanation again.",
+    });
+    const code = {
+      type: "code", title: "Flexbox example", body: sourceCode, sourceElementIds: ["p2-e1"],
+      codeExample: { template: "midnight-explained-below", language: "css", explanation },
+    };
+    const fetchMock = vi.fn()
+      .mockRejectedValueOnce(new DOMException("Deadline", "TimeoutError"))
+      .mockResolvedValueOnce(response([
+        { type: "text", title: "", body: sourceText, bullets: [], sourceElementIds: ["p1-e1"] },
+        question("Which rule enables flexbox?"), question("Which element is the container?"),
+        { type: "survey", title: "", sourceElementIds: [], question: "How confident are you with display rules?", minLabel: "Not confident", maxLabel: "Confident" },
+      ]))
+      .mockResolvedValueOnce(response([code, question("Which direction is the main axis?")]))
+      .mockResolvedValueOnce(response([code]));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await advanceSourceGenerationJob(store.args);
+    await advanceSourceGenerationJob(store.args);
+    expect((await advanceSourceGenerationJob(store.args)).status).toBe("assembling");
+    const completed = await advanceSourceGenerationJob(store.args);
+    expect(completed.status).toBe("completed");
+    const blocks = completed.course!.lessons.flatMap((lesson) => lesson.blocks);
+    expect(blocks.filter((block) => block.type === "knowledgeCheck")).toHaveLength(2);
+    expect(blocks.filter((block) => block.type === "survey")).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock.mock.calls[2][1].body).toContain("0 knowledgeCheck question blocks and 0 survey blocks");
+    expect(fetchMock.mock.calls[3][1].body).toContain("LESSON REPAIR");
+    expect(fetchMock.mock.calls[3][1].body).toContain("at most 2 knowledgeCheck");
+    const last = completed.course!.lessons[0].blocks.at(-1);
+    expect(last?.type === "divider" && last.data.style === "continue").toBe(false);
   });
 });

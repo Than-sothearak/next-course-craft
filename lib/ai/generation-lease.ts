@@ -1,10 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { Course } from "@/models/Course";
 import { DashboardError } from "@/lib/dashboard/rules";
+import { generationLeaseMs } from "./generation-timeouts";
 
 export async function acquireGenerationLease(ownerId: string, courseId: string) {
   const token = randomUUID();
-  const course = await Course.findOneAndUpdate({ _id: courseId, ownerId, deletedAt: null, $or: [{ generationLockUntil: null }, { generationLockUntil: { $lte: new Date() } }] }, { $set: { generationLockToken: token, generationLockUntil: new Date(Date.now() + 360000) } }, { new: true }).select("_id").lean();
+  const course = await Course.findOneAndUpdate({ _id: courseId, ownerId, deletedAt: null, $or: [{ generationLockUntil: null }, { generationLockUntil: { $lte: new Date() } }] }, { $set: { generationLockToken: token, generationLockUntil: new Date(Date.now() + generationLeaseMs) } }, { new: true }).select("_id").lean();
   if (!course) throw new DashboardError("Generation is already running or this course changed. Try again shortly.", 409);
   return { courseId, token };
 }

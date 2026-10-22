@@ -28,7 +28,7 @@ export function textHtml(
   const parts = [
     title.trim() ? `<h2>${escapeHtml(title.trim())}</h2>` : "",
     body.trim()
-      ? `<p>${escapeHtml(body.trim()).replace(/\n/g, "<br />")}</p>`
+      ? body.trim().split(/\r?\n\s*\r?\n/).map((paragraph) => `<p>${escapeHtml(paragraph.trim()).replace(/\r?\n/g, "<br />")}</p>`).join("")
       : "",
     bullets.filter((item) => item.trim()).length
       ? `<ul>${bullets
@@ -73,6 +73,11 @@ export function continueBlock(khmer: boolean): ContentBlock {
       completionType: "none",
     },
   });
+}
+
+export function removeTrailingContinueBlocks(blocks: ContentBlock[]) {
+  const lastContentIndex = blocks.findLastIndex((block) => block.type !== "divider");
+  return blocks.filter((block, index) => index <= lastContentIndex || block.type !== "divider" || block.data.style !== "continue");
 }
 
 function richTextBlock(html: string): ContentBlock {

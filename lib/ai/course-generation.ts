@@ -5,13 +5,14 @@ import { Asset } from "@/models/Asset";
 import { GenerationJob } from "@/models/GenerationJob";
 import { GenerationCheckpoint } from "@/models/GenerationCheckpoint";
 import { DashboardError } from "@/lib/dashboard/rules";
-import { blockSchema, type ContentBlock } from "@/lib/schemas/block";
+import { type ContentBlock } from "@/lib/schemas/block";
 import { editorSnapshotSchema } from "@/lib/editor/schemas";
 import { courseGenerationInputSchema, generatedSourceInventorySchema, generatedCourseSeedSchema, defaultCourseGenerationModel, type CourseGenerationInput, type GeneratedSourceInventory, type GeneratedCourseDraft, type GeneratedCourseSeed, type SourceGenerationJobSnapshot } from "./course-generation-schemas";
 import { deleteStoredMedia } from "@/lib/media/service";
-import { expandLearnBlockResponse } from "./learn-block-response";
+import { expandCourseBlockResponse, expandLearnBlockResponse } from "./learn-block-response";
 import { advanceSourceLearnWork, createSourceLearnWork, isLearnCapacityError, sourceLearnWorkSchema, type SourceLearnWork } from "./source-learn-work";
 import { createGenerationBudget } from "./generation-retry";
+import { generationLeaseMs, generationStageTimeoutMs } from "./generation-timeouts";
 import { indexSourceDocument, type IndexedSourceDocument } from "./source-document";
 import { courseResponseSchema, learnItemResponseSchema, preActivitiesResponseSchema, postActivitiesResponseSchema, sourcePlanningResponseSchema, sourcePlanResultSchema, generatedLearnItemSchema, compactLearnItemResponseSchema, generatedPreActivitiesSchema, generatedPostActivitiesSchema } from "./generation/response-schemas";
 import type { GeneratedPreActivities, GeneratedPostActivities } from "./generation/response-schemas";
@@ -23,7 +24,8 @@ import type { SourcePlanItem, SourceCoursePlan, GenerationSourceFile } from "./g
 import { sourceIdsForRange, validateLearnItemCoverage, addSourceVisualBlocks, buildSourceCoverageReport } from "./generation/source-coverage";
 import { generateSourceInventory, generateSourceInventoryPageBatch, finalizeSourceInventory, assignSourceElementIds } from "./generation/source-inventory";
 import { splitGeneratedBlockSeeds } from "./generation/block-seeds";
-import { toContentBlock, needsContinueAfter, continueBlock, textHtml, buildPreLearnPostActivities, addCustomTemplateCourseActivities } from "./generation/block-content";
+import { toContentBlock, needsContinueAfter, continueBlock, buildPreLearnPostActivities, addCustomTemplateCourseActivities, removeTrailingContinueBlocks } from "./generation/block-content";
+import { constrainCourseActivities, learningActivityIssues, learningActivityUsage, lessonDepthIssues, lessonDesignInstruction, lessonRequirements } from "./generation/lesson-design";
 
 export type { GenerationSourceFile } from "./generation/types";
 export { splitGeneratedBlockSeeds } from "./generation/block-seeds";
@@ -59,7 +61,7 @@ function courseSeedResponseSchema(input: CourseGenerationInput) {
                 properties: {
                   title: learnItemResponseSchema.properties.title,
                   objective: learnItemResponseSchema.properties.objective,
-                  blocks: learnItemResponseSchema.properties.blocks,
+                  blocks: { ...compactLearnItemResponseSchema.properties.blocks, minItems: lessonRequirements(input).minTeachingBlocks },
                 },
               },
             },
@@ -90,6 +92,12 @@ function courseSeedValidationIssues(seed: GeneratedCourseSeed, input: CourseGene
     check(seed.preTest.length === 3, "preTest", "Return exactly three pre-test questions.");
     check(seed.postTest.length === input.postTestCount, "postTest", `Return exactly ${input.postTestCount} post-test questions.`);
   }
+  seed.sections.forEach((section, sectionIndex) => section.lessons.forEach((lesson, lessonIndex) => {
+    for (const message of lessonDepthIssues(lesson.blocks, input))
+      issues.push({ path: `sections.${sectionIndex}.lessons.${lessonIndex}.blocks`, code: "custom", message });
+  }));
+  for (const message of learningActivityIssues(seed.sections.flatMap((section) => section.lessons.flatMap((lesson) => lesson.blocks))))
+    issues.push({ path: "sections", code: "custom", message });
   return issues;
 }
 
@@ -98,7 +106,7 @@ async function generateCourseSeed(input: CourseGenerationInput, model: string) {
     type: "input_text",
     text: buildUserPrompt(input, false),
   }];
-  const budget = createGenerationBudget(200_000);
+  const budget = createGenerationBudget(generationStageTimeoutMs);
   let validationFeedback = "";
   let validationIssues: { path: string; code: string; message: string }[] = [];
 
@@ -122,10 +130,10 @@ async function generateCourseSeed(input: CourseGenerationInput, model: string) {
       schemaName: "course_generation",
       schema: courseSeedResponseSchema(input),
       maxOutputTokens: 64_000,
-      timeoutMs: 200_000,
+      timeoutMs: generationStageTimeoutMs,
       budget,
     });
-    const parsed = generatedCourseSeedSchema.safeParse(rawSeed);
+    const parsed = generatedCourseSeedSchema.safeParse(expandCourseBlockResponse(rawSeed));
     validationIssues = parsed.success
       ? courseSeedValidationIssues(parsed.data, input)
       : parsed.error.issues.slice(0, 20).map((issue) => ({
@@ -191,7 +199,7 @@ async function generateSourcePlan(
     `Page outline and stable source IDs:\n${JSON.stringify(pageOutline)}`,
   ].join("\n\n");
   let lastIssues = "";
-  const budget = createGenerationBudget(75_000);
+  const budget = createGenerationBudget(generationStageTimeoutMs);
   for (let attempt = 0; attempt < 2 && budget.remainingAttempts > 0; attempt += 1) {
     const raw = await requestStructuredJson({
       model,
@@ -200,7 +208,7 @@ async function generateSourcePlan(
       schemaName: "course_source_plan",
       schema: sourcePlanningResponseSchema,
       maxOutputTokens: 7_000,
-      timeoutMs: 75_000,
+      timeoutMs: generationStageTimeoutMs,
       budget,
     });
     const parsed = sourcePlanResultSchema.safeParse(raw);
@@ -253,6 +261,7 @@ async function generateLearnContentItem({
   item,
   inventory,
   imagesRemaining,
+  previousLearningBlocks = [],
 }: {
   input: CourseGenerationInput;
   model: string;
@@ -260,15 +269,17 @@ async function generateLearnContentItem({
   item: SourcePlanItem;
   inventory: GeneratedSourceInventory;
   imagesRemaining: number;
+  previousLearningBlocks?: GeneratedCourseSeed["sections"][number]["lessons"][number]["blocks"];
 }) {
   const pages = inventory.pages.filter(
     (page) => page.pageNumber >= item.startPage && page.pageNumber <= item.endPage,
   );
   const sourceText = JSON.stringify(pages);
+  const activitiesUsed = learningActivityUsage(previousLearningBlocks);
   let retryFeedback = "";
   let firstResult: z.infer<typeof generatedLearnItemSchema> | undefined;
   let finalIssues: string[] = [];
-  const budget = createGenerationBudget(120_000);
+  const budget = createGenerationBudget(generationStageTimeoutMs);
 
   for (let attempt = 0; attempt < 2 && budget.remainingAttempts > 0; attempt += 1) {
     const prompt = [
@@ -277,6 +288,8 @@ async function generateLearnContentItem({
       `Source language: ${plan.sourceLanguage}. Write learner-facing content in ${plan.targetLanguage}. Preserve technical names and all HTML/CSS/JavaScript code exactly.`,
       learnerLanguageStyleInstruction(plan.targetLanguage),
       `Audience: ${input.audience || "General adult learners"}. Difficulty: ${input.level}. Content depth: ${input.contentDepth}. Interactivity: ${input.interactivity}.`,
+      lessonDesignInstruction(input, pages),
+      `Remaining course activity budget for this portion: ${Math.max(0, 2 - activitiesUsed.knowledgeCheck)} knowledgeCheck question blocks and ${Math.max(0, 1 - activitiesUsed.survey)} survey blocks. Previously used prompts (do not repeat): ${JSON.stringify(activitiesUsed.questions)}.`,
       `Recommended blocks: ${item.recommendedBlockTypes.join(", ") || "Choose appropriate existing CourseCraft blocks"}. Interaction opportunities: ${item.interactionOpportunities.join("; ") || "Use interactions where they improve learning"}.`,
       `Additional author instructions: ${input.prompt || "None"}.`,
       `Assigned page range: ${item.startPage}-${item.endPage}. These are the only source pages for this item. Preserve their order.`,
@@ -293,9 +306,15 @@ async function generateLearnContentItem({
         developerPrompt: sourceLearnSystemPrompt + " Return block fields only; app fills settings.",
         content: [{ type: "input_text", text: prompt }],
         schemaName: "course_learn_content_item",
-        schema: compactLearnItemResponseSchema,
+        schema: {
+          ...compactLearnItemResponseSchema,
+          properties: {
+            ...compactLearnItemResponseSchema.properties,
+            blocks: { ...compactLearnItemResponseSchema.properties.blocks, minItems: lessonRequirements(input, pages).minTeachingBlocks },
+          },
+        },
         maxOutputTokens: 24_000,
-        timeoutMs: 120_000,
+        timeoutMs: generationStageTimeoutMs,
         budget,
         reasoningEffort: "low",
       });
@@ -310,6 +329,15 @@ async function generateLearnContentItem({
     if (!parsed.success) {
       finalIssues = parsed.error.issues.slice(0, 16).map((issue) => `${issue.path.join(".")}: ${issue.message}`);
       retryFeedback = `Validation errors from the previous item: ${JSON.stringify(finalIssues)}. Return a corrected complete item.`;
+      continue;
+    }
+    const designIssues = [
+      ...lessonDepthIssues(parsed.data.blocks, input, pages),
+      ...learningActivityIssues(parsed.data.blocks, previousLearningBlocks),
+    ];
+    if (designIssues.length) {
+      finalIssues = designIssues;
+      retryFeedback = `LESSON REPAIR: ${JSON.stringify(designIssues)}. Return the complete corrected item with fuller teaching content, keeping all assigned source details and code intact.`;
       continue;
     }
     if (!firstResult) firstResult = parsed.data;
@@ -336,7 +364,7 @@ async function generatePreActivities(
     pageNumber: page.pageNumber,
     sourceContent: page.elements.map((element) => element.content.slice(0, 800)),
   }));
-  const budget = createGenerationBudget(60_000);
+  const budget = createGenerationBudget(generationStageTimeoutMs);
   let correction = "";
   for (let attempt = 0; attempt < 2 && budget.remainingAttempts > 0; attempt += 1) {
     const raw = await requestStructuredJson({
@@ -349,7 +377,7 @@ async function generatePreActivities(
       schemaName: "course_pre_activities",
       schema: preActivitiesResponseSchema,
       maxOutputTokens: 5_000,
-      timeoutMs: 60_000,
+      timeoutMs: generationStageTimeoutMs,
       budget,
     });
     const parsed = generatedPreActivitiesSchema.safeParse(raw);
@@ -369,7 +397,7 @@ async function generatePostActivities(
   const basePrompt = `Create exactly ${input.postTestCount} post-test multiple-choice questions. Write a detailed lessonSummary in 2-4 substantive paragraphs that covers all Learn items, their examples, source code outcomes, procedures, and how the topics connect. Write nextLesson as a concise standalone follow-up title. Target language: ${plan.targetLanguage}. ${learnerLanguageStyleInstruction(plan.targetLanguage)} Course: ${plan.title}. Source overview: ${inventory.summary}. Learn item summaries: ${JSON.stringify(lessonSummaries)}. Additional author instructions: ${input.prompt || "None"}.`;
   let correction = "";
   let validationIssues: string[] = [];
-  const budget = createGenerationBudget(75_000);
+  const budget = createGenerationBudget(generationStageTimeoutMs);
 
   // A syntactically valid structured response can still miss the requested quiz count
   // or the minimum summary detail. Give the model one focused repair attempt before
@@ -391,7 +419,7 @@ async function generatePostActivities(
         },
       },
       maxOutputTokens: 8_000,
-      timeoutMs: 75_000,
+      timeoutMs: generationStageTimeoutMs,
       budget,
     });
     const parsed = generatedPostActivitiesSchema.safeParse(raw);
@@ -440,6 +468,7 @@ async function generateSourceCourseSeed(
       item,
       inventory,
       imagesRemaining: remainingImages,
+      previousLearningBlocks: learnItems.flatMap((lesson) => lesson.blocks),
     });
     if (!generated.lesson)
       throw new DashboardError(
@@ -574,6 +603,7 @@ async function assembleCourseDraft({
   sourcePlan?: SourceCoursePlan;
   coverageIssuesByItem: string[][];
 }): Promise<GeneratedCourseDraft> {
+  seed = constrainCourseActivities(seed);
   if (sourceInventory && input.includeImages)
     addSourceVisualBlocks(seed, sourceInventory);
   const targetLanguage = sourcePlan?.targetLanguage ?? resolveTargetLanguage(input);
@@ -627,31 +657,13 @@ async function assembleCourseDraft({
               const nextBlock = lessonBlocks[index + 1];
               if (
                 needsContinueAfter(blockSeed) &&
-                nextBlock?.type !== "divider"
+                nextBlock &&
+                nextBlock.type !== "divider"
               ) {
                 blocksWithContinue.push(continueBlock(khmer));
               }
             });
-            const blocks = blocksWithContinue;
-            while (blocks.length < 2) {
-              blocks.push(
-                blockSchema.parse({
-                  id: randomUUID(),
-                  version: 1,
-                  type: "richText",
-                  data: {
-                    html: textHtml(
-                      lessonSeed.title,
-                      khmer
-                        ? "ស្វែងយល់ពីគំនិតសំខាន់ៗក្នុងមេរៀននេះ។"
-                        : "Explore the main ideas in this lesson.",
-                      [],
-                      khmer,
-                    ),
-                  },
-                }),
-              );
-            }
+            const blocks = removeTrailingContinueBlocks(blocksWithContinue);
             return {
               lesson: {
                 id: lessonId,
@@ -709,6 +721,7 @@ async function assembleCourseDraft({
       sections = activityCourse.sections;
       lessons = activityCourse.lessons;
     }
+    lessons = lessons.map((lesson) => ({ ...lesson, blocks: removeTrailingContinueBlocks(lesson.blocks) }));
     editorSnapshotSchema.parse({
       title: seed.title,
       description: seed.description,
@@ -784,8 +797,6 @@ export async function summarizeCourseSource({
 }
 
 const generationJobRetentionMs = 24 * 60 * 60 * 1_000;
-
-const generationJobLeaseMs = 5 * 60 * 1_000;
 
 export async function createSourceGenerationJob({
   ownerId,
@@ -910,7 +921,7 @@ export async function advanceSourceGenerationJob({
       status: { $nin: ["completed", "cancelled", "awaitingPrompt"] },
       $or: [{ leaseUntil: null }, { leaseUntil: { $lt: now } }],
     },
-    { $set: { leaseUntil: new Date(now.getTime() + generationJobLeaseMs) } },
+    { $set: { leaseUntil: new Date(now.getTime() + generationLeaseMs) } },
     { new: true },
   );
   if (!claimed) {
@@ -1128,6 +1139,7 @@ export async function advanceSourceGenerationJob({
               input, model, plan, item: partItem,
               inventory: { ...inventory, pages: partPages },
               imagesRemaining: Math.max(0, imagesRemaining - countGeneratedImagePrompts(completedParts.map((part) => part.lesson))),
+              previousLearningBlocks: [...completedItems, ...completedParts.map((part) => part.lesson)].flatMap((lesson) => lesson.blocks),
             });
             if (!generatedItem.lesson)
               throw new DashboardError(`Learn content “${item.title}” failed validation after its targeted retry.`, 422);

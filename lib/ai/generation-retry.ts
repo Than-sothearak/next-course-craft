@@ -8,6 +8,14 @@ export function createGenerationBudget(timeoutMs: number) {
 
 export type GenerationBudget = ReturnType<typeof createGenerationBudget>;
 
+export function generationConnectionErrorCode(error: unknown) {
+  const cause = error instanceof Error ? error.cause : undefined;
+  const connectionError = cause && typeof cause === "object" && "code" in cause ? cause : error;
+  return connectionError && typeof connectionError === "object" && "code" in connectionError && typeof connectionError.code === "string"
+    ? connectionError.code
+    : undefined;
+}
+
 export class GenerationProviderError extends DashboardError {
   constructor(
     message: string,
@@ -35,8 +43,7 @@ export function generationRetryDelay(error: unknown, budget: GenerationBudget) {
     if (!error.retryable) return null;
     retryAfterMs = error.retryAfterMs;
   } else {
-    const cause = error instanceof Error ? error.cause : undefined;
-    const code = cause && typeof cause === "object" && "code" in cause ? cause.code : undefined;
+    const code = generationConnectionErrorCode(error);
     // A timed-out generation may still be running at the provider. Do not
     // automatically submit a duplicate expensive generation in that case.
     if (!["ECONNRESET", "ECONNREFUSED", "EHOSTUNREACH", "ENETUNREACH", "EAI_AGAIN"].includes(String(code)))

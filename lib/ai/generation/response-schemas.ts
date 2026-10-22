@@ -200,8 +200,8 @@ export const courseResponseSchema = {
                           additionalProperties: false,
                           required: ["front", "back", "frontImagePrompt", "frontImageAlt", "backImagePrompt", "backImageAlt"],
                           properties: {
-                            front: { type: "string" },
-                            back: { type: "string" },
+                            front: { type: "string", description: "Nonempty front text unless frontImagePrompt is provided; may also accompany an image as fallback text." },
+                            back: { type: "string", description: "Nonempty back text unless backImagePrompt is provided; may also accompany an image as fallback text." },
                             frontImagePrompt: { type: "string" },
                             frontImageAlt: { type: "string" },
                             backImagePrompt: { type: "string" },

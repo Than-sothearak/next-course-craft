@@ -1,4 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { mkdtemp, realpath, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
 import { Types } from "mongoose";
 import { PDFDocument } from "pdf-lib";
 import { Asset } from "../models/Asset";
@@ -29,6 +32,12 @@ import {
 import { blockTypes, lessonContentSchema } from "../lib/schemas/block";
 import { parseScorm12Snapshot } from "../lib/scorm12/snapshot";
 import type { CodeExampleTemplate, CodeLanguage } from "../lib/editor/code-example";
+
+vi.mock("../lib/ai/generation/transport", () => ({
+  requestGenerationResponse: (apiKey: string, body: string, signal: AbortSignal) => fetch("https://api.openai.com/v1/responses", {
+    method: "POST", headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" }, body, signal,
+  }),
+}));
 
 const input = {
   prompt: "Teach new support staff how to triage incoming customer requests.",
@@ -186,9 +195,27 @@ function providerResponse(
   templateFields: Parameters<typeof seed>[1] = {},
   learningLessonCount = 5,
 ) {
+  const value = seed(blocks, templateFields, learningLessonCount);
+  for (const section of value.sections) {
+    for (const lesson of section.lessons) lesson.blocks.push(...teachingBlocks());
+  }
   return new Response(JSON.stringify({
-    output_text: JSON.stringify(seed(blocks, templateFields, learningLessonCount)),
+    output_text: JSON.stringify(value),
   }), { status: 200 });
+}
+
+function teachingBlocks() {
+  const explanations = [
+    "Purpose: Careful triage helps a support team understand a request before choosing what to do. The learner should be able to identify the customer's goal, distinguish supplied facts from assumptions, and explain a sensible next action. This matters because a quick response based on the wrong interpretation creates extra work and can leave the real problem unresolved. Keep the customer's intended outcome visible while reading the details.",
+    "Read: Begin by reading the complete message rather than responding to the first unfamiliar phrase. Separate what the customer observed from what they think caused it. A customer might describe a failed sign-in and assume an account was deleted, but those statements carry different levels of certainty. Record the observed behavior in neutral language so another team member can follow the reasoning without accepting an unverified cause.",
+    "Facts: Identify the task, the point where it failed, and the information already supplied. Use a short factual note to connect those details. If a request leaves out a necessary detail, ask a focused clarification that will change the next action. Avoid requesting information that is already in the message. Showing that the original report was read carefully makes the exchange clearer and reduces unnecessary back-and-forth for the customer.",
+    "Priority: Consider the reported impact and the urgency together before selecting the next response. A message that sounds frustrated does not by itself establish the scope of the problem. Look for supported details about the affected task and whether a workaround exists. Explain the choice using the information actually available, and distinguish a tentative assessment from a confirmed fact when the report is incomplete or ambiguous.",
+    "Worked example: A customer says they cannot open an invoice after signing in successfully. The stated goal is to retrieve the invoice, and the observed failure occurs after authentication. Begin by checking what happens when the invoice is opened rather than sending account-recovery instructions. This example shows how separating the intended task from nearby details helps the agent choose a response that addresses the reported obstacle.",
+    "Common mistake: Do not treat a familiar keyword as proof that a standard reply will solve the request. An agent who sees the word account may select a password-reset response even when the customer has already signed in. Re-read the reported sequence and connect each proposed action to an observed fact. If the connection cannot be explained, collect the missing detail before presenting the action as a solution to the customer's actual problem.",
+    "Guided application: Draft a neutral description of the customer's goal and the observed obstacle, then choose a next action. Check that the action follows from the available evidence and explain why it is relevant. If information is missing, state what needs clarification and how the answer will affect the decision. Review the draft for assumptions, repeated requests, and instructions that do not help with the task the customer is trying to complete.",
+    "Recap: A useful triage decision connects the customer's intended outcome, the reported facts, and a clear next action. Reading the full message provides context, separating observations from assumptions protects accuracy, and asking only relevant clarifications makes progress possible. Apply the same sequence to the next unfamiliar request, adjusting the action to its evidence rather than copying a response simply because the wording looks familiar.",
+  ];
+  return explanations.map((body) => ({ ...block("richText"), title: "", body }));
 }
 
 function jsonProviderResponse(value: unknown) {
@@ -507,6 +534,119 @@ describe("AI course generation contracts", () => {
     expect(defaultCourseGenerationModel).toBe("gpt-6-luna");
   });
 
+  it.each(["front", "back"] as const)("accepts fallback text for a generated %s image face", (face) => {
+    const card = {
+      front: "Identify the request",
+      back: "Read the full customer message first.",
+      frontImagePrompt: "",
+      frontImageAlt: "",
+      backImagePrompt: "",
+      backImageAlt: "",
+      [`${face}ImagePrompt`]: "An agent reviewing a customer message.",
+      [`${face}ImageAlt`]: "Agent reviewing a message",
+    };
+
+    const parsed = generatedBlockSeedSchema.parse({ ...block("flipCard"), cards: [card] });
+
+    expect(parsed.cards[0]).toEqual(card);
+  });
+
+  it.each(["front", "back"] as const)("still rejects an empty %s face and image prompts without alt text", (face) => {
+    const card = {
+      front: "Identify the request",
+      back: "Read the full customer message first.",
+      frontImagePrompt: "",
+      frontImageAlt: "",
+      backImagePrompt: "",
+      backImageAlt: "",
+    };
+    const empty = generatedBlockSeedSchema.safeParse({
+      ...block("flipCard"),
+      cards: [{ ...card, [face]: "  ", [`${face}ImagePrompt`]: "  " }],
+    });
+    expect(empty.success).toBe(false);
+    if (!empty.success) expect(empty.error.issues[0].path).toEqual(["cards", 0, face]);
+
+    const missingAlt = generatedBlockSeedSchema.safeParse({
+      ...block("flipCard"),
+      cards: [{ ...card, [`${face}ImagePrompt`]: "An agent reviewing a customer message.", [`${face}ImageAlt`]: "  " }],
+    });
+    expect(missingAlt.success).toBe(false);
+    if (!missingAlt.success) expect(missingAlt.error.issues.map((issue) => issue.path)).toContainEqual(["cards", 0, `${face}ImageAlt`]);
+  });
+
+  it.each([false, true])("generates four image cards with fallback text using local storage (images enabled: %s)", async (includeImages) => {
+    const tempRoot = await realpath(tmpdir());
+    const directory = await realpath(await mkdtemp(join(tempRoot, "coursecraft-ai-flip-")));
+    if (dirname(directory) !== tempRoot) throw new Error("Unexpected temporary storage directory.");
+    try {
+      const ownerId = "507f1f77bcf86cd799439011";
+      const courseId = "507f1f77bcf86cd799439012";
+      const cards = Array.from({ length: 4 }, (_, index) => ({
+        front: `Request ${index + 1}`,
+        back: `Response ${index + 1}`,
+        frontImagePrompt: `An agent reading customer request ${index + 1}.`,
+        frontImageAlt: `Agent reading request ${index + 1}`,
+        backImagePrompt: index === 0 ? "An agent responding to the customer." : "",
+        backImageAlt: index === 0 ? "Agent responding to the customer" : "",
+      }));
+      const png = Buffer.from("iVBORw0KGgo=", "base64");
+      vi.stubEnv("OPENAI_API_KEY", "test-key");
+      const fetchMock = vi.fn()
+        .mockResolvedValueOnce(providerResponse([{ ...block("flipCard"), cards }]))
+        .mockImplementation(async () => new Response(JSON.stringify({
+          output: [{ type: "image_generation_call", result: png.toString("base64") }],
+        }), { status: 200 }));
+      vi.stubGlobal("fetch", fetchMock);
+      vi.spyOn(mediaService, "activeStorageConfiguration").mockResolvedValue({ provider: "local", directory });
+      const s3Upload = vi.spyOn(mediaStorage, "putMediaObject");
+      const createdAssets: InstanceType<typeof Asset>[] = [];
+      vi.spyOn(Asset, "create").mockImplementation((async (value: object) => {
+        const asset = new Asset(value);
+        createdAssets.push(asset);
+        return asset;
+      }) as never);
+
+      const course = await generateCourseDraft({
+        ownerId,
+        courseId,
+        input: courseGenerationInputSchema.parse({ ...input, includeImages }),
+      });
+
+      const flipCard = course.lessons[0].blocks.find((value) => value.type === "flipCard");
+      expect(flipCard?.type).toBe("flipCard");
+      if (flipCard?.type !== "flipCard") throw new Error("Expected generated flip cards.");
+      expect(flipCard.data.cards).toHaveLength(4);
+      for (const [index, card] of flipCard.data.cards.entries()) {
+        expect(card.front).toEqual(includeImages
+          ? { type: "image", src: expect.stringMatching(/^\/api\/assets\/[a-f0-9]{24}\/file$/), alt: cards[index].frontImageAlt }
+          : { type: "text", text: cards[index].front });
+        expect(card.back).toEqual(includeImages && index === 0
+          ? { type: "image", src: expect.stringMatching(/^\/api\/assets\/[a-f0-9]{24}\/file$/), alt: cards[index].backImageAlt }
+          : { type: "text", text: cards[index].back });
+      }
+      expect(course.generatedImageCount).toBe(includeImages ? 5 : 0);
+      expect(fetchMock).toHaveBeenCalledTimes(includeImages ? 6 : 1);
+      expect(s3Upload).not.toHaveBeenCalled();
+      expect(createdAssets).toHaveLength(includeImages ? 5 : 0);
+      for (const asset of createdAssets) {
+        expect(asset).toMatchObject({
+          ownerId: new Types.ObjectId(ownerId),
+          courseId: new Types.ObjectId(courseId),
+          storageProvider: "local",
+          storageDirectory: directory,
+          storageKey: `${ownerId}/${courseId}/${asset._id}`,
+          status: "ready",
+          mimeType: "image/png",
+          size: png.length,
+        });
+        expect(await mediaService.storedMediaBytes(asset)).toEqual(png);
+      }
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
   it("computes fixed page ranges in application code, including a one-page final range", () => {
     expect(buildFixedSourceRanges(36, 5)).toEqual([
       { startPage: 1, endPage: 5 },
@@ -821,7 +961,7 @@ describe("AI course generation contracts", () => {
     const timeout = vi.spyOn(AbortSignal, "timeout");
     const fetchMock = vi.fn()
       .mockImplementationOnce(() => {
-        now += 125_000;
+        now += 360_000;
         return Promise.resolve(providerResponse());
       })
       .mockResolvedValueOnce(providerResponse([block()], {}, 8));
@@ -831,7 +971,7 @@ describe("AI course generation contracts", () => {
       courseId: "507f1f77bcf86cd799439012",
       input: courseGenerationInputSchema.parse({ ...input, lessonCount: 8, includeImages: false }),
     });
-    expect(timeout.mock.calls.map(([ms]) => ms)).toEqual([200_000, 75_000]);
+    expect(timeout.mock.calls.map(([ms]) => ms)).toEqual([600_000, 240_000]);
   });
 
   it("shares the two-call allowance between JSON repair and course validation", async () => {
@@ -1266,6 +1406,156 @@ describe("AI course generation contracts", () => {
     expect(course.lessons.find((lesson) => lesson.title === "Post-test")?.quizQuestions).toHaveLength(3);
   });
 
+  it("repairs short prompt lessons with substantive explanations within the existing request budget", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonProviderResponse(seed([block()], {}, 1)))
+      .mockResolvedValueOnce(providerResponse([block()], {}, 1));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const course = await generateCourseDraft({
+      ownerId: "507f1f77bcf86cd799439011", courseId: "507f1f77bcf86cd799439012",
+      input: courseGenerationInputSchema.parse({ ...input, lessonCount: 1, includeImages: false }),
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1][1].body).toContain("Lesson depth");
+    expect(fetchMock.mock.calls[1][1].body).toContain("distinct teaching blocks");
+    expect(course.lessons[0].blocks.filter((item) => item.type === "richText").length).toBeGreaterThanOrEqual(8);
+    const request = JSON.parse(fetchMock.mock.calls[0][1].body);
+    const blocksSchema = request.text.format.schema.properties.sections.items.properties.lessons.items.properties.blocks;
+    expect(blocksSchema.minItems).toBe(8);
+    const textVariant = blocksSchema.items.anyOf.find((variant: { properties: { type: { enum: string[] } } }) => variant.properties.type.enum[0] === "richText");
+    expect(textVariant.required).toEqual(["sourceElementIds", "type", "title", "body", "bullets"]);
+    expect(fetchMock.mock.calls[0][1].body).toContain("10-14 substantive teaching blocks");
+    expect(fetchMock.mock.calls[0][1].body).toContain("worked example with reasoning");
+  });
+
+  it("stops after its correction allowance when prompt lessons are still too short", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const fetchMock = vi.fn().mockImplementation(async () => jsonProviderResponse(seed([block()], {}, 1)));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(generateCourseDraft({
+      ownerId: "507f1f77bcf86cd799439011", courseId: "507f1f77bcf86cd799439012",
+      input: courseGenerationInputSchema.parse({ ...input, lessonCount: 1, includeImages: false }),
+    })).rejects.toThrow("Lesson depth");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("repairs course-wide question and survey overuse across separate lessons", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    const valid = seed(teachingBlocks(), {}, 3);
+    for (const [index, lesson] of valid.sections[0].lessons.entries()) {
+      lesson.blocks = [
+        ...teachingBlocks(),
+        ...(index < 2 ? [{ ...block("knowledgeCheck"), question: `Which action fits case ${index + 1}?` }] : []),
+        ...(index === 0 ? [block("survey")] : []),
+      ];
+    }
+    const overused = structuredClone(valid);
+    overused.sections[0].lessons[2].blocks.push({ ...block("knowledgeCheck"), question: "What should you do in the final case?" }, { ...block("survey"), question: "How confident are you now?" });
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonProviderResponse(overused))
+      .mockResolvedValueOnce(jsonProviderResponse(valid));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const course = await generateCourseDraft({
+      ownerId: "507f1f77bcf86cd799439011", courseId: "507f1f77bcf86cd799439012",
+      input: courseGenerationInputSchema.parse({ ...input, lessonCount: 3, includeImages: false }),
+    });
+
+    const blocks = course.lessons.flatMap((lesson) => lesson.blocks);
+    expect(blocks.filter((item) => item.type === "knowledgeCheck")).toHaveLength(2);
+    expect(blocks.filter((item) => item.type === "survey")).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1][1].body).toContain("at most 2 knowledgeCheck");
+    expect(fetchMock.mock.calls[1][1].body).toContain("at most 1 survey");
+  });
+
+  it("carries the remaining activity budget into each source lesson", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    const ranges = Array.from({ length: 3 }, (_, index) => ({ startPage: index + 1, endPage: index + 1 }));
+    const responses = stagedSourceResponses(3, ranges, {
+      learn: (index, ids) => sourceLearnProviderResponse(ids, [
+        block(),
+        ...(index < 2 ? [{ ...block("knowledgeCheck"), question: `Which detail matters in case ${index + 1}?` }] : []),
+        ...(index === 0 ? [block("survey")] : []),
+      ]),
+    });
+    const fetchMock = vi.fn().mockImplementation(async () => responses.shift());
+    vi.stubGlobal("fetch", fetchMock);
+
+    const course = await generateCourseDraft({
+      ownerId: "507f1f77bcf86cd799439011", courseId: "507f1f77bcf86cd799439012",
+      input: courseGenerationInputSchema.parse({ ...input, includeImages: false }),
+      sourceFile: { name: "slides.pdf", contentType: "application/pdf", bytes: await blankPdf(3) },
+    });
+
+    const blocks = course.lessons.flatMap((lesson) => lesson.blocks);
+    expect(blocks.filter((item) => item.type === "knowledgeCheck")).toHaveLength(2);
+    expect(blocks.filter((item) => item.type === "survey")).toHaveLength(1);
+    const requests = fetchMock.mock.calls.map((call) => JSON.parse(call[1].body)).filter((request) => request.text.format.name === "course_learn_content_item");
+    expect(requests).toHaveLength(3);
+    for (const [index, remaining] of ["2 knowledgeCheck question blocks and 1 survey", "1 knowledgeCheck question blocks and 0 survey", "0 knowledgeCheck question blocks and 0 survey"].entries()) {
+      expect(JSON.stringify(requests[index])).toContain(remaining);
+      expect(JSON.stringify(requests[index])).toContain("LESSON DEPTH");
+    }
+  });
+
+  it("repairs a dense source lesson that maps its source but supplies too little teaching content", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    const developed = teachingBlocks();
+    const responses = stagedSourceResponses(1, [{ startPage: 1, endPage: 1 }], {
+      elementsByPage: { 1: [{ kind: "text", content: developed.map((item) => item.body).join("\n\n"), visualKind: "other", visibleText: "", uncertainContent: false }] },
+      learn: (_index, ids) => sourceLearnProviderResponse(ids, [block()]),
+    });
+    responses.push(sourceLearnProviderResponse(["p1-e1"], developed, "Developed support lesson", developed.map(() => ["p1-e1"])));
+    const fetchMock = vi.fn().mockImplementation(async () => responses.shift());
+    vi.stubGlobal("fetch", fetchMock);
+
+    const course = await generateCourseDraft({
+      ownerId: "507f1f77bcf86cd799439011", courseId: "507f1f77bcf86cd799439012",
+      input: courseGenerationInputSchema.parse({ ...input, includeImages: false }),
+      sourceFile: { name: "slides.pdf", contentType: "application/pdf", bytes: await blankPdf(1) },
+    });
+
+    const requests = fetchMock.mock.calls.map((call) => JSON.parse(call[1].body)).filter((request) => request.text.format.name === "course_learn_content_item");
+    expect(requests).toHaveLength(2);
+    expect(JSON.stringify(requests[1])).toContain("LESSON REPAIR");
+    expect(JSON.stringify(requests[1])).toContain("distinct teaching blocks");
+    expect(course.lessons[0].blocks.filter((item) => item.type === "richText").length).toBeGreaterThanOrEqual(8);
+    expect(course.sourceCoverage?.complete).toBe(true);
+  });
+
+  it("never ends generated lessons with an explicit or automatic Continue button", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    const ending = "Apply these steps to the next customer request and explain the evidence behind your decision. ".repeat(12);
+    const value = seed([], {}, 3);
+    for (const lesson of value.sections[0].lessons) lesson.blocks = [
+      { ...block(), title: "Opening example", body: ending },
+      ...teachingBlocks(),
+      { ...block(), title: "Transfer to your work", body: ending },
+      block("divider"), block("divider"),
+    ];
+    value.sections[0].lessons[1].blocks = value.sections[0].lessons[1].blocks.filter((item) => item.type !== "divider");
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(jsonProviderResponse(value)));
+
+    const course = await generateCourseDraft({
+      ownerId: "507f1f77bcf86cd799439011", courseId: "507f1f77bcf86cd799439012",
+      input: courseGenerationInputSchema.parse({ ...input, lessonCount: 3, includeImages: false }),
+    });
+
+    for (const lesson of course.lessons) {
+      const last = lesson.blocks.at(-1);
+      expect(last?.type === "divider" && last.data.style === "continue").toBe(false);
+      expect(lesson.blocks.some((item) => item.type === "divider" && item.data.style === "continue")).toBe(true);
+    }
+    const last = course.lessons[1].blocks.at(-1);
+    expect(last?.type === "richText" && last.data.html).toContain(ending.trim());
+  });
+
   it("rejects lesson counts and text that exceed generation limits", () => {
     expect(courseGenerationInputSchema.safeParse({ ...input, lessonCount: 1 }).success).toBe(true);
     expect(courseGenerationInputSchema.safeParse({ ...input, lessonCount: 0 }).success).toBe(false);
@@ -1669,8 +1959,9 @@ describe("AI course generation contracts", () => {
 
     expect(course.lessons[0].blocks.slice(1).map((item) => item.type)).toEqual([
       "richText", "richText", "knowledgeCheck", "flipCard", "accordion", "divider",
+      ...Array.from({ length: 8 }, () => "richText"),
     ]);
-    expect(lessonContentSchema.parse({ schemaVersion: 1, blocks: course.lessons[0].blocks }).blocks).toHaveLength(7);
+    expect(lessonContentSchema.parse({ schemaVersion: 1, blocks: course.lessons[0].blocks }).blocks).toHaveLength(15);
     const textBlock = course.lessons[0].blocks[1];
     expect(textBlock.type === "richText" && textBlock.data.html).toContain("&lt;script&gt;");
     const codeBlock = course.lessons[0].blocks[2];
@@ -1706,8 +1997,9 @@ describe("AI course generation contracts", () => {
     expect(course.lessons[0].blocks.slice(1).map((item) => item.type)).toEqual([
       "heading", "richText", "statement", "knowledgeCheck", "processSteps",
       "flipCard", "accordion", "divider", "survey", "gallery", "video", "link", "chart",
+      ...Array.from({ length: 8 }, () => "richText"),
     ]);
-    expect(lessonContentSchema.parse({ schemaVersion: 1, blocks: course.lessons[0].blocks }).blocks).toHaveLength(14);
+    expect(lessonContentSchema.parse({ schemaVersion: 1, blocks: course.lessons[0].blocks }).blocks).toHaveLength(22);
     const tabs = course.lessons[0].blocks[7];
     expect(tabs.type === "accordion" && tabs.data).toMatchObject({ layout: "tabs", displayMode: "all" });
     const link = course.lessons[0].blocks[12];
@@ -1739,7 +2031,7 @@ describe("AI course generation contracts", () => {
     expect(course.sections.map((section) => section.title)).toEqual(["សកម្មភាពមុនរៀន", "មេរៀន", "សកម្មភាពក្រោយរៀន"]);
     expect(course.learningLessonCount).toBe(2);
     const lesson = course.lessons.find((item) => item.title === "Read the request");
-    expect(lesson?.blocks.map((item) => item.type)).toEqual(["richText", "divider", "richText"]);
+    expect(lesson?.blocks.map((item) => item.type)).toEqual(["richText", "divider", "richText", ...Array.from({ length: 8 }, () => "richText")]);
     const continueButton = lesson?.blocks[1];
     expect(continueButton?.type === "divider" && continueButton.data.label).toBe("បន្ត");
     expect(course.lessons.some((item) => item.title === "តេស្តមុនរៀន")).toBe(true);
@@ -1762,7 +2054,7 @@ describe("AI course generation contracts", () => {
     });
 
     expect(course.generatedImageCount).toBe(0);
-    expect(course.lessons[0].blocks).toHaveLength(3);
-    expect(lessonContentSchema.parse({ schemaVersion: 1, blocks: course.lessons[0].blocks }).blocks).toHaveLength(3);
+    expect(course.lessons[0].blocks).toHaveLength(11);
+    expect(lessonContentSchema.parse({ schemaVersion: 1, blocks: course.lessons[0].blocks }).blocks).toHaveLength(11);
   });
 });

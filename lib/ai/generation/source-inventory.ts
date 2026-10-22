@@ -1,6 +1,7 @@
 import { DashboardError } from "@/lib/dashboard/rules";
 import { generatedSourceInventorySchema, type CourseGenerationInput, type GeneratedSourceInventory } from "../course-generation-schemas";
 import { createGenerationBudget } from "../generation-retry";
+import { generationStageTimeoutMs } from "../generation-timeouts";
 import { createPdfPageBatch, extractPowerPointPageImages, indexSourceDocument, type IndexedSourceDocument } from "../source-document";
 import type { GenerationSourceFile } from "./types";
 import { requestStructuredJson } from "./provider";
@@ -79,7 +80,7 @@ export async function generateSourceInventoryPageBatch(
       });
     }
   }
-  const budget = createGenerationBudget(100_000);
+  const budget = createGenerationBudget(generationStageTimeoutMs);
   let validationError: DashboardError | undefined;
   for (let attempt = 0; attempt < 2 && budget.remainingAttempts > 0; attempt += 1) {
     const rawBatch = await requestStructuredJson({
@@ -102,7 +103,7 @@ export async function generateSourceInventoryPageBatch(
         },
       },
       maxOutputTokens: 16_000,
-      timeoutMs: 100_000,
+      timeoutMs: generationStageTimeoutMs,
       budget,
     });
     try {
@@ -142,7 +143,7 @@ export async function finalizeSourceInventory(
       },
     },
     maxOutputTokens: 1_500,
-    timeoutMs: 45_000,
+    timeoutMs: generationStageTimeoutMs,
   });
   const summary = readStringField(combinedSummary, "summary");
   const sourceLanguage = readStringField(combinedSummary, "sourceLanguage") || indexedSourceLanguage;

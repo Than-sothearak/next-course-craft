@@ -33,7 +33,9 @@ describe("generation retry limits", () => {
   it("retries temporary connection failures but not timeouts or blocked access", () => {
     const connection = (code: string) => new TypeError("fetch failed", { cause: { code } });
     expect(generationRetryDelay(connection("ECONNRESET"), createGenerationBudget(60_000))).toBeGreaterThanOrEqual(750);
+    expect(generationRetryDelay(Object.assign(new Error("Connection reset"), { code: "ECONNRESET" }), createGenerationBudget(60_000))).toBeGreaterThanOrEqual(750);
     expect(generationRetryDelay(connection("EACCES"), createGenerationBudget(60_000))).toBeNull();
+    expect(generationRetryDelay(Object.assign(new Error("Connection timeout"), { code: "ETIMEDOUT" }), createGenerationBudget(60_000))).toBeNull();
     expect(generationRetryDelay(new DOMException("Too slow", "TimeoutError"), createGenerationBudget(60_000))).toBeNull();
     expect(generationRetryDelay(new GenerationProviderError("Quota", 503, false), createGenerationBudget(60_000))).toBeNull();
   });

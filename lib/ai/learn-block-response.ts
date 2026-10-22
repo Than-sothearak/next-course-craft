@@ -64,3 +64,19 @@ export function expandLearnBlockResponse(value: unknown): unknown {
     }),
   };
 }
+
+export function expandCourseBlockResponse(value: unknown): unknown {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return value;
+  const course = value as Record<string, unknown>;
+  if (!Array.isArray(course.sections)) return value;
+  return {
+    ...course,
+    sections: course.sections.map((section: unknown) => {
+      if (!section || typeof section !== "object" || Array.isArray(section)) return section;
+      const entry = section as Record<string, unknown>;
+      return Array.isArray(entry.lessons)
+        ? { ...entry, lessons: entry.lessons.map(expandLearnBlockResponse) }
+        : section;
+    }),
+  };
+}

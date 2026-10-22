@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { generatedBlockSeedSchema, generatedBlockTypeValues } from "../lib/ai/course-generation-schemas";
-import { createLearnBlockResponseSchema, expandLearnBlockResponse } from "../lib/ai/learn-block-response";
+import { createLearnBlockResponseSchema, expandCourseBlockResponse, expandLearnBlockResponse } from "../lib/ai/learn-block-response";
 
 const examples = {
   heading: { title: "Layout", body: "", headingLevel: 2 },
@@ -45,5 +45,35 @@ describe("compact Learn block responses", () => {
   it("preserves invalid supplied values so validation can reject them", () => {
     const expanded = expandLearnBlockResponse({ blocks: [{ type: "knowledgeCheck", title: "", question: "Choose", options: [], correctOptionIndex: 7 }] }) as { blocks: unknown[] };
     expect(generatedBlockSeedSchema.safeParse(expanded.blocks[0]).success).toBe(false);
+  });
+
+  it("preserves text fallbacks alongside image prompts on both flip-card faces", () => {
+    const card = {
+      front: "Flexbox container",
+      back: "Items arranged along the main axis",
+      frontImagePrompt: "A flexbox container holding three items.",
+      frontImageAlt: "Three items inside a flexbox container",
+      backImagePrompt: "The same items aligned along the horizontal main axis.",
+      backImageAlt: "Items aligned along the main axis",
+    };
+    const expanded = expandLearnBlockResponse({
+      blocks: [{ type: "flipCard", title: "", sourceElementIds: ["p1-e1"], cards: [card] }],
+    }) as { blocks: unknown[] };
+
+    expect(generatedBlockSeedSchema.parse(expanded.blocks[0]).cards).toEqual([card]);
+  });
+
+  it("expands compact blocks in every course section without masking invalid lessons", () => {
+    const compact = { type: "richText", title: "", body: "A useful explanation.", bullets: [] };
+    const result = expandCourseBlockResponse({ sections: [
+      { title: "First", lessons: [{ title: "One", blocks: [compact] }] },
+      { title: "Second", lessons: [{ title: "Two", blocks: [compact] }, null, { blocks: "invalid" }] },
+      null,
+    ] }) as { sections: { lessons: { blocks: unknown[] }[] }[] };
+    expect(generatedBlockSeedSchema.parse(result.sections[0].lessons[0].blocks[0]).body).toBe(compact.body);
+    expect(generatedBlockSeedSchema.parse(result.sections[1].lessons[0].blocks[0]).body).toBe(compact.body);
+    expect(result.sections[1].lessons[1]).toBeNull();
+    expect(result.sections[1].lessons[2].blocks).toBe("invalid");
+    expect(result.sections[2]).toBeNull();
   });
 });

@@ -54,7 +54,7 @@ Google must report a verified email. Automatic email-based Google linking remain
 
 ## Ownership transfers and revocation
 
-Super Admin can transfer a course to an approved author by confirmed title and account email. The server resolves the target's database ID and permissions. The course moves to the new owner's personal root; creator attribution, lessons, content identifiers, media URLs, private S3 keys, and explicit assignments are preserved. Asset/export/generation ownership is updated atomically. Original workspace membership stops granting access. Active saves, generation requests/source jobs, and unexpired upload policies block transfer. Abandoned generation leases expire after six minutes; upload policies last five minutes, with a ten-minute transfer safety window.
+Super Admin can transfer a course to an approved author by confirmed title and account email. The server resolves the target's database ID and permissions. The course moves to the new owner's personal root; creator attribution, lessons, content identifiers, media URLs, private S3 keys, and explicit assignments are preserved. Asset/export/generation ownership is updated atomically. Original workspace membership stops granting access. Active saves, generation requests/source jobs, and unexpired upload policies block transfer. Abandoned generation leases expire after seventeen minutes to cover long AI requests and image processing; upload policies last five minutes, with a ten-minute transfer safety window.
 
 User removal is a tombstone that revokes access and preserves identity/content relationships. The system never removes, demotes, suspends or deletes the last active Super Admin. Two simultaneous administrator changes cannot bypass this invariant.
 

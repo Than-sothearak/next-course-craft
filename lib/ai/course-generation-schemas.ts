@@ -42,7 +42,7 @@ EXPLANATION AND STRUCTURE BLOCKS
 ACTIVE LEARNING BLOCKS
 - knowledgeCheck: lets learners retrieve or apply an idea with one scored practice question. Provide question, 2–8 options, correctOptionIndex, and useful correct/incorrect feedback. Use for decisions, misconceptions, and quick checks.
 - survey: a non-graded reflection or confidence check. Provide question plus minLabel and maxLabel; do not mark an answer correct.
-- flipCard: supports active recall, vocabulary, question/answer practice, or matching a concept to an explanation, with 1–30 cards. Each face can be text or an image. For image faces provide an image prompt and accessible alt text. Do not repeat the template's automatically generated keyword cards.
+- flipCard: supports active recall, vocabulary, question/answer practice, or matching a concept to an explanation, with 1–30 cards. Each face needs nonempty text (front/back) or a matching image prompt (frontImagePrompt/backImagePrompt). For image faces provide accessible alt text (frontImageAlt/backImageAlt); front/back text may also be provided as a fallback when images are disabled. Do not leave both the text and image prompt empty for either face. Do not repeat the template's automatically generated keyword cards.
 - accordion: groups related details learners may want to reveal selectively; use 2–12 steps/items and layout accordion or tabs. Generated blocks use displayMode all so learners can open multiple items.
 - processSteps: teaches a real ordered procedure with 2–20 steps. Give each step a title and explanation; do not use it for unrelated facts.
 
@@ -341,14 +341,12 @@ export const generatedBlockSeedSchema = z
       if (!block.cards.length)
         addIssue(["cards"], "Flip cards need at least one card.");
       block.cards.forEach((card, index) => {
-        if (
-          Boolean(card.front.trim()) === Boolean(card.frontImagePrompt.trim())
-        )
+        if (!card.front.trim() && !card.frontImagePrompt.trim())
           addIssue(
             ["cards", index, "front"],
             "Each front face needs text or an image prompt.",
           );
-        if (Boolean(card.back.trim()) === Boolean(card.backImagePrompt.trim()))
+        if (!card.back.trim() && !card.backImagePrompt.trim())
           addIssue(
             ["cards", index, "back"],
             "Each back face needs text or an image prompt.",
