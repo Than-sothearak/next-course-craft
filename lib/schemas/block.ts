@@ -83,7 +83,7 @@ export const richTextBlockSchema = z.object({
   data: z.object({ html: z.string().max(100_000) }),
 });
 export const imageBlockSchema = z.object({
-  ...blockBase("small", 40),
+  ...blockBase("medium", 40),
   type: z.literal("image"),
   data: z.object({
     src: z.string().url().or(z.string().startsWith("/")),
@@ -95,7 +95,7 @@ export const imageBlockSchema = z.object({
   }),
 });
 export const galleryBlockSchema = z.object({
-  ...blockBase("small", 40),
+  ...blockBase("medium", 40),
   type: z.literal("gallery"),
   data: z.object({
     images: z
@@ -110,7 +110,7 @@ export const galleryBlockSchema = z.object({
   }),
 });
 export const videoBlockSchema = z.object({
-  ...blockBase("small", 40),
+  ...blockBase("medium", 40),
   type: z.literal("video"),
   data: z.object({
     src: z.string().url().or(z.string().startsWith("/")),
@@ -463,6 +463,7 @@ export function defaultBlockWidth(
   type: ContentBlock["type"],
 ): ContentBlock["width"] {
   if (type === "heading" || type === "richText") return "medium";
+  if (type === "image" || type === "video" || type === "gallery") return "medium";
   if (type === "flipCard" || type === "labeledGraphic" || type === "lessonMap") return "full";
   if (type === "accordion" || type === "processSteps" || type === "chart") return "medium";
   return "small";

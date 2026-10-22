@@ -210,6 +210,9 @@ describe("Learn-stage timeout recovery", () => {
     expect(blocks.filter((block) => block.type === "survey")).toHaveLength(1);
     expect(fetchMock).toHaveBeenCalledTimes(4);
     expect(fetchMock.mock.calls[2][1].body).toContain("0 knowledgeCheck question blocks and 0 survey blocks");
+    const resumedPrompt = JSON.parse(fetchMock.mock.calls[2][1].body).input[1].content[0].text as string;
+    expect(resumedPrompt).toContain('"knowledgeCheck":2');
+    expect(resumedPrompt).toContain('"survey":1');
     expect(fetchMock.mock.calls[3][1].body).toContain("LESSON REPAIR");
     expect(fetchMock.mock.calls[3][1].body).toContain("at most 2 knowledgeCheck");
     const last = completed.course!.lessons[0].blocks.at(-1);

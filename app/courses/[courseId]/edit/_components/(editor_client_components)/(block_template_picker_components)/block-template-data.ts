@@ -324,7 +324,7 @@ export const blockTemplates: BlockTemplate[] = [
     description: "Use a panoramic image as a visual break in the lesson.",
     type: "image",
     imageLayout: "banner",
-    width: "full",
+    width: "medium",
     preview: "image-banner",
   },
   {
@@ -363,7 +363,7 @@ export const blockTemplates: BlockTemplate[] = [
     imageLayout: "text-overlay",
     imageTitle: "A visual introduction",
     imageBody: "Set the scene with one short sentence.",
-    width: "full",
+    width: "medium",
     preview: "image-text-overlay",
   },
   {

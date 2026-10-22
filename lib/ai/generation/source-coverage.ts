@@ -16,11 +16,7 @@ export function validateLearnItemCoverage(
 ) {
   const issues: string[] = [];
   const allIds = new Set(lesson.blocks.flatMap((block) => block.sourceElementIds));
-  const generatedText = lesson.blocks.map((block) => [
-    block.title, block.body, block.codeExample?.explanation ?? "", ...block.bullets, block.question, ...block.options,
-    ...block.steps.flatMap((step) => [step.title, step.body]),
-    ...block.cards.flatMap((card) => [card.front, card.back]),
-  ].join("\n")).join("\n");
+  const generatedText = lesson.blocks.map(generatedBlockSearchText).join("\n");
   const normalizedNumbers = normalizeDigits(generatedText);
 
   for (const page of pages) {
@@ -41,12 +37,34 @@ export function validateLearnItemCoverage(
         }
       }
       for (const number of extractImportantNumbers(element.content)) {
-        if (!normalizedNumbers.includes(normalizeDigits(number)))
+        const escapedValue = normalizeDigits(number).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const preservedInText = new RegExp(`(?:^|[^\\d.])${escapedValue}(?!\\d|\\.\\d)`).test(normalizedNumbers);
+        const preservedInChart = lesson.blocks.some((block) =>
+          block.type === "chart" && block.sourceElementIds.includes(element.sourceElementId)
+          && chartPreservesSourceValue(block, number),
+        );
+        if (!preservedInText && !preservedInChart)
           issues.push(`Important source value “${number}” from ${element.sourceElementId} is missing.`);
       }
     }
   }
   return [...new Set(issues)].slice(0, 30);
+}
+
+function chartPreservesSourceValue(
+  block: z.infer<typeof generatedBlockSeedSchema>,
+  sourceValue: string,
+) {
+  const match = /^(\d+(?:\.\d+)?)\s*([a-z%]*)$/.exec(normalizeDigits(sourceValue));
+  if (!match) return false;
+  const value = Number(match[1]);
+  const unit = match[2];
+  const unitPattern = new RegExp(`(?:^|[^\\p{L}\\p{N}])${unit}(?![\\p{L}\\p{N}])`, "u");
+  return block.chartFields.some((field) => {
+    if (field.value !== value) return false;
+    const labels = normalizeDigits([block.title, block.chartDescription, field.label].join("\n"));
+    return !unit || (unit === "%" ? labels.includes("%") : unitPattern.test(labels));
+  });
 }
 
 function extractImportantNumbers(value: string) {
@@ -135,8 +153,10 @@ function generatedBlockSearchText(block: z.infer<typeof generatedBlockSeedSchema
     ...block.cards.flatMap((card) => [card.front, card.back]),
     block.imageTitle,
     block.imageBody,
+    block.imageAlt,
     ...block.markers.flatMap((marker) => [marker.label, marker.description]),
-    ...block.chartFields.map((field) => field.label),
+    block.chartDescription,
+    ...block.chartFields.flatMap((field) => [field.label, String(field.value)]),
   ].join("\n");
 }
 

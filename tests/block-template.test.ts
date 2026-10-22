@@ -63,6 +63,15 @@ describe("prebuilt lesson text templates", () => {
 });
 
 describe("new template block spacing", () => {
+  it.each(["image", "video", "gallery"] as const)("creates every %s template at M content width", (type) => {
+    const templates = blockTemplates.filter((template) => template.type === type);
+    expect(templates.length).toBeGreaterThan(0);
+    for (const template of templates) {
+      const [block] = createBlocksFromTemplate(template, `width-${template.id}`);
+      expect(block).toMatchObject({ type, width: "medium", widthCustom: false });
+    }
+  });
+
   it("uses at least 40px of vertical padding for every new block template", () => {
     for (const template of blockTemplates) {
       const blocks = createBlocksFromTemplate(template, `padding-${template.id}`);
@@ -175,7 +184,7 @@ describe("prebuilt lesson image templates", () => {
       expect(parsed.type).toBe("image");
       if (parsed.type !== "image") continue;
       expect(parsed.data.layout).toBe(template.imageLayout);
-      expect(parsed).toMatchObject({ width: template.width ?? "small" });
+      expect(parsed).toMatchObject({ width: "medium" });
     }
 
     const splitLayout = createBlocksFromTemplate(

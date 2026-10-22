@@ -5,6 +5,7 @@ import { transactionUnsupported } from "../lib/editor/services/save";
 import { getCourseProgress } from "../lib/editor/preview";
 import { normalizeFontSize, normalizeHexColor } from "../lib/editor/text-format";
 import { blockSchema, defaultBlockPadding, defaultBlockWidth, normalizeBlockPadding } from "../lib/schemas/block";
+import { blockWidthClass } from "../app/courses/[courseId]/preview/_components/(course_preview_components)/preview-utils";
 import { textEditorExtensions } from "../app/courses/[courseId]/edit/_components/(editor_client_components)/(text_editing_components)/text-formatting-toolbar";
 
 const validSnapshot = {
@@ -248,8 +249,21 @@ describe("content block dimensions", () => {
     expect(blockSchema.safeParse({ id: "text-c", version: 1, type: "richText", blockPadding: 201, data: { html: "<p>Text</p>" } }).success).toBe(false);
   });
 
-  it("keeps the existing defaults for media and interactive blocks", () => {
-    const image = blockSchema.parse({ id: "image-a", version: 1, type: "image", data: { src: "/image.png", alt: "" } });
+  it.each([
+    { type: "image", data: { src: "/image.png", alt: "" } },
+    { type: "video", data: { src: "/video.mp4" } },
+    { type: "gallery", data: { images: [{ src: "/image.png", alt: "" }] } },
+  ])("defaults $type content to M in authoring and the learner while preserving custom widths", (value) => {
+    const block = blockSchema.parse({ id: `${value.type}-a`, version: 1, ...value });
+    expect(block).toMatchObject({ width: "medium", widthCustom: false, blockPadding: 40 });
+    expect(defaultBlockWidth(block.type)).toBe("medium");
+    expect(blockWidthClass(block)).toBe("max-w-[720px]");
+    expect(blockWidthClass({ ...block, width: "small" })).toBe("max-w-[720px]");
+    expect(blockWidthClass({ ...block, width: "small", widthCustom: true })).toBe("max-w-[520px]");
+    expect(blockWidthClass({ ...block, width: "full", widthCustom: true })).toBe("max-w-[920px]");
+  });
+
+  it("keeps the existing defaults for interactive blocks", () => {
     const flipCard = blockSchema.parse({
       id: "flip-card-a",
       version: 1,
@@ -264,7 +278,6 @@ describe("content block dimensions", () => {
         }],
       },
     });
-    expect(image).toMatchObject({ width: "small", blockPadding: 40 });
     expect(flipCard).toMatchObject({ width: "full", blockPadding: 40 });
     expect(defaultBlockWidth("flipCard")).toBe("full");
   });

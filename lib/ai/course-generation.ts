@@ -26,6 +26,7 @@ import { generateSourceInventory, generateSourceInventoryPageBatch, finalizeSour
 import { splitGeneratedBlockSeeds } from "./generation/block-seeds";
 import { toContentBlock, needsContinueAfter, continueBlock, buildPreLearnPostActivities, addCustomTemplateCourseActivities, removeTrailingContinueBlocks } from "./generation/block-content";
 import { constrainCourseActivities, learningActivityIssues, learningActivityUsage, lessonDepthIssues, lessonDesignInstruction, lessonRequirements } from "./generation/lesson-design";
+import { blockSelectionGuide, previousBlockMixInstruction } from "./generation/block-selection";
 
 export type { GenerationSourceFile } from "./generation/types";
 export { splitGeneratedBlockSeeds } from "./generation/block-seeds";
@@ -181,7 +182,11 @@ async function generateSourcePlan(
       pageNumber: page.pageNumber,
       sourceElementIds: page.elements.map((element) => element.sourceElementId),
       outline: headings,
-      visuals: page.elements.filter((element) => element.kind === "visual").map((element) => element.content.slice(0, 160)),
+      visuals: page.elements.filter((element) => element.kind === "visual").map((element) => ({
+        kind: element.visualKind,
+        description: element.content.slice(0, 160),
+        visibleText: element.visibleText.slice(0, 400),
+      })),
     };
   });
   const groupingInstruction = fixedRanges
@@ -195,6 +200,8 @@ async function generateSourcePlan(
     `Author instructions: ${input.prompt || "Create a clear, complete course from the source."}`,
     groupingInstruction,
     "For each item return a meaningful title, learning focus, numeric page bounds, recommended supported block types, and interaction opportunities. The application supplies stable source element references from the page bounds.",
+    blockSelectionGuide,
+    "Recommend chart for source datasets that support a meaningful numeric comparison or trend. Keep charts independent of generated-image availability. Vary the recommended formats between items where their content supports different activities; do not repeat a fixed activity sequence.",
     "Keep the course title, description, and objectives grounded in the source. Do not let author instructions remove source topics.",
     `Page outline and stable source IDs:\n${JSON.stringify(pageOutline)}`,
   ].join("\n\n");
@@ -289,6 +296,8 @@ async function generateLearnContentItem({
       learnerLanguageStyleInstruction(plan.targetLanguage),
       `Audience: ${input.audience || "General adult learners"}. Difficulty: ${input.level}. Content depth: ${input.contentDepth}. Interactivity: ${input.interactivity}.`,
       lessonDesignInstruction(input, pages),
+      blockSelectionGuide,
+      previousBlockMixInstruction(previousLearningBlocks),
       `Remaining course activity budget for this portion: ${Math.max(0, 2 - activitiesUsed.knowledgeCheck)} knowledgeCheck question blocks and ${Math.max(0, 1 - activitiesUsed.survey)} survey blocks. Previously used prompts (do not repeat): ${JSON.stringify(activitiesUsed.questions)}.`,
       `Recommended blocks: ${item.recommendedBlockTypes.join(", ") || "Choose appropriate existing CourseCraft blocks"}. Interaction opportunities: ${item.interactionOpportunities.join("; ") || "Use interactions where they improve learning"}.`,
       `Additional author instructions: ${input.prompt || "None"}.`,

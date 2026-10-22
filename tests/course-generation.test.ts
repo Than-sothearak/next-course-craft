@@ -1504,6 +1504,68 @@ describe("AI course generation contracts", () => {
     }
   });
 
+  it("carries earlier activity formats into later source lessons", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    const steps = [{ title: "Read", body: "Read the request." }, { title: "Check", body: "Check the supplied details." }];
+    const responses = stagedSourceResponses(3, [1, 2, 3].map((page) => ({ startPage: page, endPage: page })), {
+      learn: (index, ids) => sourceLearnProviderResponse(ids, [
+        block(),
+        ...(index === 0 ? [{ ...block("accordion"), steps }] : []),
+        ...(index === 1 ? [{ ...block("accordion"), layout: "tabs" as const, steps }] : []),
+      ]),
+    });
+    const fetchMock = vi.fn().mockImplementation(async () => responses.shift());
+    vi.stubGlobal("fetch", fetchMock);
+
+    await generateCourseDraft({
+      ownerId: "507f1f77bcf86cd799439011", courseId: "507f1f77bcf86cd799439012",
+      input: courseGenerationInputSchema.parse({ ...input, includeImages: false }),
+      sourceFile: { name: "slides.pdf", contentType: "application/pdf", bytes: await blankPdf(3) },
+    });
+
+    const requests = fetchMock.mock.calls.map((call) => JSON.parse(call[1].body)).filter((request) => request.text.format.name === "course_learn_content_item");
+    expect(requests).toHaveLength(3);
+    const prompts = requests.map((request) => request.input[1].content[0].text as string);
+    expect(prompts[0]).toContain("No earlier learning blocks");
+    expect(prompts[1]).toContain('"accordion":1');
+    expect(prompts[2]).toContain('"accordion":1');
+    expect(prompts[2]).toContain('"tabs":1');
+    expect(prompts[2]).toContain('["accordion","tabs"]');
+    expect(prompts[2]).toContain("Charts work even when generated images are disabled");
+  });
+
+  it("preserves source chart values without image generation or an unnecessary coverage retry", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    const chart = {
+      ...block("chart"), title: "Requests by region", body: "", bullets: [],
+      chartDescription: "Compare the regional request counts.",
+      chartFields: [{ label: "North", value: 1200 }, { label: "South", value: 2400 }],
+    };
+    const responses = stagedSourceResponses(1, [{ startPage: 1, endPage: 1 }], {
+      elementsByPage: { 1: [{ kind: "text", content: "North: 1200; South: 2400.", visualKind: "other", visibleText: "", uncertainContent: false }] },
+      learn: (_index, ids) => sourceLearnProviderResponse(ids, [chart]),
+    });
+    const fetchMock = vi.fn().mockImplementation(async () => responses.shift());
+    vi.stubGlobal("fetch", fetchMock);
+
+    const course = await generateCourseDraft({
+      ownerId: "507f1f77bcf86cd799439011", courseId: "507f1f77bcf86cd799439012",
+      input: courseGenerationInputSchema.parse({ ...input, includeImages: false }),
+      sourceFile: { name: "slides.pdf", contentType: "application/pdf", bytes: await blankPdf(1) },
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(course.generatedImageCount).toBe(0);
+    expect(course.sourceCoverage?.complete).toBe(true);
+    const result = course.lessons[0].blocks.find((item) => item.type === "chart");
+    expect(result?.type === "chart" && result.data.fields).toEqual([
+      { id: expect.any(String), label: "North", value: 1200 },
+      { id: expect.any(String), label: "South", value: 2400 },
+    ]);
+    const planner = JSON.parse(fetchMock.mock.calls[2][1].body).input[1].content[0].text as string;
+    expect(planner).toContain("Recommend chart for source datasets");
+  });
+
   it("repairs a dense source lesson that maps its source but supplies too little teaching content", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     const developed = teachingBlocks();
