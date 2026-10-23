@@ -3,9 +3,6 @@
 import {
   type CSSProperties,
   type ReactNode,
-  useCallback,
-  useEffect,
-  useRef,
   useState,
 } from "react";
 import { motion, useReducedMotion } from "framer-motion";
@@ -16,17 +13,6 @@ import { blockSurfaceStyle, blockWidthClass } from "../preview-utils";
 import type { PreviewDevice, PreviewOrientation } from "../preview-types";
 import { PreviewBlock } from "./(lesson_blocks_preview_components)/preview-block";
 import { ContinueLockIndicator } from "./(lesson_blocks_preview_components)/continue-lock-indicator";
-
-function findScrollContainer(element: HTMLElement) {
-  let parent = element.parentElement;
-  while (parent) {
-    const styles = window.getComputedStyle(parent);
-    const overflow = `${styles.overflow}${styles.overflowY}`;
-    if (/(auto|scroll|overlay)/.test(overflow)) return parent;
-    parent = parent.parentElement;
-  }
-  return null;
-}
 
 function LessonBlockEntrance({
   blockId,
