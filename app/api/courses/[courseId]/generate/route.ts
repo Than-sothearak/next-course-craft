@@ -19,7 +19,7 @@ import {
 } from "@/lib/ai/course-generation";
 
 // Ten minutes for text, five for up to eight queued images, plus cleanup time.
-export const maxDuration = 960;
+export const maxDuration = 300;
 
 type Context = { params: Promise<{ courseId: string }> };
 const maximumSourceBytes = 12 * 1024 * 1024;
