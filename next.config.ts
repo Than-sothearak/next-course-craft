@@ -11,6 +11,7 @@ const nextConfig: NextConfig = {
 
   allowedDevOrigins: ['skilled-jacqulyn-flamier.ngrok-free.dev'],
   cacheComponents: true,
+  output: "standalone",
   partialPrefetching: true,
 };
 
