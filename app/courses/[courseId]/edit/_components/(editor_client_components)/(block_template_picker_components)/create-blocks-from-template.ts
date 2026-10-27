@@ -145,6 +145,8 @@ export function createBlocksFromTemplate(
         },
       },
     ];
+  if (template.type === "audio")
+    return [{ ...base, type: "audio", data: { src: "", fileName: "" } }];
   if (template.type === "attachment")
     return [{ ...base, type: "attachment", data: { src: "", fileName: "", size: 0 } }];
   if (template.type === "gallery")

@@ -7,6 +7,7 @@ export const blockTypes = [
   "image",
   "gallery",
   "video",
+  "audio",
   "attachment",
   "link",
   "divider",
@@ -116,6 +117,15 @@ export const videoBlockSchema = z.object({
     src: z.string().url().or(z.string().startsWith("/")),
     mimeType: z.enum(["video/mp4", "video/webm"]).optional(),
     captions: z.string().optional(),
+  }),
+});
+export const audioBlockSchema = z.object({
+  ...blockBase("medium", 40),
+  type: z.literal("audio"),
+  data: z.object({
+    src: z.string().regex(/^\/api\/assets\/[a-f\d]{24}\/file$/i).or(z.literal("")),
+    fileName: z.string().max(255).default(""),
+    mimeType: z.enum(["audio/mpeg", "audio/mp4", "audio/ogg", "audio/wav", "audio/webm"]).optional(),
   }),
 });
 export const attachmentBlockSchema = z.object({
@@ -414,6 +424,7 @@ const contentBlockSchema = z.discriminatedUnion("type", [
   imageBlockSchema,
   galleryBlockSchema,
   videoBlockSchema,
+  audioBlockSchema,
   attachmentBlockSchema,
   linkBlockSchema,
   dividerBlockSchema,
@@ -463,7 +474,7 @@ export function defaultBlockWidth(
   type: ContentBlock["type"],
 ): ContentBlock["width"] {
   if (type === "heading" || type === "richText") return "medium";
-  if (type === "image" || type === "video" || type === "gallery") return "medium";
+  if (type === "image" || type === "video" || type === "audio" || type === "gallery") return "medium";
   if (type === "flipCard" || type === "labeledGraphic" || type === "lessonMap") return "full";
   if (type === "accordion" || type === "processSteps" || type === "chart") return "medium";
   return "small";

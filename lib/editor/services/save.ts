@@ -4,6 +4,7 @@ import { Course, Lesson } from "@/models";
 import { DashboardError } from "@/lib/dashboard/rules";
 import type { EditorSnapshotInput } from "../schemas";
 import { ownerObjectId } from "./shared";
+import { assertCourseAudioAssets } from "./audio-assets";
 import { assertCourseCoverAsset } from "./course-cover";
 
 export function transactionUnsupported(error: unknown) {
@@ -177,6 +178,7 @@ export async function saveCourseEditor(
   if (!Types.ObjectId.isValid(courseId))
     throw new DashboardError("Course not found.", 404);
   await assertCourseCoverAsset(ownerId, courseId, snapshot.theme.cover);
+  await assertCourseAudioAssets(ownerId, courseId, snapshot.lessons);
 
   const session = await mongoose.startSession();
   let nextRevision: number | null = null;

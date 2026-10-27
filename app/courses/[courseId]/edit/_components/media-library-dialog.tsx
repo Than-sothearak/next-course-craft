@@ -2,8 +2,9 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import { FileDown, ImagePlus, LoaderCircle, Trash2, Video, X } from "lucide-react";
+import { FileDown, ImagePlus, LoaderCircle, Music2, Trash2, Video, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { audioUploadContentType } from "@/lib/media/audio-upload";
 import { mediaStorageUploadError } from "@/lib/media/messages";
 
 export type MediaLibraryAsset = {
@@ -97,7 +98,7 @@ export function MediaLibraryDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           fileName: file.name,
-          contentType: kind === "attachment" ? "application/octet-stream" : file.type,
+          contentType: kind === "attachment" ? "application/octet-stream" : kind === "audio" ? audioUploadContentType(file) : file.type,
           ...(kind === "attachment" ? { purpose: "attachment" } : {}),
           size: file.size,
         }),
@@ -184,7 +185,7 @@ export function MediaLibraryDialog({
   }
 
   if (!open) return null;
-  const kindLabel = kind;
+  const kindLabel = kind === "audio" ? "audio file" : kind;
 
   return (
     <div
@@ -208,7 +209,7 @@ export function MediaLibraryDialog({
               Media library
             </h2>
             <p className="mt-1 text-xs text-slate-500">
-              {kind === "attachment" ? "Choose a file or upload any file type (up to 250 MB). Learners can download it from the lesson." : `Choose a ${kindLabel} or upload a new file.`}
+              {kind === "attachment" ? "Choose a file or upload any file type (up to 250 MB). Learners can download it from the lesson." : kind === "audio" ? "Choose an audio file or upload MP3, M4A, OGG, WAV, or WebM (up to 100 MB)." : `Choose a ${kindLabel} or upload a new file.`}
             </p>
           </div>
           <Button
@@ -229,7 +230,7 @@ export function MediaLibraryDialog({
               kind === "image"
                 ? "image/avif,image/gif,image/jpeg,image/png,image/webp"
                 : kind === "video" ? "video/mp4,video/webm"
-                : kind === "audio" ? "audio/mpeg,audio/mp4,audio/ogg,audio/wav,audio/webm"
+                : kind === "audio" ? "audio/mpeg,audio/mp4,audio/ogg,audio/wav,audio/webm,.mp3,.m4a,.ogg,.oga,.wav,.webm,.weba"
                 : kind === "attachment" ? "*/*"
                 : "application/pdf,text/plain"
             }
@@ -256,12 +257,14 @@ export function MediaLibraryDialog({
                 <LoaderCircle size={15} className="animate-spin" />
               ) : kind === "attachment" ? (
                 <FileDown size={15} />
+              ) : kind === "audio" ? (
+                <Music2 size={15} />
               ) : kind === "image" ? (
                 <ImagePlus size={15} />
               ) : (
                 <Video size={15} />
               )}
-              {uploading ? "Uploading…" : kind === "attachment" ? "Upload file" : "Upload media"}
+              {uploading ? "Uploading…" : kind === "attachment" ? "Upload file" : kind === "audio" ? "Upload audio" : "Upload media"}
             </Button>
           </div>
           {error && (
@@ -307,7 +310,7 @@ export function MediaLibraryDialog({
                         />
                       ) : (
                         <div className="grid h-full place-items-center bg-slate-900 text-white">
-                          {kind === "attachment" ? <FileDown size={30} /> : <Video size={30} />}
+                          {kind === "attachment" ? <FileDown size={30} /> : asset.contentType.startsWith("audio/") ? <Music2 size={30} /> : <Video size={30} />}
                         </div>
                       )}
                     </div>
@@ -345,6 +348,8 @@ export function MediaLibraryDialog({
                 <div className="mx-auto grid size-12 place-items-center rounded-full bg-slate-100 text-slate-500">
                   {kind === "image" ? (
                     <ImagePlus size={21} />
+                  ) : kind === "audio" ? (
+                    <Music2 size={21} />
                   ) : kind === "attachment" ? (
                     <FileDown size={21} />
                   ) : (

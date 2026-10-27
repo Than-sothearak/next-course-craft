@@ -47,6 +47,8 @@ export function getInteractiveBlockProgressIds(block: ContentBlock): string[] {
       return [`${block.id}:answer`];
     case "survey":
       return [`${block.id}:submitted`];
+    case "audio":
+      return block.data.src ? [`${block.id}:listened`] : [];
     case "video":
       return [`${block.id}:watched`];
     default:

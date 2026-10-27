@@ -10,6 +10,7 @@ export type MediaLibraryTarget =
   | "image"
   | "gallery"
   | "video"
+  | "audio"
   | "attachment"
   | "labeledGraphic"
   | { type: "flipCard"; cardId: string; side: FlipCardSide };

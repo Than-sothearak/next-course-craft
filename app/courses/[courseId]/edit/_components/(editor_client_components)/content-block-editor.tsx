@@ -16,6 +16,8 @@ import { ChartBlockSettings } from "./(content_block_editor_components)/_compone
 import { ImageBlockSettings } from "./(content_block_editor_components)/_components/block-settings/image-block-settings";
 import { GalleryBlockSettings } from "./(content_block_editor_components)/_components/block-settings/gallery-block-settings";
 import { VideoBlockSettings } from "./(content_block_editor_components)/_components/block-settings/video-block-settings";
+import { AudioBlockSettings } from "./(content_block_editor_components)/_components/block-settings/audio-block-settings";
+import { audioBlockSchema } from "@/lib/schemas/block";
 import { AttachmentBlockSettings } from "./(content_block_editor_components)/_components/block-settings/attachment-block-settings";
 import { DividerBlockSettings } from "./(content_block_editor_components)/_components/block-settings/divider-block-settings";
 import { FlipCardBlockSettings } from "./(content_block_editor_components)/_components/block-settings/flip-card-block-settings";
@@ -88,6 +90,14 @@ export function ContentBlockEditor({
           mimeType: asset.contentType as "video/mp4" | "video/webm",
         },
       });
+    if (block.type === "audio") {
+      const selected = audioBlockSchema.safeParse({
+        ...block,
+        data: { src: asset.fileUrl, fileName: asset.originalName, mimeType: asset.contentType },
+      });
+      if (!selected.success) return;
+      onChange(selected.data);
+    }
     if (block.type === "attachment")
       onChange({
         ...block,
@@ -266,6 +276,7 @@ export function ContentBlockEditor({
           {block.type === "image" && <ImageBlockSettings block={block} onChange={onChange} setMediaLibraryTarget={setMediaLibraryTarget} />}
           {block.type === "gallery" && <GalleryBlockSettings block={block} setSelectedGalleryImageIndex={setSelectedGalleryImageIndex} setMediaLibraryTarget={setMediaLibraryTarget} onChange={onChange} />}
           {block.type === "video" && <VideoBlockSettings setMediaLibraryTarget={setMediaLibraryTarget} block={block} onChange={onChange} />}
+          {block.type === "audio" && <AudioBlockSettings setMediaLibraryTarget={setMediaLibraryTarget} block={block} />}
           {block.type === "attachment" && <AttachmentBlockSettings setMediaLibraryTarget={setMediaLibraryTarget} block={block} />}
           {block.type === "divider" && <DividerBlockSettings block={block} onChange={onChange} />}
           {block.type === "flipCard" && <FlipCardBlockSettings block={block} onChange={onChange} updateFlipCard={updateFlipCard} updateFlipCardFace={updateFlipCardFace} setMediaLibraryTarget={setMediaLibraryTarget} />}
@@ -278,7 +289,7 @@ export function ContentBlockEditor({
       )}
       <MediaLibraryDialog
         courseId={courseId}
-        kind={mediaLibraryTarget === "attachment" ? "attachment" : mediaLibraryTarget === "video" ? "video" : "image"}
+        kind={mediaLibraryTarget === "audio" ? "audio" : mediaLibraryTarget === "attachment" ? "attachment" : mediaLibraryTarget === "video" ? "video" : "image"}
         open={mediaLibraryTarget !== null}
         onClose={() => {
           setMediaLibraryTarget(null);

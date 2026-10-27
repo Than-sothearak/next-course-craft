@@ -395,6 +395,14 @@ export const blockTemplates: BlockTemplate[] = [
     preview: "video",
   },
   {
+    id: "media-audio",
+    category: "Multimedia",
+    title: "Audio",
+    description: "Upload an audio file for learners to play in the lesson.",
+    type: "audio",
+    preview: "audio",
+  },
+  {
     id: "media-attachment",
     category: "Attachment",
     title: "File attachment",

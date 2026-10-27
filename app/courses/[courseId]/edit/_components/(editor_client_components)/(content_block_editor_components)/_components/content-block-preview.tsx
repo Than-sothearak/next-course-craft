@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { LockKeyhole, Play } from "lucide-react";
 import type { ContentBlock } from "@/lib/schemas/block";
+import { AudioPlayer } from "@/components/audio-player";
 import { FileAttachmentLink } from "@/components/file-attachment-link";
 import { CourseLinkBlock } from "@/components/course-link-block";
 import { InputBlockPreview } from "../../input-block-preview";
@@ -15,6 +16,8 @@ type PreviewBlock = Exclude<ContentBlock, { type: "heading" | "richText" | "stat
 export function ContentBlockPreview({ block, onChange }: { block: PreviewBlock; onChange: (block: ContentBlock) => void }) {
   return block.type === "link" ? (
     <CourseLinkBlock data={block.data} interactive={false} />
+  ) : block.type === "audio" ? (
+    <AudioPlayer src={block.data.src} fileName={block.data.fileName} />
   ) : block.type === "attachment" ? (
     <FileAttachmentLink href={block.data.src} fileName={block.data.fileName} size={block.data.size} />
   ) : block.type === "chart" ? (

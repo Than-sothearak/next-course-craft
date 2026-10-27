@@ -33,6 +33,7 @@ function blockTypeLabel(block: ContentBlock) {
   if (block.type === "image") return "Image";
   if (block.type === "gallery") return "Image gallery";
   if (block.type === "video") return "Video";
+  if (block.type === "audio") return "Audio";
   if (block.type === "divider") return "Divider";
   if (block.type === "flipCard") return "Flashcards";
   if (block.type === "accordion") return block.data.layout === "tabs" ? "Tabs" : "Accordion";
@@ -61,6 +62,7 @@ function blockTitle(block: ContentBlock) {
     return block.data.title?.trim() || block.data.caption?.trim() || block.data.alt.trim() || "Image";
   if (block.type === "gallery") return `${block.data.images.length} image${block.data.images.length === 1 ? "" : "s"}`;
   if (block.type === "video") return "Video content";
+  if (block.type === "audio") return block.data.fileName.trim() || "Audio content";
   if (block.type === "divider")
     return block.data.style === "continue" ? block.data.label.trim() || "Continue button" : `${block.data.style} divider`;
   if (block.type === "flipCard") {

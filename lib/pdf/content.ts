@@ -74,6 +74,8 @@ export function getHandoutBlockText(block: ContentBlock): string[] {
       return block.data.images.map((image, index) => `Image ${index + 1}: ${image.alt}`).filter(Boolean);
     case "video":
       return [block.data.captions ? `Video captions: ${block.data.captions}` : "Video content is available in the online course."];
+    case "audio":
+      return [block.data.fileName ? `Audio: ${block.data.fileName}` : "Audio content is available in the online course."];
     case "attachment":
       return [block.data.fileName ? `Attachment: ${block.data.fileName}` : "Attachment available in the online course."];
     case "link":

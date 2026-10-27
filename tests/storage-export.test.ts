@@ -60,6 +60,24 @@ describe("offline packages across storage providers", () => {
     expect(Asset.find).toHaveBeenCalledWith({ _id: { $in: ids }, ownerId, courseId, status: "ready" });
     expect(fetch).toHaveBeenCalledTimes(2);
   });
+  it.each(["1.2", "2004"])("packages lesson audio for offline playback in SCORM %s", async (version) => {
+    const audio = { ...assets[0], mimeType: "audio/mpeg", originalName: "Introduction.mp3" };
+    vi.mocked(Asset.find).mockReturnValue({ lean: async () => [audio] } as never);
+    const course = await getCourseEditor(ownerId, courseId);
+    course.lessons[0].blocks = [{
+      id: "audio", version: 1, type: "audio", width: "medium", widthCustom: false,
+      blockPadding: 40, backgroundColor: "#ffffff",
+      data: { src: `/api/assets/${ids[0]}/file`, fileName: audio.originalName, mimeType: "audio/mpeg" },
+    }];
+    vi.mocked(fetch).mockResolvedValue(new Response("ID3audio"));
+    const build = version === "1.2" ? buildScorm12Package : buildScorm2004Package;
+    const { archive } = await build({ ownerId, courseId, authorName: "Author" });
+    const files = unzipSync(new Uint8Array(archive));
+    expect(strFromU8(files[`media/${ids[0]}.mp3`])).toBe("ID3audio");
+    expect(strFromU8(files["index.html"])).toContain(`./media/${ids[0]}.mp3`);
+    expect(strFromU8(files["index.html"])).not.toContain("/api/assets/");
+    expect(strFromU8(files["imsmanifest.xml"])).toContain(`media/${ids[0]}.mp3`);
+  });
   it("refuses to export unavailable or foreign media", async () => {
     vi.mocked(Asset.find).mockReturnValue({ lean: async () => assets.slice(0, 2) } as never);
     await expect(buildScorm12Package({ ownerId, courseId, authorName: "Author" })).rejects.toMatchObject({ status: 409 });

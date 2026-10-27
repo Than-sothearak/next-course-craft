@@ -1,4 +1,4 @@
-import { FileDown, LockKeyhole, Video } from "lucide-react";
+import { FileDown, LockKeyhole, Music2, Video } from "lucide-react";
 import type { BlockTemplate } from "./block-template-data";
 import { InputBlockPreview } from "../input-block-preview";
 import { StatementBlockPreview } from "../../statement-block-preview";
@@ -145,6 +145,16 @@ export function TemplatePreview({ template }: { template: BlockTemplate }) {
         <span className="absolute left-2 top-2 text-[9px] font-medium text-white/90">
           Course introduction
         </span>
+      </div>
+    );
+  if (kind === "audio")
+    return (
+      <div className="flex items-center gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4">
+        <Music2 size={20} className="shrink-0 text-indigo-600" />
+        <div className="flex-1 space-y-2">
+          <span className="block text-[10px] font-semibold text-slate-700">Lesson audio</span>
+          <div className="h-1 rounded-full bg-slate-200"><span className="block h-full w-1/3 rounded-full bg-indigo-500" /></div>
+        </div>
       </div>
     );
   if (kind === "attachment")

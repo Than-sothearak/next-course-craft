@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { CirclePlay } from "lucide-react";
 import { PreviewImage } from "../../../../preview-image";
+import { AudioPlayer } from "@/components/audio-player";
 import { FileAttachmentLink } from "@/components/file-attachment-link";
 import { CourseLinkBlock } from "@/components/course-link-block";
 import { InteractiveAccordion, InteractiveFlipCard, InteractiveKnowledgeCheck, InteractiveLabeledGraphic, InteractiveProcessSteps, InteractiveSurvey } from "../../../../interactive-blocks";
@@ -85,6 +86,8 @@ export function PreviewBlock({
         className={`prose max-w-none ${compactText ? "text-sm leading-6" : "text-base leading-7"} [&_p]:my-3 [&_h1]:my-5 [&_h2]:my-4 [&_h3]:my-3 ${animateListItems ? "lesson-list-enter" : ""}`}
       />
     );
+  } else if (block.type === "audio") {
+    content = <AudioPlayer src={block.data.src} fileName={block.data.fileName} onEnded={() => onInteractiveProgress?.(`${block.id}:listened`)} />;
   } else if (block.type === "attachment") {
     content = <FileAttachmentLink href={block.data.src} fileName={block.data.fileName} size={block.data.size} />;
   } else if (block.type === "link") {
