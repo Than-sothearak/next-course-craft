@@ -1,5 +1,5 @@
 import { Types } from "mongoose";
-import { Asset, Course } from "@/models";
+import { Asset, Course, Lesson } from "@/models";
 import type { CreateCourseInput, UpdateCourseInput } from "../schemas";
 import { DashboardError } from "../rules";
 import { assertFolderOwned, objectId, ownerObjectId } from "./internal";
@@ -12,6 +12,8 @@ export async function createCourse(userId: string, input: CreateCourseInput) {
   const ownerId = scope.ownerId;
   const owner = ownerObjectId(ownerId);
   await assertFolderOwned(ownerId, input.folderId, scope.workspaceId);
+  const sectionId = new Types.ObjectId().toString();
+  const firstSlideId = input.courseLayout === "slides" ? new Types.ObjectId().toString() : null;
   const course = await Course.create({
     ownerId: owner,
     createdBy: ownerObjectId(userId),
@@ -21,16 +23,30 @@ export async function createCourse(userId: string, input: CreateCourseInput) {
     description: input.description,
     coverImage: input.coverImage ?? null,
     status: "draft",
+    courseLayout: input.courseLayout ?? "standard",
     sections: [
       {
-        id: new Types.ObjectId().toString(),
-        title: "Getting started",
+        id: sectionId,
+        title: input.courseLayout === "slides" ? "Slides" : "Getting started",
         order: 0,
       },
     ],
   });
+  if (firstSlideId) {
+    try {
+      await Lesson.create({ courseId: course._id, editorId: firstSlideId, sectionId,
+        title: "Slide 1", lessonType: "content", icon: "file", order: 0, blocks: [], quizQuestions: [] });
+    } catch (error) {
+      await Promise.allSettled([
+        Lesson.deleteMany({ courseId: course._id }),
+        Course.deleteOne({ _id: course._id, ownerId: owner }),
+      ]);
+      throw error;
+    }
+  }
   return {
     id: course._id.toString(),
+    firstSlideId,
     title: course.title,
     folderId: course.folderId?.toString() ?? null,
     status: course.status,

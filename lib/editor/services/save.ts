@@ -6,6 +6,7 @@ import type { EditorSnapshotInput } from "../schemas";
 import { ownerObjectId } from "./shared";
 import { assertCourseAudioAssets } from "./audio-assets";
 import { assertCourseCoverAsset } from "./course-cover";
+import { assertSlideCoverAssets } from "./slide-cover-assets";
 
 export function transactionUnsupported(error: unknown) {
   return (
@@ -37,6 +38,7 @@ function lessonWriteOperations(
           quizQuestions: lesson.quizQuestions,
           order: lesson.order,
           blocks: lesson.blocks,
+          slideCover: lesson.slideCover ?? null,
         },
         $setOnInsert: {
           courseId,
@@ -63,7 +65,7 @@ async function saveWithoutTransactions(
     revision: snapshot.revision,
   })
     .select(
-      "title description descriptionHtml authorVisible theme navigationMode sections revision __v",
+      "title description descriptionHtml authorVisible theme navigationMode slideMaster sections revision __v",
     )
     .lean();
   if (!before) {
@@ -100,6 +102,7 @@ async function saveWithoutTransactions(
         authorVisible: snapshot.authorVisible,
         theme: snapshot.theme,
         navigationMode: snapshot.navigationMode,
+        slideMaster: snapshot.slideMaster,
         sections: snapshot.sections,
         editorSaveLock: lockId,
         editorSaveLockAt: new Date(),
@@ -151,6 +154,7 @@ async function saveWithoutTransactions(
             authorVisible: before.authorVisible,
             theme: before.theme,
             navigationMode: before.navigationMode,
+            slideMaster: before.slideMaster,
             sections: before.sections,
             revision: snapshot.revision,
             __v: before.__v,
@@ -179,6 +183,7 @@ export async function saveCourseEditor(
     throw new DashboardError("Course not found.", 404);
   await assertCourseCoverAsset(ownerId, courseId, snapshot.theme.cover);
   await assertCourseAudioAssets(ownerId, courseId, snapshot.lessons);
+  await assertSlideCoverAssets(ownerId, courseId, snapshot.lessons);
 
   const session = await mongoose.startSession();
   let nextRevision: number | null = null;
@@ -201,6 +206,7 @@ export async function saveCourseEditor(
               authorVisible: snapshot.authorVisible,
               theme: snapshot.theme,
               navigationMode: snapshot.navigationMode,
+              slideMaster: snapshot.slideMaster,
               sections: snapshot.sections,
             },
             $inc: { revision: 1, __v: 1 },

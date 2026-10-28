@@ -39,6 +39,7 @@ export function ContentBlockEditor({
   hasUnsavedChanges = false,
   saveMessage = "",
   onRetrySave = () => {},
+  inlineSettings = false,
 }: {
   block: ContentBlock;
   courseId: string;
@@ -50,6 +51,7 @@ export function ContentBlockEditor({
   hasUnsavedChanges?: boolean;
   saveMessage?: string;
   onRetrySave?: () => void;
+  inlineSettings?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [chartColorDraft, setChartColorDraft] = useState(
@@ -158,6 +160,7 @@ export function ContentBlockEditor({
   }
 
   function replaceTemplateAction() {
+    if (!onReplaceTemplate) return null;
     return (
       <Button
         type="button"
@@ -200,6 +203,7 @@ export function ContentBlockEditor({
   }
 
   function styleSettingsPanel() {
+    if (inlineSettings) return <div className="space-y-3">{replaceTemplateAction()}</div>;
     return (
       editing && (
         <DraggableSettingsPanel
@@ -218,7 +222,7 @@ export function ContentBlockEditor({
   if (block.type === "heading")
     return (
       <div className="group relative">
-        {settingsButton()}
+        {!inlineSettings && settingsButton()}
         {styleSettingsPanel()}
         <HeadingBlockEditor block={block} onChange={onChange} />
       </div>
@@ -226,7 +230,7 @@ export function ContentBlockEditor({
   if (block.type === "richText")
     return (
       <div className="group relative">
-        {settingsButton()}
+        {!inlineSettings && settingsButton()}
         {styleSettingsPanel()}
         <RichTextBlockEditor
           block={block}
@@ -237,14 +241,14 @@ export function ContentBlockEditor({
   if (block.type === "statement")
     return (
       <div className="group relative">
-        {settingsButton()}
+        {!inlineSettings && settingsButton()}
         {styleSettingsPanel()}
         <StatementContentEditor block={block} onChange={onChange} />
       </div>
     );
   if (block.type === "lessonMap")
     return (
-      <LessonMapEditor
+      <div className="space-y-3">{inlineSettings && replaceTemplateAction()}<LessonMapEditor
         block={block}
         sections={sections}
         lessons={lessons}
@@ -253,16 +257,34 @@ export function ContentBlockEditor({
         saveMessage={saveMessage}
         onRetrySave={onRetrySave}
         onChange={(next) => onChange(next)}
-      />
+      /></div>
     );
 
   const preview = <ContentBlockPreview block={block} onChange={onChange} />;
+  const settingsContent = <>
+    {replaceTemplateAction()}
+    {block.type === "link" && <LinkBlockSettings block={block} onChange={onChange} />}
+    {block.type === "chart" && <ChartBlockSettings block={block} onChange={onChange} setChartColorDraft={setChartColorDraft} chartColorDraft={chartColorDraft} />}
+    {block.type === "image" && <ImageBlockSettings block={block} onChange={onChange} setMediaLibraryTarget={setMediaLibraryTarget} />}
+    {block.type === "gallery" && <GalleryBlockSettings block={block} setSelectedGalleryImageIndex={setSelectedGalleryImageIndex} setMediaLibraryTarget={setMediaLibraryTarget} onChange={onChange} />}
+    {block.type === "video" && <VideoBlockSettings setMediaLibraryTarget={setMediaLibraryTarget} block={block} onChange={onChange} />}
+    {block.type === "audio" && <AudioBlockSettings setMediaLibraryTarget={setMediaLibraryTarget} block={block} />}
+    {block.type === "attachment" && <AttachmentBlockSettings setMediaLibraryTarget={setMediaLibraryTarget} block={block} />}
+    {block.type === "divider" && <DividerBlockSettings block={block} onChange={onChange} />}
+    {block.type === "flipCard" && <FlipCardBlockSettings block={block} onChange={onChange} updateFlipCard={updateFlipCard} updateFlipCardFace={updateFlipCardFace} setMediaLibraryTarget={setMediaLibraryTarget} />}
+    {block.type === "accordion" && <AccordionBlockSettings block={block} onChange={onChange} />}
+    {block.type === "labeledGraphic" && <LabeledGraphicBlockSettings block={block} onChange={onChange} setMediaLibraryTarget={setMediaLibraryTarget} />}
+    {block.type === "processSteps" && <ProcessStepsBlockSettings block={block} onChange={onChange} />}
+    {block.type === "knowledgeCheck" && <KnowledgeCheckBlockSettings block={block} onChange={onChange} />}
+    {block.type === "survey" && <SurveyBlockSettings block={block} onChange={onChange} />}
+  </>;
 
   return (
     <div className="group relative">
-      {settingsButton()}
+      {!inlineSettings && settingsButton()}
       <div className="block w-full rounded-md text-left">{preview}</div>
-      {editing && (
+      {inlineSettings && <div className="mt-3 space-y-3">{settingsContent}</div>}
+      {!inlineSettings && editing && (
         <DraggableSettingsPanel
           id={settingsPanelId}
           title="Content settings"
@@ -270,21 +292,7 @@ export function ContentBlockEditor({
           anchorRef={settingsButtonRef}
           panelClassName="w-[min(380px,calc(100vw-3rem))]"
         >
-          {replaceTemplateAction()}
-          {block.type === "link" && <LinkBlockSettings block={block} onChange={onChange} />}
-          {block.type === "chart" && <ChartBlockSettings block={block} onChange={onChange} setChartColorDraft={setChartColorDraft} chartColorDraft={chartColorDraft} />}
-          {block.type === "image" && <ImageBlockSettings block={block} onChange={onChange} setMediaLibraryTarget={setMediaLibraryTarget} />}
-          {block.type === "gallery" && <GalleryBlockSettings block={block} setSelectedGalleryImageIndex={setSelectedGalleryImageIndex} setMediaLibraryTarget={setMediaLibraryTarget} onChange={onChange} />}
-          {block.type === "video" && <VideoBlockSettings setMediaLibraryTarget={setMediaLibraryTarget} block={block} onChange={onChange} />}
-          {block.type === "audio" && <AudioBlockSettings setMediaLibraryTarget={setMediaLibraryTarget} block={block} />}
-          {block.type === "attachment" && <AttachmentBlockSettings setMediaLibraryTarget={setMediaLibraryTarget} block={block} />}
-          {block.type === "divider" && <DividerBlockSettings block={block} onChange={onChange} />}
-          {block.type === "flipCard" && <FlipCardBlockSettings block={block} onChange={onChange} updateFlipCard={updateFlipCard} updateFlipCardFace={updateFlipCardFace} setMediaLibraryTarget={setMediaLibraryTarget} />}
-          {block.type === "accordion" && <AccordionBlockSettings block={block} onChange={onChange} />}
-          {block.type === "labeledGraphic" && <LabeledGraphicBlockSettings block={block} onChange={onChange} setMediaLibraryTarget={setMediaLibraryTarget} />}
-          {block.type === "processSteps" && <ProcessStepsBlockSettings block={block} onChange={onChange} />}
-          {block.type === "knowledgeCheck" && <KnowledgeCheckBlockSettings block={block} onChange={onChange} />}
-          {block.type === "survey" && <SurveyBlockSettings block={block} onChange={onChange} />}
+          {settingsContent}
         </DraggableSettingsPanel>
       )}
       <MediaLibraryDialog

@@ -83,7 +83,7 @@ export async function duplicateCourse(
       description: copied.description, descriptionHtml: copied.descriptionHtml,
       authorVisible: copied.authorVisible, coverImage: copied.coverImage,
       sections: copied.sections, language: source.language, theme: copied.theme,
-      navigationMode: copied.navigationMode, status: "draft", revision: 0,
+      navigationMode: copied.navigationMode, courseLayout: copied.courseLayout ?? "standard", slideMaster: copied.slideMaster, status: "draft", revision: 0,
       completionSettings: structuredClone(source.completionSettings),
     });
     return { id: copy._id.toString(), title: copy.title, folderId: copy.folderId?.toString() ?? null, status: copy.status };

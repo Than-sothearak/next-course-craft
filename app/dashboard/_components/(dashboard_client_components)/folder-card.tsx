@@ -131,7 +131,7 @@ export function FolderCard({
               disabled={disabled || busy}
               onClick={() => {
                 if (
-                  window.confirm(`Delete the empty folder â€œ${folder.name}â€?`)
+                  window.confirm(`Delete the empty folder “${folder.name}”?`)
                 )
                   void onRequest(`/api/folders/${folder.id}`, "DELETE");
               }}

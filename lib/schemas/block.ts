@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { isSafeLinkHref } from "@/lib/editor/link-utils";
+import { slideFrameSchema } from "@/lib/editor/slide-design";
 
 export const blockTypes = [
   "heading",
@@ -59,6 +60,7 @@ const base = {
     .regex(/^#[\da-fA-F]{6}$/)
     .default("#ffffff"),
   headingPadding: spacing.optional(),
+  slideFrame: slideFrameSchema.optional(),
 };
 const blockBase = (
   defaultWidth: "full" | "medium" | "small",

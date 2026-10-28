@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { courseLayoutSchema } from "./course-layout";
+import { slideCoverSchema, slideMasterSchema } from "./slide-design";
 import { blockSchema } from "@/lib/schemas/block";
 import { quizQuestionsSchema } from "@/lib/schemas/quiz";
 import { courseThemeSchema, defaultCourseTheme } from "./theme";
@@ -22,6 +24,7 @@ export const editorLessonSchema = z.object({
   passingScore: z.number().int().min(0).max(100).optional(),
   titleHtml: z.string().max(100_000).optional(),
   quizQuestions: quizQuestionsSchema.default([]),
+  slideCover: slideCoverSchema.optional(),
   order: z.number().int().min(0).max(500),
   blocks: z.array(blockSchema).max(500),
 });
@@ -33,6 +36,8 @@ export const editorSnapshotSchema = z.object({
   authorVisible: z.boolean().default(true),
   theme: courseThemeSchema.default(() => ({ ...defaultCourseTheme })),
   navigationMode: courseNavigationModeSchema.default(defaultCourseNavigationMode),
+  courseLayout: courseLayoutSchema.optional(),
+  slideMaster: slideMasterSchema.optional(),
   revision: z.number().int().min(0),
   sections: z.array(editorSectionSchema).min(1).max(100),
   lessons: z.array(editorLessonSchema).max(500),
@@ -51,6 +56,9 @@ export const editorSnapshotSchema = z.object({
   }
   const lessonOrders = new Map<string, Set<number>>();
   snapshot.lessons.forEach((lesson, index) => {
+    if (lesson.slideCover && (snapshot.courseLayout !== "slides" || lesson.lessonType !== "content" || lesson.blocks.length)) {
+      context.addIssue({ code: "custom", path: ["lessons", index, "slideCover"], message: "A cover slide must be an empty presentation slide." });
+    }
     if (!sectionIds.has(lesson.sectionId)) {
       context.addIssue({ code: "custom", path: ["lessons", index, "sectionId"], message: "Every lesson must belong to a section." });
     }

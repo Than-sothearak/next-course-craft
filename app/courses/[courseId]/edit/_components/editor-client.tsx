@@ -82,6 +82,12 @@ import { useFocusedContentBlock } from "./(editor_client_components)/use-focused
 import { duplicateLessonContent, moveLessonToSection } from "@/lib/editor/course-content";
 import type { Permission } from "@/lib/auth/policy";
 import { createClientId } from "@/lib/client-id";
+import { SlideNavigation } from "@/app/courses/[courseId]/_components/slide-presentation/slide-navigation";
+import { SlideEditorStage } from "./slide-presentation/slide-editor-stage";
+import { SlideEditorSidebar } from "./slide-presentation/slide-editor-sidebar";
+import { SlideObjectWorkspace } from "./slide-presentation/slide-object-workspace";
+import { blockTemplates } from "./(editor_client_components)/(block_template_picker_components)/block-template-data";
+import { defaultSlideCover, defaultSlideFrame } from "@/lib/editor/slide-design";
 
 import { useEditorDraft, type Draft } from "./_components/use-editor-draft";
 
@@ -121,7 +127,8 @@ function getTemplateCategory(block: ContentBlock): BlockCategory {
   }
   if (block.type === "image") return "Image";
   if (block.type === "gallery") return "Gallery";
-  if (block.type === "video") return "Multimedia";
+  if (block.type === "video" || block.type === "audio") return "Multimedia";
+  if (block.type === "attachment") return "Attachment";
   if (block.type === "divider") return "Divider";
   if (block.type === "flipCard" || block.type === "accordion" || block.type === "labeledGraphic" || block.type === "processSteps" || block.type === "lessonMap") return "Interactive";
   if (block.type === "chart") return "Chart";
@@ -156,11 +163,13 @@ export function EditorClient({
     authorVisible: initialData.authorVisible,
     theme: initialData.theme,
     navigationMode: initialData.navigationMode ?? defaultCourseNavigationMode,
+    courseLayout: initialData.courseLayout,
+    slideMaster: initialData.slideMaster,
     sections: initialData.sections,
     lessons: initialData.lessons,
   };
   const [activeLessonId, setSelectedLessonId] = useState<string | null>(
-    focusedLessonId ?? null,
+    focusedLessonId ?? (initialData.courseLayout === "slides" ? initialData.lessons[0]?.id ?? null : null),
   );
   const [blockManagerOpen, setBlockManagerOpen] = useState(false);
   const [titleValid, setTitleValid] = useState(true);
@@ -177,6 +186,8 @@ export function EditorClient({
     () => [...draft.sections].sort((a, b) => a.order - b.order),
     [draft.sections],
   );
+  const slideCourse = draft.courseLayout === "slides";
+  const slides = orderedSections.flatMap((section) => draft.lessons.filter((lesson) => lesson.sectionId === section.id).sort((a, b) => a.order - b.order));
   const blockSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, {
@@ -249,11 +260,34 @@ export function EditorClient({
   }, [draft.title]);
 
   function openLesson(id: string) {
+    if (slideCourse) { setActiveLessonId(id); return; }
     openRouteAfterSave(`/courses/${initialData.courseId}/edit/lessons/${id}`);
   }
 
+  function addSlide(sectionId: string) {
+    setActiveLessonId(addLesson(sectionId));
+  }
+
+  function applyFirstSlideCover() {
+    const first = slides[0];
+    if (!first) return;
+    if (!first.blocks.length) {
+      updateLesson(first.id, (lesson) => ({ ...lesson, slideCover: { ...defaultSlideCover } }));
+      return;
+    }
+    const coverId = newId();
+    updateDraft((current) => ({
+      ...current,
+      lessons: [
+        ...current.lessons.map((lesson) => lesson.sectionId === first.sectionId ? { ...lesson, order: lesson.order + 1 } : lesson),
+        { id: coverId, sectionId: first.sectionId, title: "Cover", icon: "file" as const, lessonType: "content" as const, passingScore: 70, quizQuestions: [], order: 0, blocks: [] as ContentBlock[], slideCover: { ...defaultSlideCover } },
+      ],
+    }));
+    setActiveLessonId(coverId);
+  }
+
   function openPreview() {
-    const lessonId = focusedLessonId ?? activeLessonId;
+    const lessonId = slideCourse ? focusedLessonId ?? activeLessonId : null;
     const lessonQuery = lessonId ? `?lessonId=${encodeURIComponent(lessonId)}` : "";
     openRouteAfterSave(`/courses/${initialData.courseId}/preview${lessonQuery}`);
   }
@@ -370,7 +404,7 @@ export function EditorClient({
     const lesson = {
       id: newId(),
       sectionId,
-      title: isQuiz ? "New quiz" : "New lesson",
+      title: isQuiz ? "New quiz" : slideCourse ? `Slide ${draftRef.current.lessons.length + 1}` : "New lesson",
       icon: isQuiz ? ("quiz" as const) : ("file" as const),
       lessonType,
       passingScore: 70,
@@ -384,6 +418,7 @@ export function EditorClient({
       lessons: [...current.lessons, lesson],
     }));
     void saveLatest();
+    return lesson.id;
   }
 
   function duplicateLesson(id: string) {
@@ -492,7 +527,7 @@ export function EditorClient({
       const insertedBlocks = createBlocksFromTemplate(template, newId(), {
         sections: draft.sections,
         lessons: draft.lessons,
-      });
+      }).map((block, offset) => slideCourse ? { ...block, blockPadding: Math.min(block.blockPadding, 12), slideFrame: defaultSlideFrame(activeLesson.blocks.length + offset, block.type) } : block);
       updateLesson(activeLesson.id, (lesson) => {
         const blocks = [...lesson.blocks];
         blocks.splice(
@@ -526,6 +561,7 @@ export function EditorClient({
       }
       updateBlock(existing.id, {
         ...replacement,
+        slideFrame: existing.slideFrame,
         width: existing.width,
         widthCustom: existing.widthCustom,
         backgroundColor: existing.backgroundColor,
@@ -534,6 +570,18 @@ export function EditorClient({
       });
     }
     setTemplatePicker(null);
+  }
+
+  function addSlideObject(templateId: string) {
+    if (!activeLesson) return null;
+    const template = blockTemplates.find((item) => item.id === templateId);
+    if (!template) return null;
+    const blocks = createBlocksFromTemplate(template, newId(), { sections: draft.sections, lessons: draft.lessons });
+    updateLesson(activeLesson.id, (lesson) => ({
+      ...lesson,
+      blocks: [...lesson.blocks, ...blocks.map((block, offset) => ({ ...block, blockPadding: Math.min(block.blockPadding, 12), slideFrame: defaultSlideFrame(lesson.blocks.length + offset, block.type) }))],
+    }));
+    return blocks[0]?.id ?? null;
   }
 
   function reorderBlocks(event: DragEndEvent) {
@@ -574,7 +622,7 @@ export function EditorClient({
     if (!activeLesson) return;
     const source = activeLesson.blocks.find((block) => block.id === blockId);
     if (!source) return;
-    const copy = { ...source, id: newId() } as ContentBlock;
+    const copy = { ...source, id: newId(), ...(slideCourse && source.slideFrame ? { slideFrame: { ...source.slideFrame, x: Math.min(100 - source.slideFrame.width, source.slideFrame.x + 3), y: Math.min(100 - source.slideFrame.height, source.slideFrame.y + 3), z: Math.min(500, source.slideFrame.z + 1) } } : {}) } as ContentBlock;
     updateLesson(activeLesson.id, (lesson) => {
       const index = lesson.blocks.findIndex((block) => block.id === blockId);
       const blocks = [...lesson.blocks];
@@ -914,7 +962,7 @@ export function EditorClient({
         style={{ fontFamily: courseThemeFontFamilies[draft.theme.fontFamily] }}
         className={`mx-auto w-full ${isCourseOverview ? "max-w-[880px] px-5 pb-16 pt-7 sm:px-8 sm:pt-8" : focusedLessonId ? "max-w-none pb-40" : "max-w-none px-3 py-4 sm:px-5 lg:px-8"}`}
       >
-        {!focusedLessonId && activeLesson && (
+        {(!focusedLessonId || slideCourse) && activeLesson && (
           <details className="mb-3 rounded-xl border border-slate-200 bg-white p-3 lg:hidden">
             <summary className="cursor-pointer list-none text-sm font-semibold [&::-webkit-details-marker]:hidden">
               Course outline{" "}
@@ -928,17 +976,19 @@ export function EditorClient({
           </details>
         )}
         <div
-          className={`grid gap-4 ${focusedLessonId || !activeLesson ? "grid-cols-1" : "lg:grid-cols-[270px_minmax(0,1fr)]"}`}
+          className={`grid gap-4 ${(focusedLessonId && !slideCourse) || !activeLesson ? "grid-cols-1" : "lg:grid-cols-[270px_minmax(0,1fr)]"}`}
         >
-          {!focusedLessonId && activeLesson && (
+          {(!focusedLessonId || slideCourse) && activeLesson && (slideCourse ? (
+            <SlideEditorSidebar slides={slides} activeId={activeLesson.id} master={draft.slideMaster} courseTitle={draft.title} onSelect={openLesson} onAdd={() => addSlide(activeLesson.sectionId)} />
+          ) : (
             <aside className="sticky top-[84px] hidden max-h-[calc(100vh-100px)] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-3 lg:block">
               {renderOutline()}
             </aside>
-          )}
+          ))}
 
-          <section className="min-w-0" aria-label="Lesson canvas">
+          <section className="min-w-0" aria-label={slideCourse ? "Slide canvas" : "Lesson canvas"}>
             <div
-              className={`mx-auto ${isCourseOverview ? "max-w-[840px]" : focusedLessonId ? "max-w-none" : "max-w-3xl"}`}
+              className={`mx-auto w-full ${isCourseOverview ? "max-w-[840px]" : "max-w-none"}`}
             >
               {isCourseOverview && (
                 <div className="mb-0">
@@ -1059,7 +1109,37 @@ export function EditorClient({
                 </div>
               )}
               {activeLesson ? (
-                activeLesson.lessonType === "quiz" ? (
+                slideCourse && activeLesson.lessonType !== "quiz" ? (
+                  <SlideObjectWorkspace
+                    key={activeLesson.id}
+                    title={activeLesson.title}
+                    courseTitle={draft.title}
+                    slideNumber={slides.findIndex((slide) => slide.id === activeLesson.id) + 1}
+                    slideCount={slides.length}
+                    blocks={activeLesson.blocks}
+                    sections={draft.sections}
+                    lessons={draft.lessons}
+                    master={draft.slideMaster}
+                    cover={activeLesson.slideCover}
+                    courseId={initialData.courseId}
+                    onTitleChange={(title) => updateLesson(activeLesson.id, (lesson) => ({ ...lesson, title }))}
+                    onMasterChange={(slideMaster) => updateDraft((current) => ({ ...current, slideMaster }))}
+                    onCoverChange={(slideCover) => updateLesson(activeLesson.id, (lesson) => ({ ...lesson, slideCover }))}
+                    onApplyCover={applyFirstSlideCover}
+                    onCourseTitleChange={(title) => updateDraft((current) => ({ ...current, title }))}
+                    onStart={slides.findIndex((slide) => slide.id === activeLesson.id) < slides.length - 1 ? () => openLesson(slides[slides.findIndex((slide) => slide.id === activeLesson.id) + 1].id) : undefined}
+                    onBlockChange={(block) => updateBlock(block.id, block)}
+                    onAddTemplate={addSlideObject}
+                    onMoreTemplates={() => openAddTemplatePicker(activeLesson.blocks.length)}
+                    onReplaceTemplate={openReplaceTemplatePicker}
+                    onDuplicate={duplicateBlock}
+                    onDelete={deleteBlock}
+                  >
+                    <SlideNavigation slides={slides} activeId={activeLesson.id} master={draft.slideMaster} courseTitle={draft.title} onSelect={openLesson} onAdd={() => addSlide(activeLesson.sectionId)} />
+                  </SlideObjectWorkspace>
+                ) : activeLesson.lessonType === "quiz" ? (
+                  <>
+                  <SlideEditorStage active={slideCourse} title={activeLesson.title}>
                   <QuizEditor
                     key={activeLesson.id}
                     title={activeLesson.title}
@@ -1090,10 +1170,15 @@ export function EditorClient({
                       }))
                     }
                   />
+                  </SlideEditorStage>
+                  {slideCourse && <SlideNavigation slides={slides} activeId={activeLesson.id} master={draft.slideMaster} courseTitle={draft.title} onSelect={openLesson} onAdd={() => addSlide(activeLesson.sectionId)} />}
+                  </>
                 ) : (
                   <>
+                    <SlideEditorStage active={slideCourse} title={activeLesson.title}>
                     <LessonTitleEditor
                       key={activeLesson.id}
+                      compact={slideCourse}
                       title={activeLesson.title}
                       html={activeLesson.titleHtml}
                       onChange={(title, titleHtml) =>
@@ -1232,8 +1317,8 @@ export function EditorClient({
                                         color: contrastTextColor(
                                           block.backgroundColor,
                                         ),
-                                        paddingTop: `${blockPadding}px`,
-                                        paddingBottom: `${blockPadding}px`,
+                                        paddingTop: `${slideCourse ? Math.min(blockPadding, 14) : blockPadding}px`,
+                                        paddingBottom: `${slideCourse ? Math.min(blockPadding, 14) : blockPadding}px`,
                                       }}
                                     >
                                       <div
@@ -1297,7 +1382,7 @@ export function EditorClient({
                     {!activeLesson.blocks.length && (
                       <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-5 py-6 text-center">
                         <p className="font-medium text-slate-800">
-                          Build this lesson one block at a time
+                          {slideCourse ? "Build this slide one block at a time" : "Build this lesson one block at a time"}
                         </p>
                         <p className="mt-1 text-sm text-slate-500">
                           Add a text block, heading, or media link to begin.
@@ -1315,6 +1400,8 @@ export function EditorClient({
                         Add block
                       </Button>
                     </div>
+                    </SlideEditorStage>
+                    {slideCourse && <SlideNavigation slides={slides} activeId={activeLesson.id} master={draft.slideMaster} courseTitle={draft.title} onSelect={openLesson} onAdd={() => addSlide(activeLesson.sectionId)} />}
                   </>
                 )
               ) : !focusedLessonId ? (

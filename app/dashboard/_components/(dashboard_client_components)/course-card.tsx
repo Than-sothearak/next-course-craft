@@ -2,7 +2,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { BookOpen, Clock3, ImagePlus, MoreHorizontal, Trash2 } from "lucide-react";
+import { BookOpenText, Clock3, ImagePlus, MoreHorizontal, Presentation, Trash2 } from "lucide-react";
 import type { DashboardCourse, DashboardData } from "@/lib/dashboard/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -79,12 +79,20 @@ export function CourseCard({
             className="absolute inset-0 h-full w-full object-cover"
           />
         ) : (
-          <BookOpen
+          course.courseLayout === "slides" ? <Presentation
+            size={34}
+            className="text-indigo-400/80"
+            aria-hidden="true"
+          /> : <BookOpenText
             size={34}
             className="text-indigo-400/80"
             aria-hidden="true"
           />
         )}
+        <span className="absolute right-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-slate-700 shadow-sm backdrop-blur">
+          {course.courseLayout === "slides" ? <Presentation size={13} aria-hidden="true" /> : <BookOpenText size={13} aria-hidden="true" />}
+          {course.courseLayout === "slides" ? "Slide presentation" : "Standard course"}
+        </span>
       </div>
       <div className="p-4">
         <div className="flex items-start justify-between gap-2">

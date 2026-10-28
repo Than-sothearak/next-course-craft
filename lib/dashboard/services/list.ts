@@ -15,6 +15,7 @@ import { folderResponse, objectId, ownerObjectId } from "./internal";
 import { courseScopeCan, resolveDashboardAccess, roleCan, type WorkspaceRole } from "@/lib/workspaces/access";
 import { requirePermission } from "@/lib/auth/authorization";
 import { listWorkspaces } from "@/lib/workspaces/services";
+import { normalizeCourseLayout } from "@/lib/editor/course-layout";
 
 export async function getDashboardListing(
   userId: string,
@@ -135,7 +136,7 @@ export async function getDashboardListing(
   const courses = await Course.find(courseFilter)
     .sort(sort)
     .limit(200)
-    .select("title description coverImage folderId status revision updatedAt ownerId workspaceId")
+    .select("title description coverImage courseLayout folderId status revision updatedAt ownerId workspaceId")
     .lean();
   const ids = courses.map((course) => course._id);
   const lessonCounts = await Lesson.aggregate<{
@@ -157,6 +158,7 @@ export async function getDashboardListing(
     title: course.title,
     description: course.description,
     coverImage: course.coverImage ?? null,
+    courseLayout: normalizeCourseLayout(course.courseLayout),
     folderId: course.folderId?.toString() ?? null,
     status: course.status,
     revision: course.revision,

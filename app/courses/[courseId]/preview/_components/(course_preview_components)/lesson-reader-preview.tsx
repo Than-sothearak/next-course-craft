@@ -3,6 +3,8 @@
 import type { Dispatch, SetStateAction } from "react";
 import { ArrowLeft, ArrowRight, BookOpen, LockKeyhole } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PresentationSlideStage } from "../slide-presentation/presentation-slide-stage";
+import { defaultSlideMaster } from "@/lib/editor/slide-design";
 import {
   courseNavigationModeOptions,
   type CourseNavigationMode,
@@ -18,7 +20,8 @@ type PendingContinueScroll = { lessonId: string; blockId: string } | null;
 type RecordRef<T> = { current: Map<string, T> };
 
 type LessonReaderPreviewProps = {
-  initialData: Pick<PreviewData, "authorVisible">;
+  initialData: Pick<PreviewData, "title" | "authorVisible" | "slideMaster">;
+  slideLayout?: boolean;
   active: boolean;
   lessons: PreviewLesson[];
   selectedLessonId: string | null;
@@ -51,6 +54,7 @@ type LessonReaderPreviewProps = {
 
 export function LessonReaderPreview({
   initialData,
+  slideLayout = false,
   active,
   lessons,
   selectedLessonId,
@@ -98,19 +102,20 @@ export function LessonReaderPreview({
           >
             <div
               ref={(node) => {
+                if (slideLayout) return;
                 if (node)
                   lessonBodyScrollRefs.current.set(lesson.id, node);
                 else lessonBodyScrollRefs.current.delete(lesson.id);
               }}
               onScroll={(event) =>
-                active && lesson.id === selectedLessonId && markContentAboveComplete(
+                !slideLayout && active && lesson.id === selectedLessonId && markContentAboveComplete(
                   lesson,
                   event.currentTarget,
                 )
               }
-              className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain [scrollbar-gutter:stable]"
+              className={slideLayout ? "flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-hidden bg-white" : "flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain [scrollbar-gutter:stable]"}
             >
-              <nav
+              {!slideLayout && <nav
                 aria-label={`Previous section from content ${index + 1}`}
                 className="mb-[60px] w-full shrink-0"
               >
@@ -136,8 +141,27 @@ export function LessonReaderPreview({
                     </span>
                   </span>
                 </Button>
-              </nav>
-              <div className="mx-auto w-full max-w-[720px] shrink-0 px-4 pb-8">
+              </nav>}
+              <PresentationSlideStage
+                active={slideLayout}
+                visible={lesson.id === selectedLessonId}
+                title={lesson.title}
+                courseTitle={initialData.title}
+                number={index + 1}
+                total={lessons.length}
+                master={initialData.slideMaster}
+                cover={lesson.slideCover}
+                canvasRef={(node) => {
+                  if (!slideLayout) return;
+                  if (node) lessonBodyScrollRefs.current.set(lesson.id, node);
+                  else lessonBodyScrollRefs.current.delete(lesson.id);
+                }}
+                onScroll={(event) => {
+                  if (slideLayout && active && lesson.id === selectedLessonId)
+                    markContentAboveComplete(lesson, event.currentTarget);
+                }}
+              >
+              {!slideLayout && <div className="mx-auto w-full max-w-[720px] shrink-0 px-4 pb-8">
                 <StatementTextPreview
                   tag="h3"
                   text={lesson.title}
@@ -151,11 +175,11 @@ export function LessonReaderPreview({
                     </span>
                     <span>{authorName}</span>
                     <span className="ml-2 border-l border-slate-200 pl-3 uppercase tracking-wide">
-                      Content {index + 1} / {lessons.length}
+                      {slideLayout ? "Slide" : "Content"} {index + 1} / {lessons.length}
                     </span>
                   </div>
                 )}
-              </div>
+              </div>}
               {lesson.lessonType === "quiz" ? (
                 lesson.quizQuestions.length ? (
                   <QuizAssessmentPreview
@@ -183,6 +207,8 @@ export function LessonReaderPreview({
               ) : lesson.blocks.length ? (
                 <LessonBlocksPreview
                   blocks={lesson.blocks}
+                  slideLayout={slideLayout}
+                  slideBackgroundColor={initialData.slideMaster?.backgroundColor ?? defaultSlideMaster.backgroundColor}
                   device={device}
                   orientation={orientation}
                   animate={lesson.id === selectedLessonId}
@@ -225,7 +251,8 @@ export function LessonReaderPreview({
                   This content has no lesson material yet.
                 </div>
               )}
-              <nav
+              </PresentationSlideStage>
+              {!slideLayout && <nav
                 aria-label={`Next section from content ${index + 1}`}
                 className="mt-auto w-full shrink-0 pt-[60px]"
               >
@@ -298,7 +325,7 @@ export function LessonReaderPreview({
                     </Button>
                   );
                 })()}
-              </nav>
+              </nav>}
             </div>
           </article>
         ))

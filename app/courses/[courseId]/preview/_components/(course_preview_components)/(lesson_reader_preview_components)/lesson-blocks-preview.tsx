@@ -7,6 +7,7 @@ import {
 } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import type { ContentBlock } from "@/lib/schemas/block";
+import { resolveSlideFrame } from "@/lib/editor/slide-design";
 import { Button } from "@/components/ui/button";
 import { getPendingInteractiveProgressIds } from "@/lib/export/progress";
 import { blockSurfaceStyle, blockWidthClass } from "../preview-utils";
@@ -73,6 +74,8 @@ function LessonBlockEntrance({
 
 export function LessonBlocksPreview({
   blocks,
+  slideLayout = false,
+  slideBackgroundColor = "#ffffff",
   device,
   orientation,
   animate,
@@ -90,6 +93,8 @@ export function LessonBlocksPreview({
   onOpenLesson,
 }: {
   blocks: ContentBlock[];
+  slideLayout?: boolean;
+  slideBackgroundColor?: string;
   device: PreviewDevice;
   orientation: PreviewOrientation;
   animate: boolean;
@@ -127,9 +132,14 @@ export function LessonBlocksPreview({
         : lastIndex,
     -1,
   );
+  const place = (block: ContentBlock, index: number, content: ReactNode) => {
+    if (!slideLayout) return content;
+    const frame = resolveSlideFrame(block, index, blocks.length);
+    return <div key={block.id} data-slide-object-id={block.id} className="absolute overflow-auto rounded-md" style={{ left: `${frame.x}%`, top: `${frame.y}%`, width: `${frame.width}%`, height: `${frame.height}%`, zIndex: frame.z + 1, backgroundColor: block.type === "heading" || block.type === "richText" ? slideBackgroundColor : block.backgroundColor }}>{content}</div>;
+  };
 
   return (
-    <div className="mt-10 min-w-0 shrink-0">
+    <div className={slideLayout ? "relative h-full w-full" : "mt-10 min-w-0 shrink-0"}>
       {visibleBlocks.map((block, index) => {
         const blockDelay = Math.min(
           100,
@@ -154,7 +164,7 @@ export function LessonBlocksPreview({
             ? "Complete the interactive activities above to unlock Continue."
             : "Read to the end of the content above to unlock Continue.";
           const isUnlocking = unlockingDividerIds.has(block.id);
-          return (
+          return place(block, index,
             <LessonBlockEntrance
               key={`${block.id}-${animate ? "active" : "inactive"}`}
               blockId={block.id}
@@ -196,10 +206,10 @@ export function LessonBlocksPreview({
                   </div>
                 </div>
               )}
-            </LessonBlockEntrance>
+            </LessonBlockEntrance>,
           );
         }
-        return (
+        return place(block, index,
           <LessonBlockEntrance
             key={`${block.id}-${animate ? "active" : "inactive"}`}
             blockId={block.id}
@@ -208,7 +218,7 @@ export function LessonBlocksPreview({
           >
             {(entered) => (
               <PreviewBlock
-                block={block}
+                block={slideLayout ? { ...block, blockPadding: Math.min(block.blockPadding, 12), backgroundColor: block.type === "heading" || block.type === "richText" ? slideBackgroundColor : block.backgroundColor } : block}
                 device={device}
                 orientation={orientation}
                 animateListItems={entered}
@@ -221,7 +231,7 @@ export function LessonBlocksPreview({
                 onOpenLesson={onOpenLesson}
               />
             )}
-          </LessonBlockEntrance>
+          </LessonBlockEntrance>,
         );
       })}
     </div>

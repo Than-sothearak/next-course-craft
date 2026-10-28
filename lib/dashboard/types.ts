@@ -1,4 +1,5 @@
 import type { Permission } from "@/lib/auth/policy";
+import type { CourseLayout } from "@/lib/editor/course-layout";
 
 export type DashboardFolderBase = {
   id: string;
@@ -18,6 +19,7 @@ export type DashboardCourse = {
   title: string;
   description: string;
   coverImage: string | null;
+  courseLayout: CourseLayout;
   folderId: string | null;
   status: "draft" | "published" | "archived";
   revision: number;

@@ -12,6 +12,7 @@ const course: DashboardCourse = {
   title: "Sample course",
   description: "A sample course for testing.",
   coverImage: null,
+  courseLayout: "standard",
   folderId: null,
   status: "draft",
   revision: 1,
@@ -86,6 +87,17 @@ describe("course card actions", () => {
       "SCORM 1.2",
       "SCORM 2004",
     ]);
+  });
+
+  it("identifies standard and slide presentation cards even when a cover image is set", () => {
+    const props = { data, disabled: false, busy: false, onSubmit: async () => {}, onRequest: async () => {} };
+    act(() => root.render(createElement(CourseCard, { ...props, course })));
+    expect(container.textContent).toContain("Standard course");
+    expect(container.querySelector(".aspect-video svg.lucide-book-open-text")).not.toBeNull();
+    act(() => root.render(createElement(CourseCard, { ...props, course: { ...course, courseLayout: "slides", coverImage: "/api/assets/123456789012345678901234/file" } })));
+    expect(container.textContent).toContain("Slide presentation");
+    expect(container.querySelector(".aspect-video svg.lucide-presentation")).not.toBeNull();
+    expect(container.querySelector(".aspect-video img")).not.toBeNull();
   });
 
   it("duplicates a personal course into a selected team workspace", async () => {

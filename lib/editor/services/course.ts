@@ -9,6 +9,8 @@ import {
 } from "@/lib/schemas/block";
 import { defaultSection, ownerObjectId } from "./shared";
 import { normalizeCourseTheme } from "../theme";
+import { normalizeCourseLayout } from "../course-layout";
+import { slideCoverSchema, slideMasterSchema } from "../slide-design";
 import { normalizeCourseNavigationMode } from "../navigation";
 
 export async function getCourseAuthorName(ownerId: string, courseId: string) {
@@ -53,6 +55,8 @@ export async function getCourseEditor(ownerId: string, courseId: string) {
     authorVisible: course.authorVisible ?? true,
     theme: normalizeCourseTheme(course.theme),
     navigationMode: normalizeCourseNavigationMode(course.navigationMode),
+    courseLayout: normalizeCourseLayout(course.courseLayout),
+    slideMaster: slideMasterSchema.parse(course.slideMaster ?? {}),
     revision: course.revision,
     sections,
     lessons: lessons.map((lesson) => {
@@ -70,6 +74,7 @@ export async function getCourseEditor(ownerId: string, courseId: string) {
         lessonType: lesson.lessonType ?? "content",
         passingScore: lesson.passingScore ?? 70,
         quizQuestions: lesson.quizQuestions ?? [],
+        slideCover: lesson.slideCover ? slideCoverSchema.safeParse(lesson.slideCover).data : undefined,
         order,
         blocks: lesson.blocks.map((storedBlock: ContentBlock) => {
           const block = normalizeStoredFlipCardBlock(storedBlock);

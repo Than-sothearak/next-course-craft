@@ -27,7 +27,7 @@ export function LessonMenu({
   setMobileMenuOpen,
   mobile = false,
 }: {
-  initialData: Pick<PreviewData, "title">;
+  initialData: Pick<PreviewData, "title" | "courseLayout">;
   progress: number;
   visitedLessonCount: number;
   lessons: PreviewData["lessons"];
@@ -66,6 +66,7 @@ export function LessonMenu({
     ? "w-[min(84%,320px)] shrink-0 shadow-2xl"
     : `${device === "tablet" ? "w-[220px]" : "w-[270px]"} shrink-0 border-r border-slate-200`;
   const normalizedLessonSearch = lessonSearch.trim().toLocaleLowerCase();
+  const slideCourse = initialData.courseLayout === "slides";
   const menuSections = sections.flatMap((section) => {
     const sectionLessons = lessons.filter(
       (lesson) => lesson.sectionId === section.id,
@@ -134,8 +135,8 @@ export function LessonMenu({
             />
             <Input
               type="search"
-              aria-label="Search lessons and quizzes"
-              placeholder="Search course content"
+              aria-label={slideCourse ? "Search slides and quizzes" : "Search lessons and quizzes"}
+              placeholder={slideCourse ? "Search slides" : "Search course content"}
               value={lessonSearch}
               onChange={(event) => setLessonSearch(event.target.value)}
               className="h-9 pl-9 text-xs"
@@ -228,8 +229,8 @@ export function LessonMenu({
                             {lesson.title}
                           </span>
                           <span className="mt-1 block text-[11px] text-slate-500">
-                            {lesson.lessonType === "quiz" ? "Quiz" : "Lesson"}
-                            {locked ? " · Locked until current lesson is complete" : ""}
+                            {lesson.lessonType === "quiz" ? "Quiz" : slideCourse ? "Slide" : "Lesson"}
+                            {locked ? ` · Locked until current ${slideCourse ? "slide" : "lesson"} is complete` : ""}
                           </span>
                         </span>
                         {locked ? (

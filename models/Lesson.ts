@@ -12,6 +12,7 @@ const LessonSchema = new Schema({
   passingScore: { type: Number, min: 0, max: 100, default: 70 },
   quizQuestions: { type: [Schema.Types.Mixed], default: [] },
   blocks: { type: [Schema.Types.Mixed], default: [] },
+  slideCover: { type: Schema.Types.Mixed, default: null },
   revision: { type: Number, default: 0, min: 0 },
   settings: { type: Schema.Types.Mixed, default: {} },
 }, { timestamps: true, optimisticConcurrency: true });

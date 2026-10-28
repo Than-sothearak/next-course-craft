@@ -30,12 +30,13 @@ const videoUrl = `/api/assets/${videoId}/file`;
 function fixture() {
   const snapshot = editorSnapshotSchema.parse({
     title: "Images course", description: "Course with images", descriptionHtml: `<p><img src="${imageUrl}"></p>`,
-    revision: 4, navigationMode: "free", authorVisible: false,
+    revision: 4, navigationMode: "free", courseLayout: "slides", authorVisible: false,
+    slideMaster: { template: "midnight", backgroundColor: "#0f172a", textColor: "#f8fafc", accentColor: "#a5b4fc", footerText: "Training", showSlideNumber: true },
     theme: { cover: { template: "image", imageSrc: imageUrl, imageAlt: "Course cover" } },
     sections: [{ id: "learn", title: "Learn", order: 0 }, { id: "post", title: "Post activities", order: 1 }],
     lessons: [
       { id: "lesson-1", sectionId: "learn", title: "Images", titleHtml: "<p><strong>Images</strong></p>", order: 0, blocks: [
-        { id: "text", version: 1, type: "richText", data: { html: `<p>Explanation</p><img src="${imageUrl}">` } },
+        { id: "text", version: 1, type: "richText", slideFrame: { x: 12, y: 20, width: 60, height: 40, z: 2 }, data: { html: `<p>Explanation</p><img src="${imageUrl}">` } },
         { id: "image", version: 1, type: "image", data: { src: imageUrl, alt: "Original" } },
         { id: "gallery", version: 1, type: "gallery", data: { images: [{ src: imageUrl, alt: "Gallery" }, { src: "https://example.com/external.png", alt: "External" }] } },
         { id: "flip", version: 1, type: "flipCard", data: { cards: [{ id: "card", frontLabel: "Front", backLabel: "Back", front: { type: "image", src: imageUrl, alt: "Front image" }, back: { type: "image", src: imageUrl, alt: "Back image" } }] } },
@@ -91,6 +92,8 @@ describe("course duplication with independent media", () => {
     expect(localRead).toHaveBeenCalledWith(expect.objectContaining({ key: "original/local/key" }), undefined);
     const created = vi.mocked(Asset.create).mock.calls.map(([value]) => value as unknown as Record<string, unknown>);
     expect(created.every((asset) => asset.storageProvider === target && asset.storageKey === asset.objectKey)).toBe(true);
+    expect(Course.create).toHaveBeenCalledWith(expect.objectContaining({ courseLayout: "slides", slideMaster: expect.objectContaining({ template: "midnight", footerText: "Training" }) }));
+    expect(Lesson.insertMany).toHaveBeenCalledWith(expect.arrayContaining([expect.objectContaining({ blocks: expect.arrayContaining([expect.objectContaining({ id: "text", slideFrame: { x: 12, y: 20, width: 60, height: 40, z: 2 } })]) })]));
     if (target === "local") {
       expect(created.every((asset) => asset.storageDirectory === "/data/coursecraft/chosen-folder")).toBe(true);
       expect(localUpload).toHaveBeenCalledTimes(3);

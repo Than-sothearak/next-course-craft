@@ -31,6 +31,7 @@ import { CourseOverviewPreview } from "./_components/(course_preview_components)
 import { PreviewToolbar } from "./_components/(course_preview_components)/preview-toolbar";
 import { LessonReaderPreview } from "./_components/(course_preview_components)/lesson-reader-preview";
 import { PreviewViewport } from "./_components/(course_preview_components)/preview-viewport";
+import { SlidePresentationPreview } from "./_components/slide-presentation/slide-presentation-preview";
 import { previewEditTarget } from "./_components/(course_preview_components)/preview-edit-target";
 import type {
   PreviewData,
@@ -75,11 +76,15 @@ export function CoursePreview({
   canPublish?: boolean;
   onBack?: () => void;
 }) {
-  const [mode, setMode] = useState<PreviewMode>(initialLessonId ? "learn" : "course");
+  const slideCourse = initialData.courseLayout === "slides";
+  const firstSlideId = slideCourse ? [...initialData.sections]
+    .sort((a, b) => a.order - b.order)
+    .flatMap((section) => initialData.lessons.filter((lesson) => lesson.sectionId === section.id).sort((a, b) => a.order - b.order))[0]?.id ?? null : null;
+  const [mode, setMode] = useState<PreviewMode>(initialLessonId || slideCourse ? "learn" : "course");
   const [device, setDevice] = useState<PreviewDevice>("desktop");
   const [orientation, setOrientation] = useState<PreviewOrientation>("portrait");
   const [isMobileViewport, setIsMobileViewport] = useState(false);
-  const [selectedLessonId, setSelectedLessonId] = useState<string | null>(initialLessonId ?? null);
+  const [selectedLessonId, setSelectedLessonId] = useState<string | null>(initialLessonId ?? firstSlideId);
   const [visitedLessonIds, setVisitedLessonIds] = useState<Set<string>>(
     () => new Set(),
   );
@@ -223,7 +228,9 @@ export function CoursePreview({
           ]),
         );
         setSelectedLessonId(
-          (current) => current ?? snapshot?.selectedLessonId ?? null,
+          (current) => initialLessonId ?? (slideCourse && current === firstSlideId
+            ? snapshot?.selectedLessonId ?? firstSlideId
+            : current ?? snapshot?.selectedLessonId ?? firstSlideId),
         );
       } catch {
         setVisitedLessonIds(new Set());
@@ -238,7 +245,7 @@ export function CoursePreview({
       }
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [initialData.courseId, initialLessonId, lessons, persistLocalProgress, progressAdapter]);
+  }, [initialData.courseId, firstSlideId, initialLessonId, lessons, persistLocalProgress, progressAdapter, slideCourse]);
 
   useEffect(() => {
     if (progressLoadedCourseId !== initialData.courseId) return;
@@ -460,7 +467,7 @@ export function CoursePreview({
     if (!selectedLesson) {
       return targetIndex === 0
         ? null
-        : "Start with the first lesson before continuing.";
+        : `Start with the first ${slideCourse ? "slide" : "lesson"} before continuing.`;
     }
     const completionLockMessage = navigationMode === "sequential"
       ? getSequentialNavigationLockMessage(selectedLesson)
@@ -478,8 +485,8 @@ export function CoursePreview({
     )) return null;
     if (completionLockMessage) return completionLockMessage;
     return navigationMode === "sequential"
-      ? "Complete lessons in order. Continue with the next lesson."
-      : "Complete required activities before opening the next lesson.";
+      ? `Complete ${slideCourse ? "slides" : "lessons"} in order. Continue with the next ${slideCourse ? "slide" : "lesson"}.`
+      : `Complete required activities before opening the next ${slideCourse ? "slide" : "lesson"}.`;
   }
 
   function getSequentialNavigationLockMessage(
@@ -492,7 +499,7 @@ export function CoursePreview({
     }
     return visitedLessonIds.has(lesson.id)
       ? null
-      : "Complete the current lesson before opening the next one.";
+      : `Complete the current ${slideCourse ? "slide" : "lesson"} before opening the next one.`;
   }
 
   function getRestrictedNavigationLockMessage(
@@ -533,7 +540,7 @@ export function CoursePreview({
       interactedContentIds,
     );
     if (pendingInteractiveIds.length)
-      return "Complete each required activity in this lesson before continuing.";
+      return `Complete each required activity in this ${slideCourse ? "slide" : "lesson"} before continuing.`;
     return null;
   }
 
@@ -551,6 +558,7 @@ export function CoursePreview({
 
   const lessonReaderProps = {
     initialData,
+    slideLayout: initialData.courseLayout === "slides",
     active: mode === "learn",
     lessons,
     selectedLessonId,
@@ -580,6 +588,30 @@ export function CoursePreview({
     setInteractedContentIds,
     setUnlockingDividerIds,
   };
+
+  if (slideCourse) {
+    return (
+      <main style={{ ...themeStyle, fontFamily: courseThemeFontFamilies[courseTheme.fontFamily] }} className="h-dvh min-h-0 w-full min-w-0 overflow-hidden">
+        <SlidePresentationPreview
+          courseId={initialData.courseId}
+          title={initialData.title}
+          slides={lessons}
+          selectedId={selectedLessonId}
+          onSelect={selectLesson}
+          getLockMessage={getLessonNavigationLockMessage}
+          menuOpen={mobileMenuOpen}
+          onMenuOpenChange={setMobileMenuOpen}
+          menu={<LessonMenu {...lessonMenuProps} mobile />}
+          standalone={standalone}
+          canPublish={canPublish}
+          onBack={onBack}
+          onEdit={onEdit ? editCurrentContent : undefined}
+        >
+          <LessonReaderPreview {...lessonReaderProps} />
+        </SlidePresentationPreview>
+      </main>
+    );
+  }
 
   return (
     <main style={themeStyle} className="flex h-dvh min-h-0 w-full min-w-0 flex-col overflow-hidden bg-slate-100 text-slate-900">
@@ -618,7 +650,7 @@ export function CoursePreview({
           )}
           {(selectedLessonId || mode === "learn") && (
             <div aria-hidden={mode !== "learn"} className={mode === "learn" ? "relative flex h-full min-h-0 min-w-0" : "hidden"}>
-              {!useMobileMenu && <LessonMenu {...lessonMenuProps} />}
+              {!useMobileMenu && initialData.courseLayout !== "slides" && <LessonMenu {...lessonMenuProps} />}
               {useMobileMenu && mobileMenuOpen && (
                 <div className="absolute inset-x-0 bottom-0 top-12 z-40 flex">
                   <button
@@ -644,7 +676,7 @@ export function CoursePreview({
                     >
                       <Menu size={18} />
                     </Button>
-                  ) : (
+                  ) : initialData.courseLayout === "slides" ? null : (
                     <Button
                       type="button"
                       variant="ghost"

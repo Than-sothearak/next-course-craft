@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import {
   ChevronRight,
   LayoutGrid,
@@ -41,6 +42,7 @@ export default function DashboardClient({
   userName,
 }: Props) {
   useDismissDetailsOnOutsideClick();
+  const router = useRouter();
   const {
     filters,
     setFilters,
@@ -139,8 +141,10 @@ export default function DashboardClient({
         const course = data.courses.find((item) => item.id === courseId);
         if (course) setDeletedCourse({ id: course.id, title: course.title });
       }
+      const created = method === "POST" && url === "/api/courses" ? await response.json() as { id: string; firstSlideId?: string | null } : null;
       await refresh();
       if (url.endsWith("/restore")) setDeletedCourse(null);
+      return created;
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -168,9 +172,12 @@ export default function DashboardClient({
     if (payload.coverImage === "") payload.coverImage = null;
     if (url === "/api/folders" || url === "/api/courses")
       payload.workspaceId = filters.workspaceId;
-    await request(url, method, payload);
+    const created = await request(url, method, payload);
     if (method === "POST" && url === "/api/folders") setShowNewFolder(false);
-    if (method === "POST" && url === "/api/courses") setShowNewCourse(false);
+    if (method === "POST" && url === "/api/courses") {
+      if (created) setShowNewCourse(false);
+      if (created?.firstSlideId) router.push(`/courses/${created.id}/edit`);
+    }
   }
 
   const disabled = Boolean(initialError) || busy || navigating;
@@ -288,7 +295,7 @@ export default function DashboardClient({
           role="status"
           className="mt-4 flex items-center justify-between gap-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950"
         >
-          <span>â€œ{deletedCourse.title}â€ moved to recently deleted.</span>
+          <span>“{deletedCourse.title}” moved to recently deleted.</span>
           <button
             onClick={() =>
               void request(`/api/courses/${deletedCourse.id}/restore`, "POST")
@@ -500,7 +507,7 @@ export default function DashboardClient({
                     busy={busy}
                     href={dashboardHref({ ...filters, folderId: folder.id })}
                     onSubmit={submit}
-                    onRequest={request}
+                    onRequest={async (url, method, body) => { await request(url, method, body); }}
                   />
                 ))}
               </div>
@@ -530,7 +537,7 @@ export default function DashboardClient({
                       disabled={disabled}
                       busy={busy}
                       onSubmit={submit}
-                      onRequest={request}
+                      onRequest={async (url, method, body) => { await request(url, method, body); }}
                     />
                   ))}
                 </div>

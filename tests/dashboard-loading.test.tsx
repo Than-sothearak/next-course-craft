@@ -44,7 +44,7 @@ const data: DashboardData = {
   folders: [],
   folderOptions: [{ id: "folder-1", label: "Training", depth: 0 }],
   folderTree: [{ id: "folder-1", name: "Training", courseCount: 1, children: [] }],
-  courses: [{ id: "course-1", title: "Sample course", description: "A course", coverImage: null, folderId: null, status: "draft", revision: 1, updatedAt: "2026-10-14T00:00:00.000Z", lessonCount: 2, accessRole: "owner", permissions: [...roleCeilings.editor] }],
+  courses: [{ id: "course-1", title: "Sample course", description: "A course", coverImage: null, courseLayout: "standard", folderId: null, status: "draft", revision: 1, updatedAt: "2026-10-14T00:00:00.000Z", lessonCount: 2, accessRole: "owner", permissions: [...roleCeilings.editor] }],
   workspaces: [], workspaceId: null, workspaceName: "Personal", workspaceRole: "owner", permissions: [...roleCeilings.editor],
 };
 const cardFolder = {

@@ -5,7 +5,9 @@ export type PreviewData = {
   courseId: string;
   theme?: EditorSnapshotInput["theme"];
   navigationMode?: CourseNavigationMode;
-} & Omit<EditorSnapshotInput, "revision" | "theme" | "navigationMode">;
+  courseLayout?: EditorSnapshotInput["courseLayout"];
+  slideMaster?: EditorSnapshotInput["slideMaster"];
+} & Omit<EditorSnapshotInput, "revision" | "theme" | "navigationMode" | "courseLayout" | "slideMaster">;
 
 export type PreviewMode = "course" | "learn";
 export type PreviewDevice = "desktop" | "tablet" | "mobile";

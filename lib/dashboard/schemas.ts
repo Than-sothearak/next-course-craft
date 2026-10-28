@@ -17,7 +17,10 @@ const externalCourseCoverImageSchema = z.string().url().max(2_048).refine((value
 const courseMediaFileUrlSchema = z.string().regex(/^\/api\/assets\/[a-f\d]{24}\/file$/i, "Choose a media asset from this course.");
 const courseCoverImageSchema = z.union([externalCourseCoverImageSchema, courseMediaFileUrlSchema]);
 
+import { courseLayoutSchema } from "@/lib/editor/course-layout";
+
 export const createCourseSchema = z.object({
+  courseLayout: courseLayoutSchema.optional(),
   title: z.string().trim().min(1, "Enter a course title.").max(160, "Course titles must be 160 characters or fewer."),
   description: z.string().trim().max(5_000).default(""),
   coverImage: externalCourseCoverImageSchema.nullable().optional(),
