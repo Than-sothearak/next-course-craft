@@ -5,7 +5,7 @@ import { connectToDatabase } from "@/lib/db/mongodb";
 import { DashboardError } from "@/lib/dashboard/rules";
 import { getCourseAuthorName, getCourseEditor } from "@/lib/editor/services/course";
 import { CoursePreviewRoute } from "./course-preview-route";
-import { CoursePreviewSkeleton } from "./preview-skeleton";
+import { CoursePreviewLoading } from "./preview-loading";
 
 type CoursePreviewPageProps = {
   params: Promise<{ courseId: string }>;
@@ -14,7 +14,7 @@ type CoursePreviewPageProps = {
 
 export default function CoursePreviewPage(props: CoursePreviewPageProps) {
   return (
-    <Suspense fallback={<CoursePreviewSkeleton />}>
+    <Suspense fallback={<CoursePreviewLoading />}>
       <CoursePreviewContent {...props} />
     </Suspense>
   );

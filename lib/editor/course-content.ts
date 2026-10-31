@@ -42,6 +42,20 @@ export function reorderPresentationSlides<T extends CourseContent>(course: T, ac
   return { ...course, lessons: course.lessons.map((lesson) => updates.get(lesson.id) ?? lesson) };
 }
 
+/** Copy a presentation slide beside its source while keeping section orders unique. */
+export function duplicatePresentationSlide<T extends CourseContent>(course: T, sourceId: string, createId: () => string): { course: T; duplicateId: string | null } {
+  const source = course.lessons.find((lesson) => lesson.id === sourceId);
+  if (!source) return { course, duplicateId: null };
+  const copy = { ...duplicateLessonContent(source, createId), order: source.order + 1 };
+  return {
+    course: { ...course, lessons: [
+      ...course.lessons.map((lesson) => lesson.sectionId === source.sectionId && lesson.order > source.order ? { ...lesson, order: lesson.order + 1 } : lesson),
+      copy,
+    ] },
+    duplicateId: copy.id,
+  };
+}
+
 export function moveLessonToSection<T extends CourseContent>(course: T, lessonId: string, destinationId: string): T {
   const lesson = course.lessons.find((item) => item.id === lessonId);
   if (!lesson || lesson.sectionId === destinationId || !course.sections.some((section) => section.id === destinationId)) return course;

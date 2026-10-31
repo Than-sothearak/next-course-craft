@@ -13,7 +13,7 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 const frame = { x: 11, y: 8, width: 78, height: 80, z: 2 };
 const initialData = { courseId: "slides", ...editorSnapshotSchema.parse({
-  title: "Presentation", description: "", revision: 1, courseLayout: "slides",
+  title: "Presentation", description: "", revision: 1, courseLayout: "slides", slideMaster: { objectLayout: "canvas" },
   sections: [{ id: "section", title: "Slides", order: 0 }],
   lessons: [{ id: "slide", sectionId: "section", title: "Map", order: 0, blocks: [{
     id: "graphic", version: 1, type: "labeledGraphic", slideFrame: frame,
@@ -100,12 +100,12 @@ describe("presentation graphic editing", () => {
     const marker = point("Start"); marker.setPointerCapture = vi.fn(); marker.releasePointerCapture = vi.fn();
     await act(async () => marker.dispatchEvent(pointer("pointerdown", 100 + 150 * zoom, 200 + 105 * zoom)));
     await act(async () => marker.dispatchEvent(pointer("pointermove", 100 + 379.26 * zoom, 200 + 236.73 * zoom)));
-    expect(marker.style.left).toBe("63.21%"); expect(marker.style.top).toBe("78.91%");
+    expect(marker.style.left).toBe("66.15%"); expect(marker.style.top).toBe("78.91%");
     await act(async () => vi.advanceTimersByTimeAsync(1000));
     expect(fetchMock).not.toHaveBeenCalled();
     await act(async () => marker.dispatchEvent(pointer("pointerup", 100 + 379.26 * zoom, 200 + 236.73 * zoom)));
     const snapshot = await saved();
-    expect(snapshot.lessons[0].blocks[0]).toMatchObject({ slideFrame: frame, data: { markers: [{ id: "start", x: 63.21, y: 78.91 }, { id: "finish", x: 75, y: 65 }] } });
+    expect(snapshot.lessons[0].blocks[0]).toMatchObject({ slideFrame: frame, data: { markers: [{ id: "start", x: 66.15, y: 78.91 }, { id: "finish", x: 75, y: 65 }] } });
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Undo"]')!.click());
     expect(point("Start").style.left).toBe("25%"); expect(point("Start").style.top).toBe("35%");
   });
@@ -156,6 +156,49 @@ describe("presentation graphic editing", () => {
     expect(snapshot.lessons[0].blocks[0].data).not.toHaveProperty("mapTemplate");
     expect(object().querySelector('svg[aria-label$="illustrated lesson map"]')).toBeNull();
     expect(object().querySelector("img")?.getAttribute("src")).toBe("/diagram.png");
+  });
+
+  it("offers a pointer toolbar icon and saves point labels plus radar styling for learner previews", async () => {
+    await render();
+    const toolbar = container.querySelector('[data-slide-insert-toolbar]')!;
+    expect(toolbar.querySelector('[aria-label="Interactive image"] svg.lucide-mouse-pointer2')).not.toBeNull();
+    expect(toolbar.querySelector('[aria-label="Question"]')).toBeNull();
+    await act(async () => point("Start").focus());
+    expect(container.querySelector<HTMLSelectElement>('[aria-label="Interactive image fit"]')?.value).toBe("contain");
+    async function select(label: string, value: string) {
+      const field = container.querySelector<HTMLSelectElement>(`[aria-label="${label}"]`)!;
+      await act(async () => { field.value = value; field.dispatchEvent(new Event("change", { bubbles: true })); });
+    }
+    async function input(label: string, value: string) {
+      const field = container.querySelector<HTMLInputElement>(`[aria-label="${label}"]`)!;
+      await act(async () => {
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(field, value);
+        field.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+    }
+    await select("Graphic marker 1 display", "text");
+    await input("Graphic marker 1 text", "GO");
+    await select("Graphic marker 2 display", "number");
+    await input("Graphic marker 2 number", "42");
+    await input("Graphic radar size", "7");
+    await input("Graphic radar weight", "4");
+    await input("Graphic marker radar color", "#16a34a");
+    expect(point("Start").textContent).toBe("GO");
+    expect(point("Finish").textContent).toBe("42");
+    const snapshot = await saved();
+    expect(snapshot.lessons[0].blocks[0]).toMatchObject({ data: {
+      radarSize: 7, radarWeight: 4, radarColor: "#16a34a",
+      markers: [{ displayMode: "text", displayText: "GO" }, { displayMode: "number", displayNumber: 42 }],
+    } });
+    expect(parseScorm12Snapshot(snapshot).lessons[0].blocks[0]).toMatchObject(snapshot.lessons[0].blocks[0]);
+    for (const standalone of [false, true]) {
+      await act(async () => root.render(<CoursePreview key={String(standalone)} initialData={{ ...snapshot, courseId: "slides" }} authorName="Author" initialLessonId="slide" standalone={standalone} persistLocalProgress={false} />));
+      expect(point("Start").textContent).toBe("GO");
+      expect(point("Finish").textContent).toBe("42");
+      expect(point("Start").style.getPropertyValue("--radar-size")).toBe("7px");
+      expect(point("Start").style.getPropertyValue("--radar-weight")).toBe("4px");
+      expect(point("Start").style.getPropertyValue("--radar-color")).toBe("#16a34a");
+    }
   });
 
   it.each(["fill", "contain", "cover", "none", "scale-down"] as const)("saves and reloads %s fitting and square corners without changing points", async (objectFit) => {

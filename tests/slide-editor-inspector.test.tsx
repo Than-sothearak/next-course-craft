@@ -11,7 +11,7 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 const heading = { id: "heading", version: 1, type: "heading", data: { text: "Keep this content", level: 2 } };
 const first = { id: "first", sectionId: "section", title: "Content", order: 0, blocks: [heading] };
-const makeData = (lessons: unknown[] = [first]) => ({ courseId: "slides", ...editorSnapshotSchema.parse({ title: "Presentation", description: "", revision: 1, courseLayout: "slides", sections: [{ id: "section", title: "Slides", order: 0 }], lessons }) });
+const makeData = (lessons: unknown[] = [first]) => ({ courseId: "slides", ...editorSnapshotSchema.parse({ title: "Presentation", description: "", revision: 1, courseLayout: "slides", slideMaster: { objectLayout: "canvas" }, sections: [{ id: "section", title: "Slides", order: 0 }], lessons }) });
 
 describe("presentation inspector tabs", () => {
   let container: HTMLDivElement;
@@ -43,8 +43,8 @@ describe("presentation inspector tabs", () => {
     await act(async () => root.render(<EditorClient initialData={makeData([{ ...first, blocks: [{ ...heading, slideFrame: frame }] }])} authorName="Author" />));
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Select heading object from layers"]')!.click());
     const inputs = [...panel("Object block").querySelectorAll<HTMLInputElement>('input[type="number"]:not([aria-label="Object border radius"])')];
-    expect(inputs.map((input) => input.value)).toEqual(["107.85", "32.26", "628.15", "90.41"]);
-    expect(inputs.every((input) => input.step === "0.01")).toBe(true);
+    expect(inputs.slice(0, 4).map((input) => input.value)).toEqual(["107.85", "47.33", "628.15", "132.67"]);
+    expect(inputs.slice(0, 4).every((input) => input.step === "0.01")).toBe(true);
     await act(async () => vi.advanceTimersByTimeAsync(1000));
     expect(fetchMock).not.toHaveBeenCalled();
     await act(async () => {
@@ -63,9 +63,9 @@ describe("presentation inspector tabs", () => {
     for (const zoom of ["50", "150"]) {
       const select = container.querySelector<HTMLSelectElement>('[aria-label="Canvas zoom"]')!;
       await act(async () => { select.value = zoom; select.dispatchEvent(new Event("change", { bubbles: true })); });
-      expect(inputs().map((input) => input.value)).toEqual(["96", "36.8", "480", "184"]);
+      expect(inputs().map((input) => input.value)).toEqual(["96", "54", "480", "270"]);
     }
-    for (const [label, value] of [["Top (px)", "73.6"], ["Height (px)", "110.4"]]) {
+    for (const [label, value] of [["Top (px)", "108"], ["Height (px)", "162"]]) {
       const input = container.querySelector<HTMLInputElement>(`[aria-label="${label}"]`)!;
       await act(async () => {
         Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value);

@@ -50,7 +50,7 @@ describe("presentation slide size controls", () => {
     for (const thumbnail of container.querySelectorAll<HTMLElement>("[data-slide-thumbnail-canvas]")) { expect(thumbnail.style.width).toBe("720px"); expect(thumbnail.style.height).toBe("960px"); expect(thumbnail.style.transform).toBe(`scale(${240 / 720})`); }
     await act(async () => button("Select heading object from layers").click());
     expect(container.querySelector<HTMLInputElement>('[aria-label="Width (px)"]')?.value).toBe("360");
-    expect(container.querySelector<HTMLInputElement>('[aria-label="Height (px)"]')?.value).toBe("394");
+    expect(Number(container.querySelector<HTMLInputElement>('[aria-label="Height (px)"]')?.value)).toBeCloseTo(50 / 100 * 368 / 540 * 960, 2);
     await input("Width (px)", "180");
     expect(container.querySelector<HTMLElement>('[data-slide-object-id="heading"]')?.style.width).toBe("25%");
     await act(async () => button("Undo").click());

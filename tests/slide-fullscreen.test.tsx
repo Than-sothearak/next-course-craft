@@ -62,14 +62,20 @@ describe("slide presentation full screen", () => {
       for (const control of [menu, fullscreen]) {
         expect(control.closest('[data-slide-canvas]')).toBe(canvas);
         expect(control.classList.contains("absolute")).toBe(true);
-        expect(control.classList.contains("top-3")).toBe(true);
-        expect(control.classList.contains("size-8")).toBe(true);
-        expect(control.querySelector("svg")?.getAttribute("width")).toBe("16");
+        expect(control.classList.contains("top-0")).toBe(true);
+        expect(control.classList.contains("size-7")).toBe(true);
+        expect(control.querySelector("svg")?.getAttribute("width")).toBe("14");
         expect(control.parentElement?.classList.contains("relative")).toBe(true);
       }
-      expect(menu.classList.contains("left-3")).toBe(true);
-      expect(fullscreen.classList.contains("right-3")).toBe(true);
+      expect(menu.classList.contains("left-0")).toBe(true);
+      expect(fullscreen.classList.contains("right-0")).toBe(true);
       expect(menu.parentElement).toBe(fullscreen.parentElement);
+      const navigation = container.querySelector<HTMLElement>("[data-slide-navigation-layout]")!;
+      const footer = navigation.parentElement as HTMLElement;
+      expect(footer.hasAttribute("data-slide-footer")).toBe(true);
+      expect(footer.style.paddingInline).toBe("20px");
+      expect(footer.style.paddingBlock).toBe("8px");
+      expect(navigation.style.transform).toBe("");
       expect(container.querySelectorAll('[aria-label="Present full screen"]')).toHaveLength(1);
       await act(async () => menu.click());
       expect(container.querySelector('#slide-course-menu')?.parentElement).toBe(menu.parentElement);
@@ -87,7 +93,7 @@ describe("slide presentation full screen", () => {
       await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Close slide menu overlay"]')!.click());
       expect(container.querySelector('#slide-course-menu')).toBeNull();
       await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Exit full screen"]')!.click());
-      expect(container.querySelector('[data-slide-stage]')?.hasAttribute("data-fill-viewport")).toBe(false);
+      expect(container.querySelector('[data-slide-stage]')?.getAttribute("data-fill-viewport")).toBe("true");
       expect(container.querySelector('[data-presentation-view] > header')).not.toBeNull();
     } finally {
       act(() => root.unmount()); container.remove();

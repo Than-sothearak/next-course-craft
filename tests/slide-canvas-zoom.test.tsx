@@ -4,13 +4,15 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EditorClient } from "@/app/courses/[courseId]/edit/_components/editor-client";
 import { editorSnapshotSchema } from "@/lib/editor/schemas";
-import { slideObjectArea } from "@/lib/editor/slide-design";
+import { resolveCanvasSlideFrame } from "@/lib/editor/slide-design";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), back: vi.fn(), forward: vi.fn() }) }));
 vi.mock("@/app/dashboard/_components/dashboard-navbar", () => ({ DashboardNavbar: ({ primaryAction }: { primaryAction: ReactNode }) => <header>{primaryAction}</header> }));
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 const frame = { x: 11, y: 8, width: 78, height: 24, z: 0 };
+const canvasFrame = resolveCanvasSlideFrame({ type: "heading", slideFrame: frame }, 0, 1);
+const footerTop = (540 - 64) / 540 * 100;
 const initialData = { courseId: "slides", ...editorSnapshotSchema.parse({
   title: "Presentation", description: "", revision: 1, courseLayout: "slides",
   sections: [{ id: "section", title: "Slides", order: 0 }],
@@ -102,7 +104,7 @@ describe("presentation canvas zoom", () => {
     await render(); await chooseZoom(String(zoom));
     await act(async () => button("Select heading object from layers").click());
     const objects = container.querySelector<HTMLElement>("[data-slide-objects]")!;
-    vi.spyOn(objects, "getBoundingClientRect").mockReturnValue({ width: 960 * zoom / 100, height: slideObjectArea.height * zoom / 100 } as DOMRect);
+    vi.spyOn(objects, "getBoundingClientRect").mockReturnValue({ width: 960 * zoom / 100, height: 540 * zoom / 100 } as DOMRect);
     const handle = button("Move heading object");
     handle.setPointerCapture = vi.fn(); handle.hasPointerCapture = vi.fn(() => false);
     const pointer = (type: string, x: number) => {
@@ -113,25 +115,44 @@ describe("presentation canvas zoom", () => {
     expect(container.querySelector<HTMLElement>('[data-slide-object-id="heading"]')?.style.left).toBe("21%");
     await act(async () => vi.advanceTimersByTimeAsync(1000));
     const snapshot = editorSnapshotSchema.parse(JSON.parse(fetchMock.mock.calls.at(-1)![1].body));
-    expect(snapshot.lessons[0].blocks[0].slideFrame).toEqual({ ...frame, x: 21 });
+    expect(snapshot.lessons[0].blocks[0].slideFrame).toEqual({ ...canvasFrame, x: 21 });
     expect(snapshot).not.toHaveProperty("zoom");
   });
 
   it.each([50, 150])("snaps a dragged block to the footer at %s%% zoom and saves its position", async (zoom) => {
     await render(); await chooseZoom(String(zoom));
     await act(async () => button("Select heading object from layers").click());
-    const height = slideObjectArea.height * zoom / 100;
+    const height = 540 * zoom / 100;
     vi.spyOn(container.querySelector<HTMLElement>("[data-slide-objects]")!, "getBoundingClientRect").mockReturnValue({ width: 960 * zoom / 100, height } as DOMRect);
     const handle = button("Move heading object"); handle.setPointerCapture = vi.fn(); handle.hasPointerCapture = vi.fn(() => false);
     const pointer = (type: string, y: number) => { const event = new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, clientX: 0, clientY: y }); Object.defineProperty(event, "pointerId", { value: 1 }); return event; };
-    const distance = (100 - frame.height - frame.y) / 100 * height - 6;
+    const distance = (footerTop - canvasFrame.height - canvasFrame.y) / 100 * height - 6;
     await act(async () => { handle.dispatchEvent(pointer("pointerdown", 0)); handle.dispatchEvent(pointer("pointermove", distance)); });
     expect(container.querySelector('[data-slide-footer-guide]')).not.toBeNull();
-    expect(container.querySelector<HTMLElement>('[data-slide-object-id="heading"]')?.style.top).toBe("76%");
+    expect(Number.parseFloat(container.querySelector<HTMLElement>('[data-slide-object-id="heading"]')!.style.top)).toBeCloseTo(footerTop - canvasFrame.height);
     await act(async () => handle.dispatchEvent(pointer("pointerup", distance)));
     expect(container.querySelector('[data-slide-footer-guide]')).toBeNull();
     await act(async () => vi.advanceTimersByTimeAsync(1000));
     const snapshot = editorSnapshotSchema.parse(JSON.parse(fetchMock.mock.calls.at(-1)![1].body));
-    expect(snapshot.lessons[0].blocks[0].slideFrame).toEqual({ ...frame, y: 76 });
+    expect(snapshot.lessons[0].blocks[0].slideFrame).toEqual({ ...canvasFrame, y: footerTop - canvasFrame.height });
+  });
+
+  it("moves an object from the header edge down over the footer on the full canvas", async () => {
+    await render(); await chooseZoom("100");
+    await act(async () => button("Select heading object from layers").click());
+    vi.spyOn(container.querySelector<HTMLElement>("[data-slide-objects]")!, "getBoundingClientRect").mockReturnValue({ width: 960, height: 540 } as DOMRect);
+    const pointer = (type: string, y: number) => { const event = new MouseEvent(type, { bubbles: true, cancelable: true, button: 0, clientX: 0, clientY: y }); Object.defineProperty(event, "pointerId", { value: 1 }); return event; };
+    const drag = async (distance: number) => {
+      const handle = button("Move heading object"); handle.setPointerCapture = vi.fn(); handle.hasPointerCapture = vi.fn(() => false);
+      await act(async () => { handle.dispatchEvent(pointer("pointerdown", 0)); handle.dispatchEvent(pointer("pointermove", distance)); handle.dispatchEvent(pointer("pointerup", distance)); });
+    };
+    await drag(-canvasFrame.y / 100 * 540);
+    expect(container.querySelector<HTMLElement>('[data-slide-object-id="heading"]')?.style.top).toBe("0%");
+    await drag((100 - canvasFrame.height) / 100 * 540);
+    expect(Number.parseFloat(container.querySelector<HTMLElement>('[data-slide-object-id="heading"]')!.style.top)).toBeCloseTo(100 - canvasFrame.height);
+    await act(async () => vi.advanceTimersByTimeAsync(1000));
+    const snapshot = editorSnapshotSchema.parse(JSON.parse(fetchMock.mock.calls.at(-1)![1].body));
+    expect(snapshot.slideMaster?.objectLayout).toBe("canvas");
+    expect(snapshot.lessons[0].blocks[0].slideFrame?.y).toBeCloseTo(100 - canvasFrame.height);
   });
 });

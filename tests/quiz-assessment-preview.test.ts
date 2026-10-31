@@ -26,6 +26,8 @@ const question: QuizQuestion = {
 
 beforeEach(() => {
   Object.defineProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT", { configurable: true, value: true });
+  Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value: function (this: HTMLDialogElement) { this.open = true; } });
+  Object.defineProperty(HTMLDialogElement.prototype, "close", { configurable: true, value: function (this: HTMLDialogElement) { this.open = false; } });
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
@@ -34,6 +36,8 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
+  delete (HTMLDialogElement.prototype as unknown as Record<string, unknown>).showModal;
+  delete (HTMLDialogElement.prototype as unknown as Record<string, unknown>).close;
 });
 
 describe("learner quiz assessment", () => {
@@ -52,6 +56,8 @@ describe("learner quiz assessment", () => {
     const checkAnswer = () => Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent === "Check answer")!;
     act(() => container.querySelector<HTMLInputElement>('input[value="choice-b"]')!.click());
     act(() => checkAnswer().click());
+    expect(container.querySelector('dialog[open]')?.textContent).toContain("Keep trying");
+    expect(container.querySelector('dialog[open]')?.textContent).toContain("0 of 1 correct");
     expect(container.textContent).toContain("Keep trying");
     expect(container.textContent).toContain("Score: 0% (0 of 1 correct)");
     expect(container.textContent).toContain("Try once more.");
@@ -59,6 +65,7 @@ describe("learner quiz assessment", () => {
     act(() => Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent === "Try again")!.click());
     act(() => container.querySelector<HTMLInputElement>('input[value="choice-a"]')!.click());
     act(() => checkAnswer().click());
+    expect(container.querySelector('dialog[open]')?.textContent).toContain("Congratulations!");
     expect(container.textContent).toContain("Assessment passed");
     expect(container.textContent).toContain("Score: 100% (1 of 1 correct)");
     expect(results.map((result) => result.passed)).toEqual([false, true]);
@@ -81,17 +88,23 @@ describe("learner quiz assessment", () => {
     expect(container.textContent).toContain("Question 1 of 2");
     expect(container.textContent).toContain("Which answer is correct?");
     expect(container.textContent).not.toContain("What comes next?");
+    const actionRow = container.querySelector('[data-quiz-actions]')!;
     const nextButton = () => Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent === "Next question")!;
-    expect(nextButton().disabled).toBe(true);
+    const checkButton = () => Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent === "Check answer")!;
+    expect(checkButton().parentElement).toBe(actionRow);
+    expect(checkButton().disabled).toBe(true);
+    expect(nextButton()).toBeUndefined();
 
     act(() => container.querySelector<HTMLInputElement>('input[value="choice-a"]')!.click());
-    act(() => Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent === "Check answer")!.click());
-    expect(nextButton().disabled).toBe(false);
+    act(() => checkButton().click());
+    expect(nextButton().parentElement).toBe(actionRow);
+    expect(checkButton()).toBeUndefined();
     act(() => nextButton().click());
 
     expect(container.textContent).toContain("Question 2 of 2");
     expect(container.textContent).toContain("What comes next?");
     expect(container.textContent).not.toContain("Which answer is correct?");
+    expect(checkButton().parentElement).toBe(actionRow);
     act(() => container.querySelector<HTMLInputElement>('input[value="choice-b"]')!.click());
     act(() => Array.from(container.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent === "Check answer")!.click());
 

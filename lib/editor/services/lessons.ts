@@ -94,6 +94,8 @@ export async function copyCourseLesson(
       "Destination course not found or currently being saved.",
       404,
     );
+  if (destination.courseLayout !== "slides" && !lesson.title.trim())
+    throw new DashboardError("Enter a lesson title before copying it to a standard course.", 400);
 
   const sections = destination.sections?.length
     ? destination.sections

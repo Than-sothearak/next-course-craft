@@ -4,6 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { blockSchema } from "../lib/schemas/block";
 import { LessonBlocksPreview } from "../app/courses/[courseId]/preview/_components/(course_preview_components)/(lesson_reader_preview_components)/lesson-blocks-preview";
+import { PreviewBlock } from "../app/courses/[courseId]/preview/_components/(course_preview_components)/(lesson_reader_preview_components)/(lesson_blocks_preview_components)/preview-block";
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
@@ -53,6 +54,15 @@ afterEach(() => {
 });
 
 describe("lesson block viewport animation", () => {
+  it("keeps staggered list entrance on presentation blocks", async () => {
+    const block = blockSchema.parse({ id: "list", version: 1, type: "richText", data: { html: "<ul><li><p>First</p></li><li><p>Second</p></li></ul>" } });
+    await act(async () => root.render(createElement(PreviewBlock, { block, device: "desktop", orientation: "landscape", slideLayout: true, animateListItems: true })));
+    const text = container.querySelector<HTMLElement>(".lesson-rich-text")!;
+    expect(text.classList.contains("lesson-list-enter")).toBe(true);
+    expect(text.className).toContain("[&_.tiptap_p]:my-2");
+    expect([...text.querySelectorAll<HTMLElement>("li")].map((item) => item.style.getPropertyValue("--lesson-list-item-delay"))).toEqual(["0ms", "280ms"]);
+  });
+
   it("starts each block animation when that block enters the lesson viewport", () => {
     const noop = vi.fn();
     act(() => {

@@ -22,7 +22,7 @@ export function StatementContentEditor({
 }) {
   const classes = statementStyles[block.data.style];
 
-  return <div className={classes.container} style={slideLayout ? { backgroundColor: "transparent", color: "inherit" } : undefined}>
+  return <div className={classes.container} style={slideLayout ? { backgroundColor: "transparent", color: "inherit", padding: 0 } : undefined}>
     <StatementTextEditor
       id={`${block.id}-title`}
       label="Statement title"

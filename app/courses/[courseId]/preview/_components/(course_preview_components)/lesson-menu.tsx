@@ -5,6 +5,7 @@ import { ChevronDown, LockKeyhole, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { slideNavigationLabel } from "@/lib/editor/slide-design";
 import type { PreviewData, PreviewDevice, PreviewLesson } from "./preview-types";
 import { lessonIcons } from "./preview-icons";
 import { LessonProgressIndicator } from "./(lesson_menu_components)/lesson-progress-indicator";
@@ -68,8 +69,11 @@ export function LessonMenu({
     ? `${slideCourse ? "w-[min(84%,240px)]" : "w-[min(84%,320px)]"} shrink-0 shadow-2xl`
     : `${device === "tablet" ? "w-[220px]" : "w-[270px]"} shrink-0 border-r border-slate-200`;
   const normalizedLessonSearch = lessonSearch.trim().toLocaleLowerCase();
-  const lessonTitle = (lesson: PreviewLesson) =>
-    slideCourse && lesson.id === lessons[0]?.id ? initialData.title : lesson.title;
+  const lessonTitle = (lesson: PreviewLesson) => {
+    if (!slideCourse) return lesson.title;
+    if (lesson.id === lessons[0]?.id) return initialData.title;
+    return slideNavigationLabel(lesson.title, lessons.findIndex((item) => item.id === lesson.id));
+  };
   const menuSections = sections.flatMap((section) => {
     const sectionLessons = lessons.filter(
       (lesson) => lesson.sectionId === section.id,

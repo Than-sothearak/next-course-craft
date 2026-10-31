@@ -149,7 +149,7 @@ export function LessonBlocksPreview({
   };
 
   return (
-    <div className={slideLayout ? "relative h-full w-full" : "mt-10 min-w-0 shrink-0"}>
+    <div className={slideLayout ? "pointer-events-none relative h-full w-full" : "mt-10 min-w-0 shrink-0"}>
       {visibleBlocks.map((block, index) => {
         const blockDelay = Math.min(
           100,

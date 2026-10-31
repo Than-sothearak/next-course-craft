@@ -47,6 +47,7 @@ export async function getCourseEditor(ownerId: string, courseId: string) {
     : [defaultSection()];
   const sectionIds = new Set(sections.map((section) => section.id));
   const lessonOrder = new Map<string, number>();
+  const slideMaster = slideMasterSchema.parse(course.slideMaster ?? {});
 
   return {
     courseId: course._id.toString(),
@@ -57,7 +58,7 @@ export async function getCourseEditor(ownerId: string, courseId: string) {
     theme: normalizeCourseTheme(course.theme),
     navigationMode: normalizeCourseNavigationMode(course.navigationMode),
     courseLayout: normalizeCourseLayout(course.courseLayout),
-    slideMaster: slideMasterSchema.parse(course.slideMaster ?? {}),
+    slideMaster,
     revision: course.revision,
     sections,
     lessons: lessons.map((lesson) => {
@@ -89,7 +90,7 @@ export async function getCourseEditor(ownerId: string, courseId: string) {
             blockPadding: normalizeBlockPaddingForBlock(block.blockPadding, block),
           };
         }),
-      });
+      }, slideMaster);
     }),
   };
 }

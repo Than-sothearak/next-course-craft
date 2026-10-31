@@ -98,6 +98,10 @@ describe("course card actions", () => {
     expect(container.textContent).toContain("Slide presentation");
     expect(container.querySelector(".aspect-video svg.lucide-presentation")).not.toBeNull();
     expect(container.querySelector(".aspect-video img")).not.toBeNull();
+    expect(container.querySelector<HTMLAnchorElement>('a[href="/courses/course-1/edit"]')).not.toBeNull();
+
+    act(() => root.render(createElement(CourseCard, { ...props, course: { ...course, courseLayout: "slides", permissions: [...roleCeilings.viewer] } })));
+    expect(container.querySelector<HTMLAnchorElement>('a[href="/courses/course-1/preview?previewLayout=slides"]')).not.toBeNull();
   });
 
   it("duplicates a personal course into a selected team workspace", async () => {

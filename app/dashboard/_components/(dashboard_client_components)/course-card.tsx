@@ -51,7 +51,8 @@ export function CourseCard({
   const [coverLibraryOpen, setCoverLibraryOpen] = useState(false);
   const [copyWorkspaceId, setCopyWorkspaceId] = useState(data.workspaceId ?? "");
   const readOnly = !course.permissions?.includes("courses.edit");
-  const courseHref = readOnly ? `/courses/${course.id}/preview` : `/courses/${course.id}/edit`;
+  const previewLayoutQuery = course.courseLayout === "slides" ? "?previewLayout=slides" : "";
+  const courseHref = readOnly ? `/courses/${course.id}/preview${previewLayoutQuery}` : `/courses/${course.id}/edit`;
 
   useEffect(() => {
     function closeWhenClickingOutside(event: PointerEvent) {

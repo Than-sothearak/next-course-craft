@@ -1,7 +1,44 @@
 import { z } from "zod";
-import { colorValueSchema } from "@/lib/color";
+import type { CSSProperties } from "react";
+import { colorValueSchema, parseGradient, textPaint } from "@/lib/color";
 import { croppedDimensions, type SlideCrop } from "./slide-crop";
 import { slideNavigationButtonsSchema } from "./slide-navigation-design";
+import { courseThemeFontFamilies, courseThemeFontFamilyIds } from "./theme";
+
+export const slideTypographySchema = z.object({
+  fontFamily: z.enum(courseThemeFontFamilyIds).optional(),
+  fontSize: z.number().int().min(10).max(120),
+  fontWeight: z.enum(["normal", "bold"]).default("normal"),
+  fontStyle: z.enum(["normal", "italic"]).default("normal"),
+  textDecoration: z.enum(["none", "underline"]).default("none"),
+  textAlign: z.enum(["left", "center", "right"]).default("center"),
+  color: colorValueSchema,
+});
+export type SlideTypography = z.infer<typeof slideTypographySchema>;
+export const defaultSlideBodyTypography = slideTypographySchema.parse({ fontSize: 16, textAlign: "left", color: "#172033" });
+export const defaultSlideCoverTypography = {
+  title: slideTypographySchema.parse({ fontSize: 60, fontWeight: "bold", color: "#ffffff" }),
+  subtitle: slideTypographySchema.parse({ fontSize: 20, color: "#ffffff" }),
+  label: slideTypographySchema.parse({ fontSize: 14, fontWeight: "bold", color: "#ffffff" }),
+  button: slideTypographySchema.parse({ fontSize: 16, fontWeight: "bold", color: "#1e1b4b" }),
+};
+export function slideTypographyStyle(typography: SlideTypography) {
+  return { fontFamily: typography.fontFamily ? courseThemeFontFamilies[typography.fontFamily] : undefined, fontSize: typography.fontSize, fontWeight: typography.fontWeight, fontStyle: typography.fontStyle, textDecoration: typography.textDecoration, textAlign: typography.textAlign, ...textPaint(typography.color) } as const;
+}
+export function slideBodyTypographyVariables(body?: SlideTypography): CSSProperties {
+  if (!body) return {};
+  const gradient = parseGradient(body.color);
+  return {
+    "--slide-body-family": body.fontFamily ? courseThemeFontFamilies[body.fontFamily] : undefined,
+    "--slide-body-size": `${body.fontSize}px`,
+    "--slide-body-weight": body.fontWeight,
+    "--slide-body-style": body.fontStyle,
+    "--slide-body-decoration": body.textDecoration,
+    "--slide-body-align": body.textAlign,
+    "--slide-body-color": gradient ? "transparent" : body.color,
+    "--slide-body-paint": gradient ? body.color : undefined,
+  } as CSSProperties;
+}
 
 export const slideFrameSchema = z.object({
   x: z.number().min(0).max(95),
@@ -30,7 +67,11 @@ export function resolveSlideSize(master?: { size?: SlideSize }): SlideSize {
   return master?.size ?? defaultSlideSize;
 }
 
-// The object region below the title and above the footer in SlideSurface.
+export function slideNavigationLabel(title: string, index: number): string {
+  return title.trim() || `Slide ${index + 1}`;
+}
+
+// Legacy object regions. Saved slides without objectLayout use these coordinates.
 export function resolveSlideFooterHeight(master?: { footer?: { height?: number } }): number { return master?.footer?.height ?? 64; }
 
 export function resolveSlideObjectArea(master?: { size?: SlideSize; footer?: { height?: number } }): SlideSize {
@@ -49,11 +90,27 @@ export const slidePlaybackSchema = z.object({
   showFileName: z.boolean().optional(),
 });
 
+export const defaultSlideTextPaddingX = 0;
+export const defaultSlideTextPaddingY = 0;
+
 export const slideTextLayoutSchema = z.object({
   horizontal: z.enum(["left", "center", "right", "justify"]).optional(),
   vertical: z.enum(["top", "middle", "bottom"]).default("top"),
+  paddingX: z.number().int().min(0).max(96).default(defaultSlideTextPaddingX),
+  paddingY: z.number().int().min(0).max(96).default(defaultSlideTextPaddingY),
+  fitToText: z.boolean().default(true),
 });
 export type SlideTextLayout = z.infer<typeof slideTextLayoutSchema>;
+
+export function resolveSlideTextLayout(layout?: SlideTextLayout): Required<Omit<SlideTextLayout, "horizontal">> & Pick<SlideTextLayout, "horizontal"> {
+  return {
+    horizontal: layout?.horizontal,
+    vertical: layout?.vertical ?? "top",
+    paddingX: layout?.paddingX ?? defaultSlideTextPaddingX,
+    paddingY: layout?.paddingY ?? defaultSlideTextPaddingY,
+    fitToText: layout?.fitToText ?? true,
+  };
+}
 
 export const slideMediaSchema = z.object({
   source: z.string().min(1),
@@ -72,6 +129,15 @@ export function fitSlideFrame(frame: SlideFrame, update: Partial<SlideFrame>): S
   if (update.height !== undefined && update.y === undefined) height = Math.min(height, 100 - y);
   else y = Math.min(y, 100 - height);
   return { x, y, width, height, z: Math.max(0, Math.min(500, Math.round(update.z ?? frame.z))) };
+}
+
+/** Fit a text object's frame to measured content in its current coordinate system. */
+export function fitSlideTextFrame(frame: SlideFrame, content: { width: number; height: number }, area: SlideSize): SlideFrame {
+  if (![content.width, content.height, area.width, area.height].every((value) => Number.isFinite(value) && value > 0)) return frame;
+  return fitSlideFrame(frame, {
+    width: content.width / area.width * 100,
+    height: content.height / area.height * 100,
+  });
 }
 
 /** Size in the object's percentage coordinate system, accounting for its rectangular canvas. */
@@ -116,6 +182,9 @@ export const slideMasterBackgroundSchema = z.discriminatedUnion("type", [
 export const slideFooterSchema = z.object({
   height: z.number().int().min(48).max(160).default(64),
   fontSize: z.number().int().min(10).max(24).default(12),
+  fontFamily: z.enum(courseThemeFontFamilyIds).optional(),
+  fontWeight: z.enum(["normal", "bold"]).default("normal"),
+  fontStyle: z.enum(["normal", "italic"]).default("normal"),
   contentGap: z.number().int().min(0).max(32).default(16),
   content: z.enum(["text", "logos", "both"]).default("text"),
   logos: z.array(z.object({
@@ -129,18 +198,24 @@ export const slideFooterSchema = z.object({
   logoGapY: z.number().int().min(0).max(12).default(4),
   logoJustify: z.enum(["left", "center", "right", "between"]).default("center"),
   logoAlign: z.enum(["top", "middle", "bottom"]).default("middle"),
-  backgroundColor: colorValueSchema.default("#ffffff"),
-  textColor: colorValueSchema.default("#172033"),
+  backgroundColor: colorValueSchema.optional(),
+  textColor: colorValueSchema.optional(),
+  colorsCustomized: z.boolean().optional(),
   borderTop: z.boolean().default(true),
-  borderColor: colorValueSchema.default("#cbd5e1"),
+  borderColor: colorValueSchema.optional(),
   borderWidth: z.number().int().min(1).max(6).default(1),
 });
 export type SlideFooter = z.infer<typeof slideFooterSchema>;
 
 export const slideHeaderSchema = z.object({
   background: z.enum(["transparent", "color", "image"]).default("transparent"),
-  backgroundColor: colorValueSchema.default("#ffffff"),
+  backgroundColor: colorValueSchema.optional(),
+  backgroundCustomized: z.boolean().optional(),
   textColor: colorValueSchema.optional(),
+  fontFamily: z.enum(courseThemeFontFamilyIds).optional(),
+  fontSize: z.number().int().min(12).max(72).default(32),
+  fontWeight: z.enum(["normal", "bold"]).default("bold"),
+  fontStyle: z.enum(["normal", "italic"]).default("normal"),
   imageSrc: slideImageSourceSchema.default(""),
   imagePosition: z.enum(["center", "top", "bottom"]).default("center"),
   overlayOpacity: z.number().int().min(0).max(90).default(20),
@@ -158,6 +233,7 @@ export type SlideNavigationGuide = z.infer<typeof slideNavigationGuideSchema>;
 
 export const slideMasterSchema = z.object({
   size: slideSizeSchema.optional(),
+  objectLayout: z.literal("canvas").optional(),
   template: z.enum(["paper", "midnight", "gradient", "warm"]).default("paper"),
   backgroundColor: colorValueSchema.default("#ffffff"),
   textColor: colorValueSchema.default("#172033"),
@@ -167,18 +243,35 @@ export const slideMasterSchema = z.object({
   background: slideMasterBackgroundSchema.optional(),
   footer: slideFooterSchema.optional(),
   header: slideHeaderSchema.optional(),
+  bodyTypography: slideTypographySchema.optional(),
   navigationGuide: slideNavigationGuideSchema.optional(),
   navigationButtons: slideNavigationButtonsSchema.optional(),
 });
 export type SlideMaster = z.infer<typeof slideMasterSchema>;
 export const defaultSlideMaster: SlideMaster = slideMasterSchema.parse({});
 
-export function resolveSlideHeader(master: SlideMaster): SlideHeader {
-  return master.header ?? slideHeaderSchema.parse({ backgroundColor: master.backgroundColor });
+export function hasLegacySlideHeaderBackground(header?: SlideHeader): boolean {
+  return Boolean(header && header.background === "transparent" && header.backgroundCustomized !== true && header.backgroundColor === "#ffffff");
 }
 
-export function resolveSlideFooter(master: SlideMaster): SlideFooter {
-  return master.footer ?? slideFooterSchema.parse({ backgroundColor: master.backgroundColor, textColor: master.textColor, borderColor: master.accentColor });
+export function resolveSlideHeader(master: SlideMaster): SlideHeader & { backgroundColor: string } {
+  const header = slideHeaderSchema.parse(master.header ?? {});
+  return { ...header, backgroundColor: hasLegacySlideHeaderBackground(header) ? master.backgroundColor : header.backgroundColor ?? master.backgroundColor };
+}
+
+export function hasLegacySlideFooterColors(footer?: SlideFooter): boolean {
+  return Boolean(footer && footer.colorsCustomized !== true && footer.backgroundColor === "#ffffff" && footer.textColor === "#172033" && footer.borderColor === "#cbd5e1");
+}
+
+export function resolveSlideFooter(master: SlideMaster): SlideFooter & { backgroundColor: string; textColor: string; borderColor: string } {
+  const footer = slideFooterSchema.parse(master.footer ?? {});
+  const legacyDefaults = hasLegacySlideFooterColors(footer);
+  return {
+    ...footer,
+    backgroundColor: legacyDefaults ? master.backgroundColor : footer.backgroundColor ?? master.backgroundColor,
+    textColor: legacyDefaults ? master.textColor : footer.textColor ?? master.textColor,
+    borderColor: legacyDefaults ? master.accentColor : footer.borderColor ?? master.accentColor,
+  };
 }
 
 export const slideCoverPositions = ["top-left", "top-center", "top-right", "middle-left", "middle-center", "middle-right", "bottom-left", "bottom-center", "bottom-right"] as const;
@@ -215,6 +308,12 @@ export const slideCoverSchema = z.object({
   lessonOf: z.string().max(160).default(""),
   startLabel: z.string().trim().min(1).max(60).default("Start"),
   overlayOpacity: z.number().int().min(0).max(90).default(50),
+  titleStyle: slideTypographySchema.optional(),
+  subtitleStyle: slideTypographySchema.optional(),
+  labelStyle: slideTypographySchema.optional(),
+  buttonStyle: slideTypographySchema.optional(),
+  buttonBackgroundColor: colorValueSchema.optional(),
+  buttonRadius: z.number().int().min(0).max(48).optional(),
   contentPosition: slideCoverPositionSchema.optional(),
   titleLayout: slideCoverElementLayoutSchema.optional(),
   subtitleLayout: slideCoverElementLayoutSchema.optional(),
@@ -261,3 +360,36 @@ export function resolveSlideFrame(block: { slideFrame?: SlideFrame; slideMedia?:
   const row = Math.floor(index / columns);
   return { x: 5 + column * (90 / columns), y: 6 + row * (88 / rows), width, height, z: index };
 }
+
+/** Convert older content-region coordinates into full-slide coordinates. */
+export function resolveCanvasSlideFrame(block: Parameters<typeof resolveSlideFrame>[0], index: number, total: number, master?: SlideMaster, cover = false): SlideFrame {
+  const size = resolveSlideSize(master);
+  if (master?.objectLayout === "canvas") return resolveSlideFrame(block, index, total, size);
+  const legacyArea = cover ? resolveSlideCoverObjectArea(master) : resolveSlideObjectArea(master);
+  const frame = resolveSlideFrame(block, index, total, legacyArea);
+  return legacySlideFrameToCanvas(frame, master, cover);
+}
+
+function legacySlideFrameToCanvas(frame: SlideFrame, master?: SlideMaster, cover = false): SlideFrame {
+  const size = resolveSlideSize(master);
+  const legacyArea = cover ? resolveSlideCoverObjectArea(master) : resolveSlideObjectArea(master);
+  const offset = cover ? 0 : 108;
+  const height = Math.max(5, frame.height * legacyArea.height / size.height);
+  const y = Math.min(100 - height, (offset + frame.y * legacyArea.height / 100) / size.height * 100);
+  return { ...frame, y, height };
+}
+
+/** Keep newly inserted blocks in the familiar content area while allowing later movement anywhere. */
+export function defaultCanvasSlideFrame(index: number, type: string, master?: SlideMaster, cover = false): SlideFrame {
+  return legacySlideFrameToCanvas(defaultSlideFrame(index, type), master, cover);
+}
+
+export function normalizeSlideLessonFrames<T extends { blocks: ContentBlockFrame[]; slideCover?: SlideCover }>(lessons: T[], master?: SlideMaster): T[] {
+  if (master?.objectLayout === "canvas") return lessons;
+  return lessons.map((lesson) => ({
+    ...lesson,
+    blocks: lesson.blocks.map((block, index) => ({ ...block, slideFrame: resolveCanvasSlideFrame(block, index, lesson.blocks.length, master, Boolean(lesson.slideCover)) })),
+  }));
+}
+
+type ContentBlockFrame = Parameters<typeof resolveSlideFrame>[0];

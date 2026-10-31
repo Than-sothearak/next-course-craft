@@ -39,6 +39,29 @@ describe("master slide footer settings", () => {
     return editorSnapshotSchema.parse(JSON.parse(call![1].body));
   }
 
+  it("follows master colors after footer edits and preserves only chosen overrides", async () => {
+    await act(async () => root.render(<EditorClient initialData={initialData} authorName="Author" />));
+    await input("Footer text size (px)", "18");
+    await clickText("Midnight");
+    const footer = () => container.querySelector<HTMLElement>('[data-slide-canvas] [data-slide-footer]')!;
+    expect(footer().style.backgroundColor).toBe("rgb(15, 23, 42)");
+    expect(footer().style.color).toBe("rgb(248, 250, 252)");
+    expect(footer().style.borderTopColor).toBe("rgb(165, 180, 252)");
+    await input("Footer background color", "#123456");
+    await clickText("Warm");
+    expect(footer().style.backgroundColor).toBe("rgb(18, 52, 86)");
+    expect(footer().style.color).toBe("rgb(67, 20, 7)");
+    await clickText("Use theme background");
+    expect(footer().style.backgroundColor).toBe("rgb(255, 247, 237)");
+    const snapshot = await saved();
+    expect(snapshot.slideMaster?.footer).toMatchObject({ fontSize: 18 });
+    expect(snapshot.slideMaster?.footer?.backgroundColor).toBeUndefined();
+    expect(snapshot.slideMaster?.footer?.textColor).toBeUndefined();
+    expect(snapshot.slideMaster?.footer?.borderColor).toBeUndefined();
+    await act(async () => root.render(<EditorClient key="theme-reload" initialData={{ ...snapshot, courseId: "slides" }} authorName="Author" />));
+    expect(footer().style.backgroundColor).toBe("rgb(255, 247, 237)");
+  });
+
   it("adds, replaces, orders, and removes logos, then saves and restores text and styling", async () => {
     await act(async () => root.render(<EditorClient initialData={initialData} authorName="Author" />));
     await changeSelect("Footer content", "both");

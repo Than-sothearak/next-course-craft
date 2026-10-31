@@ -4,7 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { blockSchema, type ContentBlock } from "../lib/schemas/block";
-import { blockTemplates } from "../app/courses/[courseId]/edit/_components/(editor_client_components)/(block_template_picker_components)/block-template-data";
+import type { BlockTemplate } from "../app/courses/[courseId]/edit/_components/(editor_client_components)/(block_template_picker_components)/block-template-data";
 import { createBlocksFromTemplate } from "../app/courses/[courseId]/edit/_components/(editor_client_components)/(block_template_picker_components)/create-blocks-from-template";
 import { InteractiveLessonMap, LessonMapEditor } from "../components/lesson-map";
 import { LessonMapArtwork, lessonMapTemplates } from "../components/lesson-map-artwork";
@@ -15,7 +15,24 @@ const lessons = [
   { id: "lesson-b", title: "Core ideas", sectionId: "section-a", order: 1, lessonType: "content" as const },
   { id: "lesson-c", title: "Knowledge check", sectionId: "section-b", order: 0, lessonType: "quiz" as const },
 ];
-const mapTemplate = blockTemplates.find((template) => template.id === "interactive-lesson-map")!;
+const mapTemplate: BlockTemplate = {
+  id: "existing-lesson-map",
+  category: "Interactive",
+  title: "Lesson Map",
+  description: "An existing course map",
+  type: "lessonMap",
+  width: "full",
+  preview: "lessonMap",
+  lessonMap: {
+    template: "modernCity",
+    checkpoints: [
+      { id: "map-start", title: "Welcome", description: "Begin your learning journey here.", color: "#e27d55", icon: "flag", targetType: "lesson", targetId: "", x: 14, y: 69 },
+      { id: "map-discover", title: "Discover", description: "Explore the ideas that shape this topic.", color: "#4b86b4", icon: "book", targetType: "lesson", targetId: "", x: 35, y: 50 },
+      { id: "map-practice", title: "Practice", description: "Try a new skill and put it into practice.", color: "#62a36c", icon: "star", targetType: "lesson", targetId: "", x: 61, y: 39 },
+      { id: "map-finish", title: "Keep going", description: "Continue to your next course milestone.", color: "#9167a9", icon: "leaf", targetType: "lesson", targetId: "", x: 84, y: 62 },
+    ],
+  },
+};
 const initialBlock = createBlocksFromTemplate(mapTemplate, "lesson-map", { sections, lessons })[0];
 if (initialBlock.type !== "lessonMap") throw new Error("Expected lesson map block");
 const initialLessonMap = initialBlock as Extract<ContentBlock, { type: "lessonMap" }>;
@@ -58,7 +75,6 @@ describe("Lesson Map block", () => {
       expect(markup).toContain(`${template.title} illustrated lesson map`);
       expect(markup).toContain("<svg");
     }
-    expect(mapTemplate.title).toBe("Lesson Map");
   });
 
   it("adds, edits, reorders, deletes, and repositions checkpoints through the authoring UI", () => {

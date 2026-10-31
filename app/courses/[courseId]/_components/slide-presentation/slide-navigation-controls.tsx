@@ -47,7 +47,7 @@ export function SlideNavigationControls({ previousDisabled, nextDisabled, previo
   const idealLeft = guideStep === 0 ? width - 256 : guideStep === 1 ? 0 : anchorX - 128;
   const left = Math.max(width + (design?.rightInset ?? 20) - (design?.canvasWidth ?? 960) + 8, Math.min(width + (design?.rightInset ?? 20) - 264, idealLeft));
   const controls = { previous: { disabled: previousDisabled, hint: previousHint, click: onPrevious, label: "Previous", Icon: ArrowLeft }, restart: { disabled: false, hint: "Replay this slide's video and audio", click: onRestart, label: "Restart slide", Icon: RotateCcw }, next: { disabled: nextDisabled, hint: nextHint, click: onNext, label: "Next", Icon: ArrowRight } };
-  return <div data-slide-navigation-layout className="relative shrink-0" style={{ width, height }}>
+  return <div data-slide-navigation-layout className="relative z-30 shrink-0" style={{ width, height }}>
     <nav aria-label="Slide navigation" data-compact-navigation={!layout.showLabels || undefined} className="absolute left-0 top-0 flex items-center" style={{ width: layout.width, height: layout.height, gap: layout.gap, transform: layout.scale < 1 ? `scale(${layout.scale})` : undefined, transformOrigin: "top left" }}>
       {help && <Button variant="ghost" size="icon" className="shrink-0 text-inherit" style={{ width: layout.helpSize, height: layout.helpSize }} aria-label="Show navigation guide" title="Navigation help" onClick={() => onGuideStep?.(0)}><CircleHelp size={16} aria-hidden="true" /></Button>}
       {layout.items.map(({ key, appearance, width: buttonWidth, height: buttonHeight, depth }) => {

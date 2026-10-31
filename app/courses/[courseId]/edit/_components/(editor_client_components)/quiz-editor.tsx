@@ -19,7 +19,7 @@ import {
 } from "@dnd-kit/sortable";
 import { Check, ImagePlus, MoreHorizontal, Plus, Trash2 } from "lucide-react";
 import type { QuizQuestion } from "@/lib/schemas/quiz";
-import { createClientId } from "@/lib/client-id";
+import { createQuizChoice, createQuizQuestion } from "@/lib/editor/quiz-question";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -32,10 +32,6 @@ const simpleInputClass =
 const simpleTextareaClass =
   "min-h-16 resize-y rounded-none border-0 bg-transparent px-0 shadow-none focus-visible:border-0 focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0";
 
-function newId() {
-  return createClientId();
-}
-
 function imagePreviewSource(value: string) {
   const source = value.trim();
   return /^https?:\/\//i.test(source) ||
@@ -44,28 +40,12 @@ function imagePreviewSource(value: string) {
     : "";
 }
 
-function createQuestion(): QuizQuestion {
-  return {
-    id: newId(),
-    prompt: "",
-    imageSrc: "",
-    imageAlt: "",
-    selectionMode: "single",
-    choices: [
-      { id: newId(), text: "", imageSrc: "", imageAlt: "" },
-      { id: newId(), text: "", imageSrc: "", imageAlt: "" },
-    ],
-    correctChoiceIds: [],
-    correctFeedback: "",
-    incorrectFeedback: "",
-  };
-}
-
 export function QuizEditor({
   title,
   titleHtml,
   onTitleChange,
   onTitleValidityChange,
+  allowEmptyTitle = false,
   passingScore,
   onPassingScoreChange,
   questions,
@@ -75,6 +55,7 @@ export function QuizEditor({
   titleHtml?: string;
   onTitleChange: (title: string, html: string) => void;
   onTitleValidityChange: (valid: boolean) => void;
+  allowEmptyTitle?: boolean;
   passingScore: number;
   onPassingScoreChange: (passingScore: number) => void;
   questions: QuizQuestion[];
@@ -120,7 +101,7 @@ export function QuizEditor({
   }
 
   function addQuestion() {
-    const question = createQuestion();
+    const question = createQuizQuestion();
     onChange([...questions, question]);
     setActiveQuestionId(question.id);
   }
@@ -179,6 +160,7 @@ export function QuizEditor({
               html={titleHtml}
               onChange={onTitleChange}
               onValidityChange={onTitleValidityChange}
+              allowEmpty={allowEmptyTitle}
             />
             <label className="mb-8 mt-3 flex w-fit items-center gap-2 text-xs text-slate-500">
               <span>Pass at</span>
@@ -330,6 +312,7 @@ export function QuizEditor({
             html={titleHtml}
             onChange={onTitleChange}
             onValidityChange={onTitleValidityChange}
+            allowEmpty={allowEmptyTitle}
           />
           <label className="mb-8 mt-3 flex w-fit items-center gap-2 text-xs text-slate-500">
             <span>Pass at</span>
@@ -684,7 +667,7 @@ export function QuizEditor({
                 ...current,
                 choices: [
                   ...current.choices,
-                  { id: newId(), text: "", imageSrc: "", imageAlt: "" },
+                  createQuizChoice(),
                 ],
               }))
             }

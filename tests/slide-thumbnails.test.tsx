@@ -30,7 +30,7 @@ describe("presentation slide thumbnails", () => {
     expect(canvas.style.width).toBe("960px"); expect(canvas.style.height).toBe("540px"); expect(canvas.style.transform).toBe("scale(0.25)");
     expect(canvas.hasAttribute("inert")).toBe(true); expect(canvas.querySelector('[data-abstract-design="orbits"]')).not.toBeNull();
     const block = canvas.querySelector<HTMLElement>('[data-slide-thumbnail-object-id="heading"]')!;
-    expect(block.style.left).toBe("12%"); expect(block.style.top).toBe("20%"); expect(block.style.width).toBe("60%"); expect(block.style.zIndex).toBe("4");
+    expect(block.style.left).toBe("12%"); expect(Number.parseFloat(block.style.top)).toBeCloseTo((108 + 20 / 100 * 368) / 540 * 100); expect(block.style.width).toBe("60%"); expect(block.style.zIndex).toBe("4");
     expect(block.querySelector("strong")?.textContent).toBe("Real heading");
     expect(block.querySelector('[data-vertical-align="middle"][data-horizontal-align="center"]')).not.toBeNull();
     expect(canvas.querySelector('[data-slide-thumbnail-footer]')?.textContent).toContain("Branding");

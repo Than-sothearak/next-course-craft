@@ -101,13 +101,14 @@ export function PreviewBlock({
       />
     );
   } else if (block.type === "richText") {
-    const compactText = device === "mobile" && orientation === "portrait";
+    const compactText = !slideLayout && device === "mobile" && orientation === "portrait";
     content = (
       <StatementTextPreview
         tag="p"
         text=""
         html={block.data.html}
-        className={`prose max-w-none ${compactText ? "text-sm leading-6" : "text-base leading-7"} [&_p]:my-3 [&_h1]:my-5 [&_h2]:my-4 [&_h3]:my-3 ${animateListItems ? "lesson-list-enter" : ""}`}
+        matchEditorSpacing={slideLayout}
+        className={slideLayout ? `prose max-w-none ${animateListItems ? "lesson-list-enter" : ""}` : `prose max-w-none ${compactText ? "text-sm leading-6" : "text-base leading-7"} [&_p]:my-3 [&_h1]:my-5 [&_h2]:my-4 [&_h3]:my-3 ${animateListItems ? "lesson-list-enter" : ""}`}
       />
     );
   } else if (block.type === "audio") {
@@ -240,6 +241,8 @@ export function PreviewBlock({
         markerColor={block.data.markerColor}
         textColor={block.data.textColor}
         radarColor={block.data.radarColor}
+        radarSize={block.data.radarSize}
+        radarWeight={block.data.radarWeight}
         interactionMode={block.data.interactionMode}
         sceneTheme={block.data.sceneTheme}
         challengePrompt={block.data.challengePrompt}

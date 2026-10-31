@@ -41,8 +41,9 @@ describe("footer navigation appearance and chat tips", () => {
     await click("Undo"); expect(navButton("next").style.borderRadius).toBe("6px"); await click("Redo");
     const snapshot = await saved(); expect(snapshot.slideMaster?.footer).toMatchObject({ height: 112, fontSize: 16, contentGap: 12 }); expect(snapshot.slideMaster?.navigationButtons?.overrides?.next).toMatchObject({ backgroundColor: gradientColor("#2563eb", "#9333ea", 135), radius: 20 });
     await act(async () => root.render(<EditorClient key="reload" initialData={{ ...snapshot, courseId: "slides" }} authorName="" />)); expect(navButton("next").dataset.navigationButtonStyle).toBe("threeD"); expect(container.querySelector<HTMLElement>('[data-slide-footer]')!.style.height).toBe("112px");
-    await act(async () => navButton("next").click()); expect(container.querySelector<HTMLElement>('[data-slide-object-region]')!.style.bottom).toBe("112px");
-    for (const standalone of [false, true]) { await act(async () => root.render(<CoursePreview key={String(standalone)} initialData={{ ...snapshot, courseId: "slides" }} authorName="" initialLessonId="content" standalone={standalone} persistLocalProgress={false} />)); expect(navButton("next").dataset.navigationButtonStyle).toBe("threeD"); expect(container.querySelector<HTMLElement>('[data-slide-footer]')!.style.height).toBe("112px"); }
+    const editorNavigationWidth = container.querySelector<HTMLElement>('[data-slide-navigation-layout]')!.style.width;
+    await act(async () => navButton("next").click()); expect(container.querySelector<HTMLElement>('[data-slide-object-region]')!.classList.contains("inset-0")).toBe(true);
+    for (const standalone of [false, true]) { await act(async () => root.render(<CoursePreview key={String(standalone)} initialData={{ ...snapshot, courseId: "slides" }} authorName="" initialLessonId="content" standalone={standalone} persistLocalProgress={false} />)); expect(navButton("next").dataset.navigationButtonStyle).toBe("threeD"); expect(container.querySelector<HTMLElement>('[data-slide-footer]')!.style.height).toBe("112px"); expect(container.querySelector<HTMLElement>('[data-slide-active="true"] [data-slide-navigation-layout]')!.style.width).toBe(editorNavigationWidth); }
   });
 
   it("draws a chat arrow toward each described navigation button", async () => {

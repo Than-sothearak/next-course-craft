@@ -11,6 +11,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { graphicImageFitSchema } from "@/lib/editor/graphic-layout";
+import { SlideNumberSettingInput } from "@/app/courses/[courseId]/edit/_components/slide-presentation/slide-number-setting-input";
 import type { MediaLibraryTarget } from "../content-block-types";
 import type { Dispatch, SetStateAction } from "react";
 
@@ -18,7 +19,7 @@ export function LabeledGraphicBlockSettings({ block, onChange, setMediaLibraryTa
   return (
     <div className="space-y-3">
       {presentation && <label className="block space-y-1 text-xs font-medium text-slate-600">Image fit
-        <Select aria-label="Interactive image fit" value={block.data.objectFit ?? "fill"} className="h-9" onChange={(event) => {
+        <Select aria-label="Interactive image fit" value={block.data.objectFit ?? "contain"} className="h-9" onChange={(event) => {
           const fit = graphicImageFitSchema.safeParse(event.target.value);
           if (fit.success) onChange({ ...block, data: { ...block.data, objectFit: fit.data } });
         }}>
@@ -143,7 +144,7 @@ export function LabeledGraphicBlockSettings({ block, onChange, setMediaLibraryTa
           />
         </label>
         <label className="block space-y-1 text-xs font-medium text-slate-600">
-          Number text
+          Point text
           <ColorPicker
             aria-label="Graphic marker text color"
             value={block.data.textColor ?? "#ffffff"}
@@ -163,6 +164,14 @@ export function LabeledGraphicBlockSettings({ block, onChange, setMediaLibraryTa
               data: { ...block.data, radarColor: color },
             })}
           />
+        </label>
+        <label className="block space-y-1 text-xs font-medium text-slate-600">
+          Radar size (px)
+          <SlideNumberSettingInput aria-label="Graphic radar size" value={block.data.radarSize ?? 3} min={0} max={24} className="h-9" onValueChange={(radarSize) => onChange({ ...block, data: { ...block.data, radarSize } })} />
+        </label>
+        <label className="block space-y-1 text-xs font-medium text-slate-600">
+          Radar weight (px)
+          <SlideNumberSettingInput aria-label="Graphic radar weight" value={block.data.radarWeight ?? 2} min={1} max={8} className="h-9" onValueChange={(radarWeight) => onChange({ ...block, data: { ...block.data, radarWeight } })} />
         </label>
       </div>
       {block.data.markers.map((marker, index) => (
@@ -192,6 +201,24 @@ export function LabeledGraphicBlockSettings({ block, onChange, setMediaLibraryTa
               {marker.color && <Button type="button" variant="ghost" size="sm" aria-label={`Use default color for graphic marker ${index + 1}`} onClick={() => onChange({ ...block, data: { ...block.data, markers: block.data.markers.map((entry) => entry.id === marker.id ? { ...entry, color: undefined } : entry) } })}>Use default</Button>}
             </span>
           </label>
+          <label className="block space-y-1 text-xs font-medium text-slate-600">
+            Point display
+            <Select aria-label={`Graphic marker ${index + 1} display`} value={marker.displayMode ?? "auto"} className="h-9" onChange={(event) => {
+              const displayMode = event.target.value as "auto" | "number" | "text";
+              onChange({ ...block, data: { ...block.data, markers: block.data.markers.map((entry) => entry.id === marker.id ? {
+                ...entry, displayMode,
+                ...(displayMode === "number" ? { displayNumber: entry.displayNumber ?? index + 1 } : {}),
+              } : entry) } });
+            }}><option value="auto">Auto number</option><option value="number">Custom number</option><option value="text">Text</option></Select>
+          </label>
+          {marker.displayMode === "number" && <label className="block space-y-1 text-xs font-medium text-slate-600">
+            Number on point
+            <SlideNumberSettingInput aria-label={`Graphic marker ${index + 1} number`} value={marker.displayNumber ?? index + 1} min={0} max={999} className="h-9" onValueChange={(displayNumber) => onChange({ ...block, data: { ...block.data, markers: block.data.markers.map((entry) => entry.id === marker.id ? { ...entry, displayNumber } : entry) } })} />
+          </label>}
+          {marker.displayMode === "text" && <label className="block space-y-1 text-xs font-medium text-slate-600">
+            Text on point
+            <Input aria-label={`Graphic marker ${index + 1} text`} value={marker.displayText ?? ""} maxLength={12} onChange={(event) => onChange({ ...block, data: { ...block.data, markers: block.data.markers.map((entry) => entry.id === marker.id ? { ...entry, displayText: event.target.value } : entry) } })} placeholder="e.g. Start" className="h-9" />
+          </label>}
           <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
             <Checkbox aria-label={`Graphic marker ${index + 1} radar animation`} checked={marker.radarEnabled !== false} onChange={(event) => onChange({ ...block, data: { ...block.data, markers: block.data.markers.map((entry) => entry.id === marker.id ? { ...entry, radarEnabled: event.target.checked } : entry) } })} />
             Radar animation

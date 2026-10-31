@@ -9,21 +9,22 @@ function titleContent(title: string, html?: string) {
   return html ?? `<h1>${title.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")}</h1>`;
 }
 
-function titleError(editor: Editor | null) {
+function titleError(editor: Editor | null, allowEmpty: boolean) {
   if (!editor) return "";
   const text = editor.getText().trim();
-  if (!text) return "Enter a lesson title before saving.";
+  if (!text && !allowEmpty) return "Enter a lesson title before saving.";
   if (text.length > 160) return "Keep the lesson title to 160 characters or fewer.";
   if (editor.getHTML().length > 100_000) return "The title has too much formatting. Clear some formatting before saving.";
   return "";
 }
 
-export function LessonTitleEditor({ title, html, onChange, onValidityChange, compact = false }: {
+export function LessonTitleEditor({ title, html, onChange, onValidityChange, compact = false, allowEmpty = false }: {
   title: string;
   html?: string;
   onChange: (title: string, html: string) => void;
   onValidityChange: (valid: boolean) => void;
   compact?: boolean;
+  allowEmpty?: boolean;
 }) {
   const { isTextSelected, onSelectionUpdate, rootRef } = useTextSelectionToolbar();
   const editor = useEditor({
@@ -33,11 +34,11 @@ export function LessonTitleEditor({ title, html, onChange, onValidityChange, com
     shouldRerenderOnTransaction: true,
     editorProps: { attributes: { role: "textbox", "aria-label": "Lesson title", "aria-multiline": "true" } },
     onSelectionUpdate,
-    onTransaction: ({ editor: activeEditor }) => onValidityChange(!titleError(activeEditor)),
+    onTransaction: ({ editor: activeEditor }) => onValidityChange(!titleError(activeEditor, allowEmpty)),
     onUpdate: ({ editor: activeEditor }) => {
       const nextTitle = activeEditor.getText().trim();
       const nextHtml = activeEditor.getHTML();
-      if (!titleError(activeEditor)) onChange(nextTitle, nextHtml);
+      if (!titleError(activeEditor, allowEmpty)) onChange(nextTitle, nextHtml);
     },
   });
 
@@ -48,7 +49,7 @@ export function LessonTitleEditor({ title, html, onChange, onValidityChange, com
     }
   }, [editor, title, html]);
 
-  const error = titleError(editor);
+  const error = titleError(editor, allowEmpty);
 
   return <div ref={rootRef} className={`relative mx-auto w-full max-w-[720px] px-4 ${compact ? "py-5" : "py-10"}`}>
     <EditorContent editor={editor} className="min-h-12 cursor-text break-words rounded-md [&_.tiptap]:min-h-12 [&_.tiptap]:outline-none [&_h1]:text-3xl sm:[&_h1]:text-4xl [&_h1]:font-semibold [&_h1]:tracking-tight [&_h2]:text-2xl sm:[&_h2]:text-3xl [&_h2]:font-semibold [&_h3]:text-xl sm:[&_h3]:text-2xl [&_h3]:font-semibold [&_p]:text-base [&_p]:font-normal" />

@@ -3,7 +3,7 @@
 import { ArrowLeft, ArrowRight, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { SlideMaster } from "@/lib/editor/slide-design";
+import { slideNavigationLabel, type SlideMaster } from "@/lib/editor/slide-design";
 import { SlideThumbnail, type SlideItem } from "./slide-thumbnail";
 export { SlideThumbnail, type SlideItem } from "./slide-thumbnail";
 
@@ -33,7 +33,7 @@ export function SlideNavigation({ slides, activeId, onSelect, onAdd, getLockMess
           const lock = getLockMessage?.(slide.id);
           return <div key={slide.id} className="relative w-36 shrink-0">
             <SlideThumbnail slide={slide} index={slideIndex} total={slides.length} master={master} courseTitle={courseTitle} />
-            <Button type="button" variant="ghost" aria-label={`Go to slide ${slideIndex + 1}: ${slide.title}`} aria-current={slide.id === activeId ? "step" : undefined} disabled={Boolean(lock)} title={lock ?? slide.title} onClick={() => onSelect(slide.id)} className={cn("absolute inset-0 z-10 h-full w-full rounded-lg border-2 border-transparent bg-transparent p-0 ring-indigo-500 focus-visible:ring-2 aria-[current=step]:border-indigo-500", appearance === "presentation" ? "hover:bg-white/10" : "hover:bg-indigo-50/20")} />
+            <Button type="button" variant="ghost" aria-label={`Go to slide ${slideIndex + 1}: ${slideNavigationLabel(slide.title, slideIndex)}`} aria-current={slide.id === activeId ? "step" : undefined} disabled={Boolean(lock)} title={lock ?? slideNavigationLabel(slide.title, slideIndex)} onClick={() => onSelect(slide.id)} className={cn("absolute inset-0 z-10 h-full w-full rounded-lg border-2 border-transparent bg-transparent p-0 ring-indigo-500 focus-visible:ring-2 aria-[current=step]:border-indigo-500", appearance === "presentation" ? "hover:bg-white/10" : "hover:bg-indigo-50/20")} />
           </div>;
         })}
         {onAdd && <Button type="button" variant="outline" onClick={onAdd} className="h-auto w-36 shrink-0 flex-col gap-1 rounded-lg border-dashed"><Plus size={18} />Add slide</Button>}

@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { defaultSlideMaster, resolveSlideFooter, resolveSlideSize, type SlideMaster } from "@/lib/editor/slide-design";
 import { backgroundPaint, borderPaint, solidColor, textPaint } from "@/lib/color";
 import { resolveNavigationButtons } from "@/lib/editor/slide-navigation-design";
+import { courseThemeFontFamilies } from "@/lib/editor/theme";
 import { SlideNavigationDesignProvider } from "./slide-navigation-controls";
 
 export function SlideFooter({ master = defaultSlideMaster, number, total, controls, decorative = false }: {
@@ -28,7 +29,7 @@ export function SlideFooter({ master = defaultSlideMaster, number, total, contro
   const numberWidth = master.showSlideNumber ? Math.ceil(`${number} / ${total}`.length * fontSize * 0.65) : 0;
   const brandMinimum = logos.length || (showText && master.footerText) ? Math.min(96, innerWidth * 0.18) : 0;
   const availableWidth = Math.max(24, innerWidth - numberWidth - contentGap * (master.showSlideNumber ? 2 : 1) - brandMinimum);
-  return <footer data-slide-footer={decorative ? undefined : true} data-slide-thumbnail-footer={decorative || undefined} className="absolute inset-x-0 bottom-0 z-20 flex w-full items-center" style={{ height, fontSize, gap: contentGap, ...backgroundPaint(footer.backgroundColor), color: solidColor(footer.textColor), ...borderPaint(footer.borderColor), borderTopColor: solidColor(footer.borderColor), borderTopStyle: "solid", borderTopWidth: border, paddingInline: footer.paddingX ?? 20, paddingBlock: paddingY }}>
+  return <footer data-slide-footer={decorative ? undefined : true} data-slide-thumbnail-footer={decorative || undefined} className="absolute inset-x-0 bottom-0 flex w-full items-center" style={{ height, fontSize, fontFamily: footer.fontFamily ? courseThemeFontFamilies[footer.fontFamily] : undefined, fontWeight: footer.fontWeight, fontStyle: footer.fontStyle, gap: contentGap, ...backgroundPaint(footer.backgroundColor), color: solidColor(footer.textColor), ...borderPaint(footer.borderColor), borderTopColor: solidColor(footer.borderColor), borderTopStyle: "solid", borderTopWidth: border, paddingInline: footer.paddingX ?? 20, paddingBlock: paddingY }}>
     <div className="flex h-full min-h-0 min-w-0 flex-1 items-center" style={{ gap: contentGap }}>
       {showText && master.footerText && <p style={{ ...textPaint(footer.textColor), lineHeight: 1.3, WebkitLineClamp: textLines }} className={`line-clamp-2 max-h-full w-fit min-w-0 flex-initial break-words ${logos.length ? "max-w-[50%]" : "max-w-full"}`}>{master.footerText}</p>}
       {logos.length > 0 && <div aria-label={decorative ? undefined : "Footer logos"} className="grid h-full min-h-0 min-w-0 flex-1" style={{ gridTemplateRows: `repeat(${rows.length}, minmax(0, 1fr))`, rowGap: footer.logoGapY ?? 4 }}>

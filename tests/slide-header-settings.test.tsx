@@ -30,6 +30,49 @@ describe("master slide header settings", () => {
   const input = (label: string, value: string) => act(async () => { const element = container.querySelector<HTMLInputElement>(`[aria-label="${label}"]`)!; Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(element, value); element.dispatchEvent(new Event("input", { bubbles: true })); });
   const background = () => container.querySelector<HTMLElement>('[data-slide-canvas] [data-slide-header-background]')!;
 
+  it("uses master theme colors until the header background is overridden", async () => {
+    await act(async () => root.render(<EditorClient initialData={initialData} authorName="Author" />));
+    await click("Master slide");
+    await select("Header background style", "color");
+    await click("Midnight");
+    expect(background().style.backgroundColor).toBe("rgb(15, 23, 42)");
+    expect(container.querySelector<HTMLElement>('[data-slide-canvas] [data-slide-header]')?.style.color).toBe("rgb(248, 250, 252)");
+    await input("Header background color", "#123456");
+    await click("Warm");
+    expect(background().style.backgroundColor).toBe("rgb(18, 52, 86)");
+    await click("Use theme header background");
+    expect(background().style.backgroundColor).toBe("rgb(255, 247, 237)");
+    await act(async () => vi.advanceTimersByTimeAsync(1000));
+    const call = fetchMock.mock.calls.findLast(([, init]) => init?.method === "PUT")!;
+    const snapshot = editorSnapshotSchema.parse(JSON.parse(call[1].body));
+    expect(snapshot.slideMaster?.header?.backgroundColor).toBeUndefined();
+    await act(async () => root.render(<EditorClient key="theme-reload" initialData={{ ...snapshot, courseId: "slides" }} authorName="Author" />));
+    expect(background().style.backgroundColor).toBe("rgb(255, 247, 237)");
+  });
+
+  it("applies the master header weight and size to the editable title", async () => {
+    await act(async () => root.render(<EditorClient initialData={initialData} authorName="Author" />));
+    await click("Master slide");
+    const title = () => container.querySelector<HTMLInputElement>('[data-slide-canvas] [aria-label="Slide title"]')!;
+    const header = () => container.querySelector<HTMLElement>('[data-slide-canvas] [data-slide-header]')!;
+    expect(header().style.fontWeight).toBe("bold");
+    expect(title().style.fontWeight).toBe("inherit");
+    expect(title().classList.contains("font-bold")).toBe(false);
+    await act(async () => container.querySelector<HTMLInputElement>('[aria-label="Header bold"]')!.click());
+    await input("Header font size", "44");
+    expect(header().style.fontWeight).toBe("normal");
+    expect(header().style.fontSize).toBe("44px");
+    expect(title().style.fontWeight).toBe("inherit");
+    expect(title().style.fontSize).toBe("inherit");
+    await act(async () => vi.advanceTimersByTimeAsync(1000));
+    const call = fetchMock.mock.calls.findLast(([, init]) => init?.method === "PUT")!;
+    const snapshot = editorSnapshotSchema.parse(JSON.parse(call[1].body));
+    expect(snapshot.slideMaster?.header).toMatchObject({ fontWeight: "normal", fontSize: 44 });
+    await act(async () => root.render(<CoursePreview initialData={{ ...snapshot, courseId: "slides" }} authorName="Author" initialLessonId="first" standalone persistLocalProgress={false} />));
+    expect(container.querySelector<HTMLElement>('[data-slide-header]')?.style.fontWeight).toBe("normal");
+    expect(container.querySelector<HTMLElement>('[data-slide-header]')?.style.fontSize).toBe("44px");
+  });
+
   it("edits color and a course-owned image, supports undo and collapse, and restores the saved header in preview", async () => {
     await act(async () => root.render(<EditorClient initialData={initialData} authorName="Author" />));
     await click("Master slide");
@@ -52,7 +95,7 @@ describe("master slide header settings", () => {
     await act(async () => vi.advanceTimersByTimeAsync(1000));
     const call = fetchMock.mock.calls.findLast(([, init]) => init?.method === "PUT")!;
     const snapshot = editorSnapshotSchema.parse(JSON.parse(call[1].body));
-    expect(snapshot.slideMaster?.header).toEqual({ background: "image", backgroundColor: "#123456", textColor: "#ffffff", imageSrc: asset.fileUrl, imagePosition: "bottom", overlayOpacity: 45 });
+    expect(snapshot.slideMaster?.header).toMatchObject({ background: "image", backgroundColor: "#123456", textColor: "#ffffff", imageSrc: asset.fileUrl, imagePosition: "bottom", overlayOpacity: 45 });
     await act(async () => root.render(<EditorClient key="reload" initialData={{ ...snapshot, courseId: "slides" }} authorName="Author" />));
     expect(background().querySelector("img")?.getAttribute("src")).toBe(asset.fileUrl);
     for (const standalone of [false, true]) {
@@ -60,5 +103,32 @@ describe("master slide header settings", () => {
       expect(background().querySelector("img")?.getAttribute("src")).toBe(asset.fileUrl);
       expect(container.querySelector<HTMLElement>('[data-slide-header]')?.style.color).toBe("rgb(255, 255, 255)");
     }
+  });
+
+  it("saves a slide with no header title and keeps preview and navigation usable", async () => {
+    await act(async () => root.render(<EditorClient initialData={{ ...initialData, lessons: [{ ...initialData.lessons[0], titleHtml: "<h1>Introduction</h1>" }] }} authorName="Author" />));
+    await input("Slide title", "");
+    expect(container.querySelector<HTMLInputElement>('[aria-label="Slide title"]')?.value).toBe("");
+    expect(container.querySelector('[data-slide-header]')?.textContent).toBe("");
+    expect(container.querySelector('[data-slide-thumbnail-label]')?.textContent).toBe("1. Slide 1");
+    await act(async () => vi.advanceTimersByTimeAsync(1000));
+    const call = fetchMock.mock.calls.findLast(([, init]) => init?.method === "PUT");
+    expect(call).toBeDefined();
+    const snapshot = editorSnapshotSchema.parse(JSON.parse(call![1].body));
+    expect(snapshot.lessons[0].title).toBe("");
+    expect(snapshot.lessons[0].titleHtml).toBeUndefined();
+    await act(async () => root.render(<EditorClient key="reload-blank" initialData={{ ...snapshot, courseId: "slides" }} authorName="Author" />));
+    expect(container.querySelector<HTMLInputElement>('[aria-label="Slide title"]')?.value).toBe("");
+    await act(async () => root.render(<CoursePreview initialData={{ ...snapshot, courseId: "slides" }} authorName="Author" initialLessonId="first" standalone persistLocalProgress={false} />));
+    expect(container.querySelector('[data-slide-header]')?.textContent).toBe("");
+    expect(container.querySelector('[aria-label="Slide: Slide 1"]')).not.toBeNull();
+  });
+
+  it("accepts an empty presentation quiz title", async () => {
+    const quizData = { ...initialData, lessons: [{ ...initialData.lessons[0], title: "", lessonType: "quiz" as const }] };
+    await act(async () => root.render(<EditorClient initialData={quizData} authorName="Author" />));
+    expect(container.querySelector('[data-slide-header]')?.textContent).toBe("");
+    expect(container.textContent).not.toContain("Enter a lesson title before saving.");
+    expect(container.querySelector('[aria-label="Edit slide 1: Slide 1"]')).not.toBeNull();
   });
 });

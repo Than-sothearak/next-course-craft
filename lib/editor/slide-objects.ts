@@ -22,8 +22,8 @@ export function resizeSlideObjectFrame(block: ContentBlock, frame: SlideFrame, u
 }
 
 /** Use screen pixels so the footer snap feels the same at every canvas zoom. */
-export function snapSlideFrameToFooter(frame: SlideFrame, displayedHeight: number, distance = 8): { frame: SlideFrame; snapped: boolean } {
-  const gap = (100 - frame.y - frame.height) / 100 * displayedHeight;
+export function snapSlideFrameToFooter(frame: SlideFrame, displayedHeight: number, distance = 8, footerTop = 100): { frame: SlideFrame; snapped: boolean } {
+  const gap = (footerTop - frame.y - frame.height) / 100 * displayedHeight;
   const snapped = displayedHeight > 0 && gap >= -0.01 && gap <= distance;
-  return { frame: snapped ? { ...frame, y: 100 - frame.height } : frame, snapped };
+  return { frame: snapped ? { ...frame, y: footerTop - frame.height } : frame, snapped };
 }

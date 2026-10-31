@@ -56,14 +56,17 @@ describe("graphic hotspot mini-game", () => {
     const onMarkerInteract = vi.fn();
     act(() => root.render(createElement(InteractiveLabeledGraphic, {
       blockId: "game-radar", src: "", alt: "Game scene", interactionMode: "spotTarget", sceneTheme: "data", challengePrompt: "Find the clue", successMessage: "Found it", onMarkerInteract,
+      radarColor: "#123456", radarSize: 7, radarWeight: 4,
       markers: [
         { id: "target", label: "Target", description: "The clue", x: 30, y: 40, isTarget: true, radarEnabled: false },
-        { id: "other", label: "Other", description: "Another point", x: 70, y: 60 },
+        { id: "other", label: "Other", description: "Another point", x: 70, y: 60, displayMode: "text", displayText: "Clue" },
       ],
     })));
     const points = [...container.querySelectorAll<HTMLButtonElement>('[aria-label^="Inspect hotspot"]')];
     expect(points[0].querySelector('[class*="animate-ping"]')).toBeNull();
-    expect(points[1].querySelector('[class*="animate-ping"]')).not.toBeNull();
+    expect(points[1].textContent).toBe("Clue");
+    expect(points[1].querySelector<HTMLElement>('[class*="animate-ping"]')?.style.cssText).toContain("inset: -7px");
+    expect(points[1].querySelector<HTMLElement>('[class*="animate-ping"]')?.style.cssText).toContain("border: 4px solid rgb(18, 52, 86)");
     act(() => points[0].click());
     expect(onMarkerInteract).toHaveBeenCalledWith("target");
     expect(container.querySelector('[role="status"]')?.textContent).toBe("Found it");

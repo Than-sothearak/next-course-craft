@@ -106,13 +106,37 @@ describe("presentation graphic sizing and popups", () => {
   });
 
   it("keeps point coordinates and popup placement aligned after resizing the object", () => {
-    renderGraphic(); loadImage(400, 1200); clickMarker("Input");
+    renderGraphic({ ...graphic, data: { ...graphic.data, objectFit: "fill" } }); loadImage(400, 1200); clickMarker("Input");
     expect(popup().style.left).toBe("132px"); expect(popup().style.top).toBe("102px");
     frameWidth = 800; frameHeight = 400;
     act(() => window.dispatchEvent(new Event("resize")));
     expect(popup().style.left).toBe("172px"); expect(popup().style.top).toBe("132px");
     const point = container.querySelector<HTMLElement>('[aria-label="Input: show explanation"]')!;
     expect(point.style.left).toBe("20%"); expect(point.style.top).toBe("30%");
+  });
+
+  it("defaults presentation images to contain and displays automatic, custom, and text point labels", () => {
+    const block = { ...graphic, data: { ...graphic.data, radarSize: 7, radarWeight: 4, markers: [
+      { ...graphic.data.markers[0] },
+      { ...graphic.data.markers[1], displayMode: "number" as const, displayNumber: 42 },
+      { ...graphic.data.markers[1], id: "note", label: "Note", displayMode: "text" as const, displayText: "GO" },
+    ] } };
+    renderGraphic(block); loadImage(100, 100);
+    const points = [...container.querySelectorAll<HTMLButtonElement>('[aria-label$=": show explanation"]')];
+    expect(container.querySelector("img")?.style.objectFit).toBe("contain");
+    expect(points.map((point) => point.textContent)).toEqual(["1", "42", "GO"]);
+    expect(points[0].style.left).toBe("35%");
+    expect(points[0].style.getPropertyValue("--radar-size")).toBe("7px");
+    expect(points[0].style.getPropertyValue("--radar-weight")).toBe("4px");
+    renderGraphic({ ...block, data: { ...block.data, markers: [block.data.markers[0], block.data.markers[2]] } });
+    expect([...container.querySelectorAll<HTMLButtonElement>('[aria-label$=": show explanation"]')].map((point) => point.textContent)).toEqual(["1", "GO"]);
+  });
+
+  it("rejects out-of-range radar settings and point labels", () => {
+    expect(blockSchema.safeParse({ ...graphic, data: { ...graphic.data, radarSize: 25 } }).success).toBe(false);
+    expect(blockSchema.safeParse({ ...graphic, data: { ...graphic.data, radarWeight: 0 } }).success).toBe(false);
+    expect(blockSchema.safeParse({ ...graphic, data: { ...graphic.data, markers: [{ ...graphic.data.markers[0], displayNumber: 1000 }] } }).success).toBe(false);
+    expect(blockSchema.safeParse({ ...graphic, data: { ...graphic.data, markers: [{ ...graphic.data.markers[0], displayText: "A point label that is too long" }] } }).success).toBe(false);
   });
 
   it.each([

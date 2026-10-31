@@ -8,7 +8,7 @@ import { DashboardDialogs } from "@/app/dashboard/_components/(dashboard_client_
 import type { DashboardData } from "@/lib/dashboard/types";
 import { CoursePreview, type PreviewData } from "@/app/courses/[courseId]/preview/course-preview";
 import { blockSchema } from "@/lib/schemas/block";
-import { resolveSlideFrame } from "@/lib/editor/slide-design";
+import { normalizeSlideLessonFrames, resolveCanvasSlideFrame, resolveSlideFrame, slideMasterSchema } from "@/lib/editor/slide-design";
 
 const slides = [
   { id: "one", title: "Introduction", blocks: [] },
@@ -60,6 +60,31 @@ describe("slide presentation template", () => {
     const second = resolveSlideFrame({ type: "image" }, 1, 2);
     expect(first.x + first.width).toBeLessThan(second.x);
     expect(first.y).toBe(second.y);
+  });
+
+  it("moves legacy object coordinates onto the full canvas without shifting their visible position", () => {
+    const block = blockSchema.parse({ id: "heading", version: 1, type: "heading", data: { text: "Overlap", level: 1 }, slideFrame: { x: 12, y: 20, width: 60, height: 40, z: 3 } });
+    const legacy = slideMasterSchema.parse({});
+    const frame = resolveCanvasSlideFrame(block, 0, 1, legacy);
+    expect(frame.y * 540 / 100).toBeCloseTo(108 + 20 / 100 * 368);
+    expect(frame.height * 540 / 100).toBeCloseTo(40 / 100 * 368);
+    const [lesson] = normalizeSlideLessonFrames([{ blocks: [block] }], legacy);
+    const canvas = slideMasterSchema.parse({ objectLayout: "canvas" });
+    expect(resolveCanvasSlideFrame(lesson.blocks[0], 0, 1, canvas)).toEqual(frame);
+    expect(resolveCanvasSlideFrame({ ...block, slideFrame: { ...block.slideFrame!, y: 0 } }, 0, 1, canvas).y).toBe(0);
+    expect(resolveCanvasSlideFrame({ ...block, slideFrame: { ...block.slideFrame!, y: 90, height: 10 } }, 0, 1, canvas).y).toBe(90);
+    expect(resolveCanvasSlideFrame(block, 0, 1, legacy, true).y).toBeCloseTo(20 / 100 * 476 / 540 * 100);
+  });
+
+  it("renders authored objects at the header and footer edges in learner preview", () => {
+    const blocks = [
+      blockSchema.parse({ id: "top", version: 1, type: "heading", data: { text: "Top", level: 1 }, slideFrame: { x: 5, y: 0, width: 40, height: 10, z: 0 } }),
+      blockSchema.parse({ id: "bottom", version: 1, type: "heading", data: { text: "Bottom", level: 1 }, slideFrame: { x: 5, y: 90, width: 40, height: 10, z: 1 } }),
+    ];
+    const snapshot = editorSnapshotSchema.parse({ ...course, revision: 0, slideMaster: { objectLayout: "canvas" }, lessons: [{ ...course.lessons[0], blocks }] });
+    const markup = renderToStaticMarkup(createElement(CoursePreview, { initialData: { ...snapshot, courseId: "slide-course" }, authorName: "Author", initialLessonId: snapshot.lessons[0].id, standalone: true }));
+    expect(markup).toMatch(/data-slide-object-id="top"[^>]*top:0%/);
+    expect(markup).toMatch(/data-slide-object-id="bottom"[^>]*top:90%/);
   });
 
   it.each([false, true])("renders the image cover in preview and standalone mode (standalone=%s)", (standalone) => {

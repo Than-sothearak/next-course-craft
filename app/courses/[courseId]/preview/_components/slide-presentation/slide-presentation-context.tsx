@@ -15,6 +15,7 @@ export type SlidePresentationContextValue = {
   menu: ReactNode;
   fullscreen: boolean;
   onToggleFullscreen: () => void;
+  zoom?: number;
   courseId: string;
   standalone: boolean;
   playInstructionAudio: (src: string) => void;

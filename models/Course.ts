@@ -24,6 +24,15 @@ const NavigationButtonsSchema = new Schema({ ...navigationAppearanceFields,
     previous: { type: NavigationAppearanceSchema, default: undefined }, restart: { type: NavigationAppearanceSchema, default: undefined }, next: { type: NavigationAppearanceSchema, default: undefined },
   }, { _id: false }), default: undefined },
 }, { _id: false });
+const SlideTypographySchema = new Schema({
+  fontFamily: { type: String, enum: [...courseThemeFontFamilyIds], default: undefined },
+  fontSize: { type: Number, required: true, min: 10, max: 120, validate: Number.isInteger },
+  fontWeight: { type: String, enum: ["normal", "bold"], default: "normal" },
+  fontStyle: { type: String, enum: ["normal", "italic"], default: "normal" },
+  textDecoration: { type: String, enum: ["none", "underline"], default: "none" },
+  textAlign: { type: String, enum: ["left", "center", "right"], default: "center" },
+  color: { type: String, required: true, validate: (value: string) => colorValueSchema.safeParse(value).success },
+}, { _id: false });
 
 const SectionSchema = new Schema({
   id: { type: String, required: true, maxlength: 64 },
@@ -64,6 +73,7 @@ const CourseSchema = new Schema({
   navigationMode: { type: String, enum: ["free", "sequential", "restricted"], default: "sequential" },
   courseLayout: { type: String, enum: ["standard", "slides"], default: "standard" },
   slideMaster: { type: new Schema({
+    objectLayout: { type: String, enum: ["canvas"], default: undefined },
     size: { type: new Schema({
       width: { type: Number, required: true, min: 480, max: 3840, validate: Number.isInteger },
       height: { type: Number, required: true, min: 480, max: 3840, validate: Number.isInteger },
@@ -74,6 +84,7 @@ const CourseSchema = new Schema({
     accentColor: { type: String, validate: (value: string) => colorValueSchema.safeParse(value).success, default: "#4f46e5" },
     footerText: { type: String, maxlength: 120, default: "" },
     showSlideNumber: { type: Boolean, default: true },
+    bodyTypography: { type: SlideTypographySchema, default: undefined },
     navigationButtons: { type: NavigationButtonsSchema, default: undefined },
     navigationGuide: { type: new Schema({
       enabled: { type: Boolean, default: false },
@@ -84,8 +95,13 @@ const CourseSchema = new Schema({
     }, { _id: false }), default: undefined },
     header: { type: new Schema({
       background: { type: String, enum: ["transparent", "color", "image"], default: "transparent" },
-      backgroundColor: { type: String, validate: (value: string) => colorValueSchema.safeParse(value).success, default: "#ffffff" },
+      backgroundColor: { type: String, validate: (value: string) => colorValueSchema.safeParse(value).success, default: undefined },
+      backgroundCustomized: { type: Boolean, default: undefined },
       textColor: { type: String, validate: (value: string) => colorValueSchema.safeParse(value).success, default: undefined },
+      fontFamily: { type: String, enum: [...courseThemeFontFamilyIds], default: undefined },
+      fontSize: { type: Number, min: 12, max: 72, default: 32, validate: Number.isInteger },
+      fontWeight: { type: String, enum: ["normal", "bold"], default: "bold" },
+      fontStyle: { type: String, enum: ["normal", "italic"], default: "normal" },
       imageSrc: { type: String, match: /^(?:|\/api\/assets\/[a-f\d]{24}\/file)$/i, default: "" },
       imagePosition: { type: String, enum: ["center", "top", "bottom"], default: "center" },
       overlayOpacity: { type: Number, min: 0, max: 90, default: 20 },
@@ -93,6 +109,9 @@ const CourseSchema = new Schema({
     footer: { type: new Schema({
       height: { type: Number, min: 48, max: 160, default: 64, validate: Number.isInteger },
       fontSize: { type: Number, min: 10, max: 24, default: 12, validate: Number.isInteger },
+      fontFamily: { type: String, enum: [...courseThemeFontFamilyIds], default: undefined },
+      fontWeight: { type: String, enum: ["normal", "bold"], default: "normal" },
+      fontStyle: { type: String, enum: ["normal", "italic"], default: "normal" },
       contentGap: { type: Number, min: 0, max: 32, default: 16, validate: Number.isInteger },
       content: { type: String, enum: ["text", "logos", "both"], default: "text" },
       logos: { type: [new Schema({
@@ -106,10 +125,11 @@ const CourseSchema = new Schema({
       logoGapY: { type: Number, min: 0, max: 12, default: 4 },
       logoJustify: { type: String, enum: ["left", "center", "right", "between"], default: "center" },
       logoAlign: { type: String, enum: ["top", "middle", "bottom"], default: "middle" },
-      backgroundColor: { type: String, validate: (value: string) => colorValueSchema.safeParse(value).success, default: "#ffffff" },
-      textColor: { type: String, validate: (value: string) => colorValueSchema.safeParse(value).success, default: "#172033" },
+      backgroundColor: { type: String, validate: (value: string) => colorValueSchema.safeParse(value).success, default: undefined },
+      textColor: { type: String, validate: (value: string) => colorValueSchema.safeParse(value).success, default: undefined },
+      colorsCustomized: { type: Boolean, default: undefined },
       borderTop: { type: Boolean, default: true },
-      borderColor: { type: String, validate: (value: string) => colorValueSchema.safeParse(value).success, default: "#cbd5e1" },
+      borderColor: { type: String, validate: (value: string) => colorValueSchema.safeParse(value).success, default: undefined },
       borderWidth: { type: Number, min: 1, max: 6, default: 1 },
     }, { _id: false }), default: undefined },
     background: { type: new Schema({

@@ -2,8 +2,8 @@
 
 import { ColorPicker } from "@/components/ui/color-picker";
 import { Button } from "@/components/ui/button";
-import { CircleHelp, Image, Monitor, MousePointer2, Palette, PanelBottom, PanelTop } from "lucide-react";
-import { defaultSlideMaster, resolveSlideSize, slideMasterPresets, type SlideMaster } from "@/lib/editor/slide-design";
+import { CircleHelp, Image, Monitor, MousePointer2, Palette, PanelBottom, PanelTop, Type } from "lucide-react";
+import { defaultSlideBodyTypography, defaultSlideMaster, resolveSlideSize, slideMasterPresets, type SlideMaster } from "@/lib/editor/slide-design";
 import { SlideMasterBackgroundControls } from "./slide-master-background-controls";
 import { SlideFooterControls } from "./slide-footer-controls";
 import { SlideCanvasSizeControls } from "./slide-canvas-size-controls";
@@ -11,6 +11,7 @@ import { SlideHeaderControls } from "./slide-header-controls";
 import { SlideInspectorSection } from "./slide-inspector-section";
 import { SlideNavigationGuideControls } from "./slide-navigation-guide-controls";
 import { SlideNavigationButtonControls } from "./slide-navigation-button-controls";
+import { SlideTypographyControls } from "./slide-typography-controls";
 
 export function SlideMasterPanel({ value, courseId, onChange }: { value?: SlideMaster; courseId: string; onChange: (value: SlideMaster) => void }) {
   const master = value ?? defaultSlideMaster;
@@ -39,6 +40,10 @@ export function SlideMasterPanel({ value, courseId, onChange }: { value?: SlideM
       </SlideInspectorSection>
       <SlideInspectorSection title="Footer" icon={PanelBottom}>
       <SlideFooterControls master={master} courseId={courseId} onChange={onChange} />
+      </SlideInspectorSection>
+      <SlideInspectorSection title="Body text & lists" icon={Type}>
+        <p className="text-xs text-slate-500">Default style for text and list objects. Formatting applied to selected text takes precedence.</p>
+        <SlideTypographyControls label="Body text and lists" value={master.bodyTypography ?? { ...defaultSlideBodyTypography, color: master.textColor }} onChange={(bodyTypography) => onChange({ ...master, bodyTypography })} />
       </SlideInspectorSection>
       <SlideInspectorSection title="Navigation buttons" icon={MousePointer2}><SlideNavigationButtonControls master={master} onChange={onChange} /></SlideInspectorSection>
       <SlideInspectorSection title="Navigation guide" icon={CircleHelp}><SlideNavigationGuideControls master={master} onChange={onChange} /></SlideInspectorSection>

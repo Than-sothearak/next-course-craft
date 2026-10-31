@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   resolveCourseAccess: vi.fn(),
   notFound: vi.fn(() => { throw new Error("Not found"); }),
   redirect: vi.fn((path: string) => { throw new Error(`Redirect to ${path}`); }),
+  searchParams: vi.fn(() => new URLSearchParams()),
 }));
 
 vi.mock("../lib/auth/pages", () => ({ requirePageUser: mocks.auth, requirePageCourseAccess: mocks.resolveCourseAccess }));
@@ -20,7 +21,7 @@ vi.mock("../lib/editor/services/course", () => ({
   getCourseAuthorName: mocks.getCourseAuthorName,
 }));
 vi.mock("../lib/workspaces/access", () => ({ resolveCourseAccess: mocks.resolveCourseAccess }));
-vi.mock("next/navigation", () => ({ notFound: mocks.notFound, redirect: mocks.redirect }));
+vi.mock("next/navigation", () => ({ notFound: mocks.notFound, redirect: mocks.redirect, useSearchParams: mocks.searchParams }));
 vi.mock("../app/courses/[courseId]/preview/course-preview-route", () => ({
   CoursePreviewRoute: () => null,
 }));
@@ -32,6 +33,7 @@ type CoursePreviewPageProps = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.searchParams.mockReturnValue(new URLSearchParams());
   mocks.auth.mockResolvedValue({ id: "owner-1", name: "Author" });
   mocks.connectToDatabase.mockResolvedValue(undefined);
   mocks.resolveCourseAccess.mockResolvedValue({ ownerId: "owner-1", role: "owner", permissions: ["courses.view", "courses.edit"] });
@@ -65,5 +67,21 @@ describe("course preview loading boundary", () => {
     expect(mocks.auth).toHaveBeenCalledOnce();
     expect(mocks.getCourseEditor).toHaveBeenCalledWith("owner-1", "course-1");
     expect(content.props).toMatchObject({ initialLessonId: "lesson-1", authorName: "Course Creator" });
+  });
+
+  it("shows the presentation loading shell when the preview link identifies a slide course", () => {
+    mocks.searchParams.mockReturnValue(new URLSearchParams("previewLayout=slides"));
+    const page = CoursePreviewPage({
+      params: Promise.resolve({ courseId: "course-1" }),
+      searchParams: Promise.resolve({}),
+    }) as ReactElement<{
+      fallback: ReactElement;
+    }>;
+
+    const fallbackMarkup = renderToStaticMarkup(page.props.fallback);
+    expect(fallbackMarkup).toContain('aria-label="Loading presentation preview"');
+    expect(fallbackMarkup).toContain("data-presentation-preview-loading");
+    expect(fallbackMarkup).toContain('data-presentation-view="true"');
+    expect(fallbackMarkup).not.toContain('aria-label="Loading course outline"');
   });
 });

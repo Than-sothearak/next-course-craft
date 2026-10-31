@@ -4,7 +4,7 @@ const LessonSchema = new Schema({
   courseId: { type: Schema.Types.ObjectId, required: true, index: true },
   editorId: { type: String, maxlength: 64 },
   sectionId: { type: String, required: true },
-  title: { type: String, required: true, trim: true, maxlength: 160 },
+  title: { type: String, default: "", trim: true, maxlength: 160 },
   titleHtml: { type: String, maxlength: 100_000 },
   icon: { type: String, enum: ["file", "book", "video", "quiz", "idea"], default: "file" },
   order: { type: Number, required: true, min: 0 },

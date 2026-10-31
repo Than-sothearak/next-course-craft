@@ -33,6 +33,31 @@ describe("cover settings and editor footer navigation", () => {
   async function saved() { await act(async () => vi.advanceTimersByTimeAsync(1000)); return editorSnapshotSchema.parse(JSON.parse(fetchMock.mock.calls.findLast(([, init]) => init?.method === "PUT")![1].body)); }
   const render = () => act(async () => root.render(<EditorClient initialData={initialData} authorName="Author" />));
 
+  it("edits cover typography and master font defaults through the inspector", async () => {
+    await render();
+    await input("Cover title font size", "6");
+    expect(container.querySelector<HTMLInputElement>('[aria-label="Cover title font size"]')?.value).toBe("6");
+    expect(container.querySelector<HTMLElement>('[data-slide-canvas] [data-cover-element="title"]')?.style.fontSize).toBe("60px");
+    await input("Cover title font size", "68");
+    await select("Cover subtitle font family", "serif");
+    await input("Cover button font size", "22");
+    expect(container.querySelector<HTMLElement>('[data-slide-canvas] [data-cover-element="title"]')?.style.fontSize).toBe("68px");
+    expect(container.querySelector<HTMLElement>('[data-slide-canvas] [data-cover-element="button"]')?.style.fontSize).toBe("22px");
+    await click("Master slide");
+    await input("Header font size", "42");
+    await select("Footer font family", "rounded");
+    await input("Body text and lists font size", "2");
+    expect(container.querySelector<HTMLInputElement>('[aria-label="Body text and lists font size"]')?.value).toBe("2");
+    await input("Body text and lists font size", "25");
+    const snapshot = await saved();
+    expect(snapshot.lessons[0].slideCover).toMatchObject({ titleStyle: { fontSize: 68 }, subtitleStyle: { fontFamily: "serif" }, buttonStyle: { fontSize: 22 } });
+    expect(snapshot.slideMaster).toMatchObject({ header: { fontSize: 42 }, footer: { fontFamily: "rounded" }, bodyTypography: { fontSize: 25 } });
+    await act(async () => root.render(<EditorClient key="typography-reload" initialData={{ ...snapshot, courseId: "slides" }} authorName="Author" />));
+    await click("Master slide");
+    expect(container.querySelector<HTMLInputElement>('[aria-label="Header font size"]')?.value).toBe("42");
+    expect(container.querySelector<HTMLInputElement>('[aria-label="Body text and lists font size"]')?.value).toBe("25");
+  });
+
   it("sets independent element positions and pixel offsets, then saves and restores them", async () => {
     await render(); await act(async () => button("Cover content bottom left").click());
     await select("Title position", "top-left"); await input("Title horizontal offset", "12.34");

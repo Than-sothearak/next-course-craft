@@ -2,7 +2,7 @@
 
 import { Input } from "@/components/ui/input";
 import { ArrowLeftToLine, ArrowUpToLine, MoveHorizontal, MoveVertical } from "lucide-react";
-import { resolveSlideFrame, slideObjectArea, type SlideSize } from "@/lib/editor/slide-design";
+import { resolveSlideFrame, resolveSlideTextLayout, slideObjectArea, type SlideSize } from "@/lib/editor/slide-design";
 import { resizeSlideObjectFrame } from "@/lib/editor/slide-objects";
 import type { ContentBlock } from "@/lib/schemas/block";
 
@@ -26,7 +26,11 @@ export function SlideObjectSizeControls({ block, index, total, area = slideObjec
       <Input type="number" aria-label={`${label} (px)`} min={min} max={extent} step={0.01} value={Number((frame[key] * extent / 100).toFixed(2))} onChange={(event) => {
         const pixels = Number(event.target.value);
         if (!event.target.value || !Number.isFinite(pixels)) return;
-        onChange({ ...block, slideFrame: resizeSlideObjectFrame(block, frame, { [key]: pixels / extent * 100 }, area) });
+        const next = { ...block, slideFrame: resizeSlideObjectFrame(block, frame, { [key]: pixels / extent * 100 }, area) };
+        if ((key === "width" || key === "height") && (block.type === "heading" || block.type === "richText" || block.type === "statement")) {
+          next.slideTextLayout = { ...resolveSlideTextLayout(block.slideTextLayout), fitToText: false };
+        }
+        onChange(next);
       }} className="mt-1 h-8" />
     </label>)}
   </div>;

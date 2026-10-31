@@ -98,7 +98,7 @@ describe("course outline editing", () => {
     }) };
     await act(async () => root.render(<EditorClient initialData={slideData} authorName="Author" />));
     await act(async () => [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent?.trim() === "Preview")!.click());
-    expect(push).toHaveBeenCalledWith("/courses/slides/preview?lessonId=first");
+    expect(push).toHaveBeenCalledWith("/courses/slides/preview?lessonId=first&previewLayout=slides");
   });
 
   it("opens a slide course with a thumbnail panel and adds and selects slides in place", async () => {
@@ -141,7 +141,7 @@ describe("course outline editing", () => {
     expect(container.querySelector('[aria-label="Edit slide 2: last"]')?.getAttribute("aria-current")).toBe("step");
     expect(editorSnapshotSchema.parse(JSON.parse(fetchMock.mock.calls.at(-1)![1].body)).lessons.map(({ id, order }) => ({ id, order }))).toEqual([{ id: "first", order: 0 }, { id: "last", order: 1 }]);
     await act(async () => [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent?.trim() === "Preview")!.click());
-    expect(push).toHaveBeenLastCalledWith("/courses/slides/preview?lessonId=last");
+    expect(push).toHaveBeenLastCalledWith("/courses/slides/preview?lessonId=last&previewLayout=slides");
     push.mockClear();
     await act(async () => remove("last").click());
     expect(container.querySelector('[aria-label="Edit slide 1: first"]')?.getAttribute("aria-current")).toBe("step");
@@ -257,7 +257,7 @@ describe("course outline editing", () => {
 
   it.each(["video", "audio"] as const)("saves and restores presentation playback settings for %s", async (type) => {
     const mediaFrame = { x: 11, y: 8, width: 78, height: 24, z: 0 };
-    const slideData = { courseId: "slides", ...editorSnapshotSchema.parse({ title: "Presentation", description: "", revision: 1, courseLayout: "slides",
+    const slideData = { courseId: "slides", ...editorSnapshotSchema.parse({ title: "Presentation", description: "", revision: 1, courseLayout: "slides", slideMaster: { objectLayout: "canvas" },
       sections: [{ id: "section", title: "Slides", order: 0 }],
       lessons: [{ id: "first", sectionId: "section", title: "Media", order: 0, blocks: [{ id: "media", version: 1, type, slideFrame: mediaFrame, data: { src: "/api/assets/123456789012345678901234/file", mimeType: type === "video" ? "video/webm" : "audio/webm", fileName: "Narration" } }] }],
     }) };
@@ -269,7 +269,7 @@ describe("course outline editing", () => {
     await act(async () => [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent?.trim() === "Align to footer")!.click());
     await act(async () => vi.advanceTimersByTimeAsync(1000));
     const saved = editorSnapshotSchema.parse(JSON.parse(fetchMock.mock.calls.at(-1)![1].body));
-    expect(saved.lessons[0].blocks[0]).toMatchObject({ slidePlayback: { autoPlay: true, showControls: false }, slideFrame: { ...mediaFrame, y: 76 } });
+    expect(saved.lessons[0].blocks[0]).toMatchObject({ slidePlayback: { autoPlay: true, showControls: false }, slideFrame: { ...mediaFrame, y: (540 - 64) / 540 * 100 - mediaFrame.height } });
     await act(async () => root.render(<EditorClient key="restored" initialData={{ ...saved, courseId: "slides" }} authorName="Author" />));
     await act(async () => select().click());
     expect(container.querySelector<HTMLInputElement>('[aria-label="Autoplay media"]')?.checked).toBe(true);
@@ -324,7 +324,7 @@ describe("course outline editing", () => {
   it("raises an object selected from layers without changing its saved position", async () => {
     const frame = { x: 11, y: 8, width: 78, height: 24 };
     const slideData = { courseId: "slides", ...editorSnapshotSchema.parse({
-      title: "Presentation", description: "", revision: 1, courseLayout: "slides",
+      title: "Presentation", description: "", revision: 1, courseLayout: "slides", slideMaster: { objectLayout: "canvas" },
       sections: [{ id: "section", title: "Slides", order: 0 }],
       lessons: [{ id: "first", sectionId: "section", title: "Intro", order: 0, blocks: [
         { id: "back", version: 1, type: "heading", data: { text: "Back", level: 1 }, slideFrame: { ...frame, z: 0 } },

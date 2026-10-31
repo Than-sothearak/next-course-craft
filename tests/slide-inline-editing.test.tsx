@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EditorClient } from "@/app/courses/[courseId]/edit/_components/editor-client";
 import { CoursePreview } from "@/app/courses/[courseId]/preview/course-preview";
 import { editorSnapshotSchema } from "@/lib/editor/schemas";
-import { slideObjectArea } from "@/lib/editor/slide-design";
+import { resolveSlideSize } from "@/lib/editor/slide-design";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), back: vi.fn(), forward: vi.fn() }) }));
 vi.mock("@/app/dashboard/_components/dashboard-navbar", () => ({ DashboardNavbar: ({ primaryAction }: { primaryAction: ReactNode }) => <header>{primaryAction}</header> }));
@@ -15,7 +15,7 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 const frame = { x: 11, y: 8, width: 78, height: 55, z: 2 };
 function presentation(blocks: unknown[]) {
   return { courseId: "slides", ...editorSnapshotSchema.parse({
-    title: "Presentation", description: "", revision: 1, courseLayout: "slides",
+    title: "Presentation", description: "", revision: 1, courseLayout: "slides", slideMaster: { objectLayout: "canvas" },
     sections: [{ id: "section", title: "Slides", order: 0 }],
     lessons: [{ id: "slide", sectionId: "section", title: "Slide 1", order: 0, blocks }],
   }) };
@@ -73,6 +73,27 @@ describe("inline slide text editing", () => {
     expect(call).toBeDefined();
     return editorSnapshotSchema.parse(JSON.parse(call![1].body));
   }
+
+  it("renders presentation lists with the same spacing and markers in editor and preview", async () => {
+    const html = '<ol data-list-style="upper-roman" data-item-spacing="spacious"><li><p>First step</p></li><li><p>Second step</p></li></ol>';
+    const data = presentation([{ id: "list", version: 1, type: "richText", slideFrame: frame, data: { html } }]);
+    await act(async () => root.render(<EditorClient initialData={data} authorName="Author" />));
+    const editorText = container.querySelector<HTMLElement>('[data-slide-object-id="list"] .lesson-rich-text')!;
+    expect(editorText.className).toContain("[&_.tiptap_p]:my-2");
+    const editorList = editorText.querySelector("ol")!;
+    expect(editorList.getAttribute("data-list-style")).toBe("upper-roman");
+    expect(editorList.getAttribute("data-item-spacing")).toBe("spacious");
+    for (const standalone of [false, true]) {
+      await act(async () => root.render(<CoursePreview key={String(standalone)} initialData={data} authorName="Author" initialLessonId="slide" standalone={standalone} persistLocalProgress={false} />));
+      const previewText = container.querySelector<HTMLElement>('[data-slide-object-id="list"] .lesson-rich-text')!;
+      expect(previewText.className).toContain("[&_.tiptap_p]:my-2");
+      expect(previewText.className).not.toContain("[&_.tiptap_p]:my-0");
+      const previewList = previewText.querySelector("ol")!;
+      expect(previewList.getAttribute("data-list-style")).toBe(editorList.getAttribute("data-list-style"));
+      expect(previewList.getAttribute("data-item-spacing")).toBe(editorList.getAttribute("data-item-spacing"));
+      expect([...previewList.querySelectorAll("li")].map((item) => item.textContent)).toEqual(["First step", "Second step"]);
+    }
+  });
 
   it.each(["heading", "richText"] as const)("edits and formats a %s object, then retains content and geometry after save and reload", async (type) => {
     const data = presentation([textBlock(type)]);
@@ -266,17 +287,34 @@ describe("inline slide text editing", () => {
     await act(async () => container.querySelector<HTMLButtonElement>(`[aria-label="Select ${input.type} object from layers"]`)!.click());
     const horizontal = container.querySelector<HTMLSelectElement>('[aria-label="Text box horizontal alignment"]')!;
     const vertical = container.querySelector<HTMLSelectElement>('[aria-label="Text box vertical alignment"]')!;
+    const horizontalPadding = container.querySelector<HTMLInputElement>('[aria-label="Text box horizontal padding"]')!;
+    const verticalPadding = container.querySelector<HTMLInputElement>('[aria-label="Text box vertical padding"]')!;
+    const fitToText = container.querySelector<HTMLInputElement>('[aria-label="Fit text box to content"]')!;
+    const box = container.querySelector<HTMLElement>("[data-slide-text-box]")!;
+    expect(box.style.paddingLeft).toBe("0px");
+    expect(box.style.paddingTop).toBe("0px");
+    expect(horizontalPadding.value).toBe("0");
+    expect(verticalPadding.value).toBe("0");
+    if (input.type === "statement") expect(box.querySelector<HTMLElement>(".border-l-4")?.style.padding).toBe("0px");
+    expect(fitToText.checked).toBe(true);
     await act(async () => {
       horizontal.value = "center"; horizontal.dispatchEvent(new Event("change", { bubbles: true }));
     });
     await act(async () => {
       vertical.value = "middle"; vertical.dispatchEvent(new Event("change", { bubbles: true }));
     });
-    const box = container.querySelector<HTMLElement>("[data-slide-text-box]")!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(horizontalPadding, "28");
+      horizontalPadding.dispatchEvent(new Event("input", { bubbles: true }));
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(verticalPadding, "20");
+      verticalPadding.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    expect(box.style.paddingLeft).toBe("28px");
+    expect(box.style.paddingTop).toBe("20px");
     expect(box.style.justifyContent).toBe("center");
     expect(box.style.textAlign).toBe("center");
     const snapshot = await savedSnapshot();
-    expect(snapshot.lessons[0].blocks[0]).toMatchObject({ slideFrame: frame, slideTextLayout: { horizontal: "center", vertical: "middle" } });
+    expect(snapshot.lessons[0].blocks[0]).toMatchObject({ slideFrame: frame, slideTextLayout: { horizontal: "center", vertical: "middle", paddingX: 28, paddingY: 20, fitToText: true } });
     await act(async () => root.render(<EditorClient key="alignment-reload" initialData={{ ...snapshot, courseId: "slides" }} authorName="Author" />));
     expect(container.querySelector<HTMLElement>("[data-slide-text-box]")?.style.justifyContent).toBe("center");
     for (const standalone of [false, true]) {
@@ -284,6 +322,9 @@ describe("inline slide text editing", () => {
       const preview = container.querySelector<HTMLElement>("[data-slide-text-box]")!;
       expect(preview.style.justifyContent).toBe("center");
       expect(preview.style.textAlign).toBe("center");
+      expect(preview.style.paddingLeft).toBe("28px");
+      expect(preview.style.paddingTop).toBe("20px");
+      if (input.type === "statement") expect(preview.querySelector<HTMLElement>(".border-l-4")?.style.padding).toBe("0px");
       expect(preview.closest('[data-lesson-block-id]')?.classList.contains("h-full")).toBe(true);
     }
   });
@@ -297,7 +338,8 @@ describe("inline slide text editing", () => {
     Object.defineProperty(media, type === "image" ? "naturalWidth" : "videoWidth", { configurable: true, value: 1080 });
     Object.defineProperty(media, type === "image" ? "naturalHeight" : "videoHeight", { configurable: true, value: 1920 });
     await act(async () => media.dispatchEvent(new Event(type === "image" ? "load" : "loadedmetadata", { bubbles: true })));
-    const ratio = () => Number.parseFloat(object.style.width) * slideObjectArea.width / (Number.parseFloat(object.style.height) * slideObjectArea.height);
+    const area = resolveSlideSize();
+    const ratio = () => Number.parseFloat(object.style.width) * area.width / (Number.parseFloat(object.style.height) * area.height);
     expect(ratio()).toBeCloseTo(1080 / 1920, 8);
     expect(media.classList.contains("object-contain")).toBe(true);
     await act(async () => container.querySelector<HTMLButtonElement>(`[aria-label="Select ${type} object from layers"]`)!.click());
@@ -309,7 +351,7 @@ describe("inline slide text editing", () => {
     expect(Number.parseFloat(object.style.width)).toBeCloseTo(10);
     expect(ratio()).toBeCloseTo(1080 / 1920, 8);
     const objects = container.querySelector<HTMLElement>("[data-slide-objects]")!;
-    vi.spyOn(objects, "getBoundingClientRect").mockReturnValue({ width: 960, height: slideObjectArea.height } as DOMRect);
+    vi.spyOn(objects, "getBoundingClientRect").mockReturnValue({ width: 960, height: area.height } as DOMRect);
     const resize = container.querySelector<HTMLButtonElement>(`[aria-label="Resize ${type} object"]`)!;
     resize.setPointerCapture = vi.fn(); resize.hasPointerCapture = vi.fn(() => false);
     await act(async () => {
@@ -322,13 +364,13 @@ describe("inline slide text editing", () => {
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(scale, "10");
       scale.dispatchEvent(new Event("input", { bubbles: true }));
     });
-    expect(Number.parseFloat(object.style.width) * slideObjectArea.width / 100).toBeCloseTo(108);
+    expect(Number.parseFloat(object.style.width) * area.width / 100).toBeCloseTo(108);
     const snapshot = await savedSnapshot();
     expect(snapshot.lessons[0].blocks[0].slideMedia).toEqual({ source: mediaSource, width: 1080, height: 1920 });
     for (const standalone of [false, true]) {
       await act(async () => root.render(<CoursePreview key={String(standalone)} initialData={{ ...snapshot, courseId: "slides" }} authorName="Author" initialLessonId="slide" standalone={standalone} persistLocalProgress={false} />));
       const preview = container.querySelector<HTMLElement>(`[data-slide-object-id="${type}"]`)!;
-      expect(Number.parseFloat(preview.style.width) * slideObjectArea.width / (Number.parseFloat(preview.style.height) * slideObjectArea.height)).toBeCloseTo(1080 / 1920, 8);
+      expect(Number.parseFloat(preview.style.width) * area.width / (Number.parseFloat(preview.style.height) * area.height)).toBeCloseTo(1080 / 1920, 8);
       expect(preview.querySelector(type === "image" ? "img" : "video")?.classList.contains("object-contain")).toBe(true);
     }
   });

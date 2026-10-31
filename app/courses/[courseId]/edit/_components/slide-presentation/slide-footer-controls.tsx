@@ -8,9 +8,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { createClientId } from "@/lib/client-id";
-import { resolveSlideFooter, type SlideFooter, type SlideMaster } from "@/lib/editor/slide-design";
+import { hasLegacySlideFooterColors, resolveSlideFooter, slideFooterSchema, type SlideFooter, type SlideMaster } from "@/lib/editor/slide-design";
 import { MediaLibraryDialog } from "../media-library-dialog";
 import { ColorPicker } from "@/components/ui/color-picker";
+import { courseThemeFontFamilyIds } from "@/lib/editor/theme";
+import { SlideNumberSettingInput } from "./slide-number-setting-input";
 
 export function SlideFooterControls({ master, courseId, onChange }: {
   master: SlideMaster;
@@ -18,8 +20,13 @@ export function SlideFooterControls({ master, courseId, onChange }: {
   onChange: (master: SlideMaster) => void;
 }) {
   const footer = resolveSlideFooter(master);
+  const legacyColors = hasLegacySlideFooterColors(master.footer);
   const [picker, setPicker] = useState<{ id?: string } | null>(null);
-  const update = (change: Partial<SlideFooter>) => onChange({ ...master, footer: { ...footer, ...change } });
+  const update = (change: Partial<SlideFooter>) => {
+    const source = legacyColors ? { ...master.footer, backgroundColor: undefined, textColor: undefined, borderColor: undefined } : master.footer;
+    const colorsCustomized = (change.backgroundColor || change.textColor || change.borderColor) ? true : source?.colorsCustomized;
+    onChange({ ...master, footer: slideFooterSchema.parse({ ...source, ...change, colorsCustomized }) });
+  };
   function moveLogo(index: number, direction: number) {
     const next = index + direction;
     if (next < 0 || next >= footer.logos.length) return;
@@ -31,7 +38,14 @@ export function SlideFooterControls({ master, courseId, onChange }: {
     <p className="text-xs text-slate-500">Full-width branding on every slide.</p>
     <div className="grid grid-cols-2 gap-2">{([
       { field: "height", label: "Height", min: 48, max: 160 }, { field: "fontSize", label: "Text size", min: 10, max: 24 }, { field: "contentGap", label: "Content gap", min: 0, max: 32 },
-    ] as const).map(({ field, label, min, max }) => <label key={field} className="space-y-1 text-xs text-slate-600">{label} (px)<Input aria-label={`Footer ${label.toLowerCase()} (px)`} type="number" min={min} max={max} step={1} value={footer[field]} onChange={(event) => { const value = event.target.valueAsNumber; if (Number.isInteger(value) && value >= min && value <= max) update({ [field]: value }); }} /></label>)}</div>
+    ] as const).map(({ field, label, min, max }) => <label key={field} className="space-y-1 text-xs text-slate-600">{label} (px){field === "height" || field === "fontSize"
+      ? <SlideNumberSettingInput aria-label={`Footer ${label.toLowerCase()} (px)`} min={min} max={max} value={footer[field]} onValueChange={(next) => update({ [field]: next })} />
+      : <Input aria-label={`Footer ${label.toLowerCase()} (px)`} type="number" min={min} max={max} step={1} value={footer[field]} onChange={(event) => { const value = event.target.valueAsNumber; if (Number.isInteger(value) && value >= min && value <= max) update({ [field]: value }); }} />}</label>)}</div>
+    <label className="block text-xs text-slate-600">Footer font<Select aria-label="Footer font family" value={footer.fontFamily ?? ""} className="mt-1" onChange={(event) => update({ fontFamily: event.target.value ? event.target.value as SlideFooter["fontFamily"] : undefined })}><option value="">Course font</option>{courseThemeFontFamilyIds.map((id) => <option key={id} value={id}>{id}</option>)}</Select></label>
+    <div className="flex gap-3 text-xs text-slate-600">
+      <label className="flex items-center gap-1"><Checkbox aria-label="Footer bold" checked={footer.fontWeight === "bold"} onChange={(event) => update({ fontWeight: event.target.checked ? "bold" : "normal" })} />Bold</label>
+      <label className="flex items-center gap-1"><Checkbox aria-label="Footer italic" checked={footer.fontStyle === "italic"} onChange={(event) => update({ fontStyle: event.target.checked ? "italic" : "normal" })} />Italic</label>
+    </div>
     <label className="block text-xs font-medium text-slate-600">Footer content<Select aria-label="Footer content" value={footer.content} className="mt-1" onChange={(event) => update({ content: event.target.value as SlideFooter["content"] })}><option value="text">Text</option><option value="logos">Logos</option><option value="both">Text and logos</option></Select></label>
     {footer.content !== "logos" && <label className="block text-xs font-medium text-slate-600">Footer text<Input aria-label="Master footer text" maxLength={120} value={master.footerText} onChange={(event) => onChange({ ...master, footerText: event.target.value })} className="mt-1" /></label>}
     {footer.content !== "text" && <div className="space-y-2" aria-label="Footer logo list">
@@ -71,11 +85,16 @@ export function SlideFooterControls({ master, courseId, onChange }: {
     <div className="grid grid-cols-2 gap-2">
       {(["backgroundColor", "textColor"] as const).map((field) => <div key={field} className="space-y-1 text-xs text-slate-600">{field === "backgroundColor" ? "Footer background" : "Footer text color"}<ColorPicker aria-label={field === "backgroundColor" ? "Footer background color" : "Footer text color"} value={footer[field]} onChange={(color) => update({ [field]: color })} /></div>)}
     </div>
+    {!legacyColors && (master.footer?.backgroundColor || master.footer?.textColor) && <div className="flex flex-wrap gap-1">
+      {master.footer?.backgroundColor && <Button type="button" variant="ghost" size="sm" onClick={() => update({ backgroundColor: undefined })}>Use theme background</Button>}
+      {master.footer?.textColor && <Button type="button" variant="ghost" size="sm" onClick={() => update({ textColor: undefined })}>Use theme text</Button>}
+    </div>}
     <label className="flex items-center gap-2 text-xs text-slate-600"><Checkbox aria-label="Footer top border" checked={footer.borderTop} onChange={(event) => update({ borderTop: event.target.checked })} />Top border</label>
     {footer.borderTop && <div className="grid grid-cols-2 gap-2">
       <div className="space-y-1 text-xs text-slate-600">Border color<ColorPicker aria-label="Footer border color" value={footer.borderColor} onChange={(color) => update({ borderColor: color })} /></div>
       <label className="text-xs text-slate-600">Border width<Input aria-label="Footer border width" type="number" min={1} max={6} value={footer.borderWidth} className="mt-1 h-9" onChange={(event) => { const value = Number(event.target.value); if (Number.isFinite(value)) update({ borderWidth: Math.min(6, Math.max(1, Math.round(value))) }); }} /></label>
     </div>}
+    {footer.borderTop && !legacyColors && master.footer?.borderColor && <Button type="button" variant="ghost" size="sm" onClick={() => update({ borderColor: undefined })}>Use theme accent border</Button>}
     <label className="flex items-center gap-2 text-xs text-slate-600"><Checkbox aria-label="Show slide numbers" checked={master.showSlideNumber} onChange={(event) => onChange({ ...master, showSlideNumber: event.target.checked })} />Show slide numbers</label>
     <MediaLibraryDialog courseId={courseId} kind="image" open={picker !== null} onClose={() => setPicker(null)} onSelect={(asset) => {
       const previous = footer.logos.find((logo) => logo.id === picker?.id);

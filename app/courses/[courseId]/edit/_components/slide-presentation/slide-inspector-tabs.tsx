@@ -13,11 +13,13 @@ const tabs = [
   { id: "cover", label: "Cover page", icon: Image },
 ] as const;
 
-export function SlideInspectorTabs({ value, onChange, master, cover, children }: {
+export function SlideInspectorTabs({ value, onChange, master, cover, objectLabel = "Object block", collapsibleObjectSettings = true, children }: {
   value?: SlideInspectorTab;
   onChange?: (value: SlideInspectorTab) => void;
   master: ReactNode;
   cover: ReactNode;
+  objectLabel?: string;
+  collapsibleObjectSettings?: boolean;
   children: ReactNode;
 }) {
   const id = useId();
@@ -32,10 +34,10 @@ export function SlideInspectorTabs({ value, onChange, master, cover, children }:
         event.preventDefault();
         select(tabs[next].id);
         document.getElementById(`${id}-${tabs[next].id}-tab`)?.focus();
-      }}><tab.icon size={14} strokeWidth={1.75} aria-hidden="true" className="shrink-0" />{tab.label}</Button>)}
+      }}><tab.icon size={14} strokeWidth={1.75} aria-hidden="true" className="shrink-0" />{tab.id === "object" ? objectLabel : tab.label}</Button>)}
     </div>
     {tabs.map((tab) => <div key={tab.id} role="tabpanel" id={`${id}-${tab.id}-panel`} aria-labelledby={`${id}-${tab.id}-tab`} hidden={active !== tab.id} className="space-y-3">
-      <SlideInspectorSections label={tab.label}>{tab.id === "master" ? master : tab.id === "cover" ? cover : children}</SlideInspectorSections>
+      {tab.id === "object" && !collapsibleObjectSettings ? children : <SlideInspectorSections label={tab.id === "object" ? objectLabel : tab.label}>{tab.id === "master" ? master : tab.id === "cover" ? cover : children}</SlideInspectorSections>}
     </div>)}
   </div></GradientColorContext.Provider>;
 }

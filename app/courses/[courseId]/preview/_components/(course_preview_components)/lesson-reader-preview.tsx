@@ -1,10 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { ArrowLeft, ArrowRight, BookOpen, LockKeyhole } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PresentationSlideStage } from "../slide-presentation/presentation-slide-stage";
-import { defaultSlideMaster, resolveSlideCoverObjectArea, resolveSlideObjectArea } from "@/lib/editor/slide-design";
+import { defaultSlideMaster, normalizeSlideLessonFrames, resolveSlideSize } from "@/lib/editor/slide-design";
 import {
   courseNavigationModeOptions,
   type CourseNavigationMode,
@@ -85,6 +86,7 @@ export function LessonReaderPreview({
   setUnlockingDividerIds,
 }: LessonReaderPreviewProps) {
   const { readerRef, navigateSection } = useLessonTransition({ selectedLessonId, active, device, orientation, lessonBodyScrollRefs, selectLesson, getLessonNavigationLockMessage });
+  const [quizAttemptFinished, setQuizAttemptFinished] = useState<Record<string, boolean>>({});
   return (
     <div
       ref={readerRef}
@@ -152,6 +154,8 @@ export function LessonReaderPreview({
                 total={lessons.length}
                 master={initialData.slideMaster}
                 cover={lesson.slideCover}
+                quiz={lesson.lessonType === "quiz"}
+                quizFinished={lesson.quizQuestions.length === 0 || (quizAttemptFinished[lesson.id] ?? passedQuizIds.has(lesson.id))}
                 canvasRef={(node) => {
                   if (!slideLayout) return;
                   if (node) lessonBodyScrollRefs.current.set(lesson.id, node);
@@ -186,8 +190,10 @@ export function LessonReaderPreview({
                   <QuizAssessmentPreview
                     questions={lesson.quizQuestions}
                     passingScore={lesson.passingScore ?? 70}
+                    presentation={slideLayout}
                     savedScore={quizScores[lesson.id]}
                     wasPassed={passedQuizIds.has(lesson.id)}
+                    onAttemptFinishedChange={(finished) => setQuizAttemptFinished((previous) => previous[lesson.id] === finished ? previous : { ...previous, [lesson.id]: finished })}
                     onResult={(result) => {
                       setQuizScores((previous) => ({
                         ...previous,
@@ -207,9 +213,9 @@ export function LessonReaderPreview({
                 )
               ) : lesson.blocks.length ? (
                 <LessonBlocksPreview
-                  blocks={lesson.blocks}
+                  blocks={slideLayout ? normalizeSlideLessonFrames([lesson], initialData.slideMaster)[0].blocks : lesson.blocks}
                   slideLayout={slideLayout}
-                  slideArea={lesson.slideCover ? resolveSlideCoverObjectArea(initialData.slideMaster) : resolveSlideObjectArea(initialData.slideMaster)}
+                  slideArea={resolveSlideSize(initialData.slideMaster)}
                   slideBackgroundColor={initialData.slideMaster?.backgroundColor ?? defaultSlideMaster.backgroundColor}
                   slideTextColor={initialData.slideMaster?.textColor ?? defaultSlideMaster.textColor}
                   device={device}
@@ -262,6 +268,7 @@ export function LessonReaderPreview({
                 {(() => {
                   const nextLesson = lessons[index + 1];
                   if (!nextLesson) return null;
+                  if (lesson.lessonType === "quiz" && lesson.quizQuestions.length > 0 && !(quizAttemptFinished[lesson.id] ?? passedQuizIds.has(lesson.id))) return null;
                   const hasPendingContinue = lesson.lessonType !== "quiz" && lesson.blocks.some((block) =>
                     block.type === "divider" && block.data.style === "continue" && block.requiredForProgress !== false &&
                     (!revealedDividerIds.has(block.id) ||

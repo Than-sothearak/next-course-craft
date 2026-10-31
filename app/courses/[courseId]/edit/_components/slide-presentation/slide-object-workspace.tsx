@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SlideSurface } from "@/app/courses/[courseId]/_components/slide-presentation/slide-surface";
 import { SlideCoverSurface } from "@/app/courses/[courseId]/_components/slide-presentation/slide-cover-surface";
-import { fitSlideFrame as fitFrame, resolveSlideFrame, resolveSlideCoverObjectArea, resolveSlideObjectArea, resolveSlideSize, type SlideCover, type SlideMaster } from "@/lib/editor/slide-design";
+import { fitSlideFrame as fitFrame, resolveSlideFrame, resolveSlideFooterHeight, resolveSlideSize, resolveSlideTextLayout, type SlideCover, type SlideMaster } from "@/lib/editor/slide-design";
 import { isSlideMediaObject } from "@/lib/editor/slide-objects";
 import type { ContentBlock } from "@/lib/schemas/block";
 import { ContentBlockEditor } from "../(editor_client_components)/content-block-editor";
@@ -68,7 +68,9 @@ export function SlideObjectWorkspace({ title, courseTitle, slideNumber, slideCou
   controls?: ReactNode;
 }) {
   const size = resolveSlideSize(master);
-  const area = cover ? resolveSlideCoverObjectArea(master) : resolveSlideObjectArea(master);
+  const area = size;
+  const footerHeight = resolveSlideFooterHeight(master);
+  const footerTop = (size.height - footerHeight) / size.height * 100;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [inspectorTab, setInspectorTab] = useState<SlideInspectorTab>(cover ? "cover" : "object");
   const [footerSnapped, setFooterSnapped] = useState(false);
@@ -79,16 +81,17 @@ export function SlideObjectWorkspace({ title, courseTitle, slideNumber, slideCou
   const activeTextEditor = selected && focusedText?.blockId === selected.id && !focusedText.editor.isDestroyed ? focusedText.editor : null;
   const selectObject = (id: string) => { setSelectedId(id); setInspectorTab("object"); };
   const openCover = () => { setInspectorTab("cover"); onApplyCover(); };
-  const objects = <div data-slide-objects className="relative h-full w-full" onPointerDown={(event) => { if (event.target === event.currentTarget) setSelectedId(null); }}>
-    {blocks.map((block, index) => <SlideObject key={block.id} block={block} index={index} total={blocks.length} master={master} area={area} lessonBlocks={blocks} selected={selectedId === block.id} onSelect={() => selectObject(block.id)} onFrame={(slideFrame) => onBlockChange({ ...block, slideFrame })} onChange={onBlockChange} onFooterSnap={setFooterSnapped} onEditorFocus={(editor) => { selectObject(block.id); setFocusedText({ blockId: block.id, editor }); }} />)}
-    {footerSnapped && <div data-slide-footer-guide className="pointer-events-none absolute inset-x-0 bottom-0 z-[1001] border-b-2 border-indigo-500"><span className="absolute bottom-1 right-2 rounded bg-indigo-600 px-2 py-1 text-[10px] text-white" role="status">Snapped to footer</span></div>}
+  const objects = <div data-slide-objects className="pointer-events-none relative h-full w-full">
+    {!cover && <div className="pointer-events-auto absolute inset-x-0 top-[108px]" style={{ bottom: footerHeight }} onPointerDown={() => setSelectedId(null)} />}
+    {blocks.map((block, index) => <SlideObject key={block.id} block={block} index={index} total={blocks.length} master={master} area={area} footerTop={footerTop} lessonBlocks={blocks} selected={selectedId === block.id} onSelect={() => selectObject(block.id)} onFrame={(slideFrame) => onBlockChange({ ...block, slideFrame })} onChange={onBlockChange} onFooterSnap={setFooterSnapped} onEditorFocus={(editor) => { selectObject(block.id); setFocusedText({ blockId: block.id, editor }); }} />)}
+    {footerSnapped && <div data-slide-footer-guide className="pointer-events-none absolute inset-x-0 z-[1001] border-b-2 border-indigo-500" style={{ bottom: footerHeight }}><span className="absolute bottom-1 right-2 rounded bg-indigo-600 px-2 py-1 text-[10px] text-white" role="status">Snapped to footer</span></div>}
   </div>;
   return (
     <div className="space-y-3" aria-label="Presentation slide editor">
       <SlideInsertToolbar cover={Boolean(cover)} showCover={slideNumber === 1} onCover={openCover} onMore={onMoreTemplates} onInsert={(templateId) => { const id = onAddTemplate(templateId); if (id) selectObject(id); }} />
       <div className="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1fr)_380px] 2xl:grid-cols-[minmax(0,1fr)_420px]">
         <SlideEditorCanvas label={`Slide ${slideNumber} / ${slideCount}`} size={size} zoom={zoom} onZoomChange={onZoomChange}>
-            {cover ? <SlideCoverSurface cover={cover} title={courseTitle} master={master} number={slideNumber} total={slideCount} onStart={onStart} startDisabled={!onStart} controls={controls}>{objects}</SlideCoverSurface> : <SlideSurface master={master} title={<Input aria-label="Slide title" value={title} onChange={(event) => onTitleChange(event.target.value)} style={{ color: "inherit" }} className="h-auto w-full border-0 bg-transparent px-0 py-0 text-[32px] font-bold leading-tight shadow-none outline-none focus-visible:ring-0 placeholder:opacity-50" placeholder="Slide title" />} number={slideNumber} total={slideCount} controls={controls}>
+            {cover ? <SlideCoverSurface cover={cover} title={courseTitle} master={master} number={slideNumber} total={slideCount} onStart={onStart} startDisabled={!onStart} controls={controls}>{objects}</SlideCoverSurface> : <SlideSurface master={master} title={<Input aria-label="Slide title" value={title} onChange={(event) => onTitleChange(event.target.value)} style={{ color: "inherit", fontFamily: "inherit", fontSize: "inherit", fontWeight: "inherit", fontStyle: "inherit", letterSpacing: "inherit" }} className="h-auto w-full border-0 bg-transparent px-0 py-0 leading-tight shadow-none outline-none focus-visible:ring-0 placeholder:opacity-50" placeholder="Slide title" />} number={slideNumber} total={slideCount} controls={controls}>
               {objects}
             </SlideSurface>}
         </SlideEditorCanvas>
@@ -96,7 +99,7 @@ export function SlideObjectWorkspace({ title, courseTitle, slideNumber, slideCou
           <SlideInspectorTabs value={inspectorTab} onChange={setInspectorTab} master={<SlideMasterPanel value={master} courseId={courseId} onChange={onMasterChange} />} cover={<SlideCoverPanel cover={cover} hasCover={hasCover || Boolean(cover)} courseId={courseId} courseTitle={courseTitle} onTitleChange={onCourseTitleChange} onChange={(next) => { onCoverChange(next); if (!next) setInspectorTab("object"); }} onOpenCover={openCover} />}>
           {selected && isSlideTextBlock(selected) && <SlideInspectorSection title="Text format" label="Slide text formatting" icon={Type}>
             {activeTextEditor ? <>
-              <TextFormattingToolbar editor={activeTextEditor} textAlign={selected.slideTextLayout?.horizontal} onTextAlignChange={(horizontal) => onBlockChange({ ...selected, slideTextLayout: { vertical: selected.slideTextLayout?.vertical ?? "top", horizontal } })} />
+              <TextFormattingToolbar editor={activeTextEditor} textAlign={selected.slideTextLayout?.horizontal} onTextAlignChange={(horizontal) => onBlockChange({ ...selected, slideTextLayout: { ...resolveSlideTextLayout(selected.slideTextLayout), horizontal } })} />
               {selected.type === "richText" && <CodeExampleControls editor={activeTextEditor} />}
             </> : <p className="text-sm text-slate-500">Click text on the slide to type or select text to format it.</p>}
           </SlideInspectorSection>}
@@ -107,7 +110,7 @@ export function SlideObjectWorkspace({ title, courseTitle, slideNumber, slideCou
             <SlideObjectSizeControls block={selected} index={blocks.indexOf(selected)} total={blocks.length} area={area} onChange={onBlockChange} />
             <div className="flex gap-2"><Button type="button" variant="outline" size="sm" onClick={() => onBlockChange({ ...selected, slideFrame: fitFrame(resolveSlideFrame(selected, blocks.indexOf(selected), blocks.length, area), { z: Math.max(0, resolveSlideFrame(selected, blocks.indexOf(selected), blocks.length, area).z - 1) }) })}><ArrowDown size={14} />Back</Button><Button type="button" variant="outline" size="sm" onClick={() => onBlockChange({ ...selected, slideFrame: fitFrame(resolveSlideFrame(selected, blocks.indexOf(selected), blocks.length, area), { z: resolveSlideFrame(selected, blocks.indexOf(selected), blocks.length, area).z + 1 }) })}><ArrowUp size={14} />Front</Button></div>
             <SlideMediaSizeControls block={selected} index={blocks.indexOf(selected)} total={blocks.length} area={area} onChange={onBlockChange} />
-            <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => { const frame = resolveSlideFrame(selected, blocks.indexOf(selected), blocks.length, area); onBlockChange({ ...selected, slideFrame: fitFrame(frame, { y: 100 - frame.height }) }); }}><AlignVerticalJustifyEnd size={14} aria-hidden="true" />Align to footer</Button>
+            <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => { const frame = resolveSlideFrame(selected, blocks.indexOf(selected), blocks.length, area); onBlockChange({ ...selected, slideFrame: fitFrame(frame, { y: Math.max(0, footerTop - frame.height) }) }); }}><AlignVerticalJustifyEnd size={14} aria-hidden="true" />Align to footer</Button>
             </SlideInspectorSection>
             {(["image", "video", "audio", "gallery", "attachment", "labeledGraphic"] as string[]).includes(selected.type) && <SlideInspectorSection title="Media source" icon={ImageIcon}>
               <SlideMediaPicker key={`media-${selected.id}`} block={selected} courseId={courseId} onChange={onBlockChange} />
@@ -116,7 +119,7 @@ export function SlideObjectWorkspace({ title, courseTitle, slideNumber, slideCou
               <SlideMediaCropControls key={`crop-${selected.id}-${selected.data.src}`} block={selected} index={blocks.indexOf(selected)} total={blocks.length} area={area} onChange={onBlockChange} />
             </SlideInspectorSection>}
             {(selected.type === "video" || selected.type === "audio") && <SlideInspectorSection title="Playback" icon={Video}><SlidePlaybackControls block={selected} onChange={onBlockChange} /></SlideInspectorSection>}
-            {isSlideTextBlock(selected) && <SlideInspectorSection title="Text alignment" icon={AlignLeft}><SlideTextLayoutControls block={selected} onChange={onBlockChange} /></SlideInspectorSection>}
+            {isSlideTextBlock(selected) && <SlideInspectorSection title="Text box layout" icon={AlignLeft}><SlideTextLayoutControls block={selected} onChange={onBlockChange} /></SlideInspectorSection>}
             <SlideInspectorSection title="Appearance" icon={Paintbrush}>
             <SlideObjectBackgroundControls block={selected} onChange={onBlockChange} onApplyBorderRadiusToAll={onApplyBorderRadiusToAll} />
             </SlideInspectorSection>

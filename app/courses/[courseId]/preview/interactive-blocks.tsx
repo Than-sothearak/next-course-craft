@@ -421,11 +421,13 @@ export function InteractiveLabeledGraphic({
   src,
   alt,
   mapTemplate,
-  objectFit = "fill",
+  objectFit = "contain",
   markers,
   markerColor,
   textColor = "#ffffff",
   radarColor,
+  radarSize = 3,
+  radarWeight = 2,
   interactionMode,
   sceneTheme,
   challengePrompt,
@@ -445,6 +447,8 @@ export function InteractiveLabeledGraphic({
   markerColor?: string;
   textColor?: string;
   radarColor?: string;
+  radarSize?: number;
+  radarWeight?: number;
   interactionMode?: "explore" | "spotTarget";
   sceneTheme?: "data" | "security" | "network" | "agriculture";
   challengePrompt?: string;
@@ -699,6 +703,9 @@ export function InteractiveLabeledGraphic({
           const found = gameSolved && marker.isTarget;
           const pointColor = marker.color ?? sharedMarkerColor;
           const radarEnabled = marker.radarEnabled !== false;
+          const pointText = marker.displayMode === "number" ? String(marker.displayNumber ?? index + 1)
+            : marker.displayMode === "text" ? marker.displayText?.trim() || String(index + 1)
+              : String(index + 1);
           const sourcePosition = dragPosition?.markerId === marker.id ? dragPosition : marker;
           const position = fitFrame ? projectGraphicPoint(sourcePosition, frameSize, imageRect) : sourcePosition;
           return (
@@ -739,8 +746,8 @@ export function InteractiveLabeledGraphic({
                 onMarkerInteract?.(marker.id);
               }}
               className={isSpotTargetGame
-                ? `absolute grid size-12 -translate-x-1/2 -translate-y-1/2 touch-none place-items-center rounded-full border-2 text-sm font-black shadow-[0_0_24px_rgba(34,211,238,0.38)] transition-all hover:scale-110 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/80 disabled:cursor-default ${found ? "border-white bg-emerald-400 text-emerald-950 shadow-[0_0_32px_rgba(74,222,128,0.8)]" : missed ? "border-white bg-rose-500 text-white" : "border-cyan-100 bg-cyan-400/90 text-slate-950"} ${editable ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}`
-                : `cursor-pointer ${radarEnabled ? "labeled-graphic-radar" : ""} ${parseGradient(radarColor ?? pointColor) ? "labeled-graphic-radar-gradient" : ""} absolute grid size-9 -translate-x-1/2 -translate-y-1/2 touch-none place-items-center rounded-full border-2 border-white text-xs font-bold text-white shadow-lg transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2 ${editable ? "cursor-grab active:cursor-grabbing" : ""}`}
+                ? `absolute grid h-12 ${marker.displayMode === "text" ? "min-w-12 max-w-24 px-2" : "w-12"} -translate-x-1/2 -translate-y-1/2 touch-none place-items-center rounded-full border-2 text-sm font-black shadow-[0_0_24px_rgba(34,211,238,0.38)] transition-all hover:scale-110 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/80 disabled:cursor-default ${found ? "border-white bg-emerald-400 text-emerald-950 shadow-[0_0_32px_rgba(74,222,128,0.8)]" : missed ? "border-white bg-rose-500 text-white" : "border-cyan-100 bg-cyan-400/90 text-slate-950"} ${editable ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}`
+                : `cursor-pointer ${radarEnabled ? "labeled-graphic-radar" : ""} ${parseGradient(radarColor ?? pointColor) ? "labeled-graphic-radar-gradient" : ""} absolute grid h-9 ${marker.displayMode === "text" ? "min-w-9 max-w-24 px-2" : "w-9"} -translate-x-1/2 -translate-y-1/2 touch-none place-items-center rounded-full border-2 border-white text-xs font-bold text-white shadow-lg transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2 ${editable ? "cursor-grab active:cursor-grabbing" : ""}`}
               style={{
                 left: `${position.x}%`,
                 top: `${position.y}%`,
@@ -748,10 +755,12 @@ export function InteractiveLabeledGraphic({
                 color: isSpotTargetGame ? undefined : solidColor(textColor),
                 "--radar-color": solidColor(radarColor ?? pointColor),
                 "--radar-gradient": radarColor ?? pointColor,
+                "--radar-size": `${radarSize}px`,
+                "--radar-weight": `${radarWeight}px`,
               } as CSSProperties}
             >
-              {isSpotTargetGame && radarEnabled && !missed && !found && <span aria-hidden="true" className="absolute inset-0 rounded-full bg-cyan-300/40 motion-safe:animate-ping" style={parseGradient(radarColor ?? pointColor) ? backgroundPaint(radarColor ?? pointColor, 40) : undefined} />}
-              <span className="relative z-10" style={!isSpotTargetGame || (!missed && !found && parseGradient(textColor)) ? textPaint(textColor) : undefined}>{found ? <Check size={20} aria-hidden="true" /> : missed ? <X size={18} aria-hidden="true" /> : index + 1}</span>
+              {isSpotTargetGame && radarEnabled && !missed && !found && <span aria-hidden="true" className="absolute rounded-full motion-safe:animate-ping" style={{ inset: `-${radarSize}px`, border: `${radarWeight}px solid ${solidColor(radarColor ?? pointColor)}`, ...backgroundPaint(radarColor ?? pointColor, 40) }} />}
+              <span className="relative z-10 min-w-0 max-w-full truncate" style={!isSpotTargetGame || (!missed && !found && parseGradient(textColor)) ? textPaint(textColor) : undefined}>{found ? <Check size={20} aria-hidden="true" /> : missed ? <X size={18} aria-hidden="true" /> : pointText}</span>
             </button>
           );
         })}

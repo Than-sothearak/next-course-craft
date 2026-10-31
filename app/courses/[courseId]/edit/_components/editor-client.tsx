@@ -71,6 +71,8 @@ import { BlockTemplatePicker } from "./(editor_client_components)/block-template
 import { createBlocksFromTemplate } from "./(editor_client_components)/(block_template_picker_components)/create-blocks-from-template";
 import type { BlockCategory, BlockTemplate } from "./(editor_client_components)/(block_template_picker_components)/block-template-data";
 import { QuizEditor } from "./(editor_client_components)/quiz-editor";
+import { SlideQuizEditor } from "./slide-presentation/slide-quiz-editor";
+import { createQuizQuestion } from "@/lib/editor/quiz-question";
 import { CourseThemeSettings } from "./(editor_client_components)/course-theme-settings";
 import { CourseNavigationSettings } from "./(editor_client_components)/course-navigation-settings";
 import { courseThemeFontFamilies } from "@/lib/editor/theme";
@@ -79,7 +81,7 @@ import { CourseGenerationDialog } from "./(editor_client_components)/course-gene
 import { editorBlockElementId } from "@/lib/editor/lesson-location";
 import { applyProcessStepsPreset } from "@/lib/editor/process-steps";
 import { useFocusedContentBlock } from "./(editor_client_components)/use-focused-content-block";
-import { duplicateLessonBlocks, duplicateLessonContent, moveLessonToSection, removeLessonBlock, reorderPresentationSlides } from "@/lib/editor/course-content";
+import { duplicateLessonBlocks, duplicateLessonContent, duplicatePresentationSlide, moveLessonToSection, removeLessonBlock, reorderPresentationSlides } from "@/lib/editor/course-content";
 import type { Permission } from "@/lib/auth/policy";
 import { createClientId } from "@/lib/client-id";
 import { SlideEditorStage } from "./slide-presentation/slide-editor-stage";
@@ -91,7 +93,7 @@ import { SlideObjectWorkspace } from "./slide-presentation/slide-object-workspac
 import { SlideEditorNavigation } from "./slide-presentation/slide-editor-navigation";
 import { blockTemplates } from "./(editor_client_components)/(block_template_picker_components)/block-template-data";
 import { migrateCoverAudio } from "@/lib/editor/audio-instruction";
-import { defaultSlideCover, defaultSlideFrame } from "@/lib/editor/slide-design";
+import { defaultCanvasSlideFrame, defaultSlideCover, defaultSlideMaster, normalizeSlideLessonFrames, resolveSlideTextLayout } from "@/lib/editor/slide-design";
 
 import { useEditorDraft, type Draft } from "./_components/use-editor-draft";
 
@@ -102,6 +104,11 @@ type TemplatePickerState =
 
 function newId() {
   return createClientId();
+}
+
+function enableSlideTextFit(block: ContentBlock): ContentBlock {
+  if (block.type !== "heading" && block.type !== "richText" && block.type !== "statement") return block;
+  return { ...block, slideTextLayout: { ...resolveSlideTextLayout(block.slideTextLayout), fitToText: true } };
 }
 
 function contrastTextColor(hex: string) {
@@ -168,9 +175,9 @@ export function EditorClient({
     theme: initialData.theme,
     navigationMode: initialData.navigationMode ?? defaultCourseNavigationMode,
     courseLayout: initialData.courseLayout,
-    slideMaster: initialData.slideMaster,
+    slideMaster: initialData.courseLayout === "slides" ? { ...defaultSlideMaster, ...initialData.slideMaster, objectLayout: "canvas" } : initialData.slideMaster,
     sections: initialData.sections,
-    lessons: initialData.lessons.map(migrateCoverAudio),
+    lessons: initialData.courseLayout === "slides" ? normalizeSlideLessonFrames(initialData.lessons.map((lesson) => migrateCoverAudio(lesson, initialData.slideMaster)), initialData.slideMaster) : initialData.lessons,
   };
   const [activeLessonId, setSelectedLessonId] = useState<string | null>(
     focusedLessonId ?? (initialData.courseLayout === "slides" ? initialData.lessons[0]?.id ?? null : null),
@@ -273,8 +280,21 @@ export function EditorClient({
     setActiveLessonId(addLesson(sectionId));
   }
 
+  function addQuizSlide(sectionId: string) {
+    setActiveLessonId(addLesson(sectionId, "quiz"));
+  }
+
   function reorderSlides(activeId: string, overId: string) {
     updateDraft((current) => reorderPresentationSlides(current, activeId, overId));
+  }
+
+  function duplicateSlide(id: string) {
+    const { course, duplicateId } = duplicatePresentationSlide(draftRef.current, id, newId);
+    if (!duplicateId) return;
+    pendingRouteRef.current = null;
+    updateDraft(() => course);
+    setActiveLessonId(duplicateId);
+    void saveLatest();
   }
 
   function deleteSlide(id: string) {
@@ -310,8 +330,11 @@ export function EditorClient({
 
   function openPreview() {
     const lessonId = slideCourse ? activeLessonId : null;
-    const lessonQuery = lessonId ? `?lessonId=${encodeURIComponent(lessonId)}` : "";
-    openRouteAfterSave(`/courses/${initialData.courseId}/preview${lessonQuery}`);
+    const query = new URLSearchParams();
+    if (lessonId) query.set("lessonId", lessonId);
+    if (slideCourse) query.set("previewLayout", "slides");
+    const queryString = query.toString();
+    openRouteAfterSave(`/courses/${initialData.courseId}/preview${queryString ? `?${queryString}` : ""}`);
   }
 
   function addSection() {
@@ -432,7 +455,7 @@ export function EditorClient({
       passingScore: 70,
       order: Math.max(-1, ...siblings.map((item) => item.order)) + 1,
       blocks: [] as ContentBlock[],
-      quizQuestions: [],
+      quizQuestions: isQuiz && slideCourse ? [createQuizQuestion()] : [],
     };
     pendingRouteRef.current = null;
     updateDraft((current) => ({
@@ -549,7 +572,7 @@ export function EditorClient({
       const insertedBlocks = createBlocksFromTemplate(template, newId(), {
         sections: draft.sections,
         lessons: draft.lessons,
-      }).map((block, offset) => slideCourse ? { ...block, blockPadding: Math.min(block.blockPadding, 12), slideFrame: defaultSlideFrame(activeLesson.blocks.length + offset, block.type) } : block);
+      }).map((block, offset) => slideCourse ? { ...enableSlideTextFit(block), blockPadding: Math.min(block.blockPadding, 12), slideFrame: defaultCanvasSlideFrame(activeLesson.blocks.length + offset, block.type, draft.slideMaster, Boolean(activeLesson.slideCover)) } : block);
       updateLesson(activeLesson.id, (lesson) => {
         const blocks = [...lesson.blocks];
         blocks.splice(
@@ -569,22 +592,23 @@ export function EditorClient({
           lessons: draft.lessons,
         })[0];
       if (!existing || !replacement) return;
-      if (existing.type === "processSteps" && replacement.type === "processSteps")
-        replacement.data = applyProcessStepsPreset(existing.data, replacement.data);
+      const slideReplacement = slideCourse ? enableSlideTextFit(replacement) : replacement;
+      if (existing.type === "processSteps" && slideReplacement.type === "processSteps")
+        slideReplacement.data = applyProcessStepsPreset(existing.data, slideReplacement.data);
       if (
         existing.type === "richText" &&
-        replacement.type === "richText" &&
+        slideReplacement.type === "richText" &&
         template.category === "List"
       ) {
-        replacement.data.html = applyListTemplateToHtml(
+        slideReplacement.data.html = applyListTemplateToHtml(
           existing.data.html,
           template.html ?? "",
         );
       }
       updateBlock(existing.id, {
-        ...replacement,
+        ...slideReplacement,
         slideFrame: existing.slideFrame,
-        requiredForProgress: existing.requiredForProgress ?? replacement.requiredForProgress ?? true,
+        requiredForProgress: existing.requiredForProgress ?? slideReplacement.requiredForProgress ?? true,
         width: existing.width,
         widthCustom: existing.widthCustom,
         backgroundColor: existing.backgroundColor,
@@ -602,7 +626,7 @@ export function EditorClient({
     const blocks = createBlocksFromTemplate(template, newId(), { sections: draft.sections, lessons: draft.lessons });
     updateLesson(activeLesson.id, (lesson) => ({
       ...lesson,
-      blocks: [...lesson.blocks, ...blocks.map((block, offset) => ({ ...block, blockPadding: Math.min(block.blockPadding, 12), slideFrame: defaultSlideFrame(lesson.blocks.length + offset, block.type) }))],
+      blocks: [...lesson.blocks, ...blocks.map((block, offset) => ({ ...enableSlideTextFit(block), blockPadding: Math.min(block.blockPadding, 12), slideFrame: defaultCanvasSlideFrame(lesson.blocks.length + offset, block.type, draft.slideMaster, Boolean(lesson.slideCover)) }))],
     }));
     return blocks[0]?.id ?? null;
   }
@@ -1003,7 +1027,7 @@ export function EditorClient({
           className={`grid gap-4 ${slideCourse || (!focusedLessonId && activeLesson) ? "lg:grid-cols-[270px_minmax(0,1fr)]" : "grid-cols-1"}`}
         >
           {slideCourse ? (
-            <SlideEditorSidebar slides={slides} activeId={activeLesson?.id ?? null} master={draft.slideMaster} courseTitle={draft.title} onSelect={openLesson} onAdd={() => addSlide(activeLesson?.sectionId ?? orderedSections[0].id)} onDelete={deleteSlide} onReorder={reorderSlides} />
+            <SlideEditorSidebar slides={slides} activeId={activeLesson?.id ?? null} master={draft.slideMaster} courseTitle={draft.title} onSelect={openLesson} onAdd={() => addSlide(activeLesson?.sectionId ?? orderedSections[0].id)} onAddQuiz={() => addQuizSlide(activeLesson?.sectionId ?? orderedSections[0].id)} onDuplicate={duplicateSlide} onDelete={deleteSlide} onReorder={reorderSlides} />
           ) : !focusedLessonId && activeLesson && (
             <aside className="sticky top-[84px] hidden max-h-[calc(100vh-100px)] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-3 lg:block">
               {renderOutline()}
@@ -1150,7 +1174,7 @@ export function EditorClient({
                     courseId={initialData.courseId}
                     zoom={slideZoom}
                     onZoomChange={setSlideZoom}
-                    onTitleChange={(title) => updateLesson(activeLesson.id, (lesson) => ({ ...lesson, title }))}
+                    onTitleChange={(title) => updateLesson(activeLesson.id, (lesson) => ({ ...lesson, title, titleHtml: undefined }))}
                     onMasterChange={(slideMaster) => updateDraft((current) => ({ ...current, slideMaster }))}
                     onCoverChange={(slideCover) => updateLesson(activeLesson.id, (lesson) => ({ ...lesson, slideCover }))}
                     onApplyCover={applyFirstSlideCover}
@@ -1164,13 +1188,32 @@ export function EditorClient({
                     onDuplicate={duplicateBlock}
                     onDelete={deleteBlock}
                   />
+                ) : activeLesson.lessonType === "quiz" && slideCourse ? (
+                  <SlideQuizEditor
+                    key={activeLesson.id}
+                    title={activeLesson.title}
+                    onTitleChange={(title) => updateLesson(activeLesson.id, (lesson) => ({ ...lesson, title, titleHtml: undefined }))}
+                    questions={activeLesson.quizQuestions}
+                    onChange={(quizQuestions) => updateLesson(activeLesson.id, (lesson) => ({ ...lesson, quizQuestions }))}
+                    passingScore={activeLesson.passingScore ?? 70}
+                    onPassingScoreChange={(passingScore) => updateLesson(activeLesson.id, (lesson) => ({ ...lesson, passingScore }))}
+                    master={draft.slideMaster}
+                    number={slides.findIndex((slide) => slide.id === activeLesson.id) + 1}
+                    total={slides.length}
+                    zoom={slideZoom}
+                    onZoomChange={setSlideZoom}
+                    controls={<SlideEditorNavigation key={activeLesson.id} slides={slides} selectedId={activeLesson.id} onSelect={openLesson} guide={draft.slideMaster?.navigationGuide} />}
+                    masterSettings={<SlideMasterPanel value={draft.slideMaster} courseId={initialData.courseId} onChange={(slideMaster) => updateDraft((current) => ({ ...current, slideMaster }))} />}
+                    coverSettings={<SlideCoverPanel hasCover={slides.some((slide) => Boolean(slide.slideCover))} courseId={initialData.courseId} courseTitle={draft.title} onTitleChange={(title) => updateDraft((current) => ({ ...current, title }))} onChange={() => {}} onOpenCover={applyFirstSlideCover} />}
+                  />
                 ) : activeLesson.lessonType === "quiz" ? (
                   <>
-                  <SlideEditorStage active={slideCourse} master={draft.slideMaster} number={slides.findIndex((slide) => slide.id === activeLesson.id) + 1} total={slides.length} controls={slideCourse ? <SlideEditorNavigation key={activeLesson.id} slides={slides} selectedId={activeLesson.id} onSelect={openLesson} guide={draft.slideMaster?.navigationGuide} /> : undefined} size={draft.slideMaster?.size} title={activeLesson.title} zoom={slideZoom} onZoomChange={setSlideZoom} inspector={slideCourse ? <SlideInspectorTabs master={<SlideMasterPanel value={draft.slideMaster} courseId={initialData.courseId} onChange={(slideMaster) => updateDraft((current) => ({ ...current, slideMaster }))} />} cover={<SlideCoverPanel hasCover={slides.some((slide) => Boolean(slide.slideCover))} courseId={initialData.courseId} courseTitle={draft.title} onTitleChange={(title) => updateDraft((current) => ({ ...current, title }))} onChange={() => {}} onOpenCover={applyFirstSlideCover} />}>
+                  <SlideEditorStage active={slideCourse} master={draft.slideMaster} number={slides.findIndex((slide) => slide.id === activeLesson.id) + 1} total={slides.length} controls={slideCourse ? <SlideEditorNavigation key={activeLesson.id} slides={slides} selectedId={activeLesson.id} onSelect={openLesson} guide={draft.slideMaster?.navigationGuide} /> : undefined} size={draft.slideMaster?.size} title={activeLesson.title} zoom={slideZoom} onZoomChange={setSlideZoom} contentRegion inspector={slideCourse ? <SlideInspectorTabs master={<SlideMasterPanel value={draft.slideMaster} courseId={initialData.courseId} onChange={(slideMaster) => updateDraft((current) => ({ ...current, slideMaster }))} />} cover={<SlideCoverPanel hasCover={slides.some((slide) => Boolean(slide.slideCover))} courseId={initialData.courseId} courseTitle={draft.title} onTitleChange={(title) => updateDraft((current) => ({ ...current, title }))} onChange={() => {}} onOpenCover={applyFirstSlideCover} />}>
                     <section className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">Select a question on the quiz canvas to edit its prompt, choices, and feedback.</section>
                   </SlideInspectorTabs> : undefined}>
                   <QuizEditor
                     key={activeLesson.id}
+                    allowEmptyTitle={slideCourse}
                     title={activeLesson.title}
                     titleHtml={activeLesson.titleHtml}
                     onTitleChange={(title, titleHtml) =>

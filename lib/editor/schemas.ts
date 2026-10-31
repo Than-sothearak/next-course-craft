@@ -18,7 +18,7 @@ export const editorSectionSchema = z.object({
 export const editorLessonSchema = z.object({
   id: z.string().min(1).max(64),
   sectionId: z.string().min(1).max(64),
-  title: z.string().trim().min(1).max(160),
+  title: z.string().trim().max(160),
   icon: z.enum(["file", "book", "video", "quiz", "idea"]).optional(),
   lessonType: z.enum(["content", "quiz"]).default("content"),
   passingScore: z.number().int().min(0).max(100).optional(),
@@ -56,6 +56,9 @@ export const editorSnapshotSchema = z.object({
   }
   const lessonOrders = new Map<string, Set<number>>();
   snapshot.lessons.forEach((lesson, index) => {
+    if (snapshot.courseLayout !== "slides" && !lesson.title) {
+      context.addIssue({ code: "custom", path: ["lessons", index, "title"], message: "Enter a lesson title before saving." });
+    }
     if (lesson.slideCover && (snapshot.courseLayout !== "slides" || lesson.lessonType !== "content" || lesson.blocks.some((block) => block.type !== "audioInstruction"))) {
       context.addIssue({ code: "custom", path: ["lessons", index, "slideCover"], message: "A presentation cover can contain only audio instruction blocks." });
     }

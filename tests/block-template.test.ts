@@ -381,16 +381,7 @@ describe("prebuilt interactive block templates", () => {
       "interactive-process-steps-timeline",
       "interactive-process-steps-spotlight",
       "interactive-process-steps-minimal",
-      "interactive-knowledge-check",
-      "interactive-next-step-data",
-      "interactive-next-step-it",
-      "interactive-next-step-agriculture",
       "interactive-confidence-poll",
-      "interactive-mini-game-data",
-      "interactive-mini-game-security",
-      "interactive-mini-game-agriculture",
-      "interactive-lesson-map",
-      "interactive-lesson-map-farm",
     ]);
 
     const insertedById = new Map(
@@ -473,93 +464,19 @@ describe("prebuilt interactive block templates", () => {
       type: "processSteps",
       data: { steps: expect.arrayContaining([expect.objectContaining({ title: "Prepare the soil" })]) },
     });
-    expect(insertedById.get("interactive-knowledge-check")).toMatchObject({ type: "knowledgeCheck" });
-    expect(insertedById.get("interactive-next-step-data")).toMatchObject({
-      type: "knowledgeCheck",
-      data: { question: expect.stringContaining("dashboard shows a sudden spike") },
-    });
-    expect(insertedById.get("interactive-next-step-it")).toMatchObject({
-      type: "knowledgeCheck",
-      data: { question: expect.stringContaining("devices cannot reach") },
-    });
-    expect(insertedById.get("interactive-next-step-agriculture")).toMatchObject({
-      type: "knowledgeCheck",
-      data: { question: expect.stringContaining("yellowing leaves") },
-    });
     expect(insertedById.get("interactive-confidence-poll")).toMatchObject({ type: "survey" });
-    expect(insertedById.get("interactive-mini-game-data")).toMatchObject({
-      type: "labeledGraphic",
-      data: {
-        interactionMode: "spotTarget",
-        sceneTheme: "data",
-        markers: expect.arrayContaining([expect.objectContaining({ isTarget: true })]),
-      },
-    });
-    expect(insertedById.get("interactive-mini-game-security")).toMatchObject({
-      type: "labeledGraphic",
-      data: {
-        interactionMode: "spotTarget",
-        sceneTheme: "security",
-        markers: expect.arrayContaining([expect.objectContaining({ isTarget: true })]),
-      },
-    });
-    expect(insertedById.get("interactive-mini-game-agriculture")).toMatchObject({
-      type: "labeledGraphic",
-      data: {
-        interactionMode: "spotTarget",
-        sceneTheme: "agriculture",
-        markers: expect.arrayContaining([expect.objectContaining({ isTarget: true })]),
-      },
-    });
-    expect(insertedById.get("interactive-lesson-map")).toMatchObject({
-      type: "lessonMap",
-      width: "full",
-      data: {
-        template: "modernCity",
-        checkpoints: expect.arrayContaining([
-          expect.objectContaining({ title: "Welcome" }),
-          expect.objectContaining({ title: "Practice" }),
-        ]),
-      },
-    });
-    expect(insertedById.get("interactive-lesson-map-farm")).toMatchObject({
-      type: "lessonMap",
-      data: {
-        template: "farmFields",
-        checkpoints: expect.arrayContaining([
-          expect.objectContaining({ title: "Soil check" }),
-          expect.objectContaining({ title: "Water source" }),
-        ]),
-      },
-    });
   });
 
   it("starts interactive images with an image placeholder and no free map", () => {
     const template = blockTemplates.find((item) => item.id === "interactive-labeled-graphic")!;
     expect(template.labeledGraphic?.src).toBe("https://placehold.co/1200x675?text=Add+an+image");
+    expect(template.labeledGraphic?.objectFit).toBe("contain");
     expect(template.labeledGraphic?.mapTemplate).toBeUndefined();
     const block = createBlocksFromTemplate(template, "graphic")[0];
     expect(blockSchema.safeParse(block).success).toBe(true);
     expect(block).toMatchObject({ type: "labeledGraphic", data: { src: template.labeledGraphic!.src } });
     const markup = renderToStaticMarkup(createElement(TemplatePreview, { template }));
     expect(markup).not.toContain("illustrated lesson map");
-  });
-
-  it("previews three graphic mini-games with different scenes and hidden targets", () => {
-    for (const [templateId, theme] of [
-      ["interactive-mini-game-data", "data"],
-      ["interactive-mini-game-security", "security"],
-      ["interactive-mini-game-agriculture", "agriculture"],
-    ] as const) {
-      const template = blockTemplates.find((item) => item.id === templateId);
-      expect(template).toBeDefined();
-      const markup = renderToStaticMarkup(createElement(TemplatePreview, { template: template! }));
-      expect(markup).toContain('data-mini-game-preview=""');
-      expect(markup).toContain(`data-scene-theme="${theme}"`);
-      expect(markup).toContain("Spot the clue");
-      expect(markup).toContain(template!.labeledGraphic!.challengePrompt!);
-      expect(markup).not.toContain("isTarget");
-    }
   });
 
   it("previews field-specific explore scenes with clickable markers", () => {
@@ -613,6 +530,8 @@ describe("prebuilt interactive block templates", () => {
   });
 
   it("creates a knowledge check with a valid answer and useful feedback", () => {
+    expect(blockTemplates.filter((item) => item.category === "Interactive" && item.type === "knowledgeCheck")).toHaveLength(0);
+    expect(blockTemplates.filter((item) => item.category === "Knowledge check").map((item) => item.id)).toEqual(["knowledge-choice"]);
     const template = blockTemplates.find((item) => item.id === "knowledge-choice");
     expect(template).toBeDefined();
     const [block] = createBlocksFromTemplate(template!, "knowledge-check-a");

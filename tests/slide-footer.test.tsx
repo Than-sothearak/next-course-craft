@@ -17,6 +17,19 @@ const data = {
 };
 
 describe("presentation footers", () => {
+  it("inherits current master colors after changing noncolor footer settings and presets", () => {
+    const master = slideMasterSchema.parse({ backgroundColor: "#0f172a", textColor: "#f8fafc", accentColor: "#a5b4fc", footer: { fontSize: 18 } });
+    expect(resolveSlideFooter(master)).toMatchObject({ backgroundColor: "#0f172a", textColor: "#f8fafc", borderColor: "#a5b4fc" });
+    expect(resolveSlideFooter({ ...master, backgroundColor: "#fff7ed", textColor: "#431407", accentColor: "#ea580c" })).toMatchObject({ backgroundColor: "#fff7ed", textColor: "#431407", borderColor: "#ea580c" });
+    const document = new Course({ ownerId: assetId, title: "Presentation", slideMaster: master });
+    expect(document.validateSync()).toBeUndefined();
+    expect(document.toObject().slideMaster?.footer).not.toHaveProperty("backgroundColor");
+    expect(document.toObject().slideMaster?.footer).not.toHaveProperty("textColor");
+    const legacy = slideMasterSchema.parse({ ...master, footer: { ...master.footer, backgroundColor: "#ffffff", textColor: "#172033", borderColor: "#cbd5e1" } });
+    expect(resolveSlideFooter(legacy)).toMatchObject({ backgroundColor: master.backgroundColor, textColor: master.textColor, borderColor: master.accentColor });
+    expect(resolveSlideFooter({ ...legacy, footer: { ...legacy.footer!, colorsCustomized: true } })).toMatchObject({ backgroundColor: "#ffffff", textColor: "#172033", borderColor: "#cbd5e1" });
+  });
+
   it("retains legacy footer text and follows the old master's colors", () => {
     const master = slideMasterSchema.parse({ footerText: "Training", template: "midnight", backgroundColor: "#0f172a", textColor: "#f8fafc", accentColor: "#a5b4fc" });
     expect(master.footer).toBeUndefined();

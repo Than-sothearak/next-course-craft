@@ -9,6 +9,7 @@ import { SlidePresentationContext } from "./slide-presentation-context";
 import { slideMediaRestartEvent } from "@/lib/editor/slide-playback";
 import type { SlideNavigationGuide } from "@/lib/editor/slide-design";
 import { usePresentationGuidance } from "./use-presentation-guidance";
+import { SlidePreviewZoom } from "./slide-preview-zoom";
 
 export function SlidePresentationPreview({
   courseId, title, slides, selectedId, onSelect, getLockMessage,
@@ -32,6 +33,7 @@ export function SlidePresentationPreview({
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [fullscreen, setFullscreen] = useState(false);
+  const [zoom, setZoom] = useState<number | undefined>();
   const index = slides.findIndex((slide) => slide.id === selectedId);
   const support = usePresentationGuidance({ courseId, standalone, guide: navigationGuide, selectedId, coverVisible: Boolean(slides[index]?.slideCover), menuOpen, audioEnabled: slides.some((slide) => Boolean(slide.slideCover?.instructions?.audioSrc)) });
 
@@ -76,18 +78,22 @@ export function SlidePresentationPreview({
 
   return (
     <div ref={rootRef} data-presentation-view data-fullscreen={fullscreen || undefined} className={`relative flex min-h-0 min-w-0 flex-col overflow-hidden bg-white text-slate-900 ${fullscreen ? "h-dvh w-dvw" : "h-full w-full"}`}>
-      {!fullscreen && <header className="flex min-h-14 shrink-0 items-center gap-2 border-b border-slate-200 bg-white px-3 py-2 sm:gap-3 sm:px-5">
+      {!fullscreen && <header className="flex min-h-14 shrink-0 flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-3 py-2 sm:gap-3 sm:px-5">
         {onBack && <Button type="button" variant="ghost" size="icon" aria-label="Back" onClick={onBack}><ArrowLeft size={17} /></Button>}
         <Presentation size={18} aria-hidden="true" className="shrink-0 text-indigo-600" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold">{title}</p>
           <p className="text-[11px] text-slate-500">Interactive presentation</p>
         </div>
+        <SlidePreviewZoom zoom={zoom} onZoomChange={setZoom} fullscreen={fullscreen} onToggleFullscreen={() => void toggleFullscreen()} />
         {onEdit && <Button type="button" variant="outline" size="sm" onClick={onEdit} className="h-8">Edit</Button>}
         {!standalone && canPublish && <PublishMenu courseId={courseId} title={title} className="h-8" />}
       </header>}
+      {fullscreen && <div className="absolute left-1/2 top-0 z-50 -translate-x-1/2 rounded-b-md bg-white/90 shadow-sm">
+        <SlidePreviewZoom zoom={zoom} onZoomChange={setZoom} fullscreen onToggleFullscreen={() => void toggleFullscreen()} />
+      </div>}
       {support.audioElement}
-      <SlidePresentationContext.Provider value={{ slides, selectedId, onSelect, onRestart: restartSlide, getLockMessage, menuOpen, onMenuOpenChange, menu, fullscreen, onToggleFullscreen: () => void toggleFullscreen(), courseId, standalone, playInstructionAudio: support.playAudio, pauseInstructionAudio: support.pauseAudio, instructionAudioPlaying: support.playing, instructionAudioSource: support.source, instructionAudioControl: support.audioControl, navigationGuide, guideStep: support.guideStep, onGuideStep: support.changeGuideStep }}>
+      <SlidePresentationContext.Provider value={{ slides, selectedId, onSelect, onRestart: restartSlide, getLockMessage, menuOpen, onMenuOpenChange, menu, fullscreen, onToggleFullscreen: () => void toggleFullscreen(), zoom, courseId, standalone, playInstructionAudio: support.playAudio, pauseInstructionAudio: support.pauseAudio, instructionAudioPlaying: support.playing, instructionAudioSource: support.source, instructionAudioControl: support.audioControl, navigationGuide, guideStep: support.guideStep, onGuideStep: support.changeGuideStep }}>
         <div className="relative flex min-h-0 min-w-0 flex-1">{children}</div>
       </SlidePresentationContext.Provider>
     </div>

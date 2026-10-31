@@ -114,7 +114,7 @@ function addBlockImages(doc: PDFKit.PDFDocument, block: HandoutSnapshot["lessons
 function renderLesson(doc: PDFKit.PDFDocument, lesson: HandoutSnapshot["lessons"][number], index: number, assets: Map<string, HandoutAsset>) {
   ensureSpace(doc, 56);
   doc.moveDown(0.7);
-  writeText(doc, `${index + 1}. ${htmlToHandoutText(lesson.titleHtml || lesson.title)}`, { size: 17, color: "#0f172a" });
+  writeText(doc, `${index + 1}. ${htmlToHandoutText(lesson.titleHtml || lesson.title).trim() || `Slide ${index + 1}`}`, { size: 17, color: "#0f172a" });
   doc.moveDown(0.6);
 
   if (lesson.lessonType === "quiz") {

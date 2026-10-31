@@ -1,6 +1,9 @@
 import { Skeleton } from "@/components/ui/skeleton";
+import { Presentation } from "lucide-react";
 
-export function CoursePreviewSkeleton() {
+export function CoursePreviewSkeleton({ presentation = false }: { presentation?: boolean } = {}) {
+  if (presentation) return <PresentationPreviewSkeleton />;
+
   return (
     <main
       role="status"
@@ -91,6 +94,54 @@ export function CoursePreviewSkeleton() {
                   </section>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+export function PresentationPreviewSkeleton() {
+  return (
+    <main
+      role="status"
+      aria-label="Loading presentation preview"
+      data-presentation-preview-loading
+      className="h-dvh min-h-0 w-full min-w-0 overflow-hidden bg-slate-50 text-slate-900"
+    >
+      <div data-presentation-view="true" className="relative flex h-full min-h-0 min-w-0 flex-col overflow-hidden bg-white">
+        <header className="flex min-h-14 shrink-0 flex-wrap items-center gap-3 border-b border-slate-200 bg-white px-3 py-2 sm:px-5">
+          <Skeleton className="size-8 rounded-md" />
+          <Presentation size={18} aria-hidden="true" className="shrink-0 text-indigo-200" />
+          <div className="min-w-0 flex-1 space-y-2">
+            <Skeleton className="h-4 w-40 max-w-full" />
+            <Skeleton className="h-3 w-28" />
+          </div>
+          <Skeleton className="h-8 w-36 rounded-md" />
+          <div className="ml-auto flex items-center gap-2">
+            <Skeleton className="hidden h-8 w-14 rounded-md sm:block" />
+            <Skeleton className="h-8 w-20 rounded-md" />
+          </div>
+        </header>
+
+        <div className="grid min-h-0 flex-1 place-items-center overflow-hidden bg-slate-50 p-4 sm:p-8">
+          <div className="relative aspect-video w-full max-w-5xl overflow-hidden border border-slate-200 bg-white shadow-[0_24px_70px_-18px_rgba(15,23,42,0.25)]">
+            <Skeleton className="absolute inset-0 rounded-none bg-slate-100" />
+            <div className="absolute inset-0 p-[8%]">
+              <Skeleton className="h-[9%] w-2/5 bg-slate-200" />
+              <Skeleton className="mt-[5%] h-[7%] w-4/5 bg-slate-200" />
+              <Skeleton className="mt-[4%] h-[4%] w-3/5 bg-slate-200" />
+              <div className="mt-[9%] grid grid-cols-3 gap-[4%]">
+                <Skeleton className="h-24 bg-slate-200/80" />
+                <Skeleton className="h-24 bg-slate-200/80" />
+                <Skeleton className="h-24 bg-slate-200/80" />
+              </div>
+            </div>
+            <Skeleton className="absolute left-3 top-3 size-8 rounded-md bg-white/90" />
+            <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-2">
+              <Skeleton className="h-8 w-20 rounded-md bg-white/90" />
+              <Skeleton className="h-8 w-20 rounded-md bg-white/90" />
             </div>
           </div>
         </div>

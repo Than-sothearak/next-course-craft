@@ -4,7 +4,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { Music2 } from "lucide-react";
 import type { ContentBlock } from "@/lib/schemas/block";
 import type { QuizQuestion } from "@/lib/schemas/quiz";
-import { resolveSlideFrame, resolveSlideCoverObjectArea, resolveSlideObjectArea, resolveSlideSize, type SlideCover, type SlideMaster } from "@/lib/editor/slide-design";
+import { resolveCanvasSlideFrame, resolveSlideSize, slideNavigationLabel, type SlideCover, type SlideMaster } from "@/lib/editor/slide-design";
 import { isSlideMediaObject, resolveSlideMedia } from "@/lib/editor/slide-objects";
 import { PreviewBlock } from "../../preview/_components/(course_preview_components)/(lesson_reader_preview_components)/(lesson_blocks_preview_components)/preview-block";
 import { QuizAssessmentPreview } from "../../preview/_components/(course_preview_components)/(lesson_reader_preview_components)/quiz-assessment-preview";
@@ -34,7 +34,6 @@ export function SlideThumbnail({ slide, index, total = 1, master, courseTitle }:
   const viewportRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1 / 6);
   const size = resolveSlideSize(master);
-  const area = slide.slideCover ? resolveSlideCoverObjectArea(master) : resolveSlideObjectArea(master);
   useLayoutEffect(() => {
     const viewport = viewportRef.current;
     if (!viewport) return;
@@ -47,7 +46,7 @@ export function SlideThumbnail({ slide, index, total = 1, master, courseTitle }:
   }, [size.width]);
   const blockObjects = (<div className="relative h-full w-full">
               {slide.blocks.map((block, blockIndex) => {
-                const frame = resolveSlideFrame(block, blockIndex, slide.blocks.length, area);
+                const frame = resolveCanvasSlideFrame(block, blockIndex, slide.blocks.length, master, Boolean(slide.slideCover));
                 return <div key={block.id} data-slide-object-frame data-slide-thumbnail-object-id={block.id} className="absolute overflow-hidden rounded-md" style={{ left: `${frame.x}%`, top: `${frame.y}%`, width: `${frame.width}%`, height: `${frame.height}%`, zIndex: frame.z + 1, ...slideObjectSurfaceStyle(block, master?.backgroundColor, master?.textColor) }}>
                   <SlideObjectContent media={isSlideMediaObject(block)}><ThumbnailBlock block={{ ...block, id: `thumbnail-${slide.id}-${block.id}` }} /></SlideObjectContent>
                 </div>;
@@ -57,12 +56,12 @@ export function SlideThumbnail({ slide, index, total = 1, master, courseTitle }:
     <div className="overflow-hidden border border-slate-200 bg-white">
       <div ref={viewportRef} data-slide-thumbnail-viewport className="relative overflow-hidden" style={{ aspectRatio: `${size.width} / ${size.height}` }}>
         <div inert data-slide-thumbnail-canvas className="pointer-events-none absolute left-0 top-0 overflow-hidden text-left" style={{ width: size.width, height: size.height, transform: `scale(${scale})`, transformOrigin: "top left" }}>
-          {slide.slideCover ? <SlideCoverSurface cover={slide.slideCover} title={courseTitle ?? slide.title} master={master} number={index + 1} total={total} onStart={() => {}} startDisabled={index >= total - 1} decorative>{blockObjects}</SlideCoverSurface> : <SlideSurface master={master} title={slide.title} number={index + 1} total={total} decorative>
-            {slide.lessonType === "quiz" ? slide.quizQuestions?.length ? <QuizAssessmentPreview questions={slide.quizQuestions.map((question) => ({ ...question, id: `thumbnail-${slide.id}-${question.id}` }))} passingScore={slide.passingScore ?? 70} wasPassed={false} onResult={() => {}} /> : <div className="mt-10 rounded-xl border border-dashed border-slate-300 px-5 py-8 text-center text-sm text-slate-500">This quiz has no questions yet.</div> : blockObjects}
+          {slide.slideCover ? <SlideCoverSurface cover={slide.slideCover} title={courseTitle ?? slide.title} master={master} number={index + 1} total={total} onStart={() => {}} startDisabled={index >= total - 1} decorative>{blockObjects}</SlideCoverSurface> : <SlideSurface master={master} title={slide.title} number={index + 1} total={total} decorative contentRegion={slide.lessonType === "quiz"}>
+            {slide.lessonType === "quiz" ? slide.quizQuestions?.length ? <QuizAssessmentPreview presentation questions={slide.quizQuestions.map((question) => ({ ...question, id: `thumbnail-${slide.id}-${question.id}` }))} passingScore={slide.passingScore ?? 70} wasPassed={false} onResult={() => {}} /> : <div className="mt-10 rounded-xl border border-dashed border-slate-300 px-5 py-8 text-center text-sm text-slate-500">This quiz has no questions yet.</div> : blockObjects}
           </SlideSurface>}
         </div>
       </div>
     </div>
-    <p data-slide-thumbnail-label className="truncate px-1 pb-1 pt-2 pr-8 text-xs font-medium text-slate-600">{index + 1}. {slide.title}</p>
+    <p data-slide-thumbnail-label className="truncate px-1 pb-1 pt-2 pr-8 text-xs font-medium text-slate-600">{index + 1}. {slideNavigationLabel(slide.title, index)}</p>
   </div>;
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { getSchema } from "@tiptap/core";
 import { editorSnapshotSchema } from "../lib/editor/schemas";
+import { Lesson } from "../models/Lesson";
 import { transactionUnsupported } from "../lib/editor/services/save";
 import { getCourseProgress } from "../lib/editor/preview";
 import { normalizeFontSize, normalizeHexColor } from "../lib/editor/text-format";
@@ -26,6 +27,14 @@ describe("course editor snapshot", () => {
   it("accepts a versioned course, lesson, and block snapshot", () => {
     expect(editorSnapshotSchema.parse(validSnapshot)).toMatchObject({ title: "Onboarding", revision: 2, theme: { preset: "ocean", primaryColor: "#2f5f9f" } });
     expect(editorSnapshotSchema.parse(validSnapshot).navigationMode).toBe("sequential");
+  });
+
+  it("allows blank presentation headers while requiring standard lesson titles", () => {
+    const blank = { ...validSnapshot, lessons: [{ ...validSnapshot.lessons[0], title: "   " }] };
+    expect(editorSnapshotSchema.safeParse(blank).success).toBe(false);
+    const slide = editorSnapshotSchema.parse({ ...blank, courseLayout: "slides" });
+    expect(slide.lessons[0].title).toBe("");
+    expect(new Lesson({ courseId: "507f1f77bcf86cd799439011", sectionId: "section-a", title: "", order: 0 }).validateSync()).toBeUndefined();
   });
 
   it("validates and preserves the course lesson progression option", () => {

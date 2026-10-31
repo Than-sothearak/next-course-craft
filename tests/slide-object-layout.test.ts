@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { blockSchema } from "@/lib/schemas/block";
-import { fitSlideMediaFrame, resolveSlideFrame, slideFrameSchema, slideObjectArea } from "@/lib/editor/slide-design";
+import { fitSlideMediaFrame, fitSlideTextFrame, resolveSlideFrame, slideFrameSchema, slideObjectArea, slideTextLayoutSchema } from "@/lib/editor/slide-design";
 import { resizeSlideObjectFrame, resolveSlideMedia, snapSlideFrameToFooter } from "@/lib/editor/slide-objects";
 import { remapCourseAssetUrls } from "@/lib/media/asset-references";
 import { editorSnapshotSchema } from "@/lib/editor/schemas";
@@ -53,6 +53,13 @@ describe("presentation text alignment and media sizing", () => {
     const resolved = resolveSlideFrame(block, 0, 1);
     expect(physicalRatio(resolved)).toBeCloseTo(0.5, 8);
     expect(resolved.x).toBe(frame.x); expect(resolved.y).toBe(frame.y);
+  });
+
+  it("defaults text boxes to zero padding and fits measured content", () => {
+    expect(slideTextLayoutSchema.parse({})).toMatchObject({ paddingX: 0, paddingY: 0, fitToText: true });
+    const fitted = fitSlideTextFrame(frame, { width: 240, height: 48 }, slideObjectArea);
+    expect(fitted).toEqual({ ...frame, width: 25, height: expect.closeTo(48 / slideObjectArea.height * 100, 8) });
+    expect(slideFrameSchema.safeParse(fitted).success).toBe(true);
   });
 
   it("ignores dimensions for a replaced source and remaps media metadata for offline output", () => {

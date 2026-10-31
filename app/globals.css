@@ -192,8 +192,8 @@ body { margin: 0; min-height: 100vh; background: #f8fafc; color: #0f172a; font-f
 .labeled-graphic-radar::before,
 .labeled-graphic-radar::after {
   position: absolute;
-  inset: -3px;
-  border: 2px solid var(--radar-color, #2f5f9f);
+  inset: calc(-1 * var(--radar-size, 3px));
+  border: var(--radar-weight, 2px) solid var(--radar-color, #2f5f9f);
   border-radius: 9999px;
   content: "";
   pointer-events: none;
@@ -203,7 +203,7 @@ body { margin: 0; min-height: 100vh; background: #f8fafc; color: #0f172a; font-f
 .labeled-graphic-radar-gradient::before,
 .labeled-graphic-radar-gradient::after {
   border: 0;
-  padding: 2px;
+  padding: var(--radar-weight, 2px);
   background: var(--radar-gradient);
   mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   mask-composite: exclude;
@@ -223,6 +223,18 @@ body { margin: 0; min-height: 100vh; background: #f8fafc; color: #0f172a; font-f
 [data-slide-text-box][data-horizontal-align] .tiptap,
 [data-slide-text-box][data-horizontal-align] .tiptap :is(p, h1, h2, h3, ul, ol, blockquote) {
   text-align: var(--slide-text-align) !important;
+}
+[data-slide-text-box] .lesson-rich-text {
+  font-family: var(--slide-body-family, inherit);
+  font-size: var(--slide-body-size, inherit);
+  font-weight: var(--slide-body-weight, inherit);
+  font-style: var(--slide-body-style, inherit);
+  text-decoration: var(--slide-body-decoration, none);
+  text-align: var(--slide-body-align, inherit);
+  color: var(--slide-body-color, inherit);
+  background-image: var(--slide-body-paint, none);
+  background-clip: text;
+  -webkit-background-clip: text;
 }
 
 /* Keep presentation video controls over the footage without a shaded bar. */
