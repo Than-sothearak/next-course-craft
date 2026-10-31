@@ -1,4 +1,5 @@
 "use client";
+import { ColorPicker } from "@/components/ui/color-picker";
 
 import type { ContentBlock } from "@/lib/schemas/block";
 import { Input } from "@/components/ui/input";
@@ -55,17 +56,16 @@ export function DividerBlockSettings({ block, onChange }: { block: Extract<Conte
           </label>
           <label className="block text-xs font-medium text-slate-600">
             Line color
-            <input
-              type="color"
+            <ColorPicker
               aria-label="Divider line color"
               value={block.data.lineColor ?? "#cbd5e1"}
-              onChange={(event) =>
+              onChange={(color) =>
                 onChange({
                   ...block,
-                  data: { ...block.data, lineColor: event.target.value },
+                  data: { ...block.data, lineColor: color },
                 })
               }
-              className="mt-1 h-9 w-full cursor-pointer rounded-md border border-slate-200 bg-white p-1"
+              className="mt-1"
             />
           </label>
           <label className="block text-xs font-medium text-slate-600">

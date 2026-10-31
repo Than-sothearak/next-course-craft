@@ -7,6 +7,8 @@ import { ownerObjectId } from "./shared";
 import { assertCourseAudioAssets } from "./audio-assets";
 import { assertCourseCoverAsset } from "./course-cover";
 import { assertSlideCoverAssets } from "./slide-cover-assets";
+import { assertSlideMasterAsset } from "./slide-master-assets";
+import { assertInteractionButtonAssets } from "./interaction-button-assets";
 
 export function transactionUnsupported(error: unknown) {
   return (
@@ -184,6 +186,8 @@ export async function saveCourseEditor(
   await assertCourseCoverAsset(ownerId, courseId, snapshot.theme.cover);
   await assertCourseAudioAssets(ownerId, courseId, snapshot.lessons);
   await assertSlideCoverAssets(ownerId, courseId, snapshot.lessons);
+  await assertSlideMasterAsset(ownerId, courseId, snapshot.slideMaster);
+  await assertInteractionButtonAssets(ownerId, courseId, snapshot.lessons);
 
   const session = await mongoose.startSession();
   let nextRevision: number | null = null;

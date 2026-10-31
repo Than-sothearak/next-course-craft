@@ -1,20 +1,17 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Presentation } from "lucide-react";
-import { SlideStage } from "@/app/courses/[courseId]/_components/slide-presentation/slide-stage";
+import { SlideEditorCanvas } from "./slide-editor-canvas";
+import type { SlideSize } from "@/lib/editor/slide-design";
+import { SlideSurface } from "../../../_components/slide-presentation/slide-surface";
+import type { SlideMaster } from "@/lib/editor/slide-design";
 
-export function SlideEditorStage({ active, title, children }: { active: boolean; title: string; children: ReactNode }) {
+export function SlideEditorStage({ active, title, zoom, onZoomChange, size, inspector, children, controls, master, number = 1, total = 1 }: { active: boolean; title: string; zoom?: number; size?: SlideSize; onZoomChange: (zoom: number | undefined) => void; inspector?: ReactNode; children: ReactNode; controls?: ReactNode; master?: SlideMaster; number?: number; total?: number }) {
   if (!active) return <>{children}</>;
   return (
-    <section aria-label="Presentation slide editor" className="overflow-hidden rounded-xl border border-slate-700 bg-slate-800 shadow-lg">
-      <header className="flex items-center justify-between gap-3 border-b border-white/10 bg-slate-900 px-4 py-2.5 text-xs text-slate-200">
-        <span className="flex min-w-0 items-center gap-2 font-semibold"><Presentation size={15} className="shrink-0" /><span className="truncate">{title}</span></span>
-        <span className="shrink-0 text-slate-400">16:9 widescreen · 960 × 540</span>
-      </header>
-      <SlideStage className="h-[min(720px,calc(100dvh-210px))] min-h-[340px] bg-slate-800" canvasClassName="border border-white/20">
-        {children}
-      </SlideStage>
-    </section>
+    <div aria-label="Presentation slide editor" className={inspector ? "grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1fr)_380px] 2xl:grid-cols-[minmax(0,1fr)_420px]" : undefined}>
+      <SlideEditorCanvas label={title} zoom={zoom} size={size} onZoomChange={onZoomChange}>{controls ? <SlideSurface title={title} master={master} number={number} total={total} controls={controls}>{children}</SlideSurface> : children}</SlideEditorCanvas>
+      {inspector && <aside aria-label="Slide inspector" className="max-h-[760px] min-w-0 space-y-3 overflow-y-auto">{inspector}</aside>}
+    </div>
   );
 }

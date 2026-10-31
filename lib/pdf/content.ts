@@ -59,6 +59,8 @@ function faceText(face: { type: "text"; text: string } | { type: "image"; alt: s
 
 export function getHandoutBlockText(block: ContentBlock): string[] {
   switch (block.type) {
+    case "interactionButton":
+      return [block.data.label, block.data.popup.title, ...(block.data.action === "popup" ? block.data.popup.blocks.flatMap(getHandoutBlockText) : ["Open the linked content in the interactive course."])];
     case "heading":
       return [htmlToHandoutText(block.data.html || block.data.text)].filter(Boolean);
     case "richText":
@@ -75,6 +77,7 @@ export function getHandoutBlockText(block: ContentBlock): string[] {
     case "video":
       return [block.data.captions ? `Video captions: ${block.data.captions}` : "Video content is available in the online course."];
     case "audio":
+    case "audioInstruction":
       return [block.data.fileName ? `Audio: ${block.data.fileName}` : "Audio content is available in the online course."];
     case "attachment":
       return [block.data.fileName ? `Attachment: ${block.data.fileName}` : "Attachment available in the online course."];

@@ -101,7 +101,7 @@ describe("course outline editing", () => {
     expect(push).toHaveBeenCalledWith("/courses/slides/preview?lessonId=first");
   });
 
-  it("opens a slide course on a fixed canvas with a slide rail and adds slides in place", async () => {
+  it("opens a slide course with a thumbnail panel and adds and selects slides in place", async () => {
     const slideData = { courseId: "slides", ...editorSnapshotSchema.parse({
       title: "Presentation", description: "", revision: 1, courseLayout: "slides",
       sections: [{ id: "section", title: "Slides", order: 0 }],
@@ -109,12 +109,85 @@ describe("course outline editing", () => {
     }) };
     await act(async () => root.render(<EditorClient initialData={slideData} authorName="Author" />));
     expect(container.querySelector('[aria-label="Presentation slide editor"]')).not.toBeNull();
-    expect(container.querySelector('[aria-label="Slide thumbnails"]')).not.toBeNull();
+    expect(container.querySelector('aside[aria-label="Slide thumbnails"]')).not.toBeNull();
+    expect(container.querySelector('[aria-label="Edit slide 1: Slide 1"]')?.getAttribute("aria-current")).toBe("step");
+    expect(container.querySelector('[data-slide-canvas] [aria-label="Slide navigation"]')).not.toBeNull();
+    expect(container.querySelector("details summary")?.textContent).not.toContain("Course outline");
     expect(container.querySelector<HTMLElement>('[data-slide-canvas]')?.parentElement?.style.aspectRatio).toBe("960 / 540");
-    expect(container.querySelector('[aria-label="Edit slide 1: Slide 1"]')).not.toBeNull();
-    const addSlide = [...container.querySelectorAll<HTMLButtonElement>('aside[aria-label="Slide thumbnails"] button')].find((button) => button.textContent?.includes("Add slide"))!;
+    expect(container.querySelector('[aria-label="Select slide"]')).toBeNull();
+    expect(container.querySelector('[aria-label="Slide actions"]')).toBeNull();
+    const addSlide = [...container.querySelectorAll<HTMLButtonElement>('[aria-label="Slide thumbnails"] button')].find((button) => button.textContent?.includes("Add slide"))!;
     await act(async () => addSlide.click());
-    expect(container.querySelector('[aria-label="Edit slide 2: Slide 2"]')).not.toBeNull();
+    expect(container.querySelectorAll('[aria-label="Slide thumbnails"] button[aria-label^="Edit slide "]')).toHaveLength(2);
+    expect(container.querySelector('[aria-label="Edit slide 2: Slide 2"]')?.getAttribute("aria-current")).toBe("step");
+    expect(container.querySelectorAll('[aria-label="Slide thumbnails"] button[aria-label^="Delete slide "]')).toHaveLength(2);
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Edit slide 1: Slide 1"]')!.click());
+    expect(container.querySelector<HTMLInputElement>('[aria-label="Slide title"]')?.value).toBe("Slide 1");
+    expect(container.querySelector('[aria-label="Edit slide 1: Slide 1"]')?.getAttribute("aria-current")).toBe("step");
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("selects and deletes slides in place, saves their order, and can add after deleting the last slide", async () => {
+    const slideData = { courseId: "slides", ...editorSnapshotSchema.parse({
+      title: "Presentation", description: "", revision: 1, courseLayout: "slides",
+      sections: [{ id: "section", title: "Slides", order: 0 }],
+      lessons: ["first", "middle", "last"].map((id, order) => ({ id, sectionId: "section", title: id, order, blocks: [] })),
+    }) };
+    await act(async () => root.render(<EditorClient initialData={slideData} focusedLessonId="first" authorName="Author" />));
+    const remove = (title: string) => container.querySelector<HTMLButtonElement>(`[aria-label^="Delete slide "][aria-label$=": ${title}"]`)!;
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Edit slide 2: middle"]')!.click());
+    expect(container.querySelector<HTMLInputElement>('[aria-label="Slide title"]')?.value).toBe("middle");
+    await act(async () => remove("middle").click());
+    expect(container.querySelector('[aria-label="Edit slide 2: last"]')?.getAttribute("aria-current")).toBe("step");
+    expect(editorSnapshotSchema.parse(JSON.parse(fetchMock.mock.calls.at(-1)![1].body)).lessons.map(({ id, order }) => ({ id, order }))).toEqual([{ id: "first", order: 0 }, { id: "last", order: 1 }]);
+    await act(async () => [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent?.trim() === "Preview")!.click());
+    expect(push).toHaveBeenLastCalledWith("/courses/slides/preview?lessonId=last");
+    push.mockClear();
+    await act(async () => remove("last").click());
+    expect(container.querySelector('[aria-label="Edit slide 1: first"]')?.getAttribute("aria-current")).toBe("step");
+    await act(async () => remove("first").click());
+    expect(container.querySelectorAll('[aria-label^="Edit slide "]')).toHaveLength(0);
+    expect(container.querySelectorAll('[aria-label^="Delete slide "]')).toHaveLength(0);
+    expect(container.textContent).toContain("Your presentation has no slides");
+    expect(JSON.parse(fetchMock.mock.calls.at(-1)![1].body).lessons).toEqual([]);
+    await act(async () => [...container.querySelectorAll<HTMLButtonElement>('[aria-label="Slide thumbnails"] button')].find((button) => button.textContent?.includes("Add slide"))!.click());
+    expect(container.querySelectorAll('[aria-label^="Edit slide "]')).toHaveLength(1);
+    expect(container.querySelectorAll('[aria-label^="Delete slide "]')).toHaveLength(1);
+    expect(container.querySelector('[aria-label="Presentation slide editor"]')).not.toBeNull();
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("can undo deletion of the last slide from the presentation overview", async () => {
+    const slideData = { courseId: "slides", ...editorSnapshotSchema.parse({
+      title: "Presentation", description: "", revision: 1, courseLayout: "slides",
+      sections: [{ id: "section", title: "Slides", order: 0 }],
+      lessons: [{ id: "first", sectionId: "section", title: "Introduction", order: 0, blocks: [] }],
+    }) };
+    await act(async () => root.render(<EditorClient initialData={slideData} authorName="Author" />));
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Delete slide 1: Introduction"]')!.click());
+    expect(container.textContent).toContain("Your presentation has no slides");
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Undo"]')!.click());
+    expect(container.querySelector('[aria-label="Edit slide 1: Introduction"]')).not.toBeNull();
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Edit slide 1: Introduction"]')!.click());
+    expect(container.querySelector<HTMLInputElement>('[aria-label="Slide title"]')?.value).toBe("Introduction");
+    await act(async () => vi.advanceTimersByTimeAsync(1000));
+    expect(JSON.parse(fetchMock.mock.calls.at(-1)![1].body).lessons.map((lesson: { id: string }) => lesson.id)).toEqual(["first"]);
+  });
+
+  it("deletes an inactive slide without changing the selected slide", async () => {
+    const slideData = { courseId: "slides", ...editorSnapshotSchema.parse({
+      title: "Presentation", description: "", revision: 1, courseLayout: "slides",
+      sections: [{ id: "section", title: "Slides", order: 0 }],
+      lessons: ["first", "middle", "last"].map((id, order) => ({ id, sectionId: "section", title: id, order, blocks: [] })),
+    }) };
+    await act(async () => root.render(<EditorClient initialData={slideData} authorName="Author" />));
+    const remove = container.querySelector<HTMLButtonElement>('[aria-label="Delete slide 2: middle"]')!;
+    expect(remove.parentElement?.tagName).not.toBe("BUTTON");
+    await act(async () => remove.click());
+    expect(container.querySelector<HTMLInputElement>('[aria-label="Slide title"]')?.value).toBe("first");
+    expect(container.querySelector('[aria-label="Edit slide 1: first"]')?.getAttribute("aria-current")).toBe("step");
+    expect(container.querySelector('[aria-label="Edit slide 2: last"]')?.getAttribute("aria-current")).toBeNull();
+    expect(editorSnapshotSchema.parse(JSON.parse(fetchMock.mock.calls.at(-1)![1].body)).lessons.map(({ id, order }) => ({ id, order }))).toEqual([{ id: "first", order: 0 }, { id: "last", order: 1 }]);
     expect(push).not.toHaveBeenCalled();
   });
 
@@ -130,9 +203,9 @@ describe("course outline editing", () => {
     const object = container.querySelector<HTMLElement>('[data-slide-object-id]')!;
     expect(object).not.toBeNull();
     await act(async () => object.dispatchEvent(new Event("pointerdown", { bubbles: true })));
-    const width = [...container.querySelectorAll<HTMLInputElement>('aside[aria-label="Slide inspector"] input[type="number"]')].find((input) => input.parentElement?.textContent?.includes("Width"))!;
+    const width = container.querySelector<HTMLInputElement>('aside[aria-label="Slide inspector"] [aria-label="Width (px)"]')!;
     expect(width).not.toBeNull();
-    await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(width, "50"); width.dispatchEvent(new Event("input", { bubbles: true })); width.dispatchEvent(new Event("change", { bubbles: true })); });
+    await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(width, "480"); width.dispatchEvent(new Event("input", { bubbles: true })); width.dispatchEvent(new Event("change", { bubbles: true })); });
     await act(async () => vi.advanceTimersByTimeAsync(1000));
     const latest = JSON.parse(fetchMock.mock.calls.at(-1)?.[1]?.body ?? "{}");
     expect(latest.lessons?.[0]?.blocks?.[0]?.slideFrame?.width).toBe(50);
@@ -143,6 +216,64 @@ describe("course outline editing", () => {
     expect(themed.slideMaster?.template).toBe("midnight");
     expect(container.querySelector<HTMLElement>('[data-slide-canvas] > div')?.style.background).toContain("rgb(15, 23, 42)");
     expect(push).not.toHaveBeenCalled();
+  });
+
+  it("saves abstract and uploaded master backgrounds and restores the image settings", async () => {
+    const imageSrc = "/api/assets/123456789012345678901234/file";
+    fetchMock.mockImplementation(async (url: string) => ({ ok: true, status: 200, json: async () => url.endsWith("/assets") ? { assets: [{ id: "123456789012345678901234", originalName: "Background.png", contentType: "image/png", size: 3000, fileUrl: imageSrc, createdAt: "2026-01-01" }] } : { revision: 2 } }));
+    const slideData = { courseId: "slides", ...editorSnapshotSchema.parse({
+      title: "Presentation", description: "", revision: 1, courseLayout: "slides",
+      sections: [{ id: "section", title: "Slides", order: 0 }],
+      lessons: [{ id: "first", sectionId: "section", title: "Slide 1", order: 0, blocks: [] }],
+    }) };
+    await act(async () => root.render(<EditorClient initialData={slideData} authorName="Author" />));
+    const chooseStyle = async (value: string) => act(async () => { const input = container.querySelector<HTMLSelectElement>('[aria-label="Master background style"]')!; input.value = value; input.dispatchEvent(new Event("change", { bubbles: true })); });
+    await chooseStyle("abstract");
+    const designs = container.querySelectorAll<HTMLButtonElement>('[aria-label="Free abstract backgrounds"] button');
+    expect(designs).toHaveLength(6);
+    await act(async () => [...designs].find((button) => button.textContent?.includes("Orbits"))!.click());
+    await act(async () => vi.advanceTimersByTimeAsync(1000));
+    expect(JSON.parse(fetchMock.mock.calls.at(-1)![1].body).slideMaster.background).toEqual({ type: "abstract", design: "orbits" });
+    expect(container.querySelector('[data-slide-canvas] [data-abstract-design="orbits"]')).not.toBeNull();
+    await chooseStyle("image");
+    await act(async () => [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent?.includes("Choose or upload background image"))!.click());
+    expect(fetchMock).toHaveBeenCalledWith("/api/courses/slides/assets", { cache: "no-store" });
+    expect(container.querySelector<HTMLInputElement>('[aria-label="Upload image"]')?.accept).toContain("image/png");
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Use Background.png"]')!.click());
+    await act(async () => { const position = container.querySelector<HTMLSelectElement>('[aria-label="Master background image position"]')!; position.value = "bottom"; position.dispatchEvent(new Event("change", { bubbles: true })); });
+    await act(async () => { const overlay = container.querySelector<HTMLInputElement>('[aria-label="Master background image overlay"]')!; Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(overlay, "60"); overlay.dispatchEvent(new Event("input", { bubbles: true })); });
+    await act(async () => vi.advanceTimersByTimeAsync(1000));
+    const saved = editorSnapshotSchema.parse(JSON.parse(fetchMock.mock.calls.at(-1)![1].body));
+    expect(saved.slideMaster?.background).toEqual({ type: "image", imageSrc, imagePosition: "bottom", overlayOpacity: 60 });
+    expect(container.querySelector<HTMLImageElement>('[data-slide-canvas] [data-slide-master-background="image"] img')?.getAttribute("src")).toBe(imageSrc);
+    await act(async () => root.render(<EditorClient key="reloaded" initialData={{ ...saved, courseId: "slides" }} authorName="Author" />));
+    expect(container.querySelector<HTMLSelectElement>('[aria-label="Master background style"]')?.value).toBe("image");
+    expect(container.querySelector<HTMLSelectElement>('[aria-label="Master background image position"]')?.value).toBe("bottom");
+    expect(container.querySelector<HTMLInputElement>('[aria-label="Master background image overlay"]')?.value).toBe("60");
+    await act(async () => [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent?.trim() === "Remove background image")!.click());
+    expect(container.querySelector('[data-slide-canvas] [data-slide-master-background="image"]')).toBeNull();
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it.each(["video", "audio"] as const)("saves and restores presentation playback settings for %s", async (type) => {
+    const mediaFrame = { x: 11, y: 8, width: 78, height: 24, z: 0 };
+    const slideData = { courseId: "slides", ...editorSnapshotSchema.parse({ title: "Presentation", description: "", revision: 1, courseLayout: "slides",
+      sections: [{ id: "section", title: "Slides", order: 0 }],
+      lessons: [{ id: "first", sectionId: "section", title: "Media", order: 0, blocks: [{ id: "media", version: 1, type, slideFrame: mediaFrame, data: { src: "/api/assets/123456789012345678901234/file", mimeType: type === "video" ? "video/webm" : "audio/webm", fileName: "Narration" } }] }],
+    }) };
+    await act(async () => root.render(<EditorClient initialData={slideData} authorName="Author" />));
+    const select = () => container.querySelector<HTMLButtonElement>(`[aria-label="Select ${type} object from layers"]`)!;
+    await act(async () => select().click());
+    await act(async () => container.querySelector<HTMLInputElement>('[aria-label="Autoplay media"]')!.click());
+    await act(async () => container.querySelector<HTMLInputElement>('[aria-label="Show media player controls"]')!.click());
+    await act(async () => [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent?.trim() === "Align to footer")!.click());
+    await act(async () => vi.advanceTimersByTimeAsync(1000));
+    const saved = editorSnapshotSchema.parse(JSON.parse(fetchMock.mock.calls.at(-1)![1].body));
+    expect(saved.lessons[0].blocks[0]).toMatchObject({ slidePlayback: { autoPlay: true, showControls: false }, slideFrame: { ...mediaFrame, y: 76 } });
+    await act(async () => root.render(<EditorClient key="restored" initialData={{ ...saved, courseId: "slides" }} authorName="Author" />));
+    await act(async () => select().click());
+    expect(container.querySelector<HTMLInputElement>('[aria-label="Autoplay media"]')?.checked).toBe(true);
+    expect(container.querySelector<HTMLInputElement>('[aria-label="Show media player controls"]')?.checked).toBe(false);
   });
 
   it("drags a slide object within the canvas and saves its position", async () => {

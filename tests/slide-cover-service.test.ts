@@ -26,6 +26,18 @@ describe("presentation cover image ownership", () => {
     await assertSlideCoverAssets("owner", "course", lesson(""));
     expect(findOne).not.toHaveBeenCalled();
   });
+  it("verifies ready audio ownership and rejects missing, foreign, and offline audio sources", async () => {
+    const lessons = lesson("");
+    lessons[0].slideCover!.instructions = { audioSrc: "/api/assets/123456789012345678901234/file", audioName: "Intro.mp3", audioTrigger: "start", noticeEnabled: false, noticeTitle: "Welcome", noticeText: "Start here", noticeTrigger: "cover", firstVisitOnly: true };
+    await assertSlideCoverAssets("owner", "course", lessons);
+    expect(findOne).toHaveBeenCalledWith({ _id: "123456789012345678901234", ownerId: "owner", courseId: "course", status: "ready", mimeType: /^audio\// });
+    lean.mockResolvedValue(null);
+    await expect(assertSlideCoverAssets("owner", "course", lessons)).rejects.toThrow("instruction audio");
+    for (const audioSrc of ["./media/intro.mp3", "data:audio/mpeg;base64,YQ=="]) {
+      lessons[0].slideCover!.instructions.audioSrc = audioSrc;
+      await expect(assertSlideCoverAssets("owner", "course", lessons)).rejects.toThrow("instruction audio");
+    }
+  });
   it("rejects blocks hidden behind a cover", () => {
     const parsed = editorSnapshotSchema.safeParse({
       title: "Presentation", description: "", revision: 0, courseLayout: "slides",

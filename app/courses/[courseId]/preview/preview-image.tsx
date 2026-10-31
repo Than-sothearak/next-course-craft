@@ -2,22 +2,34 @@
 
 /* eslint-disable @next/next/no-img-element -- The shared preview also ships in static course exports. */
 import { useEffect, useRef, useState } from "react";
-import { Expand, X } from "lucide-react";
+import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { croppedDimensions, croppedMediaStyle, cropViewportStyle, type CropRect } from "@/lib/editor/slide-crop";
 
 export function PreviewImage({
   src,
   alt,
   caption,
   className,
+  fitFrame = false,
+  dimensions,
+  onDimensions,
+  crop,
 }: {
   src: string;
   alt: string;
   caption?: string;
   className: string;
+  fitFrame?: boolean;
+  dimensions?: { width: number; height: number };
+  onDimensions?: (dimensions: { width: number; height: number }) => void;
+  crop?: CropRect;
 }) {
   const [open, setOpen] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const cropped = fitFrame ? crop : undefined;
+  const displayDimensions = croppedDimensions(dimensions ?? { width: 1, height: 1 }, cropped);
+  const aspect = displayDimensions.width / displayDimensions.height;
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -30,15 +42,13 @@ export function PreviewImage({
         type="button"
         aria-label={`View image full screen${alt ? `: ${alt}` : ""}`}
         onClick={() => setOpen(true)}
-        className="cursor-pointer group relative block w-full cursor-zoom-in rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+        className={`cursor-pointer group relative w-full cursor-zoom-in rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${cropped ? "flex items-center justify-center" : "block"} ${fitFrame ? "h-full" : ""}`}
+        style={cropped ? { containerType: "size" } : undefined}
       >
-        <img src={src} alt={alt} width={1200} height={675} className={className} />
-        <span
-          aria-hidden="true"
-          className="absolute bottom-2 right-2 grid size-8 place-items-center rounded-full bg-white/90 text-slate-800 shadow-sm"
-        >
-          <Expand size={16} />
-        </span>
+        <span data-slide-media-crop={cropped ? true : undefined} className={cropped ? "relative block h-full w-full overflow-hidden" : "contents"} style={cropped && dimensions ? cropViewportStyle(dimensions, cropped) : undefined}><img src={src} alt={alt} width={dimensions?.width ?? (fitFrame ? undefined : 1200)} height={dimensions?.height ?? (fitFrame ? undefined : 675)} style={cropped ? croppedMediaStyle(cropped) : undefined} onLoad={(event) => {
+          const image = event.currentTarget;
+          if (image.naturalWidth && image.naturalHeight) onDimensions?.({ width: image.naturalWidth, height: image.naturalHeight });
+        }} className={className} /></span>
       </button>
       <dialog
         ref={dialogRef}
@@ -60,11 +70,12 @@ export function PreviewImage({
           >
             <X size={20} />
           </Button>
-          <img
+          <div className={cropped ? "relative w-full overflow-hidden" : "contents"} style={cropped ? { aspectRatio: aspect, maxWidth: `calc((100dvh - 7rem) * ${aspect})` } : undefined}><img
             src={src}
             alt={alt}
             className="max-h-[calc(100dvh-7rem)] max-w-full object-contain"
-          />
+            style={cropped ? { ...croppedMediaStyle(cropped), maxHeight: "none" } : undefined}
+          /></div>
           {caption && (
             <p className="mt-3 max-w-5xl text-center text-sm text-white/80">
               {caption}

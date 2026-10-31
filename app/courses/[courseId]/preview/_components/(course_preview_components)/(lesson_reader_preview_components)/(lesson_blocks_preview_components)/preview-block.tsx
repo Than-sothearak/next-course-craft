@@ -1,4 +1,5 @@
 "use client";
+import { borderPaint } from "@/lib/color";
 
 import type { ReactNode } from "react";
 import { CirclePlay } from "lucide-react";
@@ -8,6 +9,10 @@ import { FileAttachmentLink } from "@/components/file-attachment-link";
 import { CourseLinkBlock } from "@/components/course-link-block";
 import { InteractiveAccordion, InteractiveFlipCard, InteractiveKnowledgeCheck, InteractiveLabeledGraphic, InteractiveProcessSteps, InteractiveSurvey } from "../../../../interactive-blocks";
 import type { ContentBlock } from "@/lib/schemas/block";
+import { isSlideMediaObject } from "@/lib/editor/slide-objects";
+import { SlideMediaObject } from "../../../../../_components/slide-presentation/slide-media-object";
+import { SlideMediaPlayer } from "../../../../../_components/slide-presentation/slide-media-player";
+import { SlideTextBox } from "../../../../../_components/slide-presentation/slide-text-box";
 import { ImageBlockLayout } from "../../../../../edit/_components/image-block-layout";
 import { StatementBlockPreview } from "../../../../../edit/_components/statement-block-preview";
 import { StatementTextPreview } from "../../../../../edit/_components/statement-text-preview";
@@ -15,11 +20,16 @@ import { ChartBlockPreview } from "../../../../chart-block";
 import { InteractiveLessonMap } from "@/components/lesson-map";
 import { getInteractiveItemProgressId } from "@/lib/export/progress";
 import { blockSurfaceStyle, blockWidthClass } from "../../preview-utils";
+import { AudioInstruction } from "../../../../../_components/slide-presentation/audio-instruction";
+import { InteractionButton } from "../../../../../_components/slide-presentation/interaction-button";
+import { InteractionPopupSurface } from "../../../../../_components/slide-presentation/interaction-popup-surface";
+import { isInteractionTarget } from "@/lib/editor/interaction-button";
 import type { PreviewDevice, PreviewOrientation } from "../../preview-types";
 export function PreviewBlock({
   block,
   device,
   orientation,
+  slideLayout = false,
   animateListItems = false,
   interactedContentIds,
   onInteractiveProgress,
@@ -28,10 +38,12 @@ export function PreviewBlock({
   passedQuizIds = new Set(),
   getLessonNavigationLockMessage = () => null,
   onOpenLesson = () => {},
+  lessonBlocks = [], authoring = false,
 }: {
   block: ContentBlock;
   device: PreviewDevice;
   orientation: PreviewOrientation;
+  slideLayout?: boolean;
   animateListItems?: boolean;
   interactedContentIds?: ReadonlySet<string>;
   onInteractiveProgress?: (progressId: string) => void;
@@ -40,9 +52,17 @@ export function PreviewBlock({
   passedQuizIds?: ReadonlySet<string>;
   getLessonNavigationLockMessage?: (lessonId: string) => string | null;
   onOpenLesson?: (lessonId: string) => void;
+  lessonBlocks?: readonly ContentBlock[];
+  authoring?: boolean;
 }) {
   const widthClass = blockWidthClass(block);
-  const style = blockSurfaceStyle(block);
+  const style = blockSurfaceStyle(block, slideLayout);
+  if (block.type === "audioInstruction") return <AudioInstruction key={block.data.src} block={block} presentation={slideLayout} authoring={authoring} onEnded={() => onInteractiveProgress?.(`${block.id}:listened`)} />;
+  if (block.type === "interactionButton") {
+    const target = lessonBlocks.find((item) => item.id === block.data.targetBlockId && isInteractionTarget(item, block.id));
+    const popupBlocks: ContentBlock[] = block.data.action === "popup" ? block.data.popup.blocks.map((item) => ({ ...item, id: `${block.id}-popup-${item.id}` })) : target ? [{ ...target, slideFrame: { x: 5, y: 5, width: 90, height: 90, z: 0 } }] : [];
+    return <InteractionButton block={block} presentation={slideLayout} authoring={authoring} available={popupBlocks.length > 0} onOpen={() => onInteractiveProgress?.(`${block.id}:opened`)}><InteractionPopupSurface popup={block.data.popup} blocks={popupBlocks} renderBlock={(item) => <PreviewBlock block={item} slideLayout device={device} orientation={orientation} authoring={authoring} lessons={lessons} visitedLessonIds={visitedLessonIds} passedQuizIds={passedQuizIds} getLessonNavigationLockMessage={getLessonNavigationLockMessage} onOpenLesson={onOpenLesson} interactedContentIds={interactedContentIds} onInteractiveProgress={block.data.action === "block" ? onInteractiveProgress : undefined} />} /></InteractionButton>;
+  }
 
   if (block.type === "divider") {
     return (
@@ -54,7 +74,7 @@ export function PreviewBlock({
               style={{
                 borderTopWidth: `${block.data.lineWeight ?? 1}px`,
                 borderTopStyle: block.data.lineStyle ?? "solid",
-                borderTopColor: block.data.lineColor ?? "#cbd5e1",
+                ...borderPaint(block.data.lineColor ?? "#cbd5e1"),
               }}
             />
           ) : (
@@ -63,6 +83,10 @@ export function PreviewBlock({
         </div>
       </div>
     );
+  }
+
+  if (slideLayout && isSlideMediaObject(block)) {
+    return <SlideMediaObject block={block} onVideoEnded={() => onInteractiveProgress?.(`${block.id}:watched`)} />;
   }
 
   let content: ReactNode;
@@ -87,7 +111,7 @@ export function PreviewBlock({
       />
     );
   } else if (block.type === "audio") {
-    content = <AudioPlayer src={block.data.src} fileName={block.data.fileName} onEnded={() => onInteractiveProgress?.(`${block.id}:listened`)} />;
+    content = slideLayout ? <SlideMediaPlayer key={block.data.src} block={block} onEnded={() => onInteractiveProgress?.(`${block.id}:listened`)} /> : <AudioPlayer src={block.data.src} fileName={block.data.fileName} onEnded={() => onInteractiveProgress?.(`${block.id}:listened`)} />;
   } else if (block.type === "attachment") {
     content = <FileAttachmentLink href={block.data.src} fileName={block.data.fileName} size={block.data.size} />;
   } else if (block.type === "link") {
@@ -95,6 +119,7 @@ export function PreviewBlock({
   } else if (block.type === "statement") {
     content = (
       <StatementBlockPreview
+        transparentSurface={slideLayout}
         style={block.data.style}
         title={block.data.title}
         body={block.data.body}
@@ -176,6 +201,7 @@ export function PreviewBlock({
   } else if (block.type === "flipCard") {
     content = (
       <InteractiveFlipCard
+        presentation={slideLayout}
         blockId={block.id}
         cards={block.data.cards}
         cardsPerRow={block.data.cardsPerRow}
@@ -204,10 +230,13 @@ export function PreviewBlock({
     content = (
       <InteractiveLabeledGraphic
         key={`${block.id}:${block.data.sceneTheme ?? ""}:${block.data.challengePrompt ?? ""}`}
+        presentation={slideLayout}
         blockId={block.id}
         src={block.data.src}
         alt={block.data.alt}
         markers={block.data.markers}
+        mapTemplate={block.data.mapTemplate}
+        objectFit={block.data.objectFit}
         markerColor={block.data.markerColor}
         textColor={block.data.textColor}
         radarColor={block.data.radarColor}
@@ -270,6 +299,14 @@ export function PreviewBlock({
         onSubmit={() => onInteractiveProgress?.(`${block.id}:submitted`)}
       />
     );
+  }
+
+  if (slideLayout && (block.type === "heading" || block.type === "richText" || block.type === "statement")) {
+    return <SlideTextBox block={block}>{content}</SlideTextBox>;
+  }
+
+  if (slideLayout && block.type === "labeledGraphic" && block.data.interactionMode !== "spotTarget") {
+    return <div className="h-full w-full">{content}</div>;
   }
 
   return (

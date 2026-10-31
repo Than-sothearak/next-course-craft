@@ -42,7 +42,7 @@ import {
   List,
   Plus,
   Redo2,
-  Save,
+  Presentation,
   Sparkles,
   Trash2,
   Undo2,
@@ -79,14 +79,18 @@ import { CourseGenerationDialog } from "./(editor_client_components)/course-gene
 import { editorBlockElementId } from "@/lib/editor/lesson-location";
 import { applyProcessStepsPreset } from "@/lib/editor/process-steps";
 import { useFocusedContentBlock } from "./(editor_client_components)/use-focused-content-block";
-import { duplicateLessonContent, moveLessonToSection } from "@/lib/editor/course-content";
+import { duplicateLessonBlocks, duplicateLessonContent, moveLessonToSection, removeLessonBlock, reorderPresentationSlides } from "@/lib/editor/course-content";
 import type { Permission } from "@/lib/auth/policy";
 import { createClientId } from "@/lib/client-id";
-import { SlideNavigation } from "@/app/courses/[courseId]/_components/slide-presentation/slide-navigation";
 import { SlideEditorStage } from "./slide-presentation/slide-editor-stage";
 import { SlideEditorSidebar } from "./slide-presentation/slide-editor-sidebar";
+import { SlideInspectorTabs } from "./slide-presentation/slide-inspector-tabs";
+import { SlideMasterPanel } from "./slide-presentation/slide-master-panel";
+import { SlideCoverPanel } from "./slide-presentation/slide-cover-panel";
 import { SlideObjectWorkspace } from "./slide-presentation/slide-object-workspace";
+import { SlideEditorNavigation } from "./slide-presentation/slide-editor-navigation";
 import { blockTemplates } from "./(editor_client_components)/(block_template_picker_components)/block-template-data";
+import { migrateCoverAudio } from "@/lib/editor/audio-instruction";
 import { defaultSlideCover, defaultSlideFrame } from "@/lib/editor/slide-design";
 
 import { useEditorDraft, type Draft } from "./_components/use-editor-draft";
@@ -127,7 +131,7 @@ function getTemplateCategory(block: ContentBlock): BlockCategory {
   }
   if (block.type === "image") return "Image";
   if (block.type === "gallery") return "Gallery";
-  if (block.type === "video" || block.type === "audio") return "Multimedia";
+  if (block.type === "video" || block.type === "audio" || block.type === "audioInstruction") return "Multimedia";
   if (block.type === "attachment") return "Attachment";
   if (block.type === "divider") return "Divider";
   if (block.type === "flipCard" || block.type === "accordion" || block.type === "labeledGraphic" || block.type === "processSteps" || block.type === "lessonMap") return "Interactive";
@@ -166,12 +170,13 @@ export function EditorClient({
     courseLayout: initialData.courseLayout,
     slideMaster: initialData.slideMaster,
     sections: initialData.sections,
-    lessons: initialData.lessons,
+    lessons: initialData.lessons.map(migrateCoverAudio),
   };
   const [activeLessonId, setSelectedLessonId] = useState<string | null>(
     focusedLessonId ?? (initialData.courseLayout === "slides" ? initialData.lessons[0]?.id ?? null : null),
   );
   const [blockManagerOpen, setBlockManagerOpen] = useState(false);
+  const [slideZoom, setSlideZoom] = useState<number | undefined>(undefined);
   const [titleValid, setTitleValid] = useState(true);
   const titleValidRef = useRef(true);
   const { draft, draftRef, pendingRouteRef, canUndo, canRedo, saveState, saveMessage, hasUnsavedChanges, updateDraft, openRouteAfterSave, undo, redo, saveLatest, clearSaveError } = useEditorDraft({ initialDraft, initialRevision: initialData.revision, courseId: initialData.courseId, titleValid, titleValidRef, onNavigate: router.push });
@@ -268,11 +273,28 @@ export function EditorClient({
     setActiveLessonId(addLesson(sectionId));
   }
 
+  function reorderSlides(activeId: string, overId: string) {
+    updateDraft((current) => reorderPresentationSlides(current, activeId, overId));
+  }
+
+  function deleteSlide(id: string) {
+    const index = slides.findIndex((slide) => slide.id === id);
+    if (index < 0) return;
+    pendingRouteRef.current = null;
+    const next = slides[index + 1] ?? slides[index - 1];
+    deleteLesson(id);
+    if (activeLesson?.id === id) setActiveLessonId(next?.id ?? null);
+    void saveLatest();
+  }
+
   function applyFirstSlideCover() {
+    const existing = slides.find((slide) => slide.slideCover);
+    if (existing) { setActiveLessonId(existing.id); return; }
     const first = slides[0];
     if (!first) return;
-    if (!first.blocks.length) {
+    if (first.lessonType !== "quiz" && !first.blocks.length) {
       updateLesson(first.id, (lesson) => ({ ...lesson, slideCover: { ...defaultSlideCover } }));
+      setActiveLessonId(first.id);
       return;
     }
     const coverId = newId();
@@ -287,7 +309,7 @@ export function EditorClient({
   }
 
   function openPreview() {
-    const lessonId = slideCourse ? focusedLessonId ?? activeLessonId : null;
+    const lessonId = slideCourse ? activeLessonId : null;
     const lessonQuery = lessonId ? `?lessonId=${encodeURIComponent(lessonId)}` : "";
     openRouteAfterSave(`/courses/${initialData.courseId}/preview${lessonQuery}`);
   }
@@ -349,7 +371,7 @@ export function EditorClient({
           id: newId(),
           sectionId: copyId,
           order: index,
-          blocks: lesson.blocks.map((block) => ({ ...block, id: newId() })),
+          blocks: duplicateLessonBlocks(lesson.blocks, newId),
           quizQuestions: lesson.quizQuestions.map((question) => ({
             ...question,
             id: newId(),
@@ -562,6 +584,7 @@ export function EditorClient({
       updateBlock(existing.id, {
         ...replacement,
         slideFrame: existing.slideFrame,
+        requiredForProgress: existing.requiredForProgress ?? replacement.requiredForProgress ?? true,
         width: existing.width,
         widthCustom: existing.widthCustom,
         backgroundColor: existing.backgroundColor,
@@ -635,7 +658,7 @@ export function EditorClient({
     if (!activeLesson) return;
     updateLesson(activeLesson.id, (lesson) => ({
       ...lesson,
-      blocks: lesson.blocks.filter((block) => block.id !== blockId),
+      blocks: removeLessonBlock(lesson.blocks, blockId),
     }));
   }
 
@@ -737,6 +760,10 @@ export function EditorClient({
           }
           primaryAction={
             <div className="flex items-center gap-2">
+              {slideCourse && <>
+                <Button type="button" variant="ghost" size="icon" aria-label="Undo" disabled={!canUndo} onClick={undo}><Undo2 size={16} /></Button>
+                <Button type="button" variant="ghost" size="icon" aria-label="Redo" disabled={!canRedo} onClick={redo}><Redo2 size={16} /></Button>
+              </>}
               {permissions.includes("ai.generate") && <Button
                 type="button"
                 variant="outline"
@@ -783,14 +810,14 @@ export function EditorClient({
         />
       )}
       {!isCourseOverview && (
-        <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
-          <div className="flex min-h-[68px] items-center justify-between gap-4 px-4 sm:px-6">
-            <div className="flex min-w-0 items-center gap-3">
+        <header data-presentation-editor-header={slideCourse || undefined} className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
+          <div className={slideCourse ? "flex min-h-16 flex-wrap items-center justify-between gap-x-4 gap-y-2 px-3 py-2 sm:px-5" : "flex min-h-[68px] flex-wrap items-center justify-between gap-4 px-4 py-2 sm:px-6 sm:py-0"}>
+            <div className={slideCourse ? "flex min-w-0 flex-1 basis-40 items-center gap-2" : "flex min-w-0 items-center gap-3"}>
               {activeLesson && !focusedLessonId ? (
                 <button
                   type="button"
                   onClick={() => setActiveLessonId(null)}
-                  aria-label="Back to course outline"
+                  aria-label={slideCourse ? "Presentation settings" : "Back to course outline"}
                   className="cursor-pointer grid size-9 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900"
                 >
                   <ArrowLeft size={18} />
@@ -810,51 +837,57 @@ export function EditorClient({
                   <ArrowLeft size={18} />
                 </Link>
               )}
+              {slideCourse && <span className="hidden size-8 shrink-0 place-items-center rounded-lg bg-indigo-50 text-indigo-600 sm:grid"><Presentation size={17} strokeWidth={1.75} aria-hidden="true" /></span>}
               <div className="min-w-0">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-indigo-600">
-                  Coursecraft authoring
+                  {slideCourse ? "Presentation editor" : "Coursecraft authoring"}
                 </p>
                 <p className="truncate text-sm font-semibold">
                   {activeLesson?.title ?? draft.title}
                 </p>
               </div>
             </div>
-            <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+            <div aria-label={slideCourse ? "Presentation editor actions" : undefined} className={slideCourse ? "flex max-w-full shrink-0 items-center gap-1" : "flex max-w-full flex-wrap items-center gap-1 sm:gap-2"}>
               {activeLesson && activeLesson.lessonType !== "quiz" && (
                 <Button
                   type="button"
-                  variant={blockManagerOpen ? "secondary" : "outline"}
+                  variant={blockManagerOpen ? "secondary" : slideCourse ? "ghost" : "outline"}
                   size="sm"
                   aria-label="Manage blocks"
                   aria-expanded={blockManagerOpen}
                   aria-controls="lesson-block-manager"
                   onClick={() => setBlockManagerOpen((open) => !open)}
-                  className="h-9 px-2 sm:px-3"
+                  className={slideCourse ? "size-8 min-h-0 rounded-md p-0 text-slate-600" : "h-9 px-2 sm:px-3"}
                 >
-                  <List size={15} />
-                  <span className="hidden sm:inline">Manage blocks</span>
+                  <List size={16} aria-hidden="true" />
+                  <span className={slideCourse ? "sr-only" : "hidden sm:inline"}>Manage blocks</span>
                 </Button>
               )}
               <CourseThemeSettings
                 courseId={initialData.courseId}
                 courseTitle={draft.title}
                 theme={draft.theme}
+                compact={slideCourse}
                 onChange={(theme) =>
                   updateDraft((current) => ({ ...current, theme }))
                 }
               />
               <CourseNavigationSettings
                 navigationMode={draft.navigationMode}
+                compact={slideCourse}
                 onChange={(navigationMode) =>
                   updateDraft((current) => ({ ...current, navigationMode }))
                 }
               />
+              <div role="group" aria-label="Edit history" className={slideCourse ? "mx-1 flex items-center border-x border-slate-200 px-1" : "flex items-center"}>
               <Button
                 variant="ghost"
                 size="icon"
                 disabled={!canUndo}
                 onClick={undo}
                 aria-label="Undo"
+                title="Undo"
+                className={slideCourse ? "size-8 rounded-md text-slate-500" : undefined}
               >
                 <Undo2 size={16} />
               </Button>
@@ -864,32 +897,23 @@ export function EditorClient({
                 disabled={!canRedo}
                 onClick={redo}
                 aria-label="Redo"
+                title="Redo"
+                className={slideCourse ? "size-8 rounded-md text-slate-500" : undefined}
               >
                 <Redo2 size={16} />
               </Button>
-              <span
-                className={`hidden items-center gap-1.5 text-xs sm:inline-flex ${saveState === "error" || saveState === "conflict" ? "text-rose-700" : "text-slate-500"}`}
-              >
-                {stateIcon}
-                {stateLabel}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void saveLatest()}
-                disabled={saveState === "saving"}
-              >
-                <Save size={15} />
-                Save now
-              </Button>
+              </div>
               <Button
                 type="button"
-                variant="outline"
+                variant={slideCourse ? "default" : "outline"}
                 size="sm"
+                aria-label="Preview"
+                title={slideCourse ? "Preview presentation" : "Preview course"}
+                className={slideCourse ? "size-8 min-h-0 rounded-md p-0 shadow-none" : undefined}
                 onClick={openPreview}
               >
-                <Eye size={15} />
-                Preview
+                <Eye size={16} aria-hidden="true" />
+                <span className={slideCourse ? "sr-only" : undefined}>Preview</span>
               </Button>
             </div>
           </div>
@@ -962,7 +986,7 @@ export function EditorClient({
         style={{ fontFamily: courseThemeFontFamilies[draft.theme.fontFamily] }}
         className={`mx-auto w-full ${isCourseOverview ? "max-w-[880px] px-5 pb-16 pt-7 sm:px-8 sm:pt-8" : focusedLessonId ? "max-w-none pb-40" : "max-w-none px-3 py-4 sm:px-5 lg:px-8"}`}
       >
-        {(!focusedLessonId || slideCourse) && activeLesson && (
+        {!slideCourse && !focusedLessonId && activeLesson && (
           <details className="mb-3 rounded-xl border border-slate-200 bg-white p-3 lg:hidden">
             <summary className="cursor-pointer list-none text-sm font-semibold [&::-webkit-details-marker]:hidden">
               Course outline{" "}
@@ -976,15 +1000,15 @@ export function EditorClient({
           </details>
         )}
         <div
-          className={`grid gap-4 ${(focusedLessonId && !slideCourse) || !activeLesson ? "grid-cols-1" : "lg:grid-cols-[270px_minmax(0,1fr)]"}`}
+          className={`grid gap-4 ${slideCourse || (!focusedLessonId && activeLesson) ? "lg:grid-cols-[270px_minmax(0,1fr)]" : "grid-cols-1"}`}
         >
-          {(!focusedLessonId || slideCourse) && activeLesson && (slideCourse ? (
-            <SlideEditorSidebar slides={slides} activeId={activeLesson.id} master={draft.slideMaster} courseTitle={draft.title} onSelect={openLesson} onAdd={() => addSlide(activeLesson.sectionId)} />
-          ) : (
+          {slideCourse ? (
+            <SlideEditorSidebar slides={slides} activeId={activeLesson?.id ?? null} master={draft.slideMaster} courseTitle={draft.title} onSelect={openLesson} onAdd={() => addSlide(activeLesson?.sectionId ?? orderedSections[0].id)} onDelete={deleteSlide} onReorder={reorderSlides} />
+          ) : !focusedLessonId && activeLesson && (
             <aside className="sticky top-[84px] hidden max-h-[calc(100vh-100px)] overflow-y-auto rounded-2xl border border-slate-200 bg-white p-3 lg:block">
               {renderOutline()}
             </aside>
-          ))}
+          )}
 
           <section className="min-w-0" aria-label={slideCourse ? "Slide canvas" : "Lesson canvas"}>
             <div
@@ -1111,6 +1135,7 @@ export function EditorClient({
               {activeLesson ? (
                 slideCourse && activeLesson.lessonType !== "quiz" ? (
                   <SlideObjectWorkspace
+                    controls={<SlideEditorNavigation key={activeLesson.id} slides={slides} selectedId={activeLesson.id} onSelect={openLesson} guide={draft.slideMaster?.navigationGuide} />}
                     key={activeLesson.id}
                     title={activeLesson.title}
                     courseTitle={draft.title}
@@ -1121,7 +1146,10 @@ export function EditorClient({
                     lessons={draft.lessons}
                     master={draft.slideMaster}
                     cover={activeLesson.slideCover}
+                    hasCover={slides.some((slide) => Boolean(slide.slideCover))}
                     courseId={initialData.courseId}
+                    zoom={slideZoom}
+                    onZoomChange={setSlideZoom}
                     onTitleChange={(title) => updateLesson(activeLesson.id, (lesson) => ({ ...lesson, title }))}
                     onMasterChange={(slideMaster) => updateDraft((current) => ({ ...current, slideMaster }))}
                     onCoverChange={(slideCover) => updateLesson(activeLesson.id, (lesson) => ({ ...lesson, slideCover }))}
@@ -1129,17 +1157,18 @@ export function EditorClient({
                     onCourseTitleChange={(title) => updateDraft((current) => ({ ...current, title }))}
                     onStart={slides.findIndex((slide) => slide.id === activeLesson.id) < slides.length - 1 ? () => openLesson(slides[slides.findIndex((slide) => slide.id === activeLesson.id) + 1].id) : undefined}
                     onBlockChange={(block) => updateBlock(block.id, block)}
+                    onApplyBorderRadiusToAll={(slideBorderRadius) => updateDraft((current) => ({ ...current, lessons: current.lessons.map((lesson) => ({ ...lesson, blocks: lesson.blocks.map((block) => ({ ...block, slideBorderRadius })) })) }))}
                     onAddTemplate={addSlideObject}
                     onMoreTemplates={() => openAddTemplatePicker(activeLesson.blocks.length)}
                     onReplaceTemplate={openReplaceTemplatePicker}
                     onDuplicate={duplicateBlock}
                     onDelete={deleteBlock}
-                  >
-                    <SlideNavigation slides={slides} activeId={activeLesson.id} master={draft.slideMaster} courseTitle={draft.title} onSelect={openLesson} onAdd={() => addSlide(activeLesson.sectionId)} />
-                  </SlideObjectWorkspace>
+                  />
                 ) : activeLesson.lessonType === "quiz" ? (
                   <>
-                  <SlideEditorStage active={slideCourse} title={activeLesson.title}>
+                  <SlideEditorStage active={slideCourse} master={draft.slideMaster} number={slides.findIndex((slide) => slide.id === activeLesson.id) + 1} total={slides.length} controls={slideCourse ? <SlideEditorNavigation key={activeLesson.id} slides={slides} selectedId={activeLesson.id} onSelect={openLesson} guide={draft.slideMaster?.navigationGuide} /> : undefined} size={draft.slideMaster?.size} title={activeLesson.title} zoom={slideZoom} onZoomChange={setSlideZoom} inspector={slideCourse ? <SlideInspectorTabs master={<SlideMasterPanel value={draft.slideMaster} courseId={initialData.courseId} onChange={(slideMaster) => updateDraft((current) => ({ ...current, slideMaster }))} />} cover={<SlideCoverPanel hasCover={slides.some((slide) => Boolean(slide.slideCover))} courseId={initialData.courseId} courseTitle={draft.title} onTitleChange={(title) => updateDraft((current) => ({ ...current, title }))} onChange={() => {}} onOpenCover={applyFirstSlideCover} />}>
+                    <section className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">Select a question on the quiz canvas to edit its prompt, choices, and feedback.</section>
+                  </SlideInspectorTabs> : undefined}>
                   <QuizEditor
                     key={activeLesson.id}
                     title={activeLesson.title}
@@ -1171,11 +1200,10 @@ export function EditorClient({
                     }
                   />
                   </SlideEditorStage>
-                  {slideCourse && <SlideNavigation slides={slides} activeId={activeLesson.id} master={draft.slideMaster} courseTitle={draft.title} onSelect={openLesson} onAdd={() => addSlide(activeLesson.sectionId)} />}
                   </>
                 ) : (
                   <>
-                    <SlideEditorStage active={slideCourse} title={activeLesson.title}>
+                    <SlideEditorStage active={slideCourse} master={draft.slideMaster} number={slides.findIndex((slide) => slide.id === activeLesson.id) + 1} total={slides.length} controls={slideCourse ? <SlideEditorNavigation key={activeLesson.id} slides={slides} selectedId={activeLesson.id} onSelect={openLesson} guide={draft.slideMaster?.navigationGuide} /> : undefined} size={draft.slideMaster?.size} title={activeLesson.title} zoom={slideZoom} onZoomChange={setSlideZoom}>
                     <LessonTitleEditor
                       key={activeLesson.id}
                       compact={slideCourse}
@@ -1401,9 +1429,12 @@ export function EditorClient({
                       </Button>
                     </div>
                     </SlideEditorStage>
-                    {slideCourse && <SlideNavigation slides={slides} activeId={activeLesson.id} master={draft.slideMaster} courseTitle={draft.title} onSelect={openLesson} onAdd={() => addSlide(activeLesson.sectionId)} />}
                   </>
                 )
+              ) : slideCourse ? (
+                <div className="grid min-h-[340px] place-items-center rounded-xl border border-dashed border-slate-300 bg-white p-6 text-center">
+                  <div><h2 className="text-lg font-semibold">{slides.length ? "Choose a slide to edit" : "Your presentation has no slides"}</h2><p className="mt-2 text-sm text-slate-500">{slides.length ? "Choose a thumbnail in the slide panel to continue editing." : "Choose Add slide in the slide panel to start building your presentation."}</p></div>
+                </div>
               ) : !focusedLessonId ? (
                 <div className="mt-28">{renderOutline()}</div>
               ) : (

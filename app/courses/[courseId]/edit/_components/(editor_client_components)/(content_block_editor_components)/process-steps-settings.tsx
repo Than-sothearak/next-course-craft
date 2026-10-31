@@ -1,5 +1,7 @@
 "use client";
 
+import { ColorPicker } from "@/components/ui/color-picker";
+
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClientId } from "@/lib/client-id";
@@ -24,7 +26,7 @@ export function ProcessStepsSettings({ block, onChange }: { block: ProcessBlock;
       <div className="space-y-1">
         <label className="block text-xs font-medium text-slate-600" htmlFor={`process-accent-${block.id}`}>Accent color</label>
         <div className="flex items-center gap-2">
-          <Input id={`process-accent-${block.id}`} type="color" aria-label="Process step accent color" value={block.data.accentColor ?? "#2f5f9f"} onChange={(event) => update({ accentColor: event.target.value })} className="h-9 w-14 p-1" />
+          <ColorPicker id={`process-accent-${block.id}`} aria-label="Process step accent color" value={block.data.accentColor ?? "#2f5f9f"} onChange={(color) => update({ accentColor: color })} />
           <Button type="button" variant="outline" size="sm" disabled={!block.data.accentColor} onClick={() => {
             const data = { ...block.data };
             delete data.accentColor;

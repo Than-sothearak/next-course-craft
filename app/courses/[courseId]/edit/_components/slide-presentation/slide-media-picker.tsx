@@ -28,8 +28,8 @@ export function SlideMediaPicker({ block, courseId, onChange }: {
 
   function choose(asset: MediaLibraryAsset) {
     setError(null);
-    if (mediaBlock.type === "image") onChange({ ...mediaBlock, data: { ...mediaBlock.data, src: asset.fileUrl } });
-    else if (mediaBlock.type === "labeledGraphic") onChange({ ...mediaBlock, data: { ...mediaBlock.data, src: asset.fileUrl } });
+    if (mediaBlock.type === "image") onChange({ ...mediaBlock, slideCrop: undefined, data: { ...mediaBlock.data, src: asset.fileUrl } });
+    else if (mediaBlock.type === "labeledGraphic") onChange({ ...mediaBlock, data: { ...mediaBlock.data, src: asset.fileUrl, mapTemplate: undefined } });
     else if (mediaBlock.type === "gallery") {
       const images = [...mediaBlock.data.images];
       const position = galleryIndex ?? 0;
@@ -38,7 +38,7 @@ export function SlideMediaPicker({ block, courseId, onChange }: {
       onChange({ ...mediaBlock, data: { images } });
     } else if (mediaBlock.type === "video") {
       if (asset.contentType !== "video/mp4" && asset.contentType !== "video/webm") { setError("Choose an MP4 or WebM video."); return; }
-      onChange({ ...mediaBlock, data: { ...mediaBlock.data, src: asset.fileUrl, mimeType: asset.contentType } });
+      onChange({ ...mediaBlock, slideCrop: undefined, data: { ...mediaBlock.data, src: asset.fileUrl, mimeType: asset.contentType } });
     } else if (mediaBlock.type === "audio") {
       const parsed = audioBlockSchema.safeParse({ ...mediaBlock, data: { src: asset.fileUrl, fileName: asset.originalName, mimeType: asset.contentType } });
       if (!parsed.success) { setError("Choose a supported audio file."); return; }

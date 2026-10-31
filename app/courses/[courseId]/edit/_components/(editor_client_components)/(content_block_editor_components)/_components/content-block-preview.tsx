@@ -1,4 +1,5 @@
 "use client";
+import { borderPaint } from "@/lib/color";
 
 import Image from "next/image";
 import { LockKeyhole, Play } from "lucide-react";
@@ -10,11 +11,12 @@ import { InputBlockPreview } from "../../input-block-preview";
 import { InteractiveAccordion, InteractiveFlipCard, InteractiveLabeledGraphic, InteractiveProcessSteps } from "../../../../../preview/interactive-blocks";
 import { ImageBlockLayout } from "../../../image-block-layout";
 import { ChartBlockPreview } from "../../../../../preview/chart-block";
+import { PreviewBlock as LearnerBlock } from "../../../../../preview/_components/(course_preview_components)/(lesson_reader_preview_components)/(lesson_blocks_preview_components)/preview-block";
 
 type PreviewBlock = Exclude<ContentBlock, { type: "heading" | "richText" | "statement" | "lessonMap" }>;
 
-export function ContentBlockPreview({ block, onChange }: { block: PreviewBlock; onChange: (block: ContentBlock) => void }) {
-  return block.type === "link" ? (
+export function ContentBlockPreview({ block, onChange, presentation = false }: { block: PreviewBlock; onChange: (block: ContentBlock) => void; presentation?: boolean }) {
+  return (block.type === "interactionButton" || block.type === "audioInstruction") ? <LearnerBlock block={block} device="desktop" orientation="landscape" slideLayout={presentation} authoring /> : block.type === "link" ? (
     <CourseLinkBlock data={block.data} interactive={false} />
   ) : block.type === "audio" ? (
     <AudioPlayer src={block.data.src} fileName={block.data.fileName} />
@@ -103,7 +105,7 @@ export function ContentBlockPreview({ block, onChange }: { block: PreviewBlock; 
         style={{
           borderTopWidth: `${block.data.lineWeight ?? 1}px`,
           borderTopStyle: block.data.lineStyle ?? "solid",
-          borderTopColor: block.data.lineColor ?? "#cbd5e1",
+          ...borderPaint(block.data.lineColor ?? "#cbd5e1"),
         }}
       />
     ) : block.data.style === "space" ? (
@@ -143,15 +145,19 @@ export function ContentBlockPreview({ block, onChange }: { block: PreviewBlock; 
       blockId={block.id}
       src={block.data.src}
       alt={block.data.alt}
+      mapTemplate={block.data.mapTemplate}
+      objectFit={block.data.objectFit}
+      presentation={presentation}
       markers={block.data.markers}
-      markerColor={block.data.markerColor ?? block.data.markers[0]?.color ?? "#2f5f9f"}
+      markerColor={block.data.markerColor}
       textColor={block.data.textColor ?? "#ffffff"}
-      radarColor={block.data.radarColor ?? block.data.markerColor ?? block.data.markers[0]?.color ?? "#2f5f9f"}
+      radarColor={block.data.radarColor}
       interactionMode={block.data.interactionMode}
       sceneTheme={block.data.sceneTheme}
       challengePrompt={block.data.challengePrompt}
       successMessage={block.data.successMessage}
       editable
+      onMarkerChange={(markerId, update) => onChange({ ...block, data: { ...block.data, markers: block.data.markers.map((marker) => marker.id === markerId ? { ...marker, ...update } : marker) } })}
       onMarkerPositionChange={(markerId, position) => onChange({
         ...block,
         data: {

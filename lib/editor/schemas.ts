@@ -56,8 +56,8 @@ export const editorSnapshotSchema = z.object({
   }
   const lessonOrders = new Map<string, Set<number>>();
   snapshot.lessons.forEach((lesson, index) => {
-    if (lesson.slideCover && (snapshot.courseLayout !== "slides" || lesson.lessonType !== "content" || lesson.blocks.length)) {
-      context.addIssue({ code: "custom", path: ["lessons", index, "slideCover"], message: "A cover slide must be an empty presentation slide." });
+    if (lesson.slideCover && (snapshot.courseLayout !== "slides" || lesson.lessonType !== "content" || lesson.blocks.some((block) => block.type !== "audioInstruction"))) {
+      context.addIssue({ code: "custom", path: ["lessons", index, "slideCover"], message: "A presentation cover can contain only audio instruction blocks." });
     }
     if (!sectionIds.has(lesson.sectionId)) {
       context.addIssue({ code: "custom", path: ["lessons", index, "sectionId"], message: "Every lesson must belong to a section." });

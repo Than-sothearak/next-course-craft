@@ -1,13 +1,14 @@
 "use client";
 
-import { ArrowLeft, ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import type { SlideItem } from "@/app/courses/[courseId]/_components/slide-presentation/slide-navigation";
+import { SlideNavigationControls } from "../../../_components/slide-presentation/slide-navigation-controls";
+import { useSlidePresentationContext } from "./slide-presentation-context";
 
-export function SlidePresentationControls({ slides, selectedId, onSelect, getLockMessage }: {
+export function SlidePresentationControls({ slides, selectedId, onSelect, onRestart, getLockMessage }: {
   slides: readonly SlideItem[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  onRestart: () => void;
   getLockMessage: (id: string) => string | null;
 }) {
   const index = slides.findIndex((slide) => slide.id === selectedId);
@@ -15,13 +16,6 @@ export function SlidePresentationControls({ slides, selectedId, onSelect, getLoc
   const next = index >= 0 ? slides[index + 1] : undefined;
   const previousLock = previous ? getLockMessage(previous.id) : null;
   const nextLock = next ? getLockMessage(next.id) : null;
-  return (
-    <nav aria-label="Slide navigation" className="absolute inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 px-5 py-1 text-slate-800">
-      <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
-        <Button type="button" variant="outline" size="sm" disabled={!previous || Boolean(previousLock)} title={previousLock ?? undefined} onClick={() => previous && onSelect(previous.id)}><ArrowLeft size={15} />Previous</Button>
-        <span className="text-xs font-semibold text-slate-600">Slide {index >= 0 ? index + 1 : 0} of {slides.length}</span>
-        <Button type="button" variant="outline" size="sm" disabled={!next || Boolean(nextLock)} title={nextLock ?? undefined} onClick={() => next && onSelect(next.id)}>Next<ArrowRight size={15} /></Button>
-      </div>
-    </nav>
-  );
+  const presentation = useSlidePresentationContext();
+  return <SlideNavigationControls previousDisabled={!previous || Boolean(previousLock)} nextDisabled={!next || Boolean(nextLock)} previousHint={previousLock ?? undefined} nextHint={nextLock ?? undefined} onPrevious={() => previous && onSelect(previous.id)} onNext={() => next && onSelect(next.id)} onRestart={onRestart} guide={presentation?.navigationGuide} guideStep={presentation?.menuOpen ? null : presentation?.guideStep} onGuideStep={presentation?.onGuideStep} />;
 }

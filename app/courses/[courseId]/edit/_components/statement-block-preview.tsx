@@ -25,10 +25,10 @@ export const statementStyles: Record<StatementStyle, { container: string; title:
   },
 };
 
-export function StatementBlockPreview({ style, title, body, titleHtml, bodyHtml }: { style: StatementStyle; title: string; body: string; titleHtml?: string; bodyHtml?: string }) {
+export function StatementBlockPreview({ style, title, body, titleHtml, bodyHtml, transparentSurface = false }: { style: StatementStyle; title: string; body: string; titleHtml?: string; bodyHtml?: string; transparentSurface?: boolean }) {
   const classes = statementStyles[style];
-  return <div className={classes.container}>
-    <StatementTextPreview tag="h3" text={title || "Statement title"} html={titleHtml} className={classes.title} />
-    <StatementTextPreview tag="p" text={body || "Add your statement text here."} html={bodyHtml} className={classes.body} />
+  return <div className={classes.container} style={transparentSurface ? { backgroundColor: "transparent", color: "inherit" } : undefined}>
+    <StatementTextPreview tag="h3" text={title || "Statement title"} html={titleHtml} className={classes.title} inheritColor={transparentSurface} />
+    <StatementTextPreview tag="p" text={body || "Add your statement text here."} html={bodyHtml} className={classes.body} inheritColor={transparentSurface} />
   </div>;
 }

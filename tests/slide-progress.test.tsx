@@ -58,6 +58,7 @@ describe("slide reading progress", () => {
     const canvas = container.querySelector<HTMLElement>('[data-slide-canvas=""]')!;
     expect(canvas.contains(container.querySelector('[aria-label="Open slide menu"]'))).toBe(true);
     expect(canvas.contains(container.querySelector('[aria-label="Slide navigation"]'))).toBe(true);
+    expect(container.querySelector('[data-slide-footer]')?.contains(container.querySelector('[aria-label="Slide navigation"]'))).toBe(true);
     expect(container.querySelector('[data-presentation-view]')?.classList.contains("bg-white")).toBe(true);
     Object.defineProperties(canvas, {
       scrollHeight: { configurable: true, value: 1000 }, clientHeight: { configurable: true, value: 500 },
@@ -70,6 +71,7 @@ describe("slide reading progress", () => {
     expect(container.querySelector('[aria-label="Slide thumbnails"]')).toBeNull();
     act(() => container.querySelector<HTMLButtonElement>('[aria-label="Open slide menu"]')!.click());
     expect(canvas.contains(container.querySelector('#slide-course-menu'))).toBe(true);
+    expect(container.querySelector('[data-presentation-view]')?.contains(container.querySelector('#slide-course-menu'))).toBe(true);
     expect(container.querySelector('[aria-label="Course completion"]')?.getAttribute("aria-valuenow")).toBe("0");
     expect(container.querySelector<HTMLButtonElement>('[aria-label^="Next slide. Locked"]')?.disabled).toBe(true);
     act(() => container.querySelector<HTMLButtonElement>('[aria-label="Close slide menu"]')!.click());

@@ -59,6 +59,7 @@ export type BlockTemplate = {
   processSteps?: Extract<ContentBlock, { type: "processSteps" }>["data"];
   chart?: Extract<ContentBlock, { type: "chart" }>["data"];
   link?: Extract<ContentBlock, { type: "link" }>['data'];
+  interactionButton?: Partial<Extract<ContentBlock, { type: "interactionButton" }>["data"]>;
   imageLayout?: ImageLayout;
   imageTitle?: string;
   imageBody?: string;
@@ -67,6 +68,8 @@ export type BlockTemplate = {
 };
 
 export const blockTemplates: BlockTemplate[] = [
+  { id: "media-audio-instruction", category: "Multimedia", title: "Audio instruction", description: "Instruction audio with autoplay and optional icon and text.", type: "audioInstruction", preview: "audio-instruction" },
+  { id: "interactive-button", category: "Interactive", title: "Interaction button", description: "An image or icon button that opens a custom mini slide or another block.", type: "interactionButton", interactionButton: { label: "Learn more", icon: "info", radarEnabled: true }, preview: "interaction-button" },
   {
     id: "text-title-paragraph",
     category: "Text",
@@ -545,8 +548,8 @@ export const blockTemplates: BlockTemplate[] = [
     description: "Add clickable markers that explain parts of an image.",
     type: "labeledGraphic",
     labeledGraphic: {
-      src: "https://placehold.co/1200x675?text=Add+a+graphic",
-      alt: "Diagram with interactive labels",
+      src: "https://placehold.co/1200x675?text=Add+an+image",
+      alt: "Interactive image",
       markers: [
         {
           id: "marker-1",

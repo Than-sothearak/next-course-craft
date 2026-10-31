@@ -4,6 +4,7 @@ import { Course, Lesson } from "@/models";
 import { DashboardError } from "@/lib/dashboard/rules";
 import type { EditorSnapshotInput } from "../schemas";
 import { defaultSection, ownerObjectId } from "./shared";
+import { duplicateLessonBlocks } from "../course-content";
 
 export async function addCourseLesson(ownerId: string, courseId: string) {
   const owner = ownerObjectId(ownerId);
@@ -125,7 +126,7 @@ export async function copyCourseLesson(
       })),
     })),
     order: (lastLesson?.order ?? -1) + 1,
-    blocks: lesson.blocks.map((block) => ({ ...block, id: randomUUID() })),
+    blocks: duplicateLessonBlocks(lesson.blocks, randomUUID),
   });
   const updated = await Course.findOneAndUpdate(
     {

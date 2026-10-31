@@ -52,6 +52,23 @@ describe("interactive knowledge check", () => {
 });
 
 describe("graphic hotspot mini-game", () => {
+  it("disables the radar on an individual game point while keeping it playable", () => {
+    const onMarkerInteract = vi.fn();
+    act(() => root.render(createElement(InteractiveLabeledGraphic, {
+      blockId: "game-radar", src: "", alt: "Game scene", interactionMode: "spotTarget", sceneTheme: "data", challengePrompt: "Find the clue", successMessage: "Found it", onMarkerInteract,
+      markers: [
+        { id: "target", label: "Target", description: "The clue", x: 30, y: 40, isTarget: true, radarEnabled: false },
+        { id: "other", label: "Other", description: "Another point", x: 70, y: 60 },
+      ],
+    })));
+    const points = [...container.querySelectorAll<HTMLButtonElement>('[aria-label^="Inspect hotspot"]')];
+    expect(points[0].querySelector('[class*="animate-ping"]')).toBeNull();
+    expect(points[1].querySelector('[class*="animate-ping"]')).not.toBeNull();
+    act(() => points[0].click());
+    expect(onMarkerInteract).toHaveBeenCalledWith("target");
+    expect(container.querySelector('[role="status"]')?.textContent).toBe("Found it");
+  });
+
   it("gives retry feedback, scores a correct hotspot, and lets learners replay", () => {
     const markers = [
       { id: "nearby", label: "Nearby point", description: "This point follows the trend.", x: 48, y: 61, isTarget: false, missFeedback: "That point follows the trend. Try another hotspot." },
@@ -112,6 +129,25 @@ describe("themed explore graphic", () => {
 });
 
 describe("interactive flip card", () => {
+  it("uses a compact responsive presentation grid and keeps every card reveal trackable", () => {
+    const onCardReveal = vi.fn();
+    const cards = Array.from({ length: 30 }, (_, index) => ({
+      id: `card-${index}`, frontLabel: "Question", front: { type: "text" as const, text: `Prompt ${index + 1}` },
+      backLabel: "Answer", back: { type: "text" as const, text: `Explanation ${index + 1}` },
+    }));
+    act(() => root.render(createElement(InteractiveFlipCard, { blockId: "presentation-cards", cards, cardsPerRow: 5, presentation: true, onCardReveal })));
+    const grid = container.firstElementChild?.firstElementChild;
+    expect(grid?.className).toContain("@min-[18rem]/flip-cards:grid-cols-2");
+    expect(grid?.className).toContain("@min-[46rem]/flip-cards:grid-cols-5");
+    const buttons = container.querySelectorAll<HTMLButtonElement>("button[aria-pressed]");
+    expect(buttons).toHaveLength(30);
+    expect(buttons[0].firstElementChild?.className).toContain("min-h-28");
+    expect(buttons[0].firstElementChild?.className).not.toContain("min-h-52");
+    act(() => buttons[29].click());
+    expect(buttons[29].getAttribute("aria-pressed")).toBe("true");
+    expect(onCardReveal).toHaveBeenCalledTimes(1);
+  });
+
   it("tracks clicks per card, supports multiple cards, and can flip back", () => {
     const onCardReveal = vi.fn();
     act(() => root.render(createElement(InteractiveFlipCard, {
@@ -299,8 +335,8 @@ describe("interactive reveal blocks", () => {
     const markerButtons = [...container.querySelectorAll<HTMLButtonElement>(".labeled-graphic-radar")];
     expect(markerButtons).toHaveLength(2);
     expect(markerButtons.map((marker) => marker.style.backgroundColor)).toEqual([
-      "rgb(18, 52, 86)",
-      "rgb(18, 52, 86)",
+      "rgb(220, 38, 38)",
+      "rgb(37, 99, 235)",
     ]);
     expect(markerButtons[0].style.color).toBe("rgb(254, 243, 199)");
     expect(markerButtons[0].style.getPropertyValue("--radar-color")).toBe("#f97316");

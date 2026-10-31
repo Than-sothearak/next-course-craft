@@ -1,5 +1,8 @@
 "use client";
 
+import { backgroundPaint, representativeColor } from "@/lib/color";
+import { ColorPicker } from "@/components/ui/color-picker";
+
 import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import {
   ArrowDown,
@@ -54,6 +57,7 @@ function checkpointIcon(icon: LessonMapCheckpointIcon) {
 }
 
 function checkpointForeground(hex: string) {
+  hex = representativeColor(hex);
   const channels = hex.match(/[\da-f]{2}/gi)?.map((channel) => Number.parseInt(channel, 16) / 255);
   if (!channels || channels.length !== 3) return "#ffffff";
   const [red, green, blue] = channels.map((channel) => channel <= 0.04045 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4);
@@ -153,7 +157,7 @@ function LessonMapBoard({
             }}
             onClick={() => onCheckpointSelect(checkpoint.id)}
             className={`absolute z-10 grid size-12 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-[17px] border-[3px] border-white text-white shadow-[0_5px_0_rgba(28,52,43,.18),0_8px_18px_rgba(30,45,35,.25)] transition-transform focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-500 focus-visible:ring-offset-2 hover:-translate-y-[55%] ${editable ? "cursor-grab touch-none active:cursor-grabbing" : "cursor-pointer"} ${selected ? "scale-110 ring-4 ring-amber-200" : state === "completed" ? "outline outline-2 outline-emerald-700" : ""} ${state === "locked" ? "saturate-50 opacity-80" : ""}`}
-            style={{ left: `${checkpoint.x}%`, top: `${checkpoint.y}%`, backgroundColor: checkpoint.color, color: checkpointForeground(checkpoint.color) }}
+            style={{ left: `${checkpoint.x}%`, top: `${checkpoint.y}%`, ...backgroundPaint(checkpoint.color), color: checkpointForeground(checkpoint.color) }}
           >
             <Icon aria-hidden="true" size={19} strokeWidth={2.8} />
             <span className="absolute -right-2 -top-2 grid size-5 place-items-center rounded-full border-2 border-white bg-slate-900 text-[10px] font-extrabold leading-none text-white shadow">{index + 1}</span>
@@ -164,7 +168,7 @@ function LessonMapBoard({
       {activeCheckpoint && (
         <div role="dialog" aria-label={`${activeCheckpoint.title || "Checkpoint"} details`} className="absolute bottom-2.5 left-1/2 z-20 w-[min(400px,calc(100%-1.25rem))] -translate-x-1/2 rounded-2xl border border-white/80 bg-white/95 p-3.5 shadow-[0_10px_35px_rgba(31,47,34,.25)] backdrop-blur-sm sm:bottom-4 sm:p-4">
           <div className="flex items-start gap-3">
-            <span className="grid size-10 shrink-0 place-items-center rounded-xl shadow-sm" style={{ backgroundColor: activeCheckpoint.color, color: checkpointForeground(activeCheckpoint.color) }}>
+            <span className="grid size-10 shrink-0 place-items-center rounded-xl shadow-sm" style={{ ...backgroundPaint(activeCheckpoint.color), color: checkpointForeground(activeCheckpoint.color) }}>
               {(() => { const Icon = checkpointIcon(activeCheckpoint.icon).Icon; return <Icon aria-hidden="true" size={19} />; })()}
             </span>
             <div className="min-w-0 flex-1">
@@ -358,7 +362,7 @@ export function LessonMapEditor({
                 {block.data.checkpoints.map((checkpoint, index) => (
                   <li key={checkpoint.id} className="flex min-w-0 list-none items-center gap-1">
                     <Button type="button" variant={selectedCheckpointId === checkpoint.id ? "secondary" : "ghost"} onClick={() => setSelectedCheckpointId(checkpoint.id)} aria-pressed={selectedCheckpointId === checkpoint.id} className="h-9 min-w-0 flex-1 cursor-pointer justify-start gap-2 px-2 text-xs">
-                      <span className="grid size-5 shrink-0 place-items-center rounded-md text-white" style={{ backgroundColor: checkpoint.color }}>{index + 1}</span>
+                      <span className="grid size-5 shrink-0 place-items-center rounded-md text-white" style={{ ...backgroundPaint(checkpoint.color) }}>{index + 1}</span>
                       <span className="truncate">{checkpoint.title || `Checkpoint ${index + 1}`}</span>
                     </Button>
                     <Button type="button" variant="ghost" size="icon" onClick={() => reorderCheckpoint(checkpoint.id, -1)} disabled={index === 0} aria-label={`Move ${checkpoint.title || `checkpoint ${index + 1}`} earlier`} className="size-8 shrink-0 cursor-pointer"><ArrowUp aria-hidden="true" size={14} /></Button>
@@ -384,7 +388,7 @@ export function LessonMapEditor({
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   <label className="block text-xs font-semibold text-slate-600">Color
-                    <Input aria-label="Checkpoint color" type="color" value={activeCheckpoint.color} onChange={(event) => updateCheckpoint(activeCheckpoint.id, (checkpoint) => ({ ...checkpoint, color: event.target.value }))} className="mt-1 h-9 cursor-pointer p-1" />
+                    <ColorPicker aria-label="Checkpoint color" value={activeCheckpoint.color} onChange={(color) => updateCheckpoint(activeCheckpoint.id, (checkpoint) => ({ ...checkpoint, color: color }))} />
                   </label>
                   <label className="block text-xs font-semibold text-slate-600">Icon
                     <Select aria-label="Checkpoint icon" value={activeCheckpoint.icon} onChange={(event) => updateCheckpoint(activeCheckpoint.id, (checkpoint) => ({ ...checkpoint, icon: event.target.value as LessonMapCheckpointIcon }))} className="mt-1 h-9 w-full">

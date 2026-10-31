@@ -13,9 +13,12 @@ import { TextTemplatePreview } from "./(template_preview_components)/text-templa
 import { CodeTemplatePreview } from "./(template_preview_components)/code-template-preview";
 import { CourseLinkBlock } from "@/components/course-link-block";
 import { LessonMapTemplateThumbnail } from "@/components/lesson-map";
+import { InteractionIcon } from "@/components/interaction-icon";
 
 export function TemplatePreview({ template }: { template: BlockTemplate }) {
   const kind = template.preview;
+  if (template.type === "audioInstruction") return <div className="grid aspect-video place-items-center rounded-lg bg-slate-100"><span className="flex items-center gap-2 rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-700 shadow-sm"><Music2 size={20} />Audio instructions</span></div>;
+  if (template.type === "interactionButton") return <div className="grid aspect-video place-items-center rounded-lg bg-indigo-50"><span className="grid size-14 place-items-center rounded-xl bg-indigo-600 text-white shadow-md"><InteractionIcon name={template.interactionButton?.icon ?? "info"} /></span></div>;
   if (template.type === "statement" && template.statement)
     return <StatementBlockPreview {...template.statement} />;
   if (template.type === "flipCard" && template.flipCard)

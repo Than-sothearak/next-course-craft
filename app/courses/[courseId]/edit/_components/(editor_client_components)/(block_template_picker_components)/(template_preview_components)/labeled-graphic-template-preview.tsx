@@ -1,6 +1,7 @@
 import type { BlockTemplate } from "../block-template-data";
 import { InteractiveScene } from "@/components/interactive-scene";
 import { MiniLandscape } from "./mini-landscape";
+import { LessonMapArtwork } from "@/components/lesson-map-artwork";
 
 export function LabeledGraphicTemplatePreview({ data }: { data: NonNullable<BlockTemplate["labeledGraphic"]> }) {
   if (data.interactionMode === "spotTarget" && data.sceneTheme)
@@ -52,12 +53,12 @@ export function LabeledGraphicTemplatePreview({ data }: { data: NonNullable<Bloc
 
   return (
     <div className="relative overflow-hidden rounded-lg">
-      <MiniLandscape className="aspect-video" />
+      {data.mapTemplate ? <LessonMapArtwork template={data.mapTemplate} className="aspect-[18/11] w-full" /> : <MiniLandscape className="aspect-video" />}
       {data.markers.map((marker, index) => (
         <span
           key={marker.id}
           className="absolute grid size-5 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full border border-white bg-indigo-600 text-[8px] font-bold text-white shadow"
-          style={{ left: `${marker.x}%`, top: `${marker.y}%` }}
+          style={{ left: `${marker.x}%`, top: `${marker.y}%`, backgroundColor: marker.color ?? data.markerColor }}
         >
           {index + 1}
         </span>

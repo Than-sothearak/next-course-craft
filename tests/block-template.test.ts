@@ -72,12 +72,13 @@ describe("new template block spacing", () => {
     }
   });
 
-  it("uses at least 40px of vertical padding for every new block template", () => {
+  it("uses at least 40px of vertical padding for content and no padding for interaction buttons", () => {
     for (const template of blockTemplates) {
       const blocks = createBlocksFromTemplate(template, `padding-${template.id}`);
       expect(blocks.length, template.id).toBeGreaterThan(0);
       for (const block of blocks) {
-        expect(block.blockPadding, template.id).toBeGreaterThanOrEqual(40);
+        if (block.type === "interactionButton" || block.type === "audioInstruction") expect(block.blockPadding).toBe(0);
+        else expect(block.blockPadding, template.id).toBeGreaterThanOrEqual(40);
       }
     }
   });
@@ -364,6 +365,7 @@ describe("prebuilt interactive block templates", () => {
     );
 
     expect(interactiveTemplates.map((item) => item.id)).toEqual([
+      "interactive-button",
       "interactive-reveal",
       "interactive-accordion",
       "interactive-tabs",
@@ -530,6 +532,17 @@ describe("prebuilt interactive block templates", () => {
         ]),
       },
     });
+  });
+
+  it("starts interactive images with an image placeholder and no free map", () => {
+    const template = blockTemplates.find((item) => item.id === "interactive-labeled-graphic")!;
+    expect(template.labeledGraphic?.src).toBe("https://placehold.co/1200x675?text=Add+an+image");
+    expect(template.labeledGraphic?.mapTemplate).toBeUndefined();
+    const block = createBlocksFromTemplate(template, "graphic")[0];
+    expect(blockSchema.safeParse(block).success).toBe(true);
+    expect(block).toMatchObject({ type: "labeledGraphic", data: { src: template.labeledGraphic!.src } });
+    const markup = renderToStaticMarkup(createElement(TemplatePreview, { template }));
+    expect(markup).not.toContain("illustrated lesson map");
   });
 
   it("previews three graphic mini-games with different scenes and hidden targets", () => {

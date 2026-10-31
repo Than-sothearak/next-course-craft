@@ -319,12 +319,13 @@ export function CoursePreview({
       const divider = lesson.blocks.find((block) =>
         block.type === "divider" &&
         block.data.style === "continue" &&
+        block.requiredForProgress !== false &&
         (!revealedDividerIds.has(block.id) ||
           (block.data.completionType === "completeAbove" &&
             !completedDividerIds.has(block.id))),
       );
       const continueDividers = lesson.blocks.filter(
-        (block) => block.type === "divider" && block.data.style === "continue",
+        (block) => block.type === "divider" && block.data.style === "continue" && block.requiredForProgress !== false,
       );
       const revealedContinueCount = continueDividers.filter((block) =>
         revealedDividerIds.has(block.id),
@@ -595,6 +596,7 @@ export function CoursePreview({
         <SlidePresentationPreview
           courseId={initialData.courseId}
           title={initialData.title}
+          navigationGuide={initialData.slideMaster?.navigationGuide}
           slides={lessons}
           selectedId={selectedLessonId}
           onSelect={selectLesson}

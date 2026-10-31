@@ -1,5 +1,6 @@
 import type { ContentBlock } from "@/lib/schemas/block";
 import type { CourseNavigationMode } from "@/lib/editor/navigation";
+import { isInteractionTarget } from "@/lib/editor/interaction-button";
 
 export type LearnerProgressSnapshot = {
   visitedLessonIds: string[];
@@ -25,8 +26,10 @@ export function getInteractiveItemProgressId(
   return `${blockId}:${kind}:${itemId}`;
 }
 
-export function getInteractiveBlockProgressIds(block: ContentBlock): string[] {
+export function getInteractiveBlockProgressIds(block: ContentBlock, lessonBlocks?: readonly ContentBlock[]): string[] {
   switch (block.type) {
+    case "interactionButton":
+      return (block.data.action === "popup" ? block.data.popup.blocks.length > 0 : Boolean(block.data.targetBlockId) && (!lessonBlocks || lessonBlocks.some((item) => item.id === block.data.targetBlockId && isInteractionTarget(item, block.id)))) ? [`${block.id}:opened`] : [];
     case "flipCard":
       return block.data.cards.map((card) =>
         getFlipCardProgressId(block.id, card.id),
@@ -48,6 +51,7 @@ export function getInteractiveBlockProgressIds(block: ContentBlock): string[] {
     case "survey":
       return [`${block.id}:submitted`];
     case "audio":
+    case "audioInstruction":
       return block.data.src ? [`${block.id}:listened`] : [];
     case "video":
       return [`${block.id}:watched`];
@@ -83,7 +87,8 @@ export function getPendingInteractiveProgressIds(
 ) {
   return blocks
     .slice(0, endIndex)
-    .flatMap((block) => getInteractiveBlockProgressIds(block))
+    .filter((block) => block.requiredForProgress !== false)
+    .flatMap((block) => getInteractiveBlockProgressIds(block, blocks))
     .filter((id) => !interactedContentIds.has(id));
 }
 
@@ -92,8 +97,8 @@ export function getRestrictedLessonProgress(
   blocks: readonly ContentBlock[],
   interactedContentIds: ReadonlySet<string>,
 ) {
-  const activityIds = blocks.flatMap((block) =>
-    getInteractiveBlockProgressIds(block),
+  const activityIds = blocks.filter((block) => block.requiredForProgress !== false).flatMap((block) =>
+    getInteractiveBlockProgressIds(block, blocks),
   );
   if (activityIds.length === 0) return readingProgress;
 
@@ -117,6 +122,7 @@ export function getPendingRequiredContinueDividerIds(
     if (
       block.type !== "divider" ||
       block.data.style !== "continue" ||
+      block.requiredForProgress === false ||
       block.data.completionType !== "completeAbove"
     ) return [];
     const hasPendingInteractiveContent = getPendingInteractiveProgressIds(
@@ -153,6 +159,7 @@ export function getPendingFlipCardIds(
 ) {
   return blocks
     .slice(0, endIndex)
+    .filter((block) => block.requiredForProgress !== false)
     .flatMap((block) => block.type === "flipCard"
       ? block.data.cards.map((card) => getFlipCardProgressId(block.id, card.id))
       : [])

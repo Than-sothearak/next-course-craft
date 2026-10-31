@@ -13,11 +13,13 @@ export function StatementTextPreview({
   text,
   tag,
   className,
+  inheritColor = false,
 }: {
   html?: string;
   text: string;
   tag: "h3" | "p";
   className: string;
+  inheritColor?: boolean;
 }) {
   const content = html ?? `<${tag}>${escapeHtml(text)}</${tag}>`;
   const editor = useEditor({
@@ -40,5 +42,5 @@ export function StatementTextPreview({
     });
   }, [className, content, editor]);
 
-  return <EditorContent editor={editor} className={`lesson-rich-text ${className} [&_.tiptap]:m-0 [&_.tiptap]:outline-none [&_.tiptap_*]:text-inherit [&_.tiptap_h1]:my-0 [&_.tiptap_h2]:my-0 [&_.tiptap_h3]:my-0 [&_.tiptap_p]:my-0`} />;
+  return <EditorContent editor={editor} style={inheritColor ? { color: "inherit" } : undefined} className={`lesson-rich-text ${className} [&_.tiptap]:m-0 [&_.tiptap]:outline-none [&_.tiptap_*]:text-inherit [&_.tiptap_h1]:my-0 [&_.tiptap_h2]:my-0 [&_.tiptap_h3]:my-0 [&_.tiptap_p]:my-0`} />;
 }

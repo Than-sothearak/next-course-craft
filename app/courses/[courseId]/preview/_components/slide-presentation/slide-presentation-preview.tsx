@@ -6,10 +6,13 @@ import { Button } from "@/components/ui/button";
 import { PublishMenu } from "@/components/publish-menu";
 import type { SlideItem } from "@/app/courses/[courseId]/_components/slide-presentation/slide-navigation";
 import { SlidePresentationContext } from "./slide-presentation-context";
+import { slideMediaRestartEvent } from "@/lib/editor/slide-playback";
+import type { SlideNavigationGuide } from "@/lib/editor/slide-design";
+import { usePresentationGuidance } from "./use-presentation-guidance";
 
 export function SlidePresentationPreview({
   courseId, title, slides, selectedId, onSelect, getLockMessage,
-  standalone, canPublish, onBack, onEdit, menuOpen, onMenuOpenChange, menu, children,
+  standalone, canPublish, onBack, onEdit, menuOpen, onMenuOpenChange, menu, children, navigationGuide,
 }: {
   courseId: string;
   title: string;
@@ -25,10 +28,12 @@ export function SlidePresentationPreview({
   onBack?: () => void;
   onEdit?: () => void;
   children: ReactNode;
+  navigationGuide?: SlideNavigationGuide;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [fullscreen, setFullscreen] = useState(false);
   const index = slides.findIndex((slide) => slide.id === selectedId);
+  const support = usePresentationGuidance({ courseId, standalone, guide: navigationGuide, selectedId, coverVisible: Boolean(slides[index]?.slideCover), menuOpen, audioEnabled: slides.some((slide) => Boolean(slide.slideCover?.instructions?.audioSrc)) });
 
   useEffect(() => {
     const update = () => setFullscreen(document.fullscreenElement === rootRef.current);
@@ -44,7 +49,7 @@ export function SlidePresentationPreview({
       }
       if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return;
       const target = event.target;
-      if (target instanceof Element && target.closest("input, textarea, select, audio, video, [contenteditable], [role=dialog], [role=slider], [role=tablist]")) return;
+      if (target instanceof Element && target.closest("input, textarea, select, audio, video, dialog[open], [contenteditable], [role=dialog], [role=slider], [role=tablist]")) return;
       const direction = event.key === "ArrowRight" || event.key === "PageDown" ? 1
         : event.key === "ArrowLeft" || event.key === "PageUp" ? -1 : 0;
       if (!direction) return;
@@ -62,6 +67,13 @@ export function SlidePresentationPreview({
     else await rootRef.current?.requestFullscreen?.();
   }
 
+  function restartSlide() {
+    const canvas = rootRef.current?.querySelector('[data-slide-canvas][data-slide-active="true"]');
+    canvas?.querySelectorAll("[data-slide-media-player]").forEach((media) => media.dispatchEvent(new Event(slideMediaRestartEvent)));
+    const coverAudio = slides[index]?.slideCover?.instructions?.audioSrc;
+    if (coverAudio) support.playAudio(coverAudio);
+  }
+
   return (
     <div ref={rootRef} data-presentation-view data-fullscreen={fullscreen || undefined} className={`relative flex min-h-0 min-w-0 flex-col overflow-hidden bg-white text-slate-900 ${fullscreen ? "h-dvh w-dvw" : "h-full w-full"}`}>
       {!fullscreen && <header className="flex min-h-14 shrink-0 items-center gap-2 border-b border-slate-200 bg-white px-3 py-2 sm:gap-3 sm:px-5">
@@ -74,7 +86,8 @@ export function SlidePresentationPreview({
         {onEdit && <Button type="button" variant="outline" size="sm" onClick={onEdit} className="h-8">Edit</Button>}
         {!standalone && canPublish && <PublishMenu courseId={courseId} title={title} className="h-8" />}
       </header>}
-      <SlidePresentationContext.Provider value={{ slides, selectedId, onSelect, getLockMessage, menuOpen, onMenuOpenChange, menu, fullscreen, onToggleFullscreen: () => void toggleFullscreen() }}>
+      {support.audioElement}
+      <SlidePresentationContext.Provider value={{ slides, selectedId, onSelect, onRestart: restartSlide, getLockMessage, menuOpen, onMenuOpenChange, menu, fullscreen, onToggleFullscreen: () => void toggleFullscreen(), courseId, standalone, playInstructionAudio: support.playAudio, pauseInstructionAudio: support.pauseAudio, instructionAudioPlaying: support.playing, instructionAudioSource: support.source, instructionAudioControl: support.audioControl, navigationGuide, guideStep: support.guideStep, onGuideStep: support.changeGuideStep }}>
         <div className="relative flex min-h-0 min-w-0 flex-1">{children}</div>
       </SlidePresentationContext.Provider>
     </div>

@@ -189,7 +189,7 @@ const scenes: Record<LessonMapTemplate, () => ReactNode> = {
   learningRoad: LearningRoadScene,
 };
 
-export function LessonMapArtwork({ template, className }: { template: LessonMapTemplate; className?: string }) {
+export function LessonMapArtwork({ template, className, stretch = false }: { template: LessonMapTemplate; className?: string; stretch?: boolean }) {
   const gradientId = `map-paper-${useId().replaceAll(":", "")}`;
   const title = lessonMapTemplates.find((item) => item.id === template)?.title ?? "Lesson Map";
   const Scene = scenes[template];
@@ -198,7 +198,7 @@ export function LessonMapArtwork({ template, className }: { template: LessonMapT
       viewBox="0 0 720 440"
       role="img"
       aria-label={`${title} illustrated lesson map`}
-      preserveAspectRatio="xMidYMid slice"
+      preserveAspectRatio={stretch ? "none" : "xMidYMid slice"}
       className={className}
     >
       <defs>

@@ -4,7 +4,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { ArrowLeft, ArrowRight, BookOpen, LockKeyhole } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PresentationSlideStage } from "../slide-presentation/presentation-slide-stage";
-import { defaultSlideMaster } from "@/lib/editor/slide-design";
+import { defaultSlideMaster, resolveSlideCoverObjectArea, resolveSlideObjectArea } from "@/lib/editor/slide-design";
 import {
   courseNavigationModeOptions,
   type CourseNavigationMode,
@@ -143,6 +143,7 @@ export function LessonReaderPreview({
                 </Button>
               </nav>}
               <PresentationSlideStage
+                lessonId={lesson.id}
                 active={slideLayout}
                 visible={lesson.id === selectedLessonId}
                 title={lesson.title}
@@ -208,7 +209,9 @@ export function LessonReaderPreview({
                 <LessonBlocksPreview
                   blocks={lesson.blocks}
                   slideLayout={slideLayout}
+                  slideArea={lesson.slideCover ? resolveSlideCoverObjectArea(initialData.slideMaster) : resolveSlideObjectArea(initialData.slideMaster)}
                   slideBackgroundColor={initialData.slideMaster?.backgroundColor ?? defaultSlideMaster.backgroundColor}
+                  slideTextColor={initialData.slideMaster?.textColor ?? defaultSlideMaster.textColor}
                   device={device}
                   orientation={orientation}
                   animate={lesson.id === selectedLessonId}
@@ -260,7 +263,7 @@ export function LessonReaderPreview({
                   const nextLesson = lessons[index + 1];
                   if (!nextLesson) return null;
                   const hasPendingContinue = lesson.lessonType !== "quiz" && lesson.blocks.some((block) =>
-                    block.type === "divider" && block.data.style === "continue" &&
+                    block.type === "divider" && block.data.style === "continue" && block.requiredForProgress !== false &&
                     (!revealedDividerIds.has(block.id) ||
                       (block.data.completionType === "completeAbove" && !completedDividerIds.has(block.id))),
                   );

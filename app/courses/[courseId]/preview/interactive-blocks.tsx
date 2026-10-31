@@ -1,14 +1,22 @@
 "use client";
 
+import { ColorPicker } from "@/components/ui/color-picker";
+
 /* eslint-disable @next/next/no-img-element -- This component is also bundled into static course exports. */
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 import { Check, RotateCcw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { LessonMapArtwork } from "@/components/lesson-map-artwork";
 import { evaluateKnowledgeCheckAnswer } from "@/lib/interactive/knowledge-check";
 import { getFlipCardProgressId } from "@/lib/export/progress";
-import type { ContentBlock } from "@/lib/schemas/block";
+import type { ContentBlock, LessonMapTemplate } from "@/lib/schemas/block";
 import { InteractiveScene } from "@/components/interactive-scene";
+import { fitGraphicImage, projectGraphicPoint, unprojectGraphicPoint, type GraphicImageFit } from "@/lib/editor/graphic-layout";
+import { backgroundPaint, parseGradient, solidColor, textPaint } from "@/lib/color";
 
 type FlipCard = Extract<ContentBlock, { type: "flipCard" }>['data']['cards'][number];
 type FlipCardStyle = Extract<ContentBlock, { type: "flipCard" }>['data']['cardStyle'];
@@ -23,7 +31,13 @@ const flipCardStyleClasses: Record<FlipCardStyle, string> = {
   elevated: "rounded-2xl",
 };
 
-function flipCardColumnsClass(columns: number) {
+function flipCardColumnsClass(columns: number, presentation: boolean) {
+  if (presentation) return [
+    columns >= 2 ? "@min-[18rem]/flip-cards:grid-cols-2" : "",
+    columns >= 3 ? "@min-[28rem]/flip-cards:grid-cols-3" : "",
+    columns >= 4 ? "@min-[38rem]/flip-cards:grid-cols-4" : "",
+    columns >= 5 ? "@min-[46rem]/flip-cards:grid-cols-5" : "",
+  ].filter(Boolean).join(" ");
   return [
     columns >= 2 ? "@min-[36rem]/flip-cards:grid-cols-2" : "",
     columns >= 3 ? "@min-[56rem]/flip-cards:grid-cols-3" : "",
@@ -33,20 +47,21 @@ function flipCardColumnsClass(columns: number) {
 }
 
 function flipCardSurfaceStyle(cardStyle: FlipCardStyle, backgroundColor: string, textColor: string): CSSProperties {
+  const solidText = solidColor(textColor);
   const borderColor = cardStyle === "outlined"
-    ? textColor
+    ? solidText
     : cardStyle === "soft"
       ? "transparent"
-      : `color-mix(in srgb, ${textColor} 18%, transparent)`;
+      : `color-mix(in srgb, ${solidText} 18%, transparent)`;
   const boxShadow = cardStyle === "elevated"
-    ? `0 10px 28px color-mix(in srgb, ${textColor} 18%, transparent)`
+    ? `0 10px 28px color-mix(in srgb, ${solidText} 18%, transparent)`
     : cardStyle === "classic"
       ? "0 1px 3px rgb(15 23 42 / 0.08)"
       : "none";
 
   return {
-    backgroundColor,
-    color: textColor,
+    ...backgroundPaint(backgroundColor),
+    color: solidText,
     borderColor,
     borderWidth: cardStyle === "outlined" ? "2px" : "1px",
     boxShadow,
@@ -62,6 +77,7 @@ export function InteractiveFlipCard({
   cardTextColor = "#0f172a",
   interactedCardIds = new Set(),
   onCardReveal,
+  presentation = false,
 }: {
   blockId: string;
   cards: FlipCard[];
@@ -71,18 +87,20 @@ export function InteractiveFlipCard({
   cardTextColor?: string;
   interactedCardIds?: ReadonlySet<string>;
   onCardReveal?: (progressId: string) => void;
+  presentation?: boolean;
 }) {
   const visibleColumnCount = Math.min(cardsPerRow, cards.length);
-  const gridColumns = flipCardColumnsClass(visibleColumnCount);
+  const gridColumns = flipCardColumnsClass(visibleColumnCount, presentation);
 
   return (
     <div className="@container/flip-cards mx-auto w-full min-w-0">
-      <div className={cards.length > 1 ? `grid min-w-0 grid-cols-1 gap-3 @min-[36rem]/flip-cards:gap-4 ${gridColumns}` : "w-full min-w-0"}>
+      <div className={cards.length > 1 ? `grid min-w-0 grid-cols-1 ${presentation ? "gap-2" : "gap-3 @min-[36rem]/flip-cards:gap-4"} ${gridColumns}` : "w-full min-w-0"}>
         {cards.map((card, index) => (
           <InteractiveFlipCardItem
             key={card.id}
             card={card}
             cardNumber={index + 1}
+            presentation={presentation}
             cardStyle={cardStyle}
             cardBackgroundColor={cardBackgroundColor}
             cardTextColor={cardTextColor}
@@ -95,20 +113,20 @@ export function InteractiveFlipCard({
   );
 }
 
-function FlipCardFace({ card, side }: { card: FlipCard; side: "front" | "back" }) {
+function FlipCardFace({ card, side, presentation, textColor }: { card: FlipCard; side: "front" | "back"; presentation: boolean; textColor: string }) {
   const label = side === "front" ? card.frontLabel : card.backLabel;
   const face = side === "front" ? card.front : card.back;
   return (
     <>
-      <span className="mb-3 min-w-0 max-w-full whitespace-pre-wrap [overflow-wrap:anywhere] text-xs font-semibold uppercase tracking-[0.14em] opacity-65">{label || (side === "front" ? "Question" : "Answer")}</span>
+      <span style={textPaint(textColor)} className={`min-w-0 max-w-full whitespace-pre-wrap [overflow-wrap:anywhere] font-semibold uppercase tracking-[0.14em] opacity-65 ${presentation ? "mb-2 text-[10px]" : "mb-3 text-xs"}`}>{label || (side === "front" ? "Question" : "Answer")}</span>
       {face.type === "image" ? (
-        <img src={face.src} alt={face.alt} className="h-auto w-auto max-h-56 max-w-full rounded-lg object-contain" />
+        <img src={face.src} alt={face.alt} className={`h-auto w-auto max-w-full rounded-lg object-contain ${presentation ? "max-h-28" : "max-h-56"}`} />
       ) : (
-        <span className={`min-w-0 max-w-full whitespace-pre-wrap break-words [overflow-wrap:anywhere] ${side === "front" ? "text-lg font-semibold @min-[36rem]/flip-cards:text-xl" : "text-base @min-[36rem]/flip-cards:text-lg"}`}>
+        <span style={textPaint(textColor)} className={`min-w-0 max-w-full whitespace-pre-wrap break-words [overflow-wrap:anywhere] ${presentation ? side === "front" ? "text-sm font-semibold @min-[30rem]/flip-cards:text-base" : "text-xs @min-[30rem]/flip-cards:text-sm" : side === "front" ? "text-lg font-semibold @min-[36rem]/flip-cards:text-xl" : "text-base @min-[36rem]/flip-cards:text-lg"}`}>
           {face.text || (side === "front" ? "Add a prompt for your learner." : "Add the answer or explanation here.")}
         </span>
       )}
-      <span className="mt-4 text-xs font-medium opacity-70 @min-[36rem]/flip-cards:mt-5">
+      <span style={textPaint(textColor)} className={`font-medium opacity-70 ${presentation ? "mt-2 text-[10px]" : "mt-4 text-xs @min-[36rem]/flip-cards:mt-5"}`}>
         {side === "front" ? "Click to flip" : "Click to flip back"}
       </span>
     </>
@@ -123,6 +141,7 @@ function InteractiveFlipCardItem({
   cardTextColor,
   initiallyRevealed,
   onReveal,
+  presentation,
 }: {
   card: FlipCard;
   cardNumber: number;
@@ -131,6 +150,7 @@ function InteractiveFlipCardItem({
   cardTextColor: string;
   initiallyRevealed: boolean;
   onReveal: () => void;
+  presentation: boolean;
 }) {
   const [flipOverride, setFlipOverride] = useState<boolean | null>(null);
   const flipped = flipOverride ?? initiallyRevealed;
@@ -150,20 +170,20 @@ function InteractiveFlipCardItem({
       className={`cursor-pointer group w-full min-w-0 ${flipCardStyleClasses[cardStyle]} text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-4`}
       style={{ perspective: "1000px" }}
     >
-      <span className="grid min-h-52 w-full min-w-0 transition-transform duration-700 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none" style={{ transform: flipped ? "rotateY(180deg)" : undefined, transformStyle: "preserve-3d" }}>
+      <span className={`grid w-full min-w-0 transition-transform duration-700 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none ${presentation ? "min-h-28" : "min-h-52"}`} style={{ transform: flipped ? "rotateY(180deg)" : undefined, transformStyle: "preserve-3d" }}>
         <span
           aria-hidden={flipped}
-          className={`col-start-1 row-start-1 flex min-h-48 min-w-0 flex-col items-center justify-center border p-4 text-center transition-colors @min-[36rem]/flip-cards:min-h-52 @min-[36rem]/flip-cards:p-6 ${flipCardStyleClasses[cardStyle]}`}
+          className={`col-start-1 row-start-1 flex min-w-0 flex-col items-center justify-center border text-center transition-colors ${presentation ? "min-h-28 p-3" : "min-h-48 p-4 @min-[36rem]/flip-cards:min-h-52 @min-[36rem]/flip-cards:p-6"} ${flipCardStyleClasses[cardStyle]}`}
           style={{ ...flipCardSurfaceStyle(cardStyle, cardBackgroundColor, cardTextColor), backfaceVisibility: "hidden" }}
         >
-          <FlipCardFace card={card} side="front" />
+          <FlipCardFace card={card} side="front" presentation={presentation} textColor={cardTextColor} />
         </span>
         <span
           aria-hidden={!flipped}
-          className={`col-start-1 row-start-1 flex min-h-48 min-w-0 flex-col items-center justify-center border p-4 text-center @min-[36rem]/flip-cards:min-h-52 @min-[36rem]/flip-cards:p-6 ${flipCardStyleClasses[cardStyle]}`}
+          className={`col-start-1 row-start-1 flex min-w-0 flex-col items-center justify-center border text-center ${presentation ? "min-h-28 p-3" : "min-h-48 p-4 @min-[36rem]/flip-cards:min-h-52 @min-[36rem]/flip-cards:p-6"} ${flipCardStyleClasses[cardStyle]}`}
           style={{ ...flipCardSurfaceStyle(cardStyle, cardBackgroundColor, cardTextColor), backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
         >
-          <FlipCardFace card={card} side="back" />
+          <FlipCardFace card={card} side="back" presentation={presentation} textColor={cardTextColor} />
         </span>
       </span>
     </button>
@@ -400,6 +420,8 @@ export function InteractiveLabeledGraphic({
   blockId,
   src,
   alt,
+  mapTemplate,
+  objectFit = "fill",
   markers,
   markerColor,
   textColor = "#ffffff",
@@ -409,12 +431,16 @@ export function InteractiveLabeledGraphic({
   challengePrompt,
   successMessage,
   editable = false,
+  presentation = false,
   onMarkerPositionChange,
+  onMarkerChange,
   onMarkerInteract,
 }: {
   blockId: string;
   src: string;
   alt: string;
+  mapTemplate?: LessonMapTemplate;
+  objectFit?: GraphicImageFit;
   markers: GraphicMarker[];
   markerColor?: string;
   textColor?: string;
@@ -424,7 +450,9 @@ export function InteractiveLabeledGraphic({
   challengePrompt?: string;
   successMessage?: string;
   editable?: boolean;
+  presentation?: boolean;
   onMarkerPositionChange?: (markerId: string, position: { x: number; y: number }) => void;
+  onMarkerChange?: (markerId: string, update: Partial<Pick<GraphicMarker, "label" | "description" | "color" | "radarEnabled">>) => void;
   onMarkerInteract?: (markerId: string) => void;
 }) {
   const [activeMarkerId, setActiveMarkerId] = useState("");
@@ -433,6 +461,8 @@ export function InteractiveLabeledGraphic({
   const [lastMissedMarkerId, setLastMissedMarkerId] = useState("");
   const [missedMarkerIds, setMissedMarkerIds] = useState<string[]>([]);
   const canvasRef = useRef<HTMLDivElement>(null);
+  const [frameSize, setFrameSize] = useState({ width: 0, height: 0 });
+  const [imageSize, setImageSize] = useState<{ source: string; width: number; height: number } | null>(null);
   const popoverRef = useRef<HTMLElement>(null);
   const [popoverPosition, setPopoverPosition] = useState<{
     markerId: string;
@@ -442,15 +472,37 @@ export function InteractiveLabeledGraphic({
   const draggingPointerId = useRef<number | null>(null);
   const dragStart = useRef<{ x: number; y: number } | null>(null);
   const didDrag = useRef(false);
+  const [dragPosition, setDragPosition] = useState<{ markerId: string; x: number; y: number } | null>(null);
+  const dragPositionRef = useRef<typeof dragPosition>(null);
   const activeMarker = markers.find((marker) => marker.id === activeMarkerId) ?? markers[0];
   const showPopup = activeMarkerId !== "" && activeMarker?.id === activeMarkerId;
-  const sharedMarkerColor =
-    markerColor ?? markers[0]?.color ?? "var(--course-primary, #2f5f9f)";
-  const sharedRadarColor = radarColor ?? sharedMarkerColor;
+  const sharedMarkerColor = markerColor ?? "var(--course-primary, #2f5f9f)";
   const isSpotTargetGame = interactionMode === "spotTarget";
   const usesIllustratedScene = Boolean(sceneTheme && (!src || isSpotTargetGame));
+  const usesMap = Boolean(mapTemplate && !isSpotTargetGame);
+  const fitFrame = presentation && !isSpotTargetGame;
+  const sourceWidth = usesMap ? 720 : usesIllustratedScene ? 1200 : imageSize?.source === src ? imageSize.width : frameSize.width;
+  const sourceHeight = usesMap ? 440 : usesIllustratedScene ? 675 : imageSize?.source === src ? imageSize.height : frameSize.height;
+  const imageRect = fitGraphicImage(frameSize, { width: sourceWidth, height: sourceHeight }, objectFit);
+  const artworkStyle: CSSProperties = fitFrame && frameSize.width && frameSize.height ? imageRect : { inset: 0 };
+  const activePosition = activeMarker && fitFrame ? projectGraphicPoint(activeMarker, frameSize, imageRect) : activeMarker;
   const lastMissedMarker = markers.find((marker) => marker.id === lastMissedMarkerId);
   const gameScore = gameSolved ? Math.max(25, 100 - (gameAttempts - 1) * 15) : 0;
+
+  useIsomorphicLayoutEffect(() => {
+    const canvas = canvasRef.current;
+    if (!fitFrame || !canvas) return;
+    const measure = () => {
+      const width = canvas.clientWidth;
+      const height = canvas.clientHeight;
+      if (width && height) setFrameSize((previous) => previous.width === width && previous.height === height ? previous : { width, height });
+    };
+    measure();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+    observer?.observe(canvas);
+    window.addEventListener("resize", measure);
+    return () => { observer?.disconnect(); window.removeEventListener("resize", measure); };
+  }, [fitFrame]);
 
   useIsomorphicLayoutEffect(() => {
     const canvas = canvasRef.current;
@@ -465,15 +517,21 @@ export function InteractiveLabeledGraphic({
     const updatePosition = () => {
       const canvasBounds = canvas.getBoundingClientRect();
       const popoverBounds = popover.getBoundingClientRect();
-      if (canvasBounds.width <= 0 || canvasBounds.height <= 0) return;
+      const canvasWidth = canvas.clientWidth || canvasBounds.width;
+      const canvasHeight = canvas.clientHeight || canvasBounds.height;
+      if (canvasWidth <= 0 || canvasHeight <= 0) return;
+      // Position in layout pixels; slide and object transforms already scale these coordinates.
+      const scaleX = canvasBounds.width / canvasWidth || 1;
+      const scaleY = canvasBounds.height / canvasHeight || 1;
 
-      const width = Math.min(popoverBounds.width, Math.max(0, canvasBounds.width - padding * 2));
-      const height = Math.min(popoverBounds.height, Math.max(0, canvasBounds.height - padding * 2));
-      const markerX = canvasBounds.width * (activeMarker.x / 100);
-      const markerY = canvasBounds.height * (activeMarker.y / 100);
+      const width = Math.min(popover.offsetWidth || popoverBounds.width / scaleX, Math.max(0, canvasWidth - padding * 2));
+      const height = Math.min(popover.offsetHeight || popoverBounds.height / scaleY, Math.max(0, canvasHeight - padding * 2));
+      const point = fitFrame ? projectGraphicPoint(activeMarker, { width: canvasWidth, height: canvasHeight }, fitGraphicImage({ width: canvasWidth, height: canvasHeight }, { width: sourceWidth || canvasWidth, height: sourceHeight || canvasHeight }, objectFit)) : activeMarker;
+      const markerX = canvasWidth * (point.x / 100);
+      const markerY = canvasHeight * (point.y / 100);
       const rightPosition = markerX + gap;
       const leftPosition = markerX - width - gap;
-      const rightSpace = canvasBounds.width - markerX - gap - padding;
+      const rightSpace = canvasWidth - markerX - gap - padding;
       const leftSpace = markerX - gap - padding;
 
       let left = rightSpace >= width
@@ -483,11 +541,11 @@ export function InteractiveLabeledGraphic({
           : rightSpace >= leftSpace
             ? rightPosition
             : leftPosition;
-      left = Math.max(padding, Math.min(left, canvasBounds.width - width - padding));
+      left = Math.max(padding, Math.min(left, canvasWidth - width - padding));
 
       const belowPosition = markerY + gap;
       const abovePosition = markerY - height - gap;
-      const belowSpace = canvasBounds.height - markerY - gap - padding;
+      const belowSpace = canvasHeight - markerY - gap - padding;
       const aboveSpace = markerY - gap - padding;
       let top = belowSpace >= height
         ? belowPosition
@@ -496,7 +554,7 @@ export function InteractiveLabeledGraphic({
           : belowSpace >= aboveSpace
             ? belowPosition
             : abovePosition;
-      top = Math.max(padding, Math.min(top, canvasBounds.height - height - padding));
+      top = Math.max(padding, Math.min(top, canvasHeight - height - padding));
 
       setPopoverPosition((current) => {
         if (
@@ -522,20 +580,23 @@ export function InteractiveLabeledGraphic({
       resizeObserver?.disconnect();
       window.removeEventListener("resize", updatePosition);
     };
-  }, [activeMarker?.description, activeMarker?.id, activeMarker?.label, activeMarker?.x, activeMarker?.y, showPopup]);
+  }, [activeMarker?.description, activeMarker?.id, activeMarker?.label, activeMarker?.x, activeMarker?.y, showPopup, fitFrame, objectFit, sourceWidth, sourceHeight]);
 
   function updateMarkerPosition(
     markerId: string,
     event: ReactPointerEvent<HTMLButtonElement>,
   ) {
-    const bounds = canvasRef.current?.getBoundingClientRect();
+    const canvas = canvasRef.current;
+    const bounds = canvas?.getBoundingClientRect();
     if (!bounds || bounds.width <= 0 || bounds.height <= 0) return;
-    const x = Math.min(100, Math.max(0, ((event.clientX - bounds.left) / bounds.width) * 100));
-    const y = Math.min(100, Math.max(0, ((event.clientY - bounds.top) / bounds.height) * 100));
-    onMarkerPositionChange?.(markerId, {
-      x: Math.round(x * 10) / 10,
-      y: Math.round(y * 10) / 10,
-    });
+    const pointer = { x: (event.clientX - bounds.left) / bounds.width * 100, y: (event.clientY - bounds.top) / bounds.height * 100 };
+    const size = { width: canvas?.clientWidth || bounds.width, height: canvas?.clientHeight || bounds.height };
+    const projected = fitFrame ? unprojectGraphicPoint(pointer, size, fitGraphicImage(size, { width: sourceWidth || size.width, height: sourceHeight || size.height }, objectFit)) : pointer;
+    const x = Math.min(100, Math.max(0, projected.x));
+    const y = Math.min(100, Math.max(0, projected.y));
+    const position = { markerId, x: Math.round(x * 100) / 100, y: Math.round(y * 100) / 100 };
+    dragPositionRef.current = position;
+    setDragPosition(position);
   }
 
   function handlePointerDown(
@@ -546,6 +607,7 @@ export function InteractiveLabeledGraphic({
     draggingPointerId.current = event.pointerId;
     dragStart.current = { x: event.clientX, y: event.clientY };
     didDrag.current = false;
+    dragPositionRef.current = null;
     event.currentTarget.setPointerCapture?.(event.pointerId);
   }
 
@@ -561,13 +623,20 @@ export function InteractiveLabeledGraphic({
       );
       if (distance > 3) didDrag.current = true;
     }
-    if (didDrag.current) updateMarkerPosition(markerId, event);
+    if (didDrag.current) {
+      setActiveMarkerId("");
+      updateMarkerPosition(markerId, event);
+    }
   }
 
   function handlePointerUp(event: ReactPointerEvent<HTMLButtonElement>) {
     if (draggingPointerId.current !== event.pointerId) return;
     draggingPointerId.current = null;
     dragStart.current = null;
+    const position = dragPositionRef.current;
+    dragPositionRef.current = null;
+    setDragPosition(null);
+    if (position && event.type !== "pointercancel") onMarkerPositionChange?.(position.markerId, { x: position.x, y: position.y });
     event.currentTarget.releasePointerCapture?.(event.pointerId);
   }
 
@@ -575,7 +644,7 @@ export function InteractiveLabeledGraphic({
     <div
       role="group"
       aria-label={isSpotTargetGame ? challengePrompt || `Spot the clue ${blockId}` : `Interactive graphic ${blockId}`}
-      className={isSpotTargetGame ? "overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 text-white shadow-xl" : "space-y-4"}
+      className={isSpotTargetGame ? "overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 text-white shadow-xl" : fitFrame ? "h-full w-full min-h-0 overflow-clip" : "space-y-4"}
       onClick={(event) => {
         const target = event.target;
         if (
@@ -587,7 +656,7 @@ export function InteractiveLabeledGraphic({
         setActiveMarkerId("");
       }}
     >
-      {usesIllustratedScene && <span className="sr-only">{alt}</span>}
+      {(usesIllustratedScene || usesMap) && <span className="sr-only">{alt}</span>}
       {isSpotTargetGame && (
         <div className="flex items-center justify-between gap-3 bg-slate-950 px-4 pb-3 pt-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
@@ -608,20 +677,30 @@ export function InteractiveLabeledGraphic({
       <div
         ref={canvasRef}
         data-testid="labeled-graphic-canvas"
-        className={`relative isolate ${isSpotTargetGame ? "aspect-video overflow-hidden border-y border-white/10 bg-slate-900" : usesIllustratedScene ? "aspect-video overflow-hidden rounded-xl bg-slate-100" : "rounded-xl bg-slate-100"}`}
+        className={`relative isolate ${isSpotTargetGame ? "aspect-video overflow-hidden border-y border-white/10 bg-slate-900" : fitFrame ? "shrink-0 overflow-clip rounded-xl bg-slate-100" : usesMap ? "aspect-[18/11] overflow-hidden rounded-xl bg-slate-100" : usesIllustratedScene ? "aspect-video overflow-hidden rounded-xl bg-slate-100" : "rounded-xl bg-slate-100"}`}
+        style={fitFrame ? { width: "100%", height: "100%" } : undefined}
       >
-        {usesIllustratedScene ? (
-          <div aria-hidden="true" className="absolute inset-0 overflow-hidden">
-            <InteractiveScene theme={sceneTheme!} />
+        {usesMap ? (
+          <div aria-hidden="true" className="absolute" style={artworkStyle}><LessonMapArtwork template={mapTemplate!} className="size-full" stretch={fitFrame} /></div>
+        ) : usesIllustratedScene ? (
+          <div aria-hidden="true" className="absolute overflow-hidden" style={artworkStyle}>
+            <InteractiveScene theme={sceneTheme!} stretch={fitFrame} />
             <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/35 via-transparent to-slate-950/10" />
           </div>
         ) : (
-          <img src={src} alt={alt} className="block h-auto w-full rounded-xl" />
+          <img src={src} alt={alt} className={fitFrame ? "block h-full w-full rounded-xl" : "block h-auto w-full rounded-xl"} style={fitFrame ? { objectFit } : undefined} onLoad={(event) => {
+            const image = event.currentTarget;
+            if (image.naturalWidth && image.naturalHeight) setImageSize({ source: src, width: image.naturalWidth, height: image.naturalHeight });
+          }} />
         )}
         {markers.map((marker, index) => {
           const selected = marker.id === activeMarkerId;
           const missed = missedMarkerIds.includes(marker.id);
           const found = gameSolved && marker.isTarget;
+          const pointColor = marker.color ?? sharedMarkerColor;
+          const radarEnabled = marker.radarEnabled !== false;
+          const sourcePosition = dragPosition?.markerId === marker.id ? dragPosition : marker;
+          const position = fitFrame ? projectGraphicPoint(sourcePosition, frameSize, imageRect) : sourcePosition;
           return (
             <button
               key={marker.id}
@@ -636,6 +715,10 @@ export function InteractiveLabeledGraphic({
               onClick={() => {
                 if (didDrag.current) {
                   didDrag.current = false;
+                  return;
+                }
+                if (editable && onMarkerChange) {
+                  setActiveMarkerId(marker.id);
                   return;
                 }
                 if (isSpotTargetGame) {
@@ -657,21 +740,22 @@ export function InteractiveLabeledGraphic({
               }}
               className={isSpotTargetGame
                 ? `absolute grid size-12 -translate-x-1/2 -translate-y-1/2 touch-none place-items-center rounded-full border-2 text-sm font-black shadow-[0_0_24px_rgba(34,211,238,0.38)] transition-all hover:scale-110 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/80 disabled:cursor-default ${found ? "border-white bg-emerald-400 text-emerald-950 shadow-[0_0_32px_rgba(74,222,128,0.8)]" : missed ? "border-white bg-rose-500 text-white" : "border-cyan-100 bg-cyan-400/90 text-slate-950"} ${editable ? "cursor-grab active:cursor-grabbing" : "cursor-pointer"}`
-                : `cursor-pointer labeled-graphic-radar absolute grid size-9 -translate-x-1/2 -translate-y-1/2 touch-none place-items-center rounded-full border-2 border-white text-xs font-bold text-white shadow-lg transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2 ${editable ? "cursor-grab active:cursor-grabbing" : ""}`}
+                : `cursor-pointer ${radarEnabled ? "labeled-graphic-radar" : ""} ${parseGradient(radarColor ?? pointColor) ? "labeled-graphic-radar-gradient" : ""} absolute grid size-9 -translate-x-1/2 -translate-y-1/2 touch-none place-items-center rounded-full border-2 border-white text-xs font-bold text-white shadow-lg transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-2 ${editable ? "cursor-grab active:cursor-grabbing" : ""}`}
               style={{
-                left: `${marker.x}%`,
-                top: `${marker.y}%`,
-                backgroundColor: isSpotTargetGame ? undefined : sharedMarkerColor,
-                color: isSpotTargetGame ? undefined : textColor,
-                "--radar-color": sharedRadarColor,
+                left: `${position.x}%`,
+                top: `${position.y}%`,
+                ...(!isSpotTargetGame || (!missed && !found && (marker.color || markerColor)) ? backgroundPaint(pointColor) : {}),
+                color: isSpotTargetGame ? undefined : solidColor(textColor),
+                "--radar-color": solidColor(radarColor ?? pointColor),
+                "--radar-gradient": radarColor ?? pointColor,
               } as CSSProperties}
             >
-              {isSpotTargetGame && !missed && !found && <span aria-hidden="true" className="absolute inset-0 rounded-full bg-cyan-300/40 motion-safe:animate-ping" />}
-              <span className="relative z-10">{found ? <Check size={20} aria-hidden="true" /> : missed ? <X size={18} aria-hidden="true" /> : index + 1}</span>
+              {isSpotTargetGame && radarEnabled && !missed && !found && <span aria-hidden="true" className="absolute inset-0 rounded-full bg-cyan-300/40 motion-safe:animate-ping" style={parseGradient(radarColor ?? pointColor) ? backgroundPaint(radarColor ?? pointColor, 40) : undefined} />}
+              <span className="relative z-10" style={!isSpotTargetGame || (!missed && !found && parseGradient(textColor)) ? textPaint(textColor) : undefined}>{found ? <Check size={20} aria-hidden="true" /> : missed ? <X size={18} aria-hidden="true" /> : index + 1}</span>
             </button>
           );
         })}
-        {!isSpotTargetGame && showPopup && activeMarker && (
+        {(!isSpotTargetGame || (editable && onMarkerChange)) && showPopup && activeMarker && (
           <section
             key={activeMarker.id}
             ref={popoverRef}
@@ -679,23 +763,32 @@ export function InteractiveLabeledGraphic({
             aria-atomic="true"
             className="labeled-graphic-popover absolute z-20 rounded-xl border border-slate-200 bg-white p-4 text-left shadow-xl sm:p-5"
             style={{
+              width: fitFrame ? "min(14rem, calc(100% - 1rem))" : undefined,
               left: popoverPosition?.markerId === activeMarker.id
                 ? `${popoverPosition.left}px`
-                : `${activeMarker.x}%`,
+                : `${activePosition?.x ?? activeMarker.x}%`,
               top: popoverPosition?.markerId === activeMarker.id
                 ? `${popoverPosition.top}px`
-                : `${activeMarker.y}%`,
+                : `${activePosition?.y ?? activeMarker.y}%`,
               transform: popoverPosition?.markerId === activeMarker.id
                 ? undefined
                 : `${activeMarker.x < 28 ? "translateX(0.5rem)" : activeMarker.x > 72 ? "translateX(calc(-100% - 0.5rem))" : "translateX(-50%)"} ${activeMarker.y > 58 ? "translateY(calc(-100% - 1rem))" : "translateY(1rem)"}`,
             }}
           >
+            {editable && onMarkerChange ? <div className="space-y-2">
+              <Input aria-label="Point title" value={activeMarker.label} maxLength={100} placeholder="Point title" className="h-8 text-xs" onChange={(event) => onMarkerChange(activeMarker.id, { label: event.target.value })} />
+              <Textarea aria-label="Point explanation" value={activeMarker.description} maxLength={2000} placeholder="Point explanation" className="min-h-16 text-xs" onChange={(event) => onMarkerChange(activeMarker.id, { description: event.target.value })} />
+              <label className="block space-y-1 text-xs text-slate-700">Point color<ColorPicker allowGradient={presentation} aria-label="Point color" value={activeMarker.color ?? markerColor ?? "#2f5f9f"} onChange={(color) => onMarkerChange(activeMarker.id, { color: color })} /></label>
+              <label className="flex items-center gap-2 text-xs text-slate-700"><Checkbox aria-label="Point radar animation" checked={activeMarker.radarEnabled !== false} onChange={(event) => onMarkerChange(activeMarker.id, { radarEnabled: event.target.checked })} />Radar animation</label>
+              <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => setActiveMarkerId("")}>Done</Button>
+            </div> : <>
             <p className="text-sm font-semibold text-slate-900">
               {activeMarker.label || `Marker ${markers.findIndex((marker) => marker.id === activeMarker.id) + 1}`}
             </p>
             <p className="mt-1 text-sm leading-6 text-slate-700">
               {activeMarker.description || "Add an explanation for this part of the image."}
             </p>
+            </>}
           </section>
         )}
       </div>

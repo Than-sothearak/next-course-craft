@@ -3,7 +3,8 @@
 import { Check, Palette, RotateCcw } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   courseThemeFontFamilies,
   courseThemePresets,
@@ -18,21 +19,23 @@ export function CourseThemeSettings({
   onChange,
   courseId,
   courseTitle,
+  compact = false,
 }: {
   theme: CourseTheme;
   onChange: (theme: CourseTheme) => void;
   courseId: string;
   courseTitle: string;
+  compact?: boolean;
 }) {
   return (
     <details className="relative">
       <summary
         aria-label="Course theme settings"
         title="Course theme"
-        className="flex min-h-9 cursor-pointer list-none items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 [&::-webkit-details-marker]:hidden"
+        className={compact ? cn(buttonVariants({ variant: "ghost", size: "sm" }), "size-8 min-h-0 cursor-pointer list-none rounded-md p-0 text-xs text-slate-600 [&::-webkit-details-marker]:hidden") : "flex min-h-9 cursor-pointer list-none items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 [&::-webkit-details-marker]:hidden"}
       >
-        <Palette size={15} />
-        <span>Theme</span>
+        <Palette size={16} aria-hidden="true" />
+        <span className={compact ? "sr-only" : undefined}>Theme</span>
       </summary>
       <div className="fixed inset-x-4 top-20 z-[60] mt-2 max-h-[calc(100dvh-100px)] overflow-y-auto overscroll-contain rounded-xl border border-slate-200 bg-white p-4 text-slate-900 shadow-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:w-[360px]">
         <div className="flex items-start justify-between gap-3">

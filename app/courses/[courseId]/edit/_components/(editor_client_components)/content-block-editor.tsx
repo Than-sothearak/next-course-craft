@@ -27,6 +27,8 @@ import { ProcessStepsBlockSettings } from "./(content_block_editor_components)/_
 import { KnowledgeCheckBlockSettings } from "./(content_block_editor_components)/_components/block-settings/knowledge-check-block-settings";
 import { SurveyBlockSettings } from "./(content_block_editor_components)/_components/block-settings/survey-block-settings";
 import { ContentBlockPreview } from "./(content_block_editor_components)/_components/content-block-preview";
+import { AudioInstructionSettings } from "../slide-presentation/audio-instruction-settings";
+import { InteractionButtonSettings } from "../slide-presentation/interaction-button-settings";
 
 export function ContentBlockEditor({
   block,
@@ -40,6 +42,7 @@ export function ContentBlockEditor({
   saveMessage = "",
   onRetrySave = () => {},
   inlineSettings = false,
+  lessonBlocks = [],
 }: {
   block: ContentBlock;
   courseId: string;
@@ -52,11 +55,9 @@ export function ContentBlockEditor({
   saveMessage?: string;
   onRetrySave?: () => void;
   inlineSettings?: boolean;
+  lessonBlocks?: readonly ContentBlock[];
 }) {
   const [editing, setEditing] = useState(false);
-  const [chartColorDraft, setChartColorDraft] = useState(
-    block.type === "chart" ? block.data.color : "#4f46e5",
-  );
   const [mediaLibraryTarget, setMediaLibraryTarget] = useState<MediaLibraryTarget | null>(null);
   const [selectedGalleryImageIndex, setSelectedGalleryImageIndex] = useState<
     number | null
@@ -118,7 +119,7 @@ export function ContentBlockEditor({
       });
     }
     if (block.type === "labeledGraphic" && mediaLibraryTarget === "labeledGraphic") {
-      onChange({ ...block, data: { ...block.data, src: asset.fileUrl } });
+      onChange({ ...block, data: { ...block.data, src: asset.fileUrl, mapTemplate: undefined } });
     }
     if (block.type === "flipCard" && mediaLibraryTarget && typeof mediaLibraryTarget === "object") {
       onChange({
@@ -264,7 +265,7 @@ export function ContentBlockEditor({
   const settingsContent = <>
     {replaceTemplateAction()}
     {block.type === "link" && <LinkBlockSettings block={block} onChange={onChange} />}
-    {block.type === "chart" && <ChartBlockSettings block={block} onChange={onChange} setChartColorDraft={setChartColorDraft} chartColorDraft={chartColorDraft} />}
+    {block.type === "chart" && <ChartBlockSettings block={block} onChange={onChange} />}
     {block.type === "image" && <ImageBlockSettings block={block} onChange={onChange} setMediaLibraryTarget={setMediaLibraryTarget} />}
     {block.type === "gallery" && <GalleryBlockSettings block={block} setSelectedGalleryImageIndex={setSelectedGalleryImageIndex} setMediaLibraryTarget={setMediaLibraryTarget} onChange={onChange} />}
     {block.type === "video" && <VideoBlockSettings setMediaLibraryTarget={setMediaLibraryTarget} block={block} onChange={onChange} />}
@@ -273,8 +274,10 @@ export function ContentBlockEditor({
     {block.type === "divider" && <DividerBlockSettings block={block} onChange={onChange} />}
     {block.type === "flipCard" && <FlipCardBlockSettings block={block} onChange={onChange} updateFlipCard={updateFlipCard} updateFlipCardFace={updateFlipCardFace} setMediaLibraryTarget={setMediaLibraryTarget} />}
     {block.type === "accordion" && <AccordionBlockSettings block={block} onChange={onChange} />}
-    {block.type === "labeledGraphic" && <LabeledGraphicBlockSettings block={block} onChange={onChange} setMediaLibraryTarget={setMediaLibraryTarget} />}
+    {block.type === "labeledGraphic" && <LabeledGraphicBlockSettings block={block} onChange={onChange} setMediaLibraryTarget={setMediaLibraryTarget} presentation={inlineSettings} />}
     {block.type === "processSteps" && <ProcessStepsBlockSettings block={block} onChange={onChange} />}
+    {block.type === "audioInstruction" && <AudioInstructionSettings block={block} courseId={courseId} onChange={onChange} />}
+    {block.type === "interactionButton" && <InteractionButtonSettings block={block} courseId={courseId} lessonBlocks={lessonBlocks} onChange={onChange} />}
     {block.type === "knowledgeCheck" && <KnowledgeCheckBlockSettings block={block} onChange={onChange} />}
     {block.type === "survey" && <SurveyBlockSettings block={block} onChange={onChange} />}
   </>;

@@ -3,6 +3,8 @@ import {
   defaultBlockPadding,
   defaultBlockWidth,
   type ContentBlock,
+  interactionButtonBlockSchema,
+  audioInstructionBlockSchema,
 } from "@/lib/schemas/block";
 import type { BlockTemplate } from "./block-template-data";
 
@@ -35,6 +37,8 @@ export function createBlocksFromTemplate(
       : {}),
     ...(template.width ? { width: template.width } : {}),
   };
+  if (template.type === "audioInstruction") return [audioInstructionBlockSchema.parse({ ...base, type: "audioInstruction", data: { src: "" } })];
+  if (template.type === "interactionButton") return [interactionButtonBlockSchema.parse({ ...base, type: "interactionButton", data: { ...template.interactionButton, popup: template.interactionButton?.popup ?? { blocks: [{ id: createClientId(), type: "richText", version: 1, data: { html: "<p>Add your explanation here.</p>" }, slideFrame: { x: 8, y: 8, width: 84, height: 75, z: 0 } }] } } })];
   if (template.type === "knowledgeCheck") {
     if (!template.knowledgeCheck)
       throw new Error(

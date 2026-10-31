@@ -7,6 +7,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
 import {
   AlignCenter,
+  AlignJustify,
   AlignLeft,
   AlignRight,
   Bold,
@@ -31,6 +32,11 @@ import { ToolbarButton } from "./(text_formatting_toolbar_components)/toolbar-bu
 import { LinkControl } from "./(text_formatting_toolbar_components)/link-control";
 import { setInlineStyle } from "./(text_formatting_toolbar_components)/text-formatting-commands";
 import { StyledCodeBlock } from "./(text_formatting_toolbar_components)/styled-code-block";
+import { parseGradient } from "@/lib/color";
+
+function normalizeTextPaint(value: string | null | undefined) {
+  return parseGradient(value) ? value : normalizeHexColor(value);
+}
 
 function parseInlineColor(element: HTMLElement, property: "color" | "background-color") {
   const declaration = element.getAttribute("style")?.match(new RegExp(`(?:^|;)\\s*${property}\\s*:\\s*([^;]+)`, "i"))?.[1];
@@ -48,7 +54,7 @@ const InlineStyle = Mark.create({
       },
       color: {
         default: null,
-        parseHTML: (element) => parseInlineColor(element as HTMLElement, "color"),
+        parseHTML: (element) => normalizeTextPaint(element.getAttribute("data-text-gradient")) ?? parseInlineColor(element as HTMLElement, "color"),
       },
       highlight: {
         default: null,
@@ -62,12 +68,15 @@ const InlineStyle = Mark.create({
   renderHTML({ HTMLAttributes }) {
     const style: string[] = [];
     const fontSize = normalizeFontSize(HTMLAttributes.fontSize);
-    const color = normalizeHexColor(HTMLAttributes.color);
+    const color = normalizeTextPaint(HTMLAttributes.color);
     const highlight = normalizeHexColor(HTMLAttributes.highlight);
     if (fontSize) style.push(`font-size: ${fontSize}`);
-    if (color) style.push(`color: ${color}`);
+    if (color) {
+      if (parseGradient(color)) style.push(`color: transparent`, `background-image: ${color}`, "background-clip: text", "-webkit-background-clip: text");
+      else style.push(`color: ${color}`);
+    }
     if (highlight) style.push(`background-color: ${highlight}`);
-    return ["span", { style: style.join("; ") || null }, 0];
+    return ["span", { style: style.join("; ") || null, ...(parseGradient(color) ? { "data-text-gradient": color } : {}) }, 0];
   },
 });
 
@@ -268,7 +277,12 @@ export const textEditorExtensions = [...sharedTextExtensions, SingleElementDocum
 export const richTextEditorExtensions = [...sharedTextExtensions, Document];
 
 const highlightColors = ["#fef08a", "#bfdbfe", "#bbf7d0", "#fecaca", "#e9d5ff"];
-export function TextFormattingToolbar({ editor, allowLists = true }: { editor: Editor | null; allowLists?: boolean }) {
+export function TextFormattingToolbar({ editor, allowLists = true, textAlign, onTextAlignChange }: {
+  editor: Editor | null;
+  allowLists?: boolean;
+  textAlign?: "left" | "center" | "right" | "justify";
+  onTextAlignChange?: (align: "left" | "center" | "right" | "justify") => void;
+}) {
   const editorFormatting = useEditorState({
     editor,
     selector: ({ editor: currentEditor }) => {
@@ -290,12 +304,12 @@ export function TextFormattingToolbar({ editor, allowLists = true }: { editor: E
     },
   });
   const selectedFontSize = normalizeFontSize(editorFormatting?.fontSize);
-  const selectedColor = normalizeHexColor(editorFormatting?.color) ?? "#111827";
+  const selectedColor = normalizeTextPaint(editorFormatting?.color) ?? "#111827";
 
   if (!editor) return null;
   const activeBlock = editor.isActive("heading") ? "heading" : "paragraph";
   const activeLevel = editor.getAttributes("heading").level;
-  const activeTextAlign = editor.getAttributes(activeBlock).textAlign ?? "left";
+  const activeTextAlign = textAlign ?? editor.getAttributes(activeBlock).textAlign ?? "left";
   const activeLineHeight = String(editor.getAttributes(activeBlock).lineHeight ?? "1.6");
   const indent = Number(editor.getAttributes(activeBlock).indent ?? 0);
 
@@ -353,9 +367,12 @@ export function TextFormattingToolbar({ editor, allowLists = true }: { editor: E
       else chain.updateAttributes(activeBlock, { indent: Math.min(240, indent + 24) }).run();
     }}><IndentIncrease size={16} /></ToolbarButton>
     <span className="mx-1 h-6 w-px bg-slate-200" />
-    {(["left", "center", "right"] as const).map((align) => {
-      const Icon = align === "left" ? AlignLeft : align === "center" ? AlignCenter : AlignRight;
-      return <ToolbarButton key={align} label={`Align ${align}`} active={activeTextAlign === align} onClick={() => editor.chain().focus().updateAttributes(activeBlock, { textAlign: align }).run()}><Icon size={16} /></ToolbarButton>;
+    {(["left", "center", "right", "justify"] as const).map((align) => {
+      const Icon = align === "left" ? AlignLeft : align === "center" ? AlignCenter : align === "right" ? AlignRight : AlignJustify;
+      return <ToolbarButton key={align} label={`Align ${align}`} active={activeTextAlign === align} onClick={() => {
+        if (onTextAlignChange) onTextAlignChange(align);
+        else editor.chain().focus().updateAttributes(activeBlock, { textAlign: align }).run();
+      }}><Icon size={16} /></ToolbarButton>;
     })}
     <Select aria-label="Line spacing" value={activeLineHeight} onChange={(event) => editor.chain().focus().updateAttributes(activeBlock, { lineHeight: event.target.value }).run()} className="ml-1 h-8 w-[5.25rem] rounded-md border-slate-200 px-2 text-xs shadow-none">
       <option value="1.2">Tight</option><option value="1.4">Compact</option><option value="1.6">Normal</option><option value="1.8">Relaxed</option><option value="2">Double</option>

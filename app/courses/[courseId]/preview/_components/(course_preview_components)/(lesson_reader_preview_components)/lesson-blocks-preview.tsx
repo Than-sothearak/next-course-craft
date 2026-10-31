@@ -7,10 +7,12 @@ import {
 } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import type { ContentBlock } from "@/lib/schemas/block";
-import { resolveSlideFrame } from "@/lib/editor/slide-design";
+import { resolveSlideFrame, slideObjectArea, type SlideSize } from "@/lib/editor/slide-design";
+import { isSlideMediaObject } from "@/lib/editor/slide-objects";
+import { SlideObjectContent } from "../../../../_components/slide-presentation/slide-object-content";
 import { Button } from "@/components/ui/button";
 import { getPendingInteractiveProgressIds } from "@/lib/export/progress";
-import { blockSurfaceStyle, blockWidthClass } from "../preview-utils";
+import { blockSurfaceStyle, blockWidthClass, slideObjectSurfaceStyle } from "../preview-utils";
 import type { PreviewDevice, PreviewOrientation } from "../preview-types";
 import { PreviewBlock } from "./(lesson_blocks_preview_components)/preview-block";
 import { ContinueLockIndicator } from "./(lesson_blocks_preview_components)/continue-lock-indicator";
@@ -20,11 +22,13 @@ function LessonBlockEntrance({
   animate,
   blockDelay,
   children,
+  fillHeight = false,
 }: {
   blockId: string;
   animate: boolean;
   blockDelay: number;
   children: (entered: boolean) => ReactNode;
+  fillHeight?: boolean;
 }) {
   const [inView, setInView] = useState(false);
   const reducedMotion = useReducedMotion();
@@ -35,6 +39,7 @@ function LessonBlockEntrance({
   return (
     <motion.div
       data-lesson-block-id={blockId}
+      className={fillHeight ? "h-full" : undefined}
       data-lesson-block-in-view={entered}
       variants={{
         hidden: {
@@ -76,6 +81,8 @@ export function LessonBlocksPreview({
   blocks,
   slideLayout = false,
   slideBackgroundColor = "#ffffff",
+  slideTextColor = "#172033",
+  slideArea = slideObjectArea,
   device,
   orientation,
   animate,
@@ -95,6 +102,8 @@ export function LessonBlocksPreview({
   blocks: ContentBlock[];
   slideLayout?: boolean;
   slideBackgroundColor?: string;
+  slideTextColor?: string;
+  slideArea?: SlideSize;
   device: PreviewDevice;
   orientation: PreviewOrientation;
   animate: boolean;
@@ -115,6 +124,7 @@ export function LessonBlocksPreview({
     (block) =>
       block.type === "divider" &&
       block.data.style === "continue" &&
+      block.requiredForProgress !== false &&
       (!revealedDividerIds.has(block.id) ||
         (block.data.completionType === "completeAbove" &&
           !completedDividerIds.has(block.id))),
@@ -134,8 +144,8 @@ export function LessonBlocksPreview({
   );
   const place = (block: ContentBlock, index: number, content: ReactNode) => {
     if (!slideLayout) return content;
-    const frame = resolveSlideFrame(block, index, blocks.length);
-    return <div key={block.id} data-slide-object-id={block.id} className="absolute overflow-auto rounded-md" style={{ left: `${frame.x}%`, top: `${frame.y}%`, width: `${frame.width}%`, height: `${frame.height}%`, zIndex: frame.z + 1, backgroundColor: block.type === "heading" || block.type === "richText" ? slideBackgroundColor : block.backgroundColor }}>{content}</div>;
+    const frame = resolveSlideFrame(block, index, blocks.length, slideArea);
+    return <div key={block.id} data-slide-object-frame data-slide-object-id={block.id} className="pointer-events-auto absolute overflow-hidden rounded-md" style={{ left: `${frame.x}%`, top: `${frame.y}%`, width: `${frame.width}%`, height: `${frame.height}%`, zIndex: frame.z + 1, ...slideObjectSurfaceStyle(block, slideBackgroundColor, slideTextColor) }}><SlideObjectContent media={isSlideMediaObject(block)}>{content}</SlideObjectContent></div>;
   };
 
   return (
@@ -146,7 +156,7 @@ export function LessonBlocksPreview({
           Math.max(0, index - mostRecentRevealedDividerIndex - 1) * 240,
         );
         if (block.type === "divider" && block.data.style === "continue") {
-          const requiresCompletion = block.data.completionType === "completeAbove";
+          const requiresCompletion = block.requiredForProgress !== false && block.data.completionType === "completeAbove";
           if (
             revealedDividerIds.has(block.id) &&
             (!requiresCompletion || completedDividerIds.has(block.id))
@@ -168,11 +178,12 @@ export function LessonBlocksPreview({
             <LessonBlockEntrance
               key={`${block.id}-${animate ? "active" : "inactive"}`}
               blockId={block.id}
+              fillHeight={slideLayout}
               animate={animate}
               blockDelay={blockDelay}
             >
               {() => (
-                <div className="w-full" style={blockSurfaceStyle(block)}>
+                <div className="w-full" style={blockSurfaceStyle(block, slideLayout)}>
                   <div className={`mx-auto w-full ${widthClass} px-4`}>
                     <div className="flex flex-col items-center gap-2 text-center">
                       <Button
@@ -213,12 +224,15 @@ export function LessonBlocksPreview({
           <LessonBlockEntrance
             key={`${block.id}-${animate ? "active" : "inactive"}`}
             blockId={block.id}
+            fillHeight={slideLayout}
             animate={animate}
             blockDelay={blockDelay}
           >
             {(entered) => (
               <PreviewBlock
-                block={slideLayout ? { ...block, blockPadding: Math.min(block.blockPadding, 12), backgroundColor: block.type === "heading" || block.type === "richText" ? slideBackgroundColor : block.backgroundColor } : block}
+                block={block}
+                lessonBlocks={blocks}
+                slideLayout={slideLayout}
                 device={device}
                 orientation={orientation}
                 animateListItems={entered}

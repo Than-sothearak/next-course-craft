@@ -16,7 +16,7 @@ export function ProcessStepNavigation({ steps, activeIndex, timeline, showNumber
               className={`relative h-auto min-h-11 w-full min-w-0 gap-2 whitespace-normal px-2 py-2 text-xs ${timeline ? "justify-start text-left" : "flex-col text-center"}`}
               style={index === activeIndex ? { backgroundColor: "var(--process-tint)", color: "var(--process-accent)" } : undefined}
             >
-              {showNumbers && <span className="grid size-7 shrink-0 place-items-center rounded-full border text-xs font-bold" style={index === activeIndex ? { backgroundColor: "var(--process-accent)", borderColor: "var(--process-accent)", color: "var(--process-accent-text)" } : { borderColor: "#cbd5e1", backgroundColor: "#ffffff", color: "#475569" }}>{index + 1}</span>}
+              {showNumbers && <span className="grid size-7 shrink-0 place-items-center rounded-full border text-xs font-bold" style={index === activeIndex ? { background: "var(--process-paint)", borderColor: "var(--process-accent)", color: "var(--process-accent-text)" } : { borderColor: "#cbd5e1", backgroundColor: "#ffffff", color: "#475569" }}>{index + 1}</span>}
               <span className="line-clamp-2 min-w-0 max-w-full [overflow-wrap:anywhere]">{step.title || `Step ${index + 1}`}</span>
             </Button>
           </li>

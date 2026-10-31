@@ -1,5 +1,7 @@
 "use client";
 
+import { ColorPicker } from "@/components/ui/color-picker";
+
 import { Plus, Trash2 } from "lucide-react";
 import type { ContentBlock } from "@/lib/schemas/block";
 import { createClientId } from "@/lib/client-id";
@@ -8,12 +10,21 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { graphicImageFitSchema } from "@/lib/editor/graphic-layout";
 import type { MediaLibraryTarget } from "../content-block-types";
 import type { Dispatch, SetStateAction } from "react";
 
-export function LabeledGraphicBlockSettings({ block, onChange, setMediaLibraryTarget }: { block: Extract<ContentBlock, { type: "labeledGraphic" }>; onChange: (block: ContentBlock) => void; setMediaLibraryTarget: Dispatch<SetStateAction<MediaLibraryTarget | null>> }) {
+export function LabeledGraphicBlockSettings({ block, onChange, setMediaLibraryTarget, presentation = false }: { block: Extract<ContentBlock, { type: "labeledGraphic" }>; onChange: (block: ContentBlock) => void; setMediaLibraryTarget: Dispatch<SetStateAction<MediaLibraryTarget | null>>; presentation?: boolean }) {
   return (
     <div className="space-y-3">
+      {presentation && <label className="block space-y-1 text-xs font-medium text-slate-600">Image fit
+        <Select aria-label="Interactive image fit" value={block.data.objectFit ?? "fill"} className="h-9" onChange={(event) => {
+          const fit = graphicImageFitSchema.safeParse(event.target.value);
+          if (fit.success) onChange({ ...block, data: { ...block.data, objectFit: fit.data } });
+        }}>
+          <option value="fill">Fill</option><option value="cover">Cover</option><option value="contain">Contain</option><option value="scale-down">Scale down</option><option value="none">Original size</option>
+        </Select>
+      </label>}
       <Select
         aria-label="Graphic interaction mode"
         value={block.data.interactionMode ?? "explore"}
@@ -100,7 +111,7 @@ export function LabeledGraphicBlockSettings({ block, onChange, setMediaLibraryTa
             aria-label="Graphic image URL"
             type="url"
             value={block.data.src}
-            onChange={(event) => onChange({ ...block, data: { ...block.data, src: event.target.value } })}
+            onChange={(event) => onChange({ ...block, data: { ...block.data, src: event.target.value, mapTemplate: undefined } })}
             placeholder="Image URL"
             className="h-9"
           />
@@ -119,44 +130,38 @@ export function LabeledGraphicBlockSettings({ block, onChange, setMediaLibraryTa
           Drag a point on the image to position it. Click a point to preview its popup.
         </p>
       )}
-      <div className="grid grid-cols-1 gap-3 rounded-lg border border-slate-200 p-3 sm:grid-cols-3">
-        <label className="flex items-center justify-between gap-2 text-xs font-medium text-slate-600">
-          Point color
-          <Input
+      <div className="grid grid-cols-1 gap-3 rounded-lg border border-slate-200 p-3 sm:grid-cols-2">
+        <label className="block space-y-1 text-xs font-medium text-slate-600">
+          Default point color
+          <ColorPicker
             aria-label="Graphic marker color"
-            type="color"
-            value={block.data.markerColor ?? block.data.markers[0]?.color ?? "#2f5f9f"}
-            onChange={(event) => onChange({
+            value={block.data.markerColor ?? "#2f5f9f"}
+            onChange={(color) => onChange({
               ...block,
-              data: { ...block.data, markerColor: event.target.value },
+              data: { ...block.data, markerColor: color },
             })}
-            className="h-9 w-12 cursor-pointer p-1"
           />
         </label>
-        <label className="flex items-center justify-between gap-2 text-xs font-medium text-slate-600">
+        <label className="block space-y-1 text-xs font-medium text-slate-600">
           Number text
-          <Input
+          <ColorPicker
             aria-label="Graphic marker text color"
-            type="color"
             value={block.data.textColor ?? "#ffffff"}
-            onChange={(event) => onChange({
+            onChange={(color) => onChange({
               ...block,
-              data: { ...block.data, textColor: event.target.value },
+              data: { ...block.data, textColor: color },
             })}
-            className="h-9 w-12 cursor-pointer p-1"
           />
         </label>
-        <label className="flex items-center justify-between gap-2 text-xs font-medium text-slate-600">
+        <label className="block space-y-1 text-xs font-medium text-slate-600">
           Radar pulse
-          <Input
+          <ColorPicker
             aria-label="Graphic marker radar color"
-            type="color"
-            value={block.data.radarColor ?? block.data.markerColor ?? block.data.markers[0]?.color ?? "#2f5f9f"}
-            onChange={(event) => onChange({
+            value={block.data.radarColor ?? block.data.markerColor ?? "#2f5f9f"}
+            onChange={(color) => onChange({
               ...block,
-              data: { ...block.data, radarColor: event.target.value },
+              data: { ...block.data, radarColor: color },
             })}
-            className="h-9 w-12 cursor-pointer p-1"
           />
         </label>
       </div>
@@ -180,6 +185,17 @@ export function LabeledGraphicBlockSettings({ block, onChange, setMediaLibraryTa
               </Button>
             )}
           </div>
+          <label className="block space-y-1 text-xs font-medium text-slate-600">
+            Point color
+            <span className="flex min-w-0 items-start gap-1">
+              <ColorPicker aria-label={`Graphic marker ${index + 1} color`} value={marker.color ?? block.data.markerColor ?? "#2f5f9f"} onChange={(color) => onChange({ ...block, data: { ...block.data, markers: block.data.markers.map((entry) => entry.id === marker.id ? { ...entry, color: color } : entry) } })} />
+              {marker.color && <Button type="button" variant="ghost" size="sm" aria-label={`Use default color for graphic marker ${index + 1}`} onClick={() => onChange({ ...block, data: { ...block.data, markers: block.data.markers.map((entry) => entry.id === marker.id ? { ...entry, color: undefined } : entry) } })}>Use default</Button>}
+            </span>
+          </label>
+          <label className="flex items-center gap-2 text-xs font-medium text-slate-600">
+            <Checkbox aria-label={`Graphic marker ${index + 1} radar animation`} checked={marker.radarEnabled !== false} onChange={(event) => onChange({ ...block, data: { ...block.data, markers: block.data.markers.map((entry) => entry.id === marker.id ? { ...entry, radarEnabled: event.target.checked } : entry) } })} />
+            Radar animation
+          </label>
           <Input
             aria-label={`Graphic marker ${index + 1} label`}
             value={marker.label}

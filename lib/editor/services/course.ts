@@ -11,6 +11,7 @@ import { defaultSection, ownerObjectId } from "./shared";
 import { normalizeCourseTheme } from "../theme";
 import { normalizeCourseLayout } from "../course-layout";
 import { slideCoverSchema, slideMasterSchema } from "../slide-design";
+import { migrateCoverAudio } from "../audio-instruction";
 import { normalizeCourseNavigationMode } from "../navigation";
 
 export async function getCourseAuthorName(ownerId: string, courseId: string) {
@@ -65,7 +66,7 @@ export async function getCourseEditor(ownerId: string, courseId: string) {
         : sections[0].id;
       const order = lessonOrder.get(sectionId) ?? 0;
       lessonOrder.set(sectionId, order + 1);
-      return {
+      return migrateCoverAudio({
         id: lesson.editorId ?? String(lesson._id),
         sectionId,
         title: lesson.title,
@@ -88,7 +89,7 @@ export async function getCourseEditor(ownerId: string, courseId: string) {
             blockPadding: normalizeBlockPaddingForBlock(block.blockPadding, block),
           };
         }),
-      };
+      });
     }),
   };
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { ColorPicker } from "@/components/ui/color-picker";
+
 import { Plus, Trash2 } from "lucide-react";
 import type { ContentBlock } from "@/lib/schemas/block";
 import { createClientId } from "@/lib/client-id";
@@ -49,28 +51,24 @@ export function FlipCardBlockSettings({ block, onChange, updateFlipCard, updateF
       <div className="grid grid-cols-2 gap-2">
         <label className="space-y-1 text-xs font-medium text-slate-600">
           <span>Card background</span>
-          <Input
+          <ColorPicker
             aria-label="Card background color"
-            type="color"
             value={block.data.cardBackgroundColor}
-            onChange={(event) => onChange({
+            onChange={(color) => onChange({
               ...block,
-              data: { ...block.data, cardBackgroundColor: event.target.value },
+              data: { ...block.data, cardBackgroundColor: color },
             })}
-            className="h-9 cursor-pointer p-1"
           />
         </label>
         <label className="space-y-1 text-xs font-medium text-slate-600">
           <span>Card text</span>
-          <Input
+          <ColorPicker
             aria-label="Card text color"
-            type="color"
             value={block.data.cardTextColor}
-            onChange={(event) => onChange({
+            onChange={(color) => onChange({
               ...block,
-              data: { ...block.data, cardTextColor: event.target.value },
+              data: { ...block.data, cardTextColor: color },
             })}
-            className="h-9 cursor-pointer p-1"
           />
         </label>
       </div>

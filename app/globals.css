@@ -158,6 +158,14 @@ body { margin: 0; min-height: 100vh; background: #f8fafc; color: #0f172a; font-f
   0% { opacity: .72; transform: scale(.55); }
   75%, 100% { opacity: 0; transform: scale(2.15); }
 }
+
+@keyframes interaction-popup-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes interaction-popup-zoom { from { opacity: 0; transform: scale(.94); } to { opacity: 1; transform: scale(1); } }
+@keyframes interaction-popup-slide { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
+.interaction-popup-fade[open] { animation: interaction-popup-fade .22s ease-out; }
+.interaction-popup-zoom[open] { animation: interaction-popup-zoom .22s cubic-bezier(.2,.8,.2,1); }
+.interaction-popup-slide[open] { animation: interaction-popup-slide .24s cubic-bezier(.2,.8,.2,1); }
+@media (prefers-reduced-motion: reduce) { .interaction-popup-fade[open], .interaction-popup-zoom[open], .interaction-popup-slide[open] { animation: none; } }
 @keyframes labeled-graphic-popover-enter {
   from { opacity: 0; scale: .94; translate: 0 7px; }
   to { opacity: 1; scale: 1; translate: 0 0; }
@@ -192,6 +200,17 @@ body { margin: 0; min-height: 100vh; background: #f8fafc; color: #0f172a; font-f
   animation: labeled-graphic-radar 2.6s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
 .labeled-graphic-radar::after { animation-delay: 1.3s; }
+.labeled-graphic-radar-gradient::before,
+.labeled-graphic-radar-gradient::after {
+  border: 0;
+  padding: 2px;
+  background: var(--radar-gradient);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+}
+[data-slide-object-frame] [data-slide-content-body] :where(.rounded, [class*="rounded-"], pre[data-code-theme]):not(:where(button, input, select, textarea, .rounded-full, .labeled-graphic-popover)) {
+  border-radius: var(--slide-object-radius, 12px);
+}
 .labeled-graphic-popover {
   box-sizing: border-box;
   width: min(17rem, calc(100% - 1rem));
@@ -201,6 +220,17 @@ body { margin: 0; min-height: 100vh; background: #f8fafc; color: #0f172a; font-f
   overscroll-behavior: contain;
   animation: labeled-graphic-popover-enter 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
+[data-slide-text-box][data-horizontal-align] .tiptap,
+[data-slide-text-box][data-horizontal-align] .tiptap :is(p, h1, h2, h3, ul, ol, blockquote) {
+  text-align: var(--slide-text-align) !important;
+}
+
+/* Keep presentation video controls over the footage without a shaded bar. */
+video[data-slide-media-player]::-webkit-media-controls-panel,
+video[data-slide-media-player]::-webkit-media-controls-enclosure {
+  background: transparent;
+}
+
 .lesson-rich-text ul,
 .lesson-rich-text ol { margin-block: 1rem; padding-inline-start: 0; list-style: none; }
 .lesson-rich-text blockquote { margin-block: 1rem; border-inline-start: 3px solid #cbd5e1; padding-inline-start: 1rem; color: #334155; }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { useEditor, EditorContent } from "@tiptap/react";
+import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Settings2 } from "lucide-react";
 import { TextFormattingToolbar, textEditorExtensions } from "./text-formatting-toolbar";
@@ -19,6 +19,9 @@ export function StatementTextEditor({
   text,
   className = "",
   placeholder,
+  externalToolbar = false,
+  inheritColor = false,
+  onEditorFocus,
   onChange,
 }: {
   id: string;
@@ -28,6 +31,9 @@ export function StatementTextEditor({
   text: string;
   className?: string;
   placeholder?: string;
+  externalToolbar?: boolean;
+  inheritColor?: boolean;
+  onEditorFocus?: (editor: Editor) => void;
   onChange: (html: string, text: string) => void;
 }) {
   const { isTextSelected, onSelectionUpdate, rootRef } = useTextSelectionToolbar();
@@ -41,6 +47,8 @@ export function StatementTextEditor({
     extensions,
     content: html ?? `<${tag}>${escapeHtml(text)}</${tag}>`,
     immediatelyRender: false,
+    editorProps: { attributes: { role: "textbox", "aria-label": label } },
+    onFocus: ({ editor: activeEditor }) => onEditorFocus?.(activeEditor),
     onSelectionUpdate,
     onUpdate: ({ editor: activeEditor }) => onChange(activeEditor.getHTML(), activeEditor.getText()),
   }, [id, extensions]);
@@ -54,9 +62,10 @@ export function StatementTextEditor({
     <EditorContent
       editor={editor}
       aria-label={label}
+      style={inheritColor ? { color: "inherit" } : undefined}
       className={`min-h-6 cursor-text text-slate-800 [&_.tiptap]:m-0 [&_.tiptap]:min-h-6 [&_.tiptap]:outline-none [&_.tiptap_*]:text-inherit [&_.tiptap_h1]:my-0 [&_.tiptap_h2]:my-0 [&_.tiptap_h3]:my-0 [&_.tiptap_p]:my-0 ${placeholder ? "course-description-editor" : ""} ${className}`}
     />
-    {isTextSelected && <div className="absolute left-0 top-full z-40 mt-2 w-[360px] max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white p-2.5 text-slate-700 shadow-xl">
+    {!externalToolbar && isTextSelected && <div className="absolute left-0 top-full z-40 mt-2 w-[360px] max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white p-2.5 text-slate-700 shadow-xl">
       <div className="mb-2 flex items-center gap-2 px-1 text-xs font-medium text-slate-500"><Settings2 size={14} />Edit text format</div>
       <TextFormattingToolbar editor={editor} />
     </div>}

@@ -1,5 +1,7 @@
 "use client";
 
+import { ColorPicker } from "@/components/ui/color-picker";
+
 import { Plus, Trash2 } from "lucide-react";
 import type { ContentBlock } from "@/lib/schemas/block";
 import { createClientId } from "@/lib/client-id";
@@ -7,9 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import type { Dispatch, SetStateAction } from "react";
 
-export function ChartBlockSettings({ block, onChange, setChartColorDraft, chartColorDraft }: { block: Extract<ContentBlock, { type: "chart" }>; onChange: (block: ContentBlock) => void; setChartColorDraft: Dispatch<SetStateAction<string>>; chartColorDraft: string }) {
+
+export function ChartBlockSettings({ block, onChange }: { block: Extract<ContentBlock, { type: "chart" }>; onChange: (block: ContentBlock) => void }) {
   return (
     <div className="space-y-3">
       <Input
@@ -52,33 +54,7 @@ export function ChartBlockSettings({ block, onChange, setChartColorDraft, chartC
         <option value="donut">Donut</option>
         <option value="stacked">Stacked</option>
       </Select>
-      <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2">
-        <Input
-          aria-label="Chart color picker"
-          type="color"
-          value={block.data.color}
-          onChange={(event) => {
-            setChartColorDraft(event.target.value);
-            onChange({ ...block, data: { ...block.data, color: event.target.value } });
-          }}
-          className="h-9 w-12 cursor-pointer p-1"
-        />
-        <Input
-          aria-label="Chart color hex code"
-          value={chartColorDraft}
-          maxLength={7}
-          onChange={(event) => {
-            const value = event.target.value;
-            setChartColorDraft(value);
-            if (/^#[\da-fA-F]{6}$/.test(value)) {
-              onChange({ ...block, data: { ...block.data, color: value } });
-            }
-          }}
-          onBlur={() => setChartColorDraft(block.data.color)}
-          placeholder="#4f46e5"
-          className="h-9 font-mono"
-        />
-      </div>
+      <ColorPicker aria-label="Chart color picker" hexLabel="Chart color hex code" value={block.data.color} onChange={(color) => onChange({ ...block, data: { ...block.data, color } })} />
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2 text-xs font-medium text-slate-500">
           <span>Chart data</span>

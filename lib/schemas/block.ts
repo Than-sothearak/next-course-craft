@@ -1,6 +1,11 @@
 import { z } from "zod";
+import { colorValueSchema } from "@/lib/color";
 import { isSafeLinkHref } from "@/lib/editor/link-utils";
-import { slideFrameSchema } from "@/lib/editor/slide-design";
+import { slideBackgroundSchema, slideBorderRadiusSchema, slideFrameSchema, slideMediaSchema, slidePlaybackSchema, slideTextLayoutSchema } from "@/lib/editor/slide-design";
+import { graphicImageFitSchema } from "@/lib/editor/graphic-layout";
+import { slideCropSchema } from "@/lib/editor/slide-crop";
+import { interactionButtonPositions, interactionIcons } from "@/lib/editor/interaction-button";
+import { slideImageSourceSchema } from "@/lib/editor/slide-design";
 
 export const blockTypes = [
   "heading",
@@ -9,6 +14,8 @@ export const blockTypes = [
   "gallery",
   "video",
   "audio",
+  "audioInstruction",
+  "interactionButton",
   "attachment",
   "link",
   "divider",
@@ -61,6 +68,12 @@ const base = {
     .default("#ffffff"),
   headingPadding: spacing.optional(),
   slideFrame: slideFrameSchema.optional(),
+  slideBackground: slideBackgroundSchema.optional(),
+  slideBorderRadius: slideBorderRadiusSchema.optional(),
+  slideTextLayout: slideTextLayoutSchema.optional(),
+  slideMedia: slideMediaSchema.optional(),
+  slideCrop: slideCropSchema.optional(),
+  requiredForProgress: z.boolean().optional(),
 };
 const blockBase = (
   defaultWidth: "full" | "medium" | "small",
@@ -115,6 +128,7 @@ export const galleryBlockSchema = z.object({
 export const videoBlockSchema = z.object({
   ...blockBase("medium", 40),
   type: z.literal("video"),
+  slidePlayback: slidePlaybackSchema.optional(),
   data: z.object({
     src: z.string().url().or(z.string().startsWith("/")),
     mimeType: z.enum(["video/mp4", "video/webm"]).optional(),
@@ -124,10 +138,24 @@ export const videoBlockSchema = z.object({
 export const audioBlockSchema = z.object({
   ...blockBase("medium", 40),
   type: z.literal("audio"),
+  slidePlayback: slidePlaybackSchema.optional(),
   data: z.object({
     src: z.string().regex(/^\/api\/assets\/[a-f\d]{24}\/file$/i).or(z.literal("")),
     fileName: z.string().max(255).default(""),
     mimeType: z.enum(["audio/mpeg", "audio/mp4", "audio/ogg", "audio/wav", "audio/webm"]).optional(),
+  }),
+});
+export const audioInstructionBlockSchema = z.object({
+  ...blockBase("small", 0),
+  type: z.literal("audioInstruction"),
+  requiredForProgress: z.boolean().default(false),
+  data: audioBlockSchema.shape.data.extend({
+    label: z.string().trim().min(1).max(120).default("Audio instructions"),
+    autoPlay: z.boolean().default(false),
+    showIcon: z.boolean().default(true),
+    showText: z.boolean().default(true),
+    color: colorValueSchema.default("#f8fafc"),
+    textColor: colorValueSchema.default("#334155"),
   }),
 });
 export const attachmentBlockSchema = z.object({
@@ -137,6 +165,40 @@ export const attachmentBlockSchema = z.object({
     src: z.string().regex(/^\/api\/assets\/[a-f\d]{24}\/file$/i).or(z.literal("")),
     fileName: z.string().max(255).default(""),
     size: z.number().int().min(0).max(250 * 1024 * 1024).default(0),
+  }),
+});
+
+export const popupContentBlockSchema = z.discriminatedUnion("type", [headingBlockSchema, richTextBlockSchema, imageBlockSchema, videoBlockSchema, audioBlockSchema]);
+export type PopupContentBlock = z.infer<typeof popupContentBlockSchema>;
+export const interactionButtonBlockSchema = z.object({
+  ...blockBase("small", 0),
+  type: z.literal("interactionButton"),
+  data: z.object({
+    label: z.string().trim().min(1).max(120).default("Open details"),
+    trigger: z.enum(["icon", "image"]).default("icon"),
+    icon: z.enum(interactionIcons).default("info"),
+    imageSrc: slideImageSourceSchema.default(""),
+    imageAlt: z.string().max(500).default(""),
+    showLabel: z.boolean().default(false),
+    color: colorValueSchema.default("#4f46e5"),
+    iconColor: colorValueSchema.default("#ffffff"),
+    radarColor: colorValueSchema.default("#8b5cf6"),
+    radarEnabled: z.boolean().default(true),
+    radius: z.number().min(0).max(64).default(16),
+    iconSize: z.number().min(16).max(96).default(40),
+    buttonSize: z.number().min(24).max(256).default(80),
+    position: z.enum(interactionButtonPositions).default("middle-center"),
+    action: z.enum(["popup", "block"]).default("popup"),
+    targetBlockId: z.string().max(64).default(""),
+    popup: z.object({
+      title: z.string().trim().min(1).max(160).default("Learn more"),
+      width: z.number().int().min(480).max(1280).default(800),
+      height: z.number().int().min(270).max(960).default(450),
+      backgroundColor: colorValueSchema.default("#ffffff"),
+      textColor: colorValueSchema.default("#172033"),
+      animation: z.enum(["fade", "zoom", "slide", "none"]).default("zoom"),
+      blocks: z.array(popupContentBlockSchema).max(20).default([]).refine((blocks) => new Set(blocks.map((block) => block.id)).size === blocks.length, "Popup objects must have unique IDs."),
+    }).default(() => ({ title: "Learn more", width: 800, height: 450, backgroundColor: "#ffffff", textColor: "#172033", animation: "zoom" as const, blocks: [] })),
   }),
 });
 export const linkBlockSchema = z.object({
@@ -160,7 +222,7 @@ export const dividerBlockSchema = z.object({
     label: z.string().max(100).default("Continue"),
     completionType: dividerCompletionTypeSchema.default("none"),
     lineWeight: z.number().int().min(1).max(16).optional(),
-    lineColor: z.string().regex(/^#[\da-fA-F]{6}$/).optional(),
+    lineColor: colorValueSchema.optional(),
     lineStyle: z.enum(["solid", "dashed", "dotted", "double"]).optional(),
   }),
 });
@@ -214,8 +276,8 @@ const flipCardCollectionDataSchema = z
     cards: z.array(flipCardItemSchema).min(1).max(30),
     cardsPerRow: z.number().int().min(1).max(5).default(3),
     cardStyle: z.enum(["classic", "soft", "outlined", "elevated"]).default("classic"),
-    cardBackgroundColor: z.string().default("#ffffff"),
-    cardTextColor: z.string().default("#0f172a"),
+    cardBackgroundColor: colorValueSchema.default("#ffffff"),
+    cardTextColor: colorValueSchema.default("#0f172a"),
   })
   .superRefine((data, context) => {
     const ids = new Set<string>();
@@ -237,8 +299,8 @@ const legacyFlipCardDataSchema = z.object({
   back: z.string().max(2_000),
   cardsPerRow: z.number().int().min(1).max(5).default(3),
   cardStyle: z.enum(["classic", "soft", "outlined", "elevated"]).default("classic"),
-  cardBackgroundColor: z.string().default("#ffffff"),
-  cardTextColor: z.string().default("#0f172a"),
+  cardBackgroundColor: colorValueSchema.default("#ffffff"),
+  cardTextColor: colorValueSchema.default("#0f172a"),
 });
 export const flipCardBlockSchema = z.object({
   ...blockBase("full", 40),
@@ -282,15 +344,23 @@ export const accordionBlockSchema = z.object({
       .max(12),
   }),
 });
+export const lessonMapTemplateSchema = z.enum([
+  "modernCity",
+  "farmFields",
+  "cityProvince",
+  "learningRoad",
+]);
 export const labeledGraphicBlockSchema = z.object({
   ...blockBase("full", 40),
   type: z.literal("labeledGraphic"),
   data: z.object({
     src: z.string().url().or(z.string().startsWith("/")).or(z.literal("")),
     alt: z.string().max(500),
-    markerColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
-    textColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
-    radarColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+    mapTemplate: lessonMapTemplateSchema.optional(),
+    objectFit: graphicImageFitSchema.optional(),
+    markerColor: colorValueSchema.optional(),
+    textColor: colorValueSchema.optional(),
+    radarColor: colorValueSchema.optional(),
     interactionMode: z.enum(["explore", "spotTarget"]).optional(),
     sceneTheme: z.enum(["data", "security", "network", "agriculture"]).optional(),
     challengePrompt: z.string().max(300).optional(),
@@ -303,7 +373,8 @@ export const labeledGraphicBlockSchema = z.object({
           description: z.string().max(2_000),
           x: z.number().min(0).max(100),
           y: z.number().min(0).max(100),
-          color: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+          color: colorValueSchema.optional(),
+          radarEnabled: z.boolean().optional(),
           isTarget: z.boolean().optional(),
           missFeedback: z.string().max(500).optional(),
         }),
@@ -320,7 +391,7 @@ export const labeledGraphicBlockSchema = z.object({
         context.addIssue({ code: "custom", path: ["successMessage"], message: "Mini-games need a success message." });
       if (data.markers.filter((marker) => marker.isTarget).length !== 1)
         context.addIssue({ code: "custom", path: ["markers"], message: "Choose exactly one correct hotspot." });
-    } else if (!data.src && !data.sceneTheme) {
+    } else if (!data.src && !data.sceneTheme && !data.mapTemplate) {
       context.addIssue({ code: "custom", path: ["src"], message: "Explore graphics need an image." });
     }
   }),
@@ -332,7 +403,7 @@ export const processStepsBlockSchema = z.object({
   type: z.literal("processSteps"),
   data: z.object({
     style: processStepsStyleSchema.optional(),
-    accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
+    accentColor: colorValueSchema.optional(),
     showNumbers: z.boolean().optional(),
     steps: z
       .array(
@@ -353,12 +424,6 @@ export const chartTypeSchema = z.enum([
   "donut",
   "stacked",
 ]);
-export const lessonMapTemplateSchema = z.enum([
-  "modernCity",
-  "farmFields",
-  "cityProvince",
-  "learningRoad",
-]);
 export const lessonMapCheckpointIconSchema = z.enum([
   "flag",
   "book",
@@ -376,7 +441,7 @@ export const lessonMapBlockSchema = z.object({
       id: z.string().min(1).max(64),
       title: z.string().max(160),
       description: z.string().max(1_000),
-      color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default("#e27d55"),
+      color: colorValueSchema.default("#e27d55"),
       icon: lessonMapCheckpointIconSchema.default("flag"),
       targetType: z.enum(["lesson", "section"]).default("lesson"),
       targetId: z.string().max(64).default(""),
@@ -395,7 +460,7 @@ export const chartBlockSchema = z.object({
     chartType: chartTypeSchema,
     title: z.string().max(500),
     description: z.string().max(2_000).default(""),
-    color: z.string().regex(/^#[0-9a-fA-F]{6}$/).default("#4f46e5"),
+    color: colorValueSchema.default("#4f46e5"),
     fields: z
       .array(
         z.object({
@@ -427,6 +492,8 @@ const contentBlockSchema = z.discriminatedUnion("type", [
   galleryBlockSchema,
   videoBlockSchema,
   audioBlockSchema,
+  audioInstructionBlockSchema,
+  interactionButtonBlockSchema,
   attachmentBlockSchema,
   linkBlockSchema,
   dividerBlockSchema,
@@ -488,6 +555,7 @@ export function defaultBlockWidthForBlock(block: ContentBlock): ContentBlock["wi
 }
 
 export function defaultBlockPadding(_type: ContentBlock["type"]): number {
+  if (_type === "interactionButton" || _type === "audioInstruction") return 0;
   void _type;
   return 40;
 }

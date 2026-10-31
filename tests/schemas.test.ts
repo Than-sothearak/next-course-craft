@@ -204,6 +204,24 @@ describe("shared authoring schemas", () => {
     expect(steps).toMatchObject({ type: "processSteps", width: "medium", data: { steps: [{ title: "First" }, { title: "Next" }] } });
   });
 
+  it("validates built-in graphic maps and individual point colors without an image URL", () => {
+    const graphic = { id: "map", version: 1, type: "labeledGraphic", data: { src: "", alt: "Learning map", markers: [{ id: "point", label: "Start", description: "Begin here", x: 20, y: 40, color: "#16a34a" }] } };
+    for (const mapTemplate of ["modernCity", "farmFields", "cityProvince", "learningRoad"]) {
+      expect(blockSchema.parse({ ...graphic, data: { ...graphic.data, mapTemplate } })).toMatchObject({ data: { mapTemplate, markers: [{ color: "#16a34a" }] } });
+    }
+    expect(blockSchema.safeParse(graphic).success).toBe(false);
+    expect(blockSchema.safeParse({ ...graphic, data: { ...graphic.data, mapTemplate: "unknown" } }).success).toBe(false);
+    expect(blockSchema.safeParse({ ...graphic, data: { ...graphic.data, mapTemplate: "learningRoad", markers: [{ ...graphic.data.markers[0], color: "red" }] } }).success).toBe(false);
+  });
+
+  it("accepts an optional boolean radar setting for each graphic point", () => {
+    const graphic = { id: "graphic-radar", version: 1, type: "labeledGraphic", data: { src: "/diagram.png", alt: "Diagram", markers: [{ id: "point", label: "Start", description: "Begin here", x: 20, y: 40 }] } };
+    for (const radarEnabled of [undefined, true, false]) {
+      expect(blockSchema.parse({ ...graphic, data: { ...graphic.data, markers: [{ ...graphic.data.markers[0], radarEnabled }] } })).toMatchObject({ data: { markers: [{ radarEnabled }] } });
+    }
+    expect(blockSchema.safeParse({ ...graphic, data: { ...graphic.data, markers: [{ ...graphic.data.markers[0], radarEnabled: "false" }] } }).success).toBe(false);
+  });
+
   it("requires one winning hotspot and complete feedback for graphic mini-games", () => {
     const game = {
       id: "spot-target-game",

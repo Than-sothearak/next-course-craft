@@ -1,9 +1,9 @@
 export type InteractiveSceneTheme = "data" | "security" | "network" | "agriculture";
 
-export function InteractiveScene({ theme }: { theme: InteractiveSceneTheme }) {
+export function InteractiveScene({ theme, stretch = false }: { theme: InteractiveSceneTheme; stretch?: boolean }) {
   if (theme === "data")
     return (
-      <svg data-scene-theme="data" viewBox="0 0 1200 675" aria-hidden="true" className="block h-full w-full">
+      <svg data-scene-theme="data" viewBox="0 0 1200 675" preserveAspectRatio={stretch ? "none" : undefined} aria-hidden="true" className="block h-full w-full">
         <rect width="1200" height="675" fill="#0b1220" />
         <rect width="1200" height="66" fill="#111c2e" />
         <circle cx="39" cy="33" r="13" fill="#38bdf8" />
@@ -43,7 +43,7 @@ export function InteractiveScene({ theme }: { theme: InteractiveSceneTheme }) {
 
   if (theme === "security")
     return (
-      <svg data-scene-theme="security" viewBox="0 0 1200 675" aria-hidden="true" className="block h-full w-full">
+      <svg data-scene-theme="security" viewBox="0 0 1200 675" preserveAspectRatio={stretch ? "none" : undefined} aria-hidden="true" className="block h-full w-full">
         <rect width="1200" height="675" fill="#dbeafe" />
         <rect y="0" width="1200" height="72" fill="#0f172a" />
         <circle cx="46" cy="36" r="14" fill="#38bdf8" />
@@ -80,7 +80,7 @@ export function InteractiveScene({ theme }: { theme: InteractiveSceneTheme }) {
 
   if (theme === "network")
     return (
-      <svg data-scene-theme="network" viewBox="0 0 1200 675" aria-hidden="true" className="block h-full w-full">
+      <svg data-scene-theme="network" viewBox="0 0 1200 675" preserveAspectRatio={stretch ? "none" : undefined} aria-hidden="true" className="block h-full w-full">
         <rect width="1200" height="675" fill="#0b1220" />
         <rect width="1200" height="675" fill="#102039" opacity=".55" />
         <path d="M0 82H1200" stroke="#2a3d57" strokeWidth="2" />
@@ -129,7 +129,7 @@ export function InteractiveScene({ theme }: { theme: InteractiveSceneTheme }) {
     );
 
   return (
-    <svg data-scene-theme="agriculture" viewBox="0 0 1200 675" aria-hidden="true" className="block h-full w-full">
+    <svg data-scene-theme="agriculture" viewBox="0 0 1200 675" preserveAspectRatio={stretch ? "none" : undefined} aria-hidden="true" className="block h-full w-full">
       <rect width="1200" height="675" fill="#bde7f7" />
       <circle cx="1040" cy="110" r="46" fill="#fde68a" />
       <path d="M0 330C180 270 315 300 470 330S790 285 1200 322V675H0Z" fill="#6fae58" />

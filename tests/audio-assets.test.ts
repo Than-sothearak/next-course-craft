@@ -4,16 +4,16 @@ const { find, lean } = vi.hoisted(() => ({ find: vi.fn(), lean: vi.fn() }));
 vi.mock("@/models/Asset", () => ({ Asset: { find } }));
 import { assertCourseAudioAssets } from "@/lib/editor/services/audio-assets";
 const id = "507f1f77bcf86cd799439011";
-function lessons(src = `/api/assets/${id}/file`) {
+function lessons(src = `/api/assets/${id}/file`, type: "audio" | "audioInstruction" = "audio") {
   return editorSnapshotSchema.parse({ title: "Course", description: "", revision: 0, sections: [{ id: "s", title: "Section", order: 0 }], lessons: [{
     id: "l", sectionId: "s", title: "Lesson", order: 0,
-    blocks: [{ id: "audio", version: 1, type: "audio", data: { src } }],
+    blocks: [{ id: "audio", version: 1, type, data: { src } }],
   }] }).lessons;
 }
 beforeEach(() => { vi.clearAllMocks(); find.mockReturnValue({ select: () => ({ lean }) }); lean.mockResolvedValue([{ _id: id }]); });
 describe("audio asset ownership on editor saves", () => {
-  it("requires ready audio in the current owner/course and deduplicates references", async () => {
-    const input = lessons();
+  it.each(["audio", "audioInstruction"] as const)("requires ready %s in the current owner/course and deduplicates references", async (type) => {
+    const input = lessons(`/api/assets/${id}/file`, type);
     input[0].blocks.push({ ...input[0].blocks[0], id: "second-audio" });
     await assertCourseAudioAssets("owner", "course", input);
     expect(find).toHaveBeenCalledWith({ _id: { $in: [id] }, ownerId: "owner", courseId: "course", status: "ready", mimeType: /^audio\// });

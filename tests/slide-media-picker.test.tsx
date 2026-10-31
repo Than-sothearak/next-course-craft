@@ -18,7 +18,7 @@ const samples = {
   audio: blockSchema.parse({ id: "audio", version: 1, type: "audio", data: { src: "" } }),
   attachment: blockSchema.parse({ id: "attachment", version: 1, type: "attachment", data: { src: "", fileName: "", size: 0 } }),
   gallery: blockSchema.parse({ id: "gallery", version: 1, type: "gallery", data: { images: [{ src: "/placeholder", alt: "" }] } }),
-  labeledGraphic: blockSchema.parse({ id: "graphic", version: 1, type: "labeledGraphic", data: { src: "/placeholder", alt: "Diagram", markers: [{ id: "marker", label: "Part", description: "", x: 50, y: 50 }] } }),
+  labeledGraphic: blockSchema.parse({ id: "graphic", version: 1, type: "labeledGraphic", data: { src: "", mapTemplate: "learningRoad", alt: "Diagram", markers: [{ id: "marker", label: "Part", description: "", x: 50, y: 50 }] } }),
 };
 let root: Root;
 let container: HTMLDivElement;
@@ -50,6 +50,7 @@ describe("slide media picker", () => {
     expect(container.querySelector('[role="dialog"]')).not.toBeNull();
     act(() => button(`Use ${filename}`).click());
     expect(container.querySelector("output")?.textContent).toContain(assets[assetIndex].fileUrl);
+    if (type === "labeledGraphic") expect(JSON.parse(container.querySelector("output")!.textContent!).mapTemplate).toBeUndefined();
     if (type === "audio" || type === "attachment") expect(container.querySelector("output")?.textContent).toContain(filename);
   });
 

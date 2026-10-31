@@ -223,7 +223,7 @@ describe("content block settings access", () => {
     act(() => document.querySelector<HTMLButtonElement>('[aria-label="Open content settings"]')!.click());
     expect(document.querySelector('[aria-label="Graphic marker 1 horizontal position"]')).toBeNull();
     expect(document.querySelector('[aria-label="Graphic marker 1 vertical position"]')).toBeNull();
-    expect(document.querySelector('[aria-label="Graphic marker 1 color"]')).toBeNull();
+    expect(document.querySelector('[aria-label="Graphic marker 1 color"]')).not.toBeNull();
     expect(document.querySelector('[aria-label="Graphic marker color"]')).not.toBeNull();
     expect(document.querySelector('[aria-label="Graphic marker text color"]')).not.toBeNull();
     expect(document.querySelector('[aria-label="Graphic marker radar color"]')).not.toBeNull();
