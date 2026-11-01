@@ -1,13 +1,13 @@
 import { z } from "zod";
 import type { CSSProperties } from "react";
-import { backgroundPaint, colorValueSchema, solidColor } from "@/lib/color";
+import { backgroundPaint, colorValueSchema, contrastTextColor, solidColor } from "@/lib/color";
 
 export const navigationButtonStyles = ["outline", "solid", "soft", "modern", "glass", "threeD"] as const;
 export const navigationButtonAppearanceSchema = z.object({
-  style: z.enum(navigationButtonStyles).default("outline"),
+  style: z.enum(navigationButtonStyles).default("modern"),
   backgroundColor: colorValueSchema.default("#4f46e5"),
-  textColor: colorValueSchema.default("#172033"),
-  borderColor: colorValueSchema.default("#172033"),
+  textColor: colorValueSchema.default("#ffffff"),
+  borderColor: colorValueSchema.default("#4f46e5"),
   fillOpacity: z.number().int().min(0).max(100).default(100),
   height: z.number().int().min(28).max(72).default(36),
   minWidth: z.number().int().min(64).max(200).default(88),
@@ -27,8 +27,8 @@ export const slideNavigationButtonsSchema = navigationButtonAppearanceSchema.ext
 });
 export type SlideNavigationButtons = z.infer<typeof slideNavigationButtonsSchema>;
 
-export function resolveNavigationButtons(settings?: SlideNavigationButtons, textColor = "#172033"): SlideNavigationButtons {
-  return settings ?? slideNavigationButtonsSchema.parse({ textColor, borderColor: textColor });
+export function resolveNavigationButtons(settings?: SlideNavigationButtons, accentColor = "#4f46e5"): SlideNavigationButtons {
+  return settings ?? slideNavigationButtonsSchema.parse({ style: "modern", backgroundColor: accentColor, textColor: contrastTextColor(accentColor), borderColor: accentColor });
 }
 export function navigationButtonAppearance(settings: SlideNavigationButtons, key: NavigationButtonKey): NavigationButtonAppearance {
   return settings.overrides?.[key] ?? navigationButtonAppearanceSchema.parse(settings);

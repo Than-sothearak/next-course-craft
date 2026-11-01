@@ -19,22 +19,30 @@ describe("per-slide backgrounds and blank layouts", () => {
     expect(slideAppearanceSchema.parse({})).toEqual({ hideHeader: false, hideFooter: false });
     for (const invalid of [{ hideHeader: "true" }, { hideFooter: 1 }, { background: { type: "image", imageSrc: "https://outside.test/image.png" } }, { background: { type: "image", imageSrc, overlayOpacity: 101 } }]) expect(slideAppearanceSchema.safeParse(invalid).success).toBe(false);
   });
-  it("renders a full background without header/footer decorations, preserving objects and navigation", () => {
+  it("renders a full background without header/footer decorations or footer navigation", () => {
     const html = renderToStaticMarkup(<SlideSurface master={master} appearance={appearance} title="Hidden title" number={1} total={2} controls={<button>Next</button>}><div>Editable object</div></SlideSurface>);
     expect(html).toContain(`src="${imageSrc}"`); expect(html).toContain("object-cover"); expect(html).toContain("object-position:top"); expect(html).toContain("opacity:0");
     expect(html).not.toContain("data-slide-header"); expect(html).not.toContain("data-slide-footer="); expect(html).not.toContain("Master branding"); expect(html).not.toContain("data-abstract-design");
-    expect(html).toContain("Editable object"); expect(html).toContain("data-slide-floating-navigation"); expect(html).toContain("Next");
+    expect(html).toContain("Editable object"); expect(html).not.toContain("data-slide-floating-navigation"); expect(html).not.toContain(">Next<");
     const other = renderToStaticMarkup(<SlideSurface master={master} title="Normal title" number={2} total={2} />);
     expect(other).toContain("data-slide-header"); expect(other).toContain("data-slide-footer"); expect(other).toContain('data-abstract-design="waves"');
   });
+  it("allows navigation buttons to be toggled independently of the footer", () => {
+    const hiddenFooter = renderToStaticMarkup(<SlideSurface appearance={{ hideHeader: false, hideFooter: true, showNavigationButtons: true }} title="Hidden footer" number={1} total={2} controls={<button>Next</button>} />);
+    const hiddenNavigation = renderToStaticMarkup(<SlideSurface appearance={{ hideHeader: false, hideFooter: false, showNavigationButtons: false }} title="Hidden navigation" number={1} total={2} controls={<button>Next</button>} />);
+    expect(hiddenFooter).toContain("data-slide-floating-navigation"); expect(hiddenFooter).toContain(">Next<"); expect(hiddenFooter).not.toContain("data-slide-footer=");
+    expect(hiddenNavigation).toContain("data-slide-footer="); expect(hiddenNavigation).not.toContain(">Next<");
+  });
   it.each([[true, false], [false, true], [true, true]])("reclaims quiz canvas space when header=%s/footer=%s are hidden", (hideHeader, hideFooter) => {
     const html = renderToStaticMarkup(<SlideSurface appearance={{ hideHeader, hideFooter }} title="Quiz" number={1} total={1} contentRegion><div>Question</div></SlideSurface>);
-    expect(html).toContain(`top:${hideHeader ? "0" : "108px"};bottom:${hideFooter ? "0" : "64px"}`);
+    expect(html).toContain(`top:${hideHeader ? "0" : "108px"};bottom:${hideFooter ? "0" : "48px"}`);
     expect(html.includes("data-slide-header")).toBe(!hideHeader); expect(html.includes("data-slide-footer=")).toBe(!hideFooter);
   });
-  it("uses matching blank backgrounds on covers and avoids thumbnail navigation", () => {
-    const html = renderToStaticMarkup(<SlideCoverSurface appearance={appearance} master={master} cover={defaultSlideCover} title="Cover title" decorative controls={<button>Next</button>} />);
-    expect(html).toContain(`src="${imageSrc}"`); expect(html).not.toContain("Cover title"); expect(html).not.toContain("data-slide-thumbnail-footer"); expect(html).not.toContain("data-slide-floating-navigation");
+  it("hides cover footer navigation when the footer is hidden", () => {
+    const html = renderToStaticMarkup(<SlideCoverSurface appearance={appearance} master={master} cover={defaultSlideCover} title="Cover title" controls={<button>Next</button>} />);
+    expect(html).toContain(`src="${imageSrc}"`); expect(html).not.toContain("Cover title"); expect(html).not.toContain("data-slide-footer="); expect(html).not.toContain("data-slide-floating-navigation"); expect(html).not.toContain(">Next<");
+    const enabled = renderToStaticMarkup(<SlideCoverSurface appearance={{ hideHeader: false, hideFooter: true, showNavigationButtons: true }} master={master} cover={defaultSlideCover} title="Cover title" controls={<button>Next</button>} />);
+    expect(enabled).toContain("data-slide-floating-navigation"); expect(enabled).toContain(">Next<");
   });
   it("preserves independent settings in the Lesson model, slide duplication, and SCORM snapshots", () => {
     const course = snapshot(), document = new Lesson({ courseId: assetId, editorId: "slide", sectionId: "section", order: 0, slideAppearance: appearance });

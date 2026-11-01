@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
-import { resolveSlideAppearanceMaster, resolveSlideFooterHeight, resolveSlideHeaderTypography, slideBodyTypographyVariables, slideTypographyStyle, type SlideAppearance, type SlideMaster, type SlideHeaderStyle } from "@/lib/editor/slide-design";
+import { resolveSlideAppearanceMaster, resolveSlideFooterHeight, resolveSlideHeaderTypography, resolveSlideNavigationVisibility, slideBodyTypographyVariables, slideTypographyStyle, type SlideAppearance, type SlideMaster, type SlideHeaderStyle } from "@/lib/editor/slide-design";
 import { SlideMasterBackground } from "./slide-master-background";
 import { SlideSurfaceFooter } from "./slide-surface-footer";
 import { SlideHeaderBackground } from "./slide-header-background";
@@ -30,7 +30,7 @@ export function SlideSurface({ master, appearance, title, titleVisible = true, h
       <div className="absolute inset-x-0 top-0 h-2" style={backgroundPaint(design.accentColor)} />
       <header data-slide-header className="absolute left-12 right-12 top-9 min-h-14 overflow-hidden leading-tight tracking-tight" style={slideTypographyStyle(header)}>{typeof title === "string" ? <FittedSlideTitle title={title} visible={titleVisible} fontSize={header.fontSize} textAlign={header.textAlign} /> : title}</header></>}
       <div data-slide-object-region className={contentRegion ? "pointer-events-auto absolute inset-x-0 overflow-auto" : "pointer-events-none absolute inset-0 z-20"} style={contentRegion ? { top: appearance?.hideHeader ? 0 : 108, bottom: footerHeight } : undefined}>{children}</div>
-      <SlideSurfaceFooter hidden={appearance?.hideFooter} master={design} number={number} total={total} controls={controls} decorative={decorative} />
+      <SlideSurfaceFooter hidden={appearance?.hideFooter} showNavigation={resolveSlideNavigationVisibility(appearance)} master={design} number={number} total={total} controls={controls} decorative={decorative} />
       {menuControl}
     </div>
   );

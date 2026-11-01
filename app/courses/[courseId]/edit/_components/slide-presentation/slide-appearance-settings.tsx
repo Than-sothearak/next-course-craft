@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { Select } from "@/components/ui/select";
-import { defaultSlideAppearance, resolveSlideAppearanceMaster, type SlideAppearance, type SlideMaster } from "@/lib/editor/slide-design";
+import { defaultSlideAppearance, resolveSlideAppearanceMaster, resolveSlideNavigationVisibility, type SlideAppearance, type SlideMaster } from "@/lib/editor/slide-design";
 import { SlideMasterBackground } from "../../../_components/slide-presentation/slide-master-background";
 import { MediaLibraryDialog } from "../media-library-dialog";
 import { SlideInspectorSection } from "./slide-inspector-section";
@@ -29,6 +29,7 @@ export function SlideAppearanceSettings({ value, onChange, master, courseId }: {
         <label className="flex items-center gap-2 text-xs text-slate-600"><Checkbox aria-label="Show slide header" checked={!appearance.hideHeader} onChange={(event) => change({ hideHeader: !event.target.checked })} />Show header</label>
         <label className="flex items-center gap-2 text-xs text-slate-600"><Checkbox aria-label="Show slide footer" checked={!appearance.hideFooter} onChange={(event) => change({ hideFooter: !event.target.checked })} />Show footer</label>
       </div>
+      <label className="flex items-center gap-2 text-xs text-slate-600"><Checkbox aria-label="Show navigation buttons" checked={resolveSlideNavigationVisibility(appearance)} onChange={(event) => change({ showNavigationButtons: event.target.checked })} />Show Previous, Next, and Restart buttons</label>
       <label className="block space-y-1 text-xs text-slate-600">Background<Select aria-label="Slide background style" value={background?.type ?? "master"} onChange={(event) => change(event.target.value === "master" ? { background: undefined, backgroundColor: undefined } : event.target.value === "solid" ? { background: { type: "solid" }, backgroundColor: appearance.backgroundColor ?? "#ffffff" } : { background: { type: "image", imageSrc: "", imagePosition: "center", overlayOpacity: 0 } })}><option value="master">Use master background</option><option value="solid">Solid color</option><option value="image">Image (fill slide)</option></Select></label>
       {background?.type === "solid" && <ColorPicker aria-label="Slide background color" value={appearance.backgroundColor ?? "#ffffff"} onChange={(backgroundColor) => change({ backgroundColor })} />}
       {background?.type === "image" && <>

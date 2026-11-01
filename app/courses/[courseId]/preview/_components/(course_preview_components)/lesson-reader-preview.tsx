@@ -257,7 +257,7 @@ export function LessonReaderPreview({
                     });
                   }}
                 />
-              ) : (
+              ) : slideLayout && lesson.slideCover ? null : (
                 <div className="mt-10 rounded-xl border border-dashed border-slate-300 px-5 py-8 text-center text-sm text-slate-500">
                   This content has no lesson material yet.
                 </div>

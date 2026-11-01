@@ -29,7 +29,7 @@ const numbers = [
 export function SlideNavigationButtonControls({ master, onChange }: { master: SlideMaster; onChange: (master: SlideMaster) => void }) {
   const [target, setTarget] = useState<"all" | NavigationButtonKey>("all");
   const footer = resolveSlideFooter(master);
-  const settings = resolveNavigationButtons(master.navigationButtons, footer.textColor);
+  const settings = resolveNavigationButtons(master.navigationButtons, master.accentColor);
   const appearance = navigationButtonAppearance(settings, target === "all" ? "previous" : target);
   const shared = target === "all" ? { ...settings, overrides: undefined } : settings;
   const selected = target === "all" ? navigationButtonAppearance(shared, "previous") : appearance;

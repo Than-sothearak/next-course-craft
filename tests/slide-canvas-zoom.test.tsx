@@ -4,7 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EditorClient } from "@/app/courses/[courseId]/edit/_components/editor-client";
 import { editorSnapshotSchema } from "@/lib/editor/schemas";
-import { resolveCanvasSlideFrame } from "@/lib/editor/slide-design";
+import { resolveCanvasSlideFrame, resolveSlideFooterHeight } from "@/lib/editor/slide-design";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), back: vi.fn(), forward: vi.fn() }) }));
 vi.mock("@/app/dashboard/_components/dashboard-navbar", () => ({ DashboardNavbar: ({ primaryAction }: { primaryAction: ReactNode }) => <header>{primaryAction}</header> }));
@@ -12,7 +12,7 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 const frame = { x: 11, y: 8, width: 78, height: 24, z: 0 };
 const canvasFrame = resolveCanvasSlideFrame({ type: "heading", slideFrame: frame }, 0, 1);
-const footerTop = (540 - 64) / 540 * 100;
+const footerTop = (540 - resolveSlideFooterHeight()) / 540 * 100;
 const initialData = { courseId: "slides", ...editorSnapshotSchema.parse({
   title: "Presentation", description: "", revision: 1, courseLayout: "slides",
   sections: [{ id: "section", title: "Slides", order: 0 }],

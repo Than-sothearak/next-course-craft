@@ -25,6 +25,7 @@ describe("slide-specific background and layout authoring", () => {
   afterEach(() => { act(() => root.unmount()); container.remove(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
   const canvas = () => container.querySelector('[data-slide-canvas]')!;
   const click = (label: string) => act(async () => container.querySelector<HTMLButtonElement>(`[aria-label="${label}"]`)!.click());
+  const toggle = (label: string) => act(async () => container.querySelector<HTMLInputElement>(`[aria-label="${label}"]`)!.click());
   const textButton = (text: string) => [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === text)!;
   const save = async () => { await act(async () => vi.advanceTimersByTimeAsync(1000)); return editorSnapshotSchema.parse(JSON.parse(fetchMock.mock.calls.findLast(([, init]) => init?.method === "PUT")![1].body)); };
   it("edits one slide, preserves content, supports undo/reload, and renders the same blank image slide in preview", async () => {
@@ -34,9 +35,12 @@ describe("slide-specific background and layout authoring", () => {
     await act(async () => textButton("Choose or upload slide background image").click());
     await act(async () => textButton("Pick test background").click());
     expect(canvas().querySelector('[data-slide-master-background="image"] img')!.getAttribute("src")).toBe("/api/assets/123456789012345678901234/file");
-    await click("Blank slide"); expect(canvas().querySelector('[data-slide-header]')).toBeNull(); expect(canvas().querySelector('[data-slide-footer]')).toBeNull(); expect(canvas().querySelector('[data-slide-floating-navigation]')).not.toBeNull(); expect(canvas().textContent).toContain("Existing editable content");
+    await click("Blank slide"); expect(canvas().querySelector('[data-slide-header]')).toBeNull(); expect(canvas().querySelector('[data-slide-footer]')).toBeNull(); expect(canvas().querySelector('[data-slide-floating-navigation]')).toBeNull(); expect(canvas().textContent).toContain("Existing editable content");
     await click("Undo"); expect(canvas().querySelector('[data-slide-header]')).not.toBeNull(); expect(canvas().querySelector('[data-slide-footer]')).not.toBeNull(); await click("Redo");
-    const snapshot = await save(); expect(snapshot.lessons[0].slideAppearance).toMatchObject({ hideHeader: true, hideFooter: true, background: { type: "image", overlayOpacity: 0 } }); expect(snapshot.lessons[1].slideAppearance).toBeUndefined();
+    await toggle("Show navigation buttons"); expect(canvas().querySelector('[data-slide-floating-navigation]')).not.toBeNull(); expect(canvas().querySelector('[aria-label="Next"]')).not.toBeNull();
+    await toggle("Show navigation buttons"); expect(canvas().querySelector('[data-slide-floating-navigation]')).toBeNull();
+    await toggle("Show navigation buttons");
+    const snapshot = await save(); expect(snapshot.lessons[0].slideAppearance).toMatchObject({ hideHeader: true, hideFooter: true, showNavigationButtons: true, background: { type: "image", overlayOpacity: 0 } }); expect(snapshot.lessons[1].slideAppearance).toBeUndefined();
     await click("Edit slide 2: Quiz"); expect(canvas().querySelector('[data-slide-header]')).not.toBeNull(); expect(canvas().querySelector('[data-slide-footer]')).not.toBeNull(); expect(container.querySelector<HTMLInputElement>('[aria-label="Blank slide"]')!.checked).toBe(false);
     await click("Show slide footer"); expect(canvas().querySelector('[data-slide-footer]')).toBeNull(); expect(canvas().querySelector('[data-slide-header]')).not.toBeNull();
     await act(async () => root.render(<EditorClient key="reload" initialData={{ ...snapshot, courseId: "course" }} authorName="Author" />)); expect(canvas().querySelector('[data-slide-header]')).toBeNull(); expect(canvas().querySelector('[data-slide-footer]')).toBeNull();

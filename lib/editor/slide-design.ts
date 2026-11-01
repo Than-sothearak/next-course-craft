@@ -76,7 +76,7 @@ export function slideNavigationLabel(title: string, index: number): string {
 }
 
 // Legacy object regions. Saved slides without objectLayout use these coordinates.
-export function resolveSlideFooterHeight(master?: { footer?: { height?: number } }): number { return master?.footer?.height ?? 64; }
+export function resolveSlideFooterHeight(master?: { footer?: { height?: number } }): number { return master?.footer?.height ?? 48; }
 
 export function resolveSlideObjectArea(master?: { size?: SlideSize; footer?: { height?: number } }): SlideSize {
   const size = resolveSlideSize(master);
@@ -189,12 +189,17 @@ export const slideAppearanceSchema = z.object({
   backgroundColor: colorValueSchema.optional(),
   hideHeader: z.boolean().default(false),
   hideFooter: z.boolean().default(false),
+  showNavigationButtons: z.boolean().optional(),
 });
 export type SlideAppearance = z.infer<typeof slideAppearanceSchema>;
 export const defaultSlideAppearance = slideAppearanceSchema.parse({});
 
+export function resolveSlideNavigationVisibility(appearance?: SlideAppearance) {
+  return appearance?.showNavigationButtons ?? !appearance?.hideFooter;
+}
+
 export const slideFooterSchema = z.object({
-  height: z.number().int().min(48).max(160).default(64),
+  height: z.number().int().min(48).max(160).default(48),
   fontSize: z.number().int().min(10).max(24).default(12),
   fontFamily: z.enum(courseThemeFontFamilyIds).optional(),
   fontWeight: z.enum(["normal", "bold"]).default("normal"),

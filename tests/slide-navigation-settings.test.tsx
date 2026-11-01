@@ -31,6 +31,14 @@ describe("footer navigation appearance and chat tips", () => {
   const navButton = (key: string) => container.querySelector<HTMLButtonElement>(`[data-slide-canvas] [data-navigation-button="${key}"]`)!;
   async function saved() { await act(async () => vi.advanceTimersByTimeAsync(1000)); return editorSnapshotSchema.parse(JSON.parse(fetch.mock.calls.findLast(([, init]) => init?.method === "PUT")![1].body)); }
 
+  it("defaults to a 48px footer and Modern buttons using the master accent", async () => {
+    await render();
+    expect(container.querySelector<HTMLElement>('[data-slide-footer]')!.style.height).toBe("48px");
+    expect(navButton("previous").dataset.navigationButtonStyle).toBe("modern");
+    expect(navButton("previous").style.backgroundColor).toBe("rgb(79, 70, 229)");
+    expect(navButton("previous").style.color).toBe("rgb(255, 255, 255)");
+  });
+
   it("saves shared and per-button designs, gradients, sizes, footer geometry, undo and reload", async () => {
     await render(); await input("Footer height (px)", "112"); await input("Footer text size (px)", "16"); await input("Footer content gap (px)", "12");
     await click("Navigation style Modern"); await input("Navigation button height (px)", "48");

@@ -5,6 +5,7 @@ import {
   CoursePreview,
   type PreviewData,
 } from "../app/courses/[courseId]/preview/course-preview";
+import { defaultSlideCover } from "@/lib/editor/slide-design";
 
 const initialData: PreviewData = {
   courseId: "course-1",
@@ -81,5 +82,24 @@ describe("shared course preview experience", () => {
     expect(preview).toContain("1 / 1");
     expect(preview).toContain("This content has no lesson material yet.");
     expect(preview).not.toContain("Course outline");
+  });
+
+  it("hides the empty-content message on a slide cover", () => {
+    const preview = renderToStaticMarkup(
+      createElement(CoursePreview, {
+        initialData: {
+          ...initialData,
+          courseLayout: "slides",
+          lessons: [{
+            ...initialData.lessons[0],
+              slideCover: defaultSlideCover,
+          }],
+        },
+        authorName: "Course author",
+        standalone: true,
+      }),
+    );
+
+    expect(preview).not.toContain("This content has no lesson material yet.");
   });
 });

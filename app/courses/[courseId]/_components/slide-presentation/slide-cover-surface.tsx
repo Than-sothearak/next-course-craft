@@ -2,7 +2,7 @@ import Image from "next/image";
 import type { CSSProperties, ReactNode } from "react";
 import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { defaultSlideCoverTypography, resolveSlideAppearanceMaster, resolveSlideFooterHeight, slideBodyTypographyVariables, slideTypographyStyle, type SlideAppearance, type SlideCover, type SlideMaster } from "@/lib/editor/slide-design";
+import { defaultSlideCoverTypography, resolveSlideAppearanceMaster, resolveSlideFooterHeight, resolveSlideNavigationVisibility, slideBodyTypographyVariables, slideTypographyStyle, type SlideAppearance, type SlideCover, type SlideMaster } from "@/lib/editor/slide-design";
 import { SlideSurfaceFooter } from "./slide-surface-footer";
 import { SlideMasterBackground } from "./slide-master-background";
 import { SlideCoverPositionFrame } from "./slide-cover-position-frame";
@@ -45,7 +45,7 @@ export function SlideCoverSurface({ cover, title, master, appearance, number = 1
     {cover.subtitle && cover.subtitleLayout && <SlideCoverPositionFrame element="subtitle" layout={cover.subtitleLayout}>{subtitleContent}</SlideCoverPositionFrame>}
     {cover.buttonLayout && <SlideCoverPositionFrame element="button" layout={cover.buttonLayout}>{startContent(cover.buttonLayout.position.split("-")[1])}</SlideCoverPositionFrame>}</>}
     {children && <div data-slide-cover-objects className="pointer-events-none absolute inset-0 z-20">{children}</div>}
-    <SlideSurfaceFooter hidden={appearance?.hideFooter} master={master} number={number} total={total} controls={controls} decorative={decorative} />
+    <SlideSurfaceFooter hidden={appearance?.hideFooter} showNavigation={resolveSlideNavigationVisibility(appearance)} master={master} number={number} total={total} controls={controls} decorative={decorative} />
     {menuControl}
   </div>;
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { slideMasterSchema, resolveSlideObjectArea } from "@/lib/editor/slide-design";
+import { slideFooterSchema, slideMasterSchema, resolveSlideObjectArea } from "@/lib/editor/slide-design";
 import { navigationButtonAppearance, navigationButtonPaint, navigationButtonStyles, navigationLayout, navigationPreset, resolveNavigationButtons, slideNavigationButtonsSchema } from "@/lib/editor/slide-navigation-design";
 import { gradientColor } from "@/lib/color";
 import { Course } from "@/models/Course";
@@ -8,10 +8,11 @@ import { parseScorm12Snapshot } from "@/lib/scorm12/snapshot";
 
 const gradient = gradientColor("#2563eb", "#9333ea", 135);
 describe("presentation navigation design", () => {
-  it("preserves legacy colors and the default footer geometry", () => {
+  it("uses a compact default footer and master-accent Modern buttons", () => {
     expect(slideMasterSchema.parse({}).navigationButtons).toBeUndefined();
-    expect(resolveNavigationButtons(undefined, "#f8fafc")).toMatchObject({ style: "outline", textColor: "#f8fafc", borderColor: "#f8fafc" });
-    expect(resolveSlideObjectArea()).toEqual({ width: 960, height: 368 });
+    expect(slideFooterSchema.parse({}).height).toBe(48);
+    expect(resolveNavigationButtons(undefined, "#a5b4fc")).toMatchObject({ style: "modern", backgroundColor: "#a5b4fc", textColor: "#000000", borderColor: "#a5b4fc" });
+    expect(resolveSlideObjectArea()).toEqual({ width: 960, height: 384 });
   });
   it.each(navigationButtonStyles)("validates and paints the %s preset with gradients", (style) => {
     const buttons = slideNavigationButtonsSchema.parse({ ...navigationPreset(style), backgroundColor: gradient, borderColor: gradient });

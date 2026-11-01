@@ -142,7 +142,7 @@ describe("master slide footer settings", () => {
     await finishInput("Footer horizontal padding", "100"); await finishInput("Footer vertical padding", "100");
     expect((await saved()).slideMaster?.footer).toMatchObject({ paddingX: 64, paddingY: 32 });
     const footer = container.querySelector<HTMLElement>('[data-slide-footer]')!;
-    expect(footer.style.paddingInline).toBe("64px"); expect(footer.style.paddingBlock).toBe("19px");
+    expect(footer.style.paddingInline).toBe("64px"); expect(footer.style.paddingBlock).toBe("11px");
     await finishInput("Footer horizontal padding", "");
     expect(container.querySelector<HTMLInputElement>('[aria-label="Footer horizontal padding"]')?.value).toBe("64");
     await finishInput("Footer horizontal padding", "-2"); await input("Footer vertical padding", "0");

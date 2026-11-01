@@ -20,7 +20,7 @@ export function SlideFooter({ master = defaultSlideMaster, number, total, contro
   const gapX = footer.logoGapX ?? 8;
   const justifyContent = { left: "flex-start", center: "center", right: "flex-end", between: "space-between" }[footer.logoJustify ?? "center"];
   const alignItems = { top: "flex-start", middle: "center", bottom: "flex-end" }[footer.logoAlign ?? "middle"];
-  const size = resolveSlideSize(master), height = footer.height ?? 64, contentGap = footer.contentGap ?? 16;
+  const size = resolveSlideSize(master), height = footer.height ?? 48, contentGap = footer.contentGap ?? 16;
   const border = footer.borderTop ? footer.borderWidth : 0;
   const paddingY = Math.min(footer.paddingY ?? 8, Math.max(0, Math.floor((height - border - 24) / 2)));
   const fontSize = Math.min(footer.fontSize ?? 12, (height - border - paddingY * 2) / 1.3);
@@ -39,6 +39,6 @@ export function SlideFooter({ master = defaultSlideMaster, number, total, contro
       </div>}
     </div>
     {master.showSlideNumber && <span aria-label={decorative ? undefined : "Slide number"} className="shrink-0 text-center tabular-nums" style={{ ...textPaint(footer.textColor), width: numberWidth }}>{number} / {total}</span>}
-    <SlideNavigationDesignProvider settings={resolveNavigationButtons(master.navigationButtons, footer.textColor)} availableWidth={availableWidth} availableHeight={height - border - paddingY * 2} canvasWidth={size.width} rightInset={footer.paddingX} tipMaxHeight={Math.max(120, size.height - height - 24)}>{controls}</SlideNavigationDesignProvider>
+    <SlideNavigationDesignProvider settings={resolveNavigationButtons(master.navigationButtons, master.accentColor)} availableWidth={availableWidth} availableHeight={height - border - paddingY * 2} canvasWidth={size.width} rightInset={footer.paddingX} tipMaxHeight={Math.max(120, size.height - height - 24)}>{controls}</SlideNavigationDesignProvider>
   </footer>;
 }
