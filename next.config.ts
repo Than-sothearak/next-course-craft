@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
     agentUpgrade: "security",
     exposeTestingApiInProductionBuild: process.env.EXPOSE_TESTING_API === "1",
     // Source uploads are capped at 12 MiB; leave room for multipart fields and boundaries.
-    proxyClientMaxBodySize: "14mb",
+    proxyClientMaxBodySize: "260mb",
   },
 
   allowedDevOrigins: ['skilled-jacqulyn-flamier.ngrok-free.dev'],
