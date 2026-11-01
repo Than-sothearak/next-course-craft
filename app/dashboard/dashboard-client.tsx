@@ -506,6 +506,7 @@ export default function DashboardClient({
                     data={data}
                     disabled={disabled || readOnly}
                     busy={busy}
+                    error={error}
                     href={dashboardHref({ ...filters, folderId: folder.id })}
                     onSubmit={submit}
                     onRequest={async (url, method, body) => { await request(url, method, body); }}
@@ -537,6 +538,7 @@ export default function DashboardClient({
                       data={data}
                       disabled={disabled}
                       busy={busy}
+                      error={error}
                       onSubmit={submit}
                       onRequest={async (url, method, body) => { await request(url, method, body); }}
                     />

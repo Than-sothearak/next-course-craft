@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { act, createElement } from "react";
+import { act, createElement, type FormEvent } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CourseCard } from "@/app/dashboard/_components/(dashboard_client_components)/course-card";
@@ -52,10 +52,11 @@ describe("course card actions", () => {
     act(() => root.unmount());
     container.remove();
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
     Reflect.deleteProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT");
   });
 
-  it("keeps the overflow menu above neighboring cards and offers publish formats", () => {
+  it("opens compact course settings above the cards and offers all publish formats", () => {
     act(() => {
       root.render(createElement(CourseCard, {
         course,
@@ -67,26 +68,32 @@ describe("course card actions", () => {
       }));
     });
 
-    const card = container.querySelector("article");
-    const details = container.querySelector<HTMLDetailsElement>("details");
-    expect(card?.className).toContain("overflow-visible");
-    expect(card?.className).toContain("z-0");
     expect(container.querySelector(".aspect-video.rounded-t-2xl.overflow-hidden")).not.toBeNull();
-    expect(details).not.toBeNull();
-
-    act(() => details!.querySelector("summary")!.click());
-    expect(card?.className).toContain("z-30");
-    const publishButton = [...details!.querySelectorAll("button")].find((button) => button.textContent?.includes("Publish"));
+    expect(container.querySelector("dialog")).toBeNull();
+    const trigger = container.querySelector<HTMLButtonElement>('button[aria-haspopup="dialog"]')!;
+    act(() => trigger.click());
+    expect(trigger.getAttribute("aria-expanded")).toBe("true");
+    const dialog = document.querySelector<HTMLElement>('[data-card-popover][data-state="open"]')!;
+    expect(dialog.textContent).toContain("Course settings");
+    expect(dialog.parentElement).toBe(document.body);
+    expect(dialog.getAttribute("aria-modal")).toBe("false");
+    expect(document.documentElement.style.overflow).toBe("");
+    const publishButton = [...dialog.querySelectorAll("button")].find((button) => button.textContent === "Publish");
     expect(publishButton).toBeDefined();
 
     act(() => publishButton!.click());
-    const menu = container.querySelector('[role="menu"][aria-label="Publish format"]');
+    const menu = document.querySelector('[role="menu"][aria-label="Publish format"]');
     expect([...menu!.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent)).toEqual([
       "HTML",
       "PDF handout",
       "SCORM 1.2",
       "SCORM 2004",
     ]);
+    act(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+    act(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+    expect(dialog.dataset.state).toBe("closed");
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    expect(document.documentElement.style.overflow).toBe("");
   });
 
   it("identifies standard and slide presentation cards even when a cover image is set", () => {
@@ -98,10 +105,11 @@ describe("course card actions", () => {
     expect(container.textContent).toContain("Slide presentation");
     expect(container.querySelector(".aspect-video svg.lucide-presentation")).not.toBeNull();
     expect(container.querySelector(".aspect-video img")).not.toBeNull();
-    expect(container.querySelector<HTMLAnchorElement>('a[href="/courses/course-1/edit"]')).not.toBeNull();
+    expect(container.querySelector<HTMLAnchorElement>('a[href="/courses/course-1/edit/presentation-mode"]')).not.toBeNull();
 
     act(() => root.render(createElement(CourseCard, { ...props, course: { ...course, courseLayout: "slides", permissions: [...roleCeilings.viewer] } })));
-    expect(container.querySelector<HTMLAnchorElement>('a[href="/courses/course-1/preview?previewLayout=slides"]')).not.toBeNull();
+    expect(container.querySelector<HTMLAnchorElement>('a[href="/courses/course-1/preview/presentation-mode"]')).not.toBeNull();
+    expect(container.querySelector('button[aria-haspopup="dialog"]')).toBeNull();
   });
 
   it("duplicates a personal course into a selected team workspace", async () => {
@@ -120,8 +128,8 @@ describe("course card actions", () => {
         onRequest,
       }));
     });
-    const details = container.querySelector<HTMLDetailsElement>("details")!;
-    act(() => details.querySelector("summary")!.click());
+    act(() => container.querySelector<HTMLButtonElement>('button[aria-haspopup="dialog"]')!.click());
+    const details = document.querySelector<HTMLElement>('[data-card-popover][data-state="open"]')!;
     const destination = [...details.querySelectorAll("select")].find((select) =>
       [...select.options].some((option) => option.value === "workspace-1"),
     )!;
@@ -155,8 +163,8 @@ describe("course card actions", () => {
       }));
     });
 
-    const details = container.querySelector<HTMLDetailsElement>("details");
-    act(() => details!.querySelector("summary")!.click());
+    act(() => container.querySelector<HTMLButtonElement>('button[aria-haspopup="dialog"]')!.click());
+    const details = document.querySelector<HTMLElement>('[data-card-popover][data-state="open"]')!;
     await act(async () => {
       [...details!.querySelectorAll("button")].find((button) => button.textContent?.includes("Choose or upload image"))!.click();
       await new Promise((resolve) => setTimeout(resolve, 0));
@@ -164,5 +172,45 @@ describe("course card actions", () => {
 
     expect(container.querySelector('[role="dialog"][aria-labelledby="media-library-title"]')).not.toBeNull();
     expect(container.querySelector('input[type="file"][accept*="image/png"]')).not.toBeNull();
+    expect(details.dataset.state).toBe("closed");
+    act(() => container.querySelector<HTMLButtonElement>('[aria-label="Close media library"]')!.click());
+    expect(container.querySelector('[aria-labelledby="media-library-title"]')).toBeNull();
+    expect(document.querySelector('[data-card-popover][data-state="open"]')).not.toBeNull();
+  });
+
+  it("submits course details and organization through the existing update handlers", async () => {
+    const onSubmit = vi.fn(async (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); });
+    const onRequest = vi.fn(async () => {});
+    act(() => root.render(createElement(CourseCard, { course, data: { ...data, folderOptions: [{ id: "folder-1", label: "Learning", depth: 0 }] }, disabled: false, busy: false, onSubmit, onRequest })));
+    act(() => container.querySelector<HTMLButtonElement>('button[aria-haspopup="dialog"]')!.click());
+    const dialog = document.querySelector<HTMLElement>('[data-card-popover][data-state="open"]')!;
+    const forms = dialog.querySelectorAll("form");
+    await act(async () => {
+      forms[0].dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+      forms[1].dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    });
+    expect(onSubmit).toHaveBeenCalledTimes(2);
+    expect(onSubmit).toHaveBeenCalledWith(expect.anything(), "/api/courses/course-1", "PATCH");
+    const status = [...dialog.querySelectorAll("select")].find((select) => select.value === "draft")!;
+    await act(async () => {
+      status.value = "archived";
+      status.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    expect(onRequest).toHaveBeenCalledWith("/api/courses/course-1", "PATCH", { status: "archived" });
+  });
+
+  it("shows request failures in settings and blocks changes while saving", () => {
+    const props = { course, data, disabled: false, busy: false, onSubmit: async () => {}, onRequest: async () => {} };
+    act(() => root.render(createElement(CourseCard, props)));
+    act(() => container.querySelector<HTMLButtonElement>('button[aria-haspopup="dialog"]')!.click());
+    act(() => root.render(createElement(CourseCard, { ...props, busy: true, error: "That change could not be saved." })));
+    const dialog = document.querySelector<HTMLElement>('[data-card-popover][data-state="open"]')!;
+    expect(dialog.querySelector('[role="alert"]')?.textContent).toBe("That change could not be saved.");
+    expect([...dialog.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLButtonElement>("input, select, button")].every((control) => control.disabled)).toBe(true);
+    act(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+    expect(dialog.dataset.state).toBe("open");
+    act(() => root.render(createElement(CourseCard, { ...props, course: { ...course, permissions: [...roleCeilings.viewer] } })));
+    expect(document.querySelector("[data-card-popover]")).toBeNull();
+    expect(document.documentElement.style.overflow).toBe("");
   });
 });

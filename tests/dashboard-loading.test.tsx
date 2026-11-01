@@ -253,7 +253,7 @@ describe("dashboard loading and shared controls", () => {
     expect(link.textContent).toContain("Card folder");
     expect(link.getAttribute("href")).toBe(`/dashboard?${workspaceId ? `workspaceId=${workspaceId}&` : ""}folderId=folder-2&q=alpha+%26+beta&status=published&sort=title`);
     expect(link.querySelector("button, details, form")).toBeNull();
-    expect(section.querySelector('summary[aria-label="Manage Card folder"]')).not.toBeNull();
+    expect(section.querySelector('button[aria-label="Manage Card folder"]')).not.toBeNull();
     expect(linkNavigation.navigate).not.toHaveBeenCalled();
     expect(router.push).not.toHaveBeenCalled();
   });
