@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { PublishMenu } from "@/components/publish-menu";
 import { MediaLibraryDialog, type MediaLibraryAsset } from "@/app/courses/[courseId]/edit/_components/media-library-dialog";
+import { courseEditorMode, editorModeHref, previewModeHref } from "@/lib/editor/course-routes";
 
 function dateLabel(value: string) {
   const date = new Date(value);
@@ -51,8 +52,10 @@ export function CourseCard({
   const [coverLibraryOpen, setCoverLibraryOpen] = useState(false);
   const [copyWorkspaceId, setCopyWorkspaceId] = useState(data.workspaceId ?? "");
   const readOnly = !course.permissions?.includes("courses.edit");
-  const previewLayoutQuery = course.courseLayout === "slides" ? "?previewLayout=slides" : "";
-  const courseHref = readOnly ? `/courses/${course.id}/preview${previewLayoutQuery}` : `/courses/${course.id}/edit`;
+  const courseMode = courseEditorMode(course.courseLayout);
+  const courseHref = readOnly
+    ? previewModeHref(course.id, courseMode)
+    : editorModeHref(course.id, courseMode);
 
   useEffect(() => {
     function closeWhenClickingOutside(event: PointerEvent) {

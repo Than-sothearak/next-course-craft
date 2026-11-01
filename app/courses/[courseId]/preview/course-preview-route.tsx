@@ -3,6 +3,15 @@
 import { useRouter } from "next/navigation";
 import { CoursePreview, type PreviewData } from "./course-preview";
 import { lessonEditorHref } from "@/lib/editor/lesson-location";
+import { courseEditorMode, editorModeHref } from "@/lib/editor/course-routes";
+
+export type CoursePreviewRouteProps = {
+  initialData: PreviewData;
+  authorName: string;
+  initialLessonId?: string;
+  canEdit?: boolean;
+  canPublish?: boolean;
+};
 
 export function CoursePreviewRoute({
   initialData,
@@ -10,14 +19,9 @@ export function CoursePreviewRoute({
   initialLessonId,
   canEdit = false,
   canPublish = false,
-}: {
-  initialData: PreviewData;
-  authorName: string;
-  initialLessonId?: string;
-  canEdit?: boolean;
-  canPublish?: boolean;
-}) {
+}: CoursePreviewRouteProps) {
   const router = useRouter();
+  const editorMode = courseEditorMode(initialData.courseLayout);
 
   return (
     <CoursePreview
@@ -26,8 +30,8 @@ export function CoursePreviewRoute({
       initialLessonId={initialLessonId}
       persistLocalProgress={false}
       canPublish={canPublish}
-      onBack={() => router.push(canEdit ? `/courses/${initialData.courseId}/edit` : "/dashboard")}
-      onEdit={canEdit ? (target) => router.push(lessonEditorHref(initialData.courseId, target?.lessonId, target?.blockId)) : undefined}
+      onBack={() => router.push(canEdit ? editorModeHref(initialData.courseId, editorMode) : "/dashboard")}
+      onEdit={canEdit ? (target) => router.push(lessonEditorHref(initialData.courseId, target?.lessonId, target?.blockId, editorMode)) : undefined}
     />
   );
 }

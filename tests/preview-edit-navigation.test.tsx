@@ -70,7 +70,7 @@ describe("preview links to the exact editor block", () => {
     blocks[1].getBoundingClientRect = () => rect(20, 200);
     const edit = Array.from(container.querySelectorAll<HTMLButtonElement>("header button")).find((button) => button.textContent?.trim() === "Edit")!;
     act(() => edit.click());
-    expect(push).toHaveBeenCalledWith("/courses/course-1/edit/lessons/lesson-2?blockId=block-2-2");
+    expect(push).toHaveBeenCalledWith("/courses/course-1/edit/standard-mode/lessons/lesson-2?blockId=block-2-2");
   });
 
   it("lays out only the selected lesson instead of scrolling a stack of full-height articles", async () => {
@@ -133,7 +133,7 @@ describe("preview links to the exact editor block", () => {
     await act(async () => root.render(createElement(CoursePreviewRoute, { canEdit: true, initialData, authorName: "Author" })));
     const edit = Array.from(container.querySelectorAll<HTMLButtonElement>("header button")).find((button) => button.textContent?.trim() === "Edit")!;
     act(() => edit.click());
-    expect(push).toHaveBeenCalledWith("/courses/course-1/edit");
+    expect(push).toHaveBeenCalledWith("/courses/course-1/edit/standard-mode");
   });
 
   it("keeps block editing controls out of the standalone learner export", async () => {
@@ -145,7 +145,7 @@ describe("preview links to the exact editor block", () => {
   it("falls back to the lesson when no block is visible and encodes route values", () => {
     expect(previewEditTarget("lesson-2", container)).toEqual({ lessonId: "lesson-2" });
     expect(previewEditTarget(null, container)).toBeUndefined();
-    expect(lessonEditorHref("course", "lesson name", "block/a?b")).toBe("/courses/course/edit/lessons/lesson%20name?blockId=block%2Fa%3Fb");
+    expect(lessonEditorHref("course", "lesson name", "block/a?b")).toBe("/courses/course/edit/standard-mode/lessons/lesson%20name?blockId=block%2Fa%3Fb");
   });
 
   it("scrolls to and focuses the requested editable block only once", async () => {

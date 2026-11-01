@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { FilePlus2, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { lessonEditorHref } from "@/lib/editor/course-routes";
 
 export function AddLessonButton({ courseId }: { courseId: string }) {
   const router = useRouter();
@@ -19,7 +20,7 @@ export function AddLessonButton({ courseId }: { courseId: string }) {
       const result = await response.json();
       if (!response.ok)
         throw new Error(result.error ?? "Could not add lesson.");
-      router.push(`/courses/${courseId}/edit/lessons/${result.id}`);
+      router.push(lessonEditorHref(courseId, result.id, undefined, "standard"));
     } catch (cause) {
       setError(
         cause instanceof Error ? cause.message : "Could not add lesson.",

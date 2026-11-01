@@ -2,9 +2,9 @@
 import { act, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SlideObject } from "@/app/courses/[courseId]/edit/_components/slide-presentation/slide-editable-object";
-import { SlidePlaybackControls } from "@/app/courses/[courseId]/edit/_components/slide-presentation/slide-playback-controls";
-import { SlideAudioSizeControls } from "@/app/courses/[courseId]/edit/_components/slide-presentation/slide-audio-size-controls";
+import { SlideObject } from "@/app/courses/[courseId]/edit/presentation-mode/_components/slide-presentation/slide-editable-object";
+import { SlidePlaybackControls } from "@/app/courses/[courseId]/edit/presentation-mode/_components/slide-presentation/slide-playback-controls";
+import { SlideAudioSizeControls } from "@/app/courses/[courseId]/edit/presentation-mode/_components/slide-presentation/slide-audio-size-controls";
 import { createBlocksFromTemplate, createSlideBlocksFromTemplate } from "@/app/courses/[courseId]/edit/_components/(editor_client_components)/(block_template_picker_components)/create-blocks-from-template";
 import { blockTemplates } from "@/app/courses/[courseId]/edit/_components/(editor_client_components)/(block_template_picker_components)/block-template-data";
 import { audioBlockSchema, blockSchema, type ContentBlock } from "@/lib/schemas/block";

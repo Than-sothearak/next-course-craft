@@ -1,7 +1,7 @@
 import { Suspense, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import CoursePreviewPage from "../app/courses/[courseId]/preview/page";
+import { PreviewPage } from "../app/courses/[courseId]/preview/_components/preview-page";
 
 const mocks = vi.hoisted(() => ({
   auth: vi.fn(),
@@ -47,7 +47,7 @@ describe("course preview loading boundary", () => {
       params: Promise.resolve({ courseId: "course-1" }),
       searchParams: Promise.resolve({ lessonId: "lesson-1" }),
     };
-    const page = CoursePreviewPage(props) as ReactElement<{
+    const page = PreviewPage({ ...props, mode: "standard" }) as ReactElement<{
       children: ReactElement<CoursePreviewPageProps>;
       fallback: ReactElement;
     }>;
@@ -70,10 +70,10 @@ describe("course preview loading boundary", () => {
   });
 
   it("shows the presentation loading shell when the preview link identifies a slide course", () => {
-    mocks.searchParams.mockReturnValue(new URLSearchParams("previewLayout=slides"));
-    const page = CoursePreviewPage({
+    const page = PreviewPage({
       params: Promise.resolve({ courseId: "course-1" }),
       searchParams: Promise.resolve({}),
+      mode: "presentation",
     }) as ReactElement<{
       fallback: ReactElement;
     }>;

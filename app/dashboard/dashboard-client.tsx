@@ -29,6 +29,7 @@ import { EmptyState } from "./_components/(dashboard_client_components)/empty-st
 import { FolderCard } from "./_components/(dashboard_client_components)/folder-card";
 import { useDismissDetailsOnOutsideClick } from "@/lib/ui/use-dismiss-details";
 import { WorkspaceManagerDialog } from "./_components/workspace-manager-dialog";
+import { editorModeHref } from "@/lib/editor/course-routes";
 
 type Props = {
   initialData: DashboardData;
@@ -176,7 +177,7 @@ export default function DashboardClient({
     if (method === "POST" && url === "/api/folders") setShowNewFolder(false);
     if (method === "POST" && url === "/api/courses") {
       if (created) setShowNewCourse(false);
-      if (created?.firstSlideId) router.push(`/courses/${created.id}/edit`);
+      if (created?.firstSlideId) router.push(editorModeHref(created.id, "presentation"));
     }
   }
 

@@ -27,8 +27,8 @@ import { ProcessStepsBlockSettings } from "./(content_block_editor_components)/_
 import { KnowledgeCheckBlockSettings } from "./(content_block_editor_components)/_components/block-settings/knowledge-check-block-settings";
 import { SurveyBlockSettings } from "./(content_block_editor_components)/_components/block-settings/survey-block-settings";
 import { ContentBlockPreview } from "./(content_block_editor_components)/_components/content-block-preview";
-import { AudioInstructionSettings } from "../slide-presentation/audio-instruction-settings";
-import { InteractionButtonSettings } from "../slide-presentation/interaction-button-settings";
+import { AudioInstructionSettings } from "./audio-instruction-settings";
+import { InteractionButtonSettings } from "./interaction-button-settings";
 import { BalloonArcherSettings } from "@/components/balloon-archer/balloon-archer-settings";
 import { PeelSettingsEditor } from "@/components/physics-interaction/peel-settings";
 import { HangingRopeSettingsEditor } from "@/components/physics-interaction/hanging-rope-settings";

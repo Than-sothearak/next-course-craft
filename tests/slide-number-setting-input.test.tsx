@@ -2,7 +2,7 @@
 import { act, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { SlideNumberSettingInput } from "@/app/courses/[courseId]/edit/_components/slide-presentation/slide-number-setting-input";
+import { SlideNumberSettingInput } from "@/app/courses/[courseId]/edit/presentation-mode/_components/slide-presentation/slide-number-setting-input";
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 

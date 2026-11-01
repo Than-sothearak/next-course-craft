@@ -4,7 +4,7 @@ import { useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { ArrowLeft, ArrowRight, BookOpen, LockKeyhole } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { PresentationSlideStage } from "../slide-presentation/presentation-slide-stage";
+import { PresentationSlideStage } from "@/app/courses/[courseId]/preview/presentation-mode/_components/slide-presentation/presentation-slide-stage";
 import { defaultSlideMaster, normalizeSlideLessonFrames, resolveSlideSize } from "@/lib/editor/slide-design";
 import {
   courseNavigationModeOptions,

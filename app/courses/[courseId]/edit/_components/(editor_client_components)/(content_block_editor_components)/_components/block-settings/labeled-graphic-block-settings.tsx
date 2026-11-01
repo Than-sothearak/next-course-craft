@@ -11,7 +11,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { graphicImageFitSchema } from "@/lib/editor/graphic-layout";
-import { SlideNumberSettingInput } from "@/app/courses/[courseId]/edit/_components/slide-presentation/slide-number-setting-input";
+import { SlideNumberSettingInput } from "@/app/courses/[courseId]/edit/presentation-mode/_components/slide-presentation/slide-number-setting-input";
 import type { MediaLibraryTarget } from "../content-block-types";
 import type { Dispatch, SetStateAction } from "react";
 

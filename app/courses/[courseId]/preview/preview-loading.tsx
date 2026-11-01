@@ -3,7 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { CoursePreviewSkeleton } from "./preview-skeleton";
 
-export function CoursePreviewLoading() {
+export function CoursePreviewLoading({ presentation }: { presentation?: boolean }) {
   const searchParams = useSearchParams();
-  return <CoursePreviewSkeleton presentation={searchParams.get("previewLayout") === "slides"} />;
+  return <CoursePreviewSkeleton presentation={presentation ?? searchParams.get("previewLayout") === "slides"} />;
 }

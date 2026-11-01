@@ -2,7 +2,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SlideEditorSidebar } from "@/app/courses/[courseId]/edit/_components/slide-presentation/slide-editor-sidebar";
+import { SlideEditorSidebar } from "@/app/courses/[courseId]/edit/presentation-mode/_components/slide-presentation/slide-editor-sidebar";
 import { audioBlockSchema, blockSchema, headingBlockSchema } from "@/lib/schemas/block";
 import { quizQuestionSchema } from "@/lib/schemas/quiz";
 import { defaultSlideCover, slideMasterSchema } from "@/lib/editor/slide-design";

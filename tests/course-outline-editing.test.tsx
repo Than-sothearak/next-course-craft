@@ -87,7 +87,7 @@ describe("course outline editing", () => {
   it("opens the standard course preview at its overview from a lesson", async () => {
     await act(async () => root.render(<EditorClient initialData={initialData} focusedLessonId="lesson" authorName="Author" />));
     await act(async () => [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent?.trim() === "Preview")!.click());
-    expect(push).toHaveBeenCalledWith("/courses/course/preview");
+    expect(push).toHaveBeenCalledWith("/courses/course/preview/standard-mode");
   });
 
   it("keeps presentation preview focused on the active slide", async () => {
@@ -98,7 +98,7 @@ describe("course outline editing", () => {
     }) };
     await act(async () => root.render(<EditorClient initialData={slideData} authorName="Author" />));
     await act(async () => [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent?.trim() === "Preview")!.click());
-    expect(push).toHaveBeenCalledWith("/courses/slides/preview?lessonId=first&previewLayout=slides");
+    expect(push).toHaveBeenCalledWith("/courses/slides/preview/presentation-mode?lessonId=first");
   });
 
   it("opens a slide course with a thumbnail panel and adds and selects slides in place", async () => {
@@ -108,8 +108,17 @@ describe("course outline editing", () => {
       lessons: [{ id: "first", sectionId: "section", title: "Slide 1", order: 0, blocks: [] }],
     }) };
     await act(async () => root.render(<EditorClient initialData={slideData} authorName="Author" />));
+    const workspace = container.querySelector<HTMLElement>("main")!;
+    expect(workspace.className).toContain("fixed inset-0");
+    expect(workspace.className).toContain("h-dvh");
+    expect(workspace.className).toContain("overflow-hidden");
+    expect(container.querySelector<HTMLElement>('header[data-presentation-editor-header]')?.className).toContain("sticky top-0");
     expect(container.querySelector('[aria-label="Presentation slide editor"]')).not.toBeNull();
-    expect(container.querySelector('aside[aria-label="Slide thumbnails"]')).not.toBeNull();
+    expect(container.querySelector<HTMLElement>('aside[aria-label="Slide thumbnails"]')?.className).toContain("lg:h-full");
+    expect(container.querySelector<HTMLElement>('aside[aria-label="Slide inspector"]')?.className).toContain("overflow-y-auto");
+    expect(container.querySelector<HTMLElement>('aside[aria-label="Slide inspector"]')?.className).toContain("h-full");
+    expect(container.querySelector<HTMLElement>('aside[aria-label="Slide inspector"]')?.className).toContain("max-h-[calc(100dvh-120px)]");
+    expect(container.querySelector<HTMLElement>('[aria-label="Canvas toolbar"]')?.parentElement?.className).toContain("flex h-full");
     expect(container.querySelector('[aria-label="Edit slide 1: Slide 1"]')?.getAttribute("aria-current")).toBe("step");
     expect(container.querySelector('[data-slide-canvas] [aria-label="Slide navigation"]')).not.toBeNull();
     expect(container.querySelector("details summary")?.textContent).not.toContain("Course outline");
@@ -141,7 +150,7 @@ describe("course outline editing", () => {
     expect(container.querySelector('[aria-label="Edit slide 2: last"]')?.getAttribute("aria-current")).toBe("step");
     expect(editorSnapshotSchema.parse(JSON.parse(fetchMock.mock.calls.at(-1)![1].body)).lessons.map(({ id, order }) => ({ id, order }))).toEqual([{ id: "first", order: 0 }, { id: "last", order: 1 }]);
     await act(async () => [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent?.trim() === "Preview")!.click());
-    expect(push).toHaveBeenLastCalledWith("/courses/slides/preview?lessonId=last&previewLayout=slides");
+    expect(push).toHaveBeenLastCalledWith("/courses/slides/preview/presentation-mode?lessonId=last");
     push.mockClear();
     await act(async () => remove("last").click());
     expect(container.querySelector('[aria-label="Edit slide 1: first"]')?.getAttribute("aria-current")).toBe("step");
@@ -264,6 +273,8 @@ describe("course outline editing", () => {
     await act(async () => root.render(<EditorClient initialData={slideData} authorName="Author" />));
     const select = () => container.querySelector<HTMLButtonElement>(`[aria-label="Select ${type} object from layers"]`)!;
     await act(async () => select().click());
+    expect(container.querySelector<HTMLElement>("main")?.className).toContain("fixed inset-0");
+    expect(container.querySelector<HTMLElement>('aside[aria-label="Slide inspector"]')?.className).toContain("max-h-[calc(100dvh-120px)]");
     await act(async () => container.querySelector<HTMLInputElement>('[aria-label="Autoplay media"]')!.click());
     await act(async () => container.querySelector<HTMLInputElement>('[aria-label="Show media player controls"]')!.click());
     await act(async () => [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent?.trim() === "Align to footer")!.click());

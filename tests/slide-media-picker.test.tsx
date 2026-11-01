@@ -2,7 +2,7 @@
 import { act, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SlideMediaPicker } from "@/app/courses/[courseId]/edit/_components/slide-presentation/slide-media-picker";
+import { SlideMediaPicker } from "@/app/courses/[courseId]/edit/presentation-mode/_components/slide-presentation/slide-media-picker";
 import { blockSchema, type ContentBlock } from "@/lib/schemas/block";
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });

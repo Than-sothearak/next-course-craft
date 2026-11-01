@@ -13,7 +13,7 @@ import {
 } from "@/lib/interactive/quiz-assessment";
 import { QuizQuestionPreview } from "./(quiz_assessment_preview_components)/quiz-question-preview";
 import { QuizQuestionProgress } from "@/app/courses/[courseId]/_components/slide-presentation/quiz-question-progress";
-import { useSlidePresentationContext } from "../../slide-presentation/slide-presentation-context";
+import { useSlidePresentationContext } from "@/app/courses/[courseId]/preview/presentation-mode/_components/slide-presentation/slide-presentation-context";
 export function QuizAssessmentPreview({
   questions,
   passingScore,

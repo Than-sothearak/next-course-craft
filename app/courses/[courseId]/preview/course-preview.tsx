@@ -25,13 +25,16 @@ import {
   type LearnerProgressAdapter,
   type LearnerProgressSnapshot,
 } from "@/lib/export/progress";
-import { courseThemeFontFamilies, normalizeCourseTheme } from "@/lib/editor/theme";
+import {
+  courseThemeFontFamilies,
+  normalizeCourseTheme,
+} from "@/lib/editor/theme";
 import { LessonMenu } from "./_components/(course_preview_components)/lesson-menu";
 import { CourseOverviewPreview } from "./_components/(course_preview_components)/course-overview-preview";
 import { PreviewToolbar } from "./_components/(course_preview_components)/preview-toolbar";
 import { LessonReaderPreview } from "./_components/(course_preview_components)/lesson-reader-preview";
 import { PreviewViewport } from "./_components/(course_preview_components)/preview-viewport";
-import { SlidePresentationPreview } from "./_components/slide-presentation/slide-presentation-preview";
+import { SlidePresentationPreview } from "./presentation-mode/_components/slide-presentation/slide-presentation-preview";
 import { previewEditTarget } from "./_components/(course_preview_components)/preview-edit-target";
 import type {
   PreviewData,
@@ -77,14 +80,25 @@ export function CoursePreview({
   onBack?: () => void;
 }) {
   const slideCourse = initialData.courseLayout === "slides";
-  const firstSlideId = slideCourse ? [...initialData.sections]
-    .sort((a, b) => a.order - b.order)
-    .flatMap((section) => initialData.lessons.filter((lesson) => lesson.sectionId === section.id).sort((a, b) => a.order - b.order))[0]?.id ?? null : null;
-  const [mode, setMode] = useState<PreviewMode>(initialLessonId || slideCourse ? "learn" : "course");
+  const firstSlideId = slideCourse
+    ? ([...initialData.sections]
+        .sort((a, b) => a.order - b.order)
+        .flatMap((section) =>
+          initialData.lessons
+            .filter((lesson) => lesson.sectionId === section.id)
+            .sort((a, b) => a.order - b.order),
+        )[0]?.id ?? null)
+    : null;
+  const [mode, setMode] = useState<PreviewMode>(
+    initialLessonId || slideCourse ? "learn" : "course",
+  );
   const [device, setDevice] = useState<PreviewDevice>("desktop");
-  const [orientation, setOrientation] = useState<PreviewOrientation>("portrait");
+  const [orientation, setOrientation] =
+    useState<PreviewOrientation>("portrait");
   const [isMobileViewport, setIsMobileViewport] = useState(false);
-  const [selectedLessonId, setSelectedLessonId] = useState<string | null>(initialLessonId ?? firstSlideId);
+  const [selectedLessonId, setSelectedLessonId] = useState<string | null>(
+    initialLessonId ?? firstSlideId,
+  );
   const [visitedLessonIds, setVisitedLessonIds] = useState<Set<string>>(
     () => new Set(),
   );
@@ -191,22 +205,37 @@ export function CoursePreview({
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
       try {
-        let snapshot: LearnerProgressSnapshot | null = progressAdapter?.load(initialData.courseId) ?? null;
+        let snapshot: LearnerProgressSnapshot | null =
+          progressAdapter?.load(initialData.courseId) ?? null;
         if (!progressAdapter && persistLocalProgress) {
           const stored = window.localStorage.getItem(
             `coursecraft-progress-v2-${initialData.courseId}`,
           );
-          const parsed = stored ? JSON.parse(stored) as LearnerProgressSnapshot | string[] : null;
+          const parsed = stored
+            ? (JSON.parse(stored) as LearnerProgressSnapshot | string[])
+            : null;
           snapshot = Array.isArray(parsed)
-            ? { visitedLessonIds: parsed, lessonScrollProgress: {}, revealedDividerIds: [], completedDividerIds: [], selectedLessonId: null }
+            ? {
+                visitedLessonIds: parsed,
+                lessonScrollProgress: {},
+                revealedDividerIds: [],
+                completedDividerIds: [],
+                selectedLessonId: null,
+              }
             : parsed;
         }
         setVisitedLessonIds(new Set(snapshot?.visitedLessonIds ?? []));
         setLessonScrollProgress(snapshot?.lessonScrollProgress ?? {});
         setQuizScores(snapshot?.quizScores ?? {});
-        const restoredPassedQuizIds = snapshot?.passedQuizIds ?? lessons
-          .filter((lesson) => lesson.lessonType === "quiz" && snapshot?.visitedLessonIds?.includes(lesson.id))
-          .map((lesson) => lesson.id);
+        const restoredPassedQuizIds =
+          snapshot?.passedQuizIds ??
+          lessons
+            .filter(
+              (lesson) =>
+                lesson.lessonType === "quiz" &&
+                snapshot?.visitedLessonIds?.includes(lesson.id),
+            )
+            .map((lesson) => lesson.id);
         setPassedQuizIds(new Set(restoredPassedQuizIds));
         setRevealedDividerIds(new Set(snapshot?.revealedDividerIds ?? []));
         setCompletedDividerIds(new Set(snapshot?.completedDividerIds ?? []));
@@ -227,16 +256,16 @@ export function CoursePreview({
               : []),
           ]),
         );
-        setSelectedLessonId(
-          (current) => {
-            const fallbackId = slideCourse || initialLessonId ? lessons[0]?.id ?? null : null;
-            if (selectedPreviewLesson) return selectedPreviewLesson.id;
-            if (slideCourse && current === firstSlideId) return resumedLesson?.id ?? fallbackId;
-            if (lessons.some((lesson) => lesson.id === current)) return current;
-            // Old HTML/LMS progress can refer to a slide removed in a newer export.
+        setSelectedLessonId((current) => {
+          const fallbackId =
+            slideCourse || initialLessonId ? (lessons[0]?.id ?? null) : null;
+          if (selectedPreviewLesson) return selectedPreviewLesson.id;
+          if (slideCourse && current === firstSlideId)
             return resumedLesson?.id ?? fallbackId;
-          },
-        );
+          if (lessons.some((lesson) => lesson.id === current)) return current;
+          // Old HTML/LMS progress can refer to a slide removed in a newer export.
+          return resumedLesson?.id ?? fallbackId;
+        });
       } catch {
         setVisitedLessonIds(new Set());
         setLessonScrollProgress({});
@@ -250,7 +279,15 @@ export function CoursePreview({
       }
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [initialData.courseId, firstSlideId, initialLessonId, lessons, persistLocalProgress, progressAdapter, slideCourse]);
+  }, [
+    initialData.courseId,
+    firstSlideId,
+    initialLessonId,
+    lessons,
+    persistLocalProgress,
+    progressAdapter,
+    slideCourse,
+  ]);
 
   useEffect(() => {
     if (progressLoadedCourseId !== initialData.courseId) return;
@@ -316,30 +353,42 @@ export function CoursePreview({
     (lesson: (typeof lessons)[number], element: HTMLDivElement) => {
       if (lesson.lessonType === "quiz") {
         if (passedQuizIds.has(lesson.id)) {
-          setLessonScrollProgress((previous) => previous[lesson.id] === 100 ? previous : { ...previous, [lesson.id]: 100 });
-          setVisitedLessonIds((previous) => previous.has(lesson.id) ? previous : new Set(previous).add(lesson.id));
+          setLessonScrollProgress((previous) =>
+            previous[lesson.id] === 100
+              ? previous
+              : { ...previous, [lesson.id]: 100 },
+          );
+          setVisitedLessonIds((previous) =>
+            previous.has(lesson.id)
+              ? previous
+              : new Set(previous).add(lesson.id),
+          );
         }
         return;
       }
-      const divider = lesson.blocks.find((block) =>
-        block.type === "divider" &&
-        block.data.style === "continue" &&
-        block.requiredForProgress !== false &&
-        (!revealedDividerIds.has(block.id) ||
-          (block.data.completionType === "completeAbove" &&
-            !completedDividerIds.has(block.id))),
+      const divider = lesson.blocks.find(
+        (block) =>
+          block.type === "divider" &&
+          block.data.style === "continue" &&
+          block.requiredForProgress !== false &&
+          (!revealedDividerIds.has(block.id) ||
+            (block.data.completionType === "completeAbove" &&
+              !completedDividerIds.has(block.id))),
       );
       const continueDividers = lesson.blocks.filter(
-        (block) => block.type === "divider" && block.data.style === "continue" && block.requiredForProgress !== false,
+        (block) =>
+          block.type === "divider" &&
+          block.data.style === "continue" &&
+          block.requiredForProgress !== false,
       );
       const revealedContinueCount = continueDividers.filter((block) =>
         revealedDividerIds.has(block.id),
       ).length;
       const reachedEnd = hasReachedContentEnd(element);
-      const hasPendingRequiredActivities = navigationMode === "restricted" && getPendingInteractiveProgressIds(
-        lesson.blocks,
-        interactedContentIds,
-      ).length > 0;
+      const hasPendingRequiredActivities =
+        navigationMode === "restricted" &&
+        getPendingInteractiveProgressIds(lesson.blocks, interactedContentIds)
+          .length > 0;
       const readingProgress = getLessonReadingProgress({
         scrollHeight: element.scrollHeight,
         clientHeight: element.clientHeight,
@@ -347,13 +396,14 @@ export function CoursePreview({
         revealedContinueCount,
         totalContinueCount: continueDividers.length,
       });
-      const trackedProgress = navigationMode === "restricted"
-        ? getRestrictedLessonProgress(
-            readingProgress,
-            lesson.blocks,
-            interactedContentIds,
-          )
-        : readingProgress;
+      const trackedProgress =
+        navigationMode === "restricted"
+          ? getRestrictedLessonProgress(
+              readingProgress,
+              lesson.blocks,
+              interactedContentIds,
+            )
+          : readingProgress;
       setLessonScrollProgress((previous) =>
         (previous[lesson.id] ?? 0) >= trackedProgress
           ? previous
@@ -364,11 +414,12 @@ export function CoursePreview({
         const dividerIndex = lesson.blocks.findIndex(
           (block) => block.id === divider.id,
         );
-        const hasPendingInteractiveContentAboveDivider = getPendingInteractiveProgressIds(
-          lesson.blocks,
-          interactedContentIds,
-          dividerIndex,
-        ).length > 0;
+        const hasPendingInteractiveContentAboveDivider =
+          getPendingInteractiveProgressIds(
+            lesson.blocks,
+            interactedContentIds,
+            dividerIndex,
+          ).length > 0;
         if (
           divider.data.completionType === "completeAbove" &&
           !hasPendingInteractiveContentAboveDivider &&
@@ -377,7 +428,9 @@ export function CoursePreview({
           setCompletedDividerIds((previous) =>
             new Set(previous).add(divider.id),
           );
-          setUnlockingDividerIds((previous) => new Set(previous).add(divider.id));
+          setUnlockingDividerIds((previous) =>
+            new Set(previous).add(divider.id),
+          );
         }
         return;
       }
@@ -394,7 +447,13 @@ export function CoursePreview({
         );
       }
     },
-    [completedDividerIds, interactedContentIds, navigationMode, passedQuizIds, revealedDividerIds],
+    [
+      completedDividerIds,
+      interactedContentIds,
+      navigationMode,
+      passedQuizIds,
+      revealedDividerIds,
+    ],
   );
 
   useEffect(() => {
@@ -404,12 +463,27 @@ export function CoursePreview({
       ? lessonBodyScrollRefs.current.get(lesson.id)
       : undefined;
     if (!lesson || !element) return;
-    const update = () => { if (element.clientHeight > 0) markContentAboveComplete(lesson, element); };
+    const update = () => {
+      if (element.clientHeight > 0) markContentAboveComplete(lesson, element);
+    };
     const frame = window.requestAnimationFrame(update);
-    const observer = typeof ResizeObserver === "undefined" ? undefined : new ResizeObserver(update);
+    const observer =
+      typeof ResizeObserver === "undefined"
+        ? undefined
+        : new ResizeObserver(update);
     observer?.observe(element);
-    return () => { window.cancelAnimationFrame(frame); observer?.disconnect(); };
-  }, [mode, selectedLessonId, revealedDividerIds, interactedContentIds, lessons, markContentAboveComplete]);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer?.disconnect();
+    };
+  }, [
+    mode,
+    selectedLessonId,
+    revealedDividerIds,
+    interactedContentIds,
+    lessons,
+    markContentAboveComplete,
+  ]);
 
   useEffect(() => {
     if (!pendingContinueScroll || mode !== "learn") return;
@@ -453,7 +527,9 @@ export function CoursePreview({
       });
     }
     if (lesson && lesson.lessonType !== "quiz") {
-      const initiallyViewedIds = getInitiallyViewedInteractionIds(lesson.blocks);
+      const initiallyViewedIds = getInitiallyViewedInteractionIds(
+        lesson.blocks,
+      );
       if (initiallyViewedIds.length) {
         setInteractedContentIds((previous) => {
           const next = new Set(previous);
@@ -475,20 +551,26 @@ export function CoursePreview({
         ? null
         : `Start with the first ${slideCourse ? "slide" : "lesson"} before continuing.`;
     }
-    const completionLockMessage = navigationMode === "sequential"
-      ? getSequentialNavigationLockMessage(selectedLesson)
-      : getRestrictedNavigationLockMessage(selectedLesson);
+    const completionLockMessage =
+      navigationMode === "sequential"
+        ? getSequentialNavigationLockMessage(selectedLesson)
+        : getRestrictedNavigationLockMessage(selectedLesson);
     const canContinue = !completionLockMessage;
-    const targetPrerequisitesComplete = targetIndex > 0 && lessons
-      .slice(0, targetIndex)
-      .every((lesson) => visitedLessonIds.has(lesson.id));
-    if (canNavigateToLesson(
-      lessonIndex,
-      targetIndex,
-      canContinue,
-      visitedLessonIds.has(lessonId) || targetPrerequisitesComplete,
-      navigationMode,
-    )) return null;
+    const targetPrerequisitesComplete =
+      targetIndex > 0 &&
+      lessons
+        .slice(0, targetIndex)
+        .every((lesson) => visitedLessonIds.has(lesson.id));
+    if (
+      canNavigateToLesson(
+        lessonIndex,
+        targetIndex,
+        canContinue,
+        visitedLessonIds.has(lessonId) || targetPrerequisitesComplete,
+        navigationMode,
+      )
+    )
+      return null;
     if (completionLockMessage) return completionLockMessage;
     return navigationMode === "sequential"
       ? `Complete ${slideCourse ? "slides" : "lessons"} in order. Continue with the next ${slideCourse ? "slide" : "lesson"}.`
@@ -556,9 +638,15 @@ export function CoursePreview({
   }
 
   function editCurrentContent() {
-    const target = mode === "learn"
-      ? previewEditTarget(selectedLessonId, selectedLessonId ? lessonBodyScrollRefs.current.get(selectedLessonId) : null)
-      : undefined;
+    const target =
+      mode === "learn"
+        ? previewEditTarget(
+            selectedLessonId,
+            selectedLessonId
+              ? lessonBodyScrollRefs.current.get(selectedLessonId)
+              : null,
+          )
+        : undefined;
     onEdit?.(target);
   }
 
@@ -568,7 +656,7 @@ export function CoursePreview({
     active: mode === "learn",
     lessons,
     selectedLessonId,
-    device: isMobileViewport ? "mobile" as const : device,
+    device: isMobileViewport ? ("mobile" as const) : device,
     orientation,
     authorName,
     initials,
@@ -597,7 +685,13 @@ export function CoursePreview({
 
   if (slideCourse) {
     return (
-      <main style={{ ...themeStyle, fontFamily: courseThemeFontFamilies[courseTheme.fontFamily] }} className="h-dvh min-h-0 w-full min-w-0 overflow-hidden">
+      <main
+        style={{
+          ...themeStyle,
+          fontFamily: courseThemeFontFamilies[courseTheme.fontFamily],
+        }}
+        className="h-dvh min-h-0 w-full min-w-0 overflow-hidden"
+      >
         <SlidePresentationPreview
           courseId={initialData.courseId}
           title={initialData.title}
@@ -621,7 +715,10 @@ export function CoursePreview({
   }
 
   return (
-    <main style={themeStyle} className="flex h-dvh min-h-0 w-full min-w-0 flex-col overflow-hidden bg-slate-100 text-slate-900">
+    <main
+      style={themeStyle}
+      className="flex h-dvh min-h-0 w-full min-w-0 flex-col overflow-hidden bg-slate-100 text-slate-900"
+    >
       <PreviewToolbar
         standalone={standalone}
         canPublish={canPublish}
@@ -641,87 +738,101 @@ export function CoursePreview({
         onOrientationChange={setOrientation}
       />
 
-      <PreviewViewport device={device} orientation={orientation} fontFamily={courseThemeFontFamilies[courseTheme.fontFamily]} onCompactChange={setIsMobileViewport}>
-          {mode === "course" && (
-            <CourseOverviewPreview
-              initialData={initialData}
-              authorName={authorName}
-              initials={initials}
-              device={device}
-              lessons={lessons}
-              sections={sections}
-              startLearning={startLearning}
-              selectLesson={selectLesson}
-              getLessonNavigationLockMessage={getLessonNavigationLockMessage}
-            />
-          )}
-          {(selectedLessonId || mode === "learn") && (
-            <div aria-hidden={mode !== "learn"} className={mode === "learn" ? "relative flex h-full min-h-0 min-w-0" : "hidden"}>
-              {!useMobileMenu && initialData.courseLayout !== "slides" && <LessonMenu {...lessonMenuProps} />}
-              {useMobileMenu && mobileMenuOpen && (
-                <div className="absolute inset-x-0 bottom-0 top-12 z-40 flex">
-                  <button
-                    type="button"
-                    aria-label="Close course menu"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className="cursor-pointer absolute inset-0 bg-slate-950/40"
-                  />
-                  <LessonMenu {...lessonMenuProps} mobile />
-                </div>
-              )}
-              <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-                <div className="relative z-10 flex min-h-12 shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-4 sm:px-6">
-                  {useMobileMenu ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label="Open course menu"
-                      aria-expanded={mobileMenuOpen}
-                      onClick={() => setMobileMenuOpen(true)}
-                      className="size-8"
-                    >
-                      <Menu size={18} />
-                    </Button>
-                  ) : initialData.courseLayout === "slides" ? null : (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      aria-label={
-                        sidebarCollapsed
-                          ? "Expand course menu"
-                          : "Collapse course menu"
-                      }
-                      aria-expanded={!sidebarCollapsed}
-                      onClick={() =>
-                        setSidebarCollapsed((collapsed) => !collapsed)
-                      }
-                      className="size-8"
-                    >
-                      <PanelLeftOpen
-                        size={17}
-                        className={sidebarCollapsed ? "" : "hidden"}
-                      />
-                      <PanelLeftClose
-                        size={17}
-                        className={sidebarCollapsed ? "hidden" : ""}
-                      />
-                    </Button>
-                  )}
-                  <span className="min-w-0 flex-1 truncate text-xs font-semibold text-slate-600">
-                    {initialData.title}
-                  </span>
-                  <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                    {selectedLesson
-                      ? `${lessonIndex + 1} / ${lessons.length}`
-                      : "Course content"}
-                  </span>
-                </div>
-                <LessonReaderPreview {...lessonReaderProps} />
+      <PreviewViewport
+        device={device}
+        orientation={orientation}
+        fontFamily={courseThemeFontFamilies[courseTheme.fontFamily]}
+        onCompactChange={setIsMobileViewport}
+      >
+        {mode === "course" && (
+          <CourseOverviewPreview
+            initialData={initialData}
+            authorName={authorName}
+            initials={initials}
+            device={device}
+            lessons={lessons}
+            sections={sections}
+            startLearning={startLearning}
+            selectLesson={selectLesson}
+            getLessonNavigationLockMessage={getLessonNavigationLockMessage}
+          />
+        )}
+        {(selectedLessonId || mode === "learn") && (
+          <div
+            aria-hidden={mode !== "learn"}
+            className={
+              mode === "learn"
+                ? "relative flex h-full min-h-0 min-w-0"
+                : "hidden"
+            }
+          >
+            {!useMobileMenu && initialData.courseLayout !== "slides" && (
+              <LessonMenu {...lessonMenuProps} />
+            )}
+            {useMobileMenu && mobileMenuOpen && (
+              <div className="absolute inset-x-0 bottom-0 top-12 z-40 flex">
+                <button
+                  type="button"
+                  aria-label="Close course menu"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="cursor-pointer absolute inset-0 bg-slate-950/40"
+                />
+                <LessonMenu {...lessonMenuProps} mobile />
               </div>
+            )}
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+              <div className="relative z-10 flex min-h-12 shrink-0 items-center gap-3 border-b border-slate-200 bg-white px-4 sm:px-6">
+                {useMobileMenu ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label="Open course menu"
+                    aria-expanded={mobileMenuOpen}
+                    onClick={() => setMobileMenuOpen(true)}
+                    className="size-8"
+                  >
+                    <Menu size={18} />
+                  </Button>
+                ) : initialData.courseLayout === "slides" ? null : (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    aria-label={
+                      sidebarCollapsed
+                        ? "Expand course menu"
+                        : "Collapse course menu"
+                    }
+                    aria-expanded={!sidebarCollapsed}
+                    onClick={() =>
+                      setSidebarCollapsed((collapsed) => !collapsed)
+                    }
+                    className="size-8"
+                  >
+                    <PanelLeftOpen
+                      size={17}
+                      className={sidebarCollapsed ? "" : "hidden"}
+                    />
+                    <PanelLeftClose
+                      size={17}
+                      className={sidebarCollapsed ? "hidden" : ""}
+                    />
+                  </Button>
+                )}
+                <span className="min-w-0 flex-1 truncate text-xs font-semibold text-slate-600">
+                  {initialData.title}
+                </span>
+                <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                  {selectedLesson
+                    ? `${lessonIndex + 1} / ${lessons.length}`
+                    : "Course content"}
+                </span>
+              </div>
+              <LessonReaderPreview {...lessonReaderProps} />
             </div>
-          )}
+          </div>
+        )}
       </PreviewViewport>
     </main>
   );

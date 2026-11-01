@@ -2,7 +2,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { SlideInsertToolbar } from "@/app/courses/[courseId]/edit/_components/slide-presentation/slide-insert-toolbar";
+import { SlideInsertToolbar } from "@/app/courses/[courseId]/edit/presentation-mode/_components/slide-presentation/slide-insert-toolbar";
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 describe("presentation insert toolbar", () => {
