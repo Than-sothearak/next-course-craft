@@ -11,6 +11,10 @@ import { InteractiveAccordion, InteractiveFlipCard, InteractiveKnowledgeCheck, I
 import type { ContentBlock } from "@/lib/schemas/block";
 import { isSlideMediaObject } from "@/lib/editor/slide-objects";
 import { SlideMediaObject } from "../../../../../_components/slide-presentation/slide-media-object";
+import { SlideGallery } from "../../../../../_components/slide-presentation/slide-gallery";
+import { BalloonArcher } from "@/components/balloon-archer";
+import { PeelToReveal } from "@/components/physics-interaction/peel-to-reveal";
+import { HangingRopeCards } from "@/components/physics-interaction/hanging-rope-cards";
 import { SlideMediaPlayer } from "../../../../../_components/slide-presentation/slide-media-player";
 import { SlideTextBox } from "../../../../../_components/slide-presentation/slide-text-box";
 import { ImageBlockLayout } from "../../../../../edit/_components/image-block-layout";
@@ -22,8 +26,8 @@ import { getInteractiveItemProgressId } from "@/lib/export/progress";
 import { blockSurfaceStyle, blockWidthClass } from "../../preview-utils";
 import { AudioInstruction } from "../../../../../_components/slide-presentation/audio-instruction";
 import { InteractionButton } from "../../../../../_components/slide-presentation/interaction-button";
-import { InteractionPopupSurface } from "../../../../../_components/slide-presentation/interaction-popup-surface";
-import { isInteractionTarget } from "@/lib/editor/interaction-button";
+import { InteractionPopupContent } from "../../../../../_components/slide-presentation/interaction-popup-content";
+import { isInteractionTarget, scopePopupBlocks } from "@/lib/editor/interaction-button";
 import type { PreviewDevice, PreviewOrientation } from "../../preview-types";
 export function PreviewBlock({
   block,
@@ -38,7 +42,7 @@ export function PreviewBlock({
   passedQuizIds = new Set(),
   getLessonNavigationLockMessage = () => null,
   onOpenLesson = () => {},
-  lessonBlocks = [], authoring = false,
+  lessonBlocks = [], authoring = false, decorative = false,
 }: {
   block: ContentBlock;
   device: PreviewDevice;
@@ -54,14 +58,27 @@ export function PreviewBlock({
   onOpenLesson?: (lessonId: string) => void;
   lessonBlocks?: readonly ContentBlock[];
   authoring?: boolean;
+  decorative?: boolean;
 }) {
   const widthClass = blockWidthClass(block);
   const style = blockSurfaceStyle(block, slideLayout);
+  if (block.type === "hangingRopeCards") {
+    const cards = <HangingRopeCards blockId={block.id} data={block.data} presentation={slideLayout} authoring={authoring} decorative={decorative} interactedContentIds={interactedContentIds} onProgress={onInteractiveProgress} renderContent={(card) => card.blocks.map((content) => <PreviewBlock key={content.id} block={{ ...content, id: `${block.id}-rope-${card.id}-${content.id}` }} device={device} orientation={orientation} authoring={authoring} decorative={decorative} />)} />;
+    return slideLayout ? cards : <div className="w-full" style={style}><div className={`mx-auto w-full ${widthClass} px-4`}>{cards}</div></div>;
+  }
+  if (block.type === "peelToReveal") {
+    const interaction = <PeelToReveal blockId={block.id} settings={block.data} presentation={slideLayout} authoring={authoring} decorative={decorative} interactedContentIds={interactedContentIds} onProgress={onInteractiveProgress}>{block.data.blocks.map((content) => <PreviewBlock key={content.id} block={{ ...content, id: `${block.id}-reveal-${content.id}` }} device={device} orientation={orientation} authoring={authoring} decorative={decorative} />)}</PeelToReveal>;
+    return slideLayout ? interaction : <div className="w-full" style={style}><div className={`mx-auto w-full ${widthClass} px-4`}>{interaction}</div></div>;
+  }
+  if (block.type === "balloonArcher") {
+    const game = <BalloonArcher blockId={block.id} data={block.data} presentation={slideLayout} authoring={authoring} decorative={decorative} interactedContentIds={interactedContentIds} onProgress={onInteractiveProgress} />;
+    return slideLayout ? game : <div className="w-full" style={style}><div className={`mx-auto w-full ${widthClass} px-4`}>{game}</div></div>;
+  }
   if (block.type === "audioInstruction") return <AudioInstruction key={block.data.src} block={block} presentation={slideLayout} authoring={authoring} onEnded={() => onInteractiveProgress?.(`${block.id}:listened`)} />;
   if (block.type === "interactionButton") {
     const target = lessonBlocks.find((item) => item.id === block.data.targetBlockId && isInteractionTarget(item, block.id));
-    const popupBlocks: ContentBlock[] = block.data.action === "popup" ? block.data.popup.blocks.map((item) => ({ ...item, id: `${block.id}-popup-${item.id}` })) : target ? [{ ...target, slideFrame: { x: 5, y: 5, width: 90, height: 90, z: 0 } }] : [];
-    return <InteractionButton block={block} presentation={slideLayout} authoring={authoring} available={popupBlocks.length > 0} onOpen={() => onInteractiveProgress?.(`${block.id}:opened`)}><InteractionPopupSurface popup={block.data.popup} blocks={popupBlocks} renderBlock={(item) => <PreviewBlock block={item} slideLayout device={device} orientation={orientation} authoring={authoring} lessons={lessons} visitedLessonIds={visitedLessonIds} passedQuizIds={passedQuizIds} getLessonNavigationLockMessage={getLessonNavigationLockMessage} onOpenLesson={onOpenLesson} interactedContentIds={interactedContentIds} onInteractiveProgress={block.data.action === "block" ? onInteractiveProgress : undefined} />} /></InteractionButton>;
+    const popupBlocks: ContentBlock[] = block.data.action === "popup" ? scopePopupBlocks(block.data.popup.blocks, block.id) : target ? [{ ...target, slideFrame: { x: 5, y: 5, width: 90, height: 90, z: 0 } }] : [];
+    return <InteractionButton block={block} presentation={slideLayout} authoring={authoring} available={popupBlocks.length > 0} onOpen={() => onInteractiveProgress?.(`${block.id}:opened`)}><InteractionPopupContent popup={block.data.popup} blocks={popupBlocks} device={device} orientation={orientation} authoring={authoring} lessons={lessons} visitedLessonIds={visitedLessonIds} passedQuizIds={passedQuizIds} getLessonNavigationLockMessage={getLessonNavigationLockMessage} onOpenLesson={onOpenLesson} interactedContentIds={interactedContentIds} onInteractiveProgress={block.data.action === "block" ? onInteractiveProgress : undefined} /></InteractionButton>;
   }
 
   if (block.type === "divider") {
@@ -89,6 +106,9 @@ export function PreviewBlock({
     return <SlideMediaObject block={block} onVideoEnded={() => onInteractiveProgress?.(`${block.id}:watched`)} />;
   }
 
+  if (slideLayout && block.type === "gallery") return <SlideGallery images={block.data.images} />;
+  if (slideLayout && block.type === "audio") return <SlideMediaPlayer key={block.data.src} block={block} decorative={decorative} onEnded={() => onInteractiveProgress?.(`${block.id}:listened`)} />;
+
   let content: ReactNode;
   if (block.type === "heading") {
     const compactText = device === "mobile" && orientation === "portrait";
@@ -112,7 +132,7 @@ export function PreviewBlock({
       />
     );
   } else if (block.type === "audio") {
-    content = slideLayout ? <SlideMediaPlayer key={block.data.src} block={block} onEnded={() => onInteractiveProgress?.(`${block.id}:listened`)} /> : <AudioPlayer src={block.data.src} fileName={block.data.fileName} onEnded={() => onInteractiveProgress?.(`${block.id}:listened`)} />;
+    content = <AudioPlayer src={block.data.src} fileName={block.data.fileName} onEnded={() => onInteractiveProgress?.(`${block.id}:listened`)} />;
   } else if (block.type === "attachment") {
     content = <FileAttachmentLink href={block.data.src} fileName={block.data.fileName} size={block.data.size} />;
   } else if (block.type === "link") {
@@ -156,12 +176,11 @@ export function PreviewBlock({
     content = (
       <div className={`grid ${columns} gap-3`}>
         {block.data.images.map((image, index) => (
-          <PreviewImage
-            key={`${block.id}-${index}`}
+          <div key={`${block.id}-${index}`} data-slide-animation-item className="min-w-0"><PreviewImage
             src={image.src}
             alt={image.alt}
             className="aspect-[4/3] w-full rounded-lg object-cover"
-          />
+          /></div>
         ))}
       </div>
     );

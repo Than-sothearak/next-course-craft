@@ -478,8 +478,9 @@ describe("AI course generation contracts", () => {
     expect(restored).toMatchObject({ jobId: jobId.toString(), status: "completed", course: draft });
   });
 
-  it("supports every native block except audio and attachments that require a manual file upload", () => {
-    expect(generatedBlockTypeValues).toEqual([...blockTypes.filter((type) => type !== "attachment" && type !== "audio"), "text", "code"]);
+  it("supports generation blocks while leaving uploaded media and manually authored physics/popup blocks to the editor", () => {
+    const authoringOnly = new Set(["attachment", "audio", "audioInstruction", "interactionButton", "balloonArcher", "peelToReveal", "hangingRopeCards"]);
+    expect(generatedBlockTypeValues).toEqual([...blockTypes.filter((type) => !authoringOnly.has(type)), "text", "code"]);
   });
 
   it("validates the project-specific fields for rich interactive block intents", () => {
@@ -780,7 +781,7 @@ describe("AI course generation contracts", () => {
     expect(promptAndSchema).toContain("SOURCE COMPLETENESS RULES");
     expect(promptAndSchema).toContain("Preserve code exactly as shown");
     expect(requestBody.max_output_tokens).toBe(64_000);
-    for (const type of blockTypes) expect(promptAndSchema).toContain(type);
+    for (const type of generatedBlockTypeValues) expect(promptAndSchema).toContain(type);
   });
 
   it("adds custom course description, summary, and next lesson to learner-facing content", async () => {

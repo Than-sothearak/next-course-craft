@@ -10,7 +10,7 @@ import {
 import { defaultSection, ownerObjectId } from "./shared";
 import { normalizeCourseTheme } from "../theme";
 import { normalizeCourseLayout } from "../course-layout";
-import { slideCoverSchema, slideMasterSchema } from "../slide-design";
+import { slideAppearanceSchema, slideCoverSchema, slideHeaderStyleSchema, slideMasterSchema } from "../slide-design";
 import { migrateCoverAudio } from "../audio-instruction";
 import { normalizeCourseNavigationMode } from "../navigation";
 
@@ -77,6 +77,8 @@ export async function getCourseEditor(ownerId: string, courseId: string) {
         passingScore: lesson.passingScore ?? 70,
         quizQuestions: lesson.quizQuestions ?? [],
         slideCover: lesson.slideCover ? slideCoverSchema.safeParse(lesson.slideCover).data : undefined,
+        slideHeaderStyle: lesson.slideHeaderStyle ? slideHeaderStyleSchema.safeParse(lesson.slideHeaderStyle).data : undefined,
+        slideAppearance: lesson.slideAppearance ? slideAppearanceSchema.safeParse(lesson.slideAppearance).data : undefined,
         order,
         blocks: lesson.blocks.map((storedBlock: ContentBlock) => {
           const block = normalizeStoredFlipCardBlock(storedBlock);

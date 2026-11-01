@@ -10,6 +10,7 @@ import { parseScorm12Snapshot } from "@/lib/scorm12/snapshot";
 const blocks = [
   ...new Map(blockTemplates.flatMap((template) => createBlocksFromTemplate(template, template.id)).map((block) => [block.type, block])).values(),
   blockSchema.parse({ id: "heading", version: 1, type: "heading", data: { text: "Heading", level: 2 } }),
+  blockSchema.parse({ id: "lesson-map", version: 1, type: "lessonMap", data: { checkpoints: [] } }),
 ];
 const background = { color: "#2563eb", opacity: 40 };
 const text = blockSchema.parse({ id: "text", version: 1, type: "richText", backgroundColor: "#fff7ed", data: { html: "<p>Example</p>" } });

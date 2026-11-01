@@ -20,6 +20,13 @@ export function representativeColor(value: string) {
   return "#" + [1, 3, 5].map((index) => Math.round((parseInt(gradient.start.slice(index, index + 2), 16) + parseInt(gradient.end.slice(index, index + 2), 16)) / 2).toString(16).padStart(2, "0")).join("");
 }
 
+/** Keep labels and controls readable on an authored solid or gradient surface. */
+export function contrastTextColor(value: string): "#000000" | "#ffffff" {
+  const color = representativeColor(value);
+  const [red, green, blue] = [1, 3, 5].map((index) => parseInt(color.slice(index, index + 2), 16));
+  return red * 0.299 + green * 0.587 + blue * 0.114 > 150 ? "#000000" : "#ffffff";
+}
+
 export function colorWithOpacity(color: string, opacity: number) {
   if (opacity === 100) return color;
   const channels = [1, 3, 5].map((index) => parseInt(color.slice(index, index + 2), 16));

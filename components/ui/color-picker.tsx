@@ -4,6 +4,7 @@ import { createContext, useContext, useState } from "react";
 import { Blend } from "lucide-react";
 import { Button } from "./button";
 import { Input } from "./input";
+import { NumberInput } from "./number-input";
 import { cn } from "@/lib/utils";
 import { gradientColor, parseGradient } from "@/lib/color";
 import { normalizeHexColor } from "@/lib/editor/text-format";
@@ -51,7 +52,7 @@ export function ColorPicker({ value, onChange, "aria-label": label, allowGradien
         {swatch(gradient.end, `${label} end color`, (color) => update(first, color))}
         <HexColorInput value={gradient.end} label={`${label} end hex code`} onChange={(color) => update(first, color)} />
       </div>
-      <label className="flex items-center gap-2 text-[11px] text-slate-500">Angle <Input aria-label={`${label} gradient angle`} type="number" min={0} max={360} step={1} value={gradient.angle} className="h-7 min-w-0 flex-1 rounded-md px-2 text-xs shadow-none" onChange={(event) => { const angle = event.target.valueAsNumber; if (Number.isInteger(angle) && angle >= 0 && angle <= 360) update(first, gradient.end, angle); }} /><span>°</span></label>
+      <label className="flex items-center gap-2 text-[11px] text-slate-500">Angle <NumberInput aria-label={`${label} gradient angle`} min={0} max={360} precision={0} value={gradient.angle} className="h-7 min-w-0 flex-1 rounded-md text-xs" onValueChange={(angle) => update(first, gradient.end, angle)} /><span>°</span></label>
     </>}
   </div>;
 }

@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { courseLayoutSchema } from "./course-layout";
-import { slideCoverSchema, slideMasterSchema } from "./slide-design";
+import { slideAppearanceSchema, slideCoverSchema, slideHeaderStyleSchema, slideMasterSchema } from "./slide-design";
 import { blockSchema } from "@/lib/schemas/block";
 import { quizQuestionsSchema } from "@/lib/schemas/quiz";
 import { courseThemeSchema, defaultCourseTheme } from "./theme";
@@ -25,6 +25,8 @@ export const editorLessonSchema = z.object({
   titleHtml: z.string().max(100_000).optional(),
   quizQuestions: quizQuestionsSchema.default([]),
   slideCover: slideCoverSchema.optional(),
+  slideHeaderStyle: slideHeaderStyleSchema.optional(),
+  slideAppearance: slideAppearanceSchema.optional(),
   order: z.number().int().min(0).max(500),
   blocks: z.array(blockSchema).max(500),
 });

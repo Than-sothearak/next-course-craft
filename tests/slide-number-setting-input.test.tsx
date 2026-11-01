@@ -76,4 +76,14 @@ describe("slide numeric settings", () => {
     act(() => field.blur());
     expect(field.value).toBe("-20.5");
   });
+
+  it("steps decimal offsets by one while preserving the fractional part", () => {
+    act(() => root.render(<OffsetSettings />));
+    const field = container.querySelector<HTMLInputElement>("input")!;
+    act(() => field.focus()); type("-20.5");
+    act(() => container.querySelector<HTMLButtonElement>('[aria-label="Increase Offset by 1"]')!.click());
+    expect(field.value).toBe("-19.5"); expect(saved.at(-1)).toBe(-19.5);
+    act(() => container.querySelector<HTMLButtonElement>('[aria-label="Decrease Offset by 1"]')!.click());
+    expect(field.value).toBe("-20.5"); expect(saved.at(-1)).toBe(-20.5);
+  });
 });

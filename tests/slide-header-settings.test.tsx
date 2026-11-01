@@ -30,6 +30,56 @@ describe("master slide header settings", () => {
   const input = (label: string, value: string) => act(async () => { const element = container.querySelector<HTMLInputElement>(`[aria-label="${label}"]`)!; Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(element, value); element.dispatchEvent(new Event("input", { bubbles: true })); });
   const background = () => container.querySelector<HTMLElement>('[data-slide-canvas] [data-slide-header-background]')!;
 
+  it("switches between selected header and object settings without changing their content", async () => {
+    const data = { ...initialData, lessons: [{ ...initialData.lessons[0], blocks: [{ id: "heading", version: 1 as const, type: "heading" as const, data: { text: "Body heading", level: 2 as const } }] }] };
+    await act(async () => root.render(<EditorClient initialData={{ ...editorSnapshotSchema.parse(data), courseId: "slides" }} authorName="Author" />));
+    const layer = () => container.querySelector<HTMLButtonElement>('[aria-label="Select heading object from layers"]')!;
+    await act(async () => layer().click()); expect(container.querySelector('[data-slide-object-settings="heading"]')).not.toBeNull();
+    const title = container.querySelector<HTMLInputElement>('[data-slide-canvas] [aria-label="Slide title"]')!;
+    await act(async () => title.focus());
+    expect(container.querySelector('[data-slide-object-settings="heading"]')).toBeNull(); expect(container.querySelector('[aria-label="Slide header text settings"]')).not.toBeNull();
+    await act(async () => layer().click());
+    expect(container.querySelector('[aria-label="Slide header text settings"]')).toBeNull(); expect(container.querySelector('[data-slide-object-settings="heading"]')).not.toBeNull();
+    await act(async () => vi.advanceTimersByTimeAsync(1000)); expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it.each(["content", "quiz"] as const)("selects and directly edits a %s header with independent text settings, undo, saving, and reload", async (lessonType) => {
+    const first = { ...initialData.lessons[0], lessonType, title: "An unusually long slide heading that needs its own smaller typography", titleHtml: "<p>Old title</p>" };
+    const data = { ...initialData, lessons: [first, { ...initialData.lessons[0], id: "second", title: "Short title", order: 1 }] };
+    await act(async () => root.render(<EditorClient initialData={data} authorName="Author" />));
+    await click("Master slide");
+    const title = () => container.querySelector<HTMLInputElement>('[data-slide-canvas] [aria-label="Slide title"]')!;
+    const header = () => container.querySelector<HTMLElement>('[data-slide-canvas] [data-slide-header]')!;
+    await act(async () => title().focus());
+    const settings = () => container.querySelector<HTMLElement>('[aria-label="Slide header text settings"]')!;
+    expect(settings()).not.toBeNull(); expect(settings().closest('[role="tabpanel"]')?.hasAttribute("hidden")).toBe(false);
+    expect(title().getAttribute("data-selected")).toBe("true"); expect(title().maxLength).toBe(160);
+    await input("Slide title", "Shortened header"); await act(async () => title().blur());
+    await input("Slide header font size", "2"); expect(container.querySelector<HTMLInputElement>('[aria-label="Slide header font size"]')?.value).toBe("2"); expect(header().style.fontSize).toBe("32px");
+    await input("Slide header font size", "22"); expect(header().style.fontSize).toBe("22px");
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Increase Slide header font size by 1"]')!.click()); expect(header().style.fontSize).toBe("23px");
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Undo"]')!.click()); expect(header().style.fontSize).toBe("22px");
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Redo"]')!.click()); expect(header().style.fontSize).toBe("23px");
+    await select("Slide header alignment", "right"); await select("Slide header font family", "serif");
+    await act(async () => container.querySelector<HTMLInputElement>('[aria-label="Slide header italic"]')!.click());
+    await act(async () => container.querySelector<HTMLInputElement>('[aria-label="Slide header underline"]')!.click());
+    await input("Slide header text color", "#123456");
+    expect(header().style.textAlign).toBe("right"); expect(header().style.fontStyle).toBe("italic"); expect(header().style.textDecoration).toBe("underline");
+    const thumbnail = container.querySelector<HTMLElement>('[data-slide-thumbnail="first"] [data-slide-header]')!;
+    expect(thumbnail.style.fontSize).toBe("23px");
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Edit slide 2: Short title"]')!.click()); expect(header().style.fontSize).toBe("32px");
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Edit slide 1: Shortened header"]')!.click()); expect(header().style.fontSize).toBe("23px");
+    await act(async () => vi.advanceTimersByTimeAsync(1000));
+    const call = fetchMock.mock.calls.findLast(([, init]) => init?.method === "PUT")!;
+    const snapshot = editorSnapshotSchema.parse(JSON.parse(call[1].body));
+    expect(snapshot.lessons[0]).toMatchObject({ title: "Shortened header", slideHeaderStyle: { fontSize: 23, color: "#123456", textAlign: "right", fontFamily: "serif", fontStyle: "italic", textDecoration: "underline" } });
+    expect(snapshot.lessons[0].titleHtml).toBeUndefined(); expect(snapshot.lessons[1].slideHeaderStyle).toBeUndefined(); expect(snapshot.slideMaster?.header).toBeUndefined();
+    await act(async () => root.render(<EditorClient key="header-style-reload" initialData={{ ...snapshot, courseId: "slides" }} authorName="Author" />));
+    expect(header().style.fontSize).toBe("23px"); expect(title().value).toBe("Shortened header");
+    await act(async () => title().focus()); await click("Use master header text style"); expect(header().style.fontSize).toBe("32px");
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Undo"]')!.click()); expect(header().style.fontSize).toBe("23px");
+  });
+
   it("uses master theme colors until the header background is overridden", async () => {
     await act(async () => root.render(<EditorClient initialData={initialData} authorName="Author" />));
     await click("Master slide");

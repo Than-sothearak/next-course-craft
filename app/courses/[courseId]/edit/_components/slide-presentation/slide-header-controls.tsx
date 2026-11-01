@@ -4,7 +4,6 @@ import { useState } from "react";
 import { ImagePlus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { hasLegacySlideHeaderBackground, resolveSlideHeader, slideHeaderSchema, type SlideHeader, type SlideMaster } from "@/lib/editor/slide-design";
 import { SlideHeaderBackground } from "../../../_components/slide-presentation/slide-header-background";
@@ -49,7 +48,7 @@ export function SlideHeaderControls({ master, courseId, onChange }: { master: Sl
       {header.imageSrc && <>
         <div className="grid grid-cols-2 gap-3">
           <label className="space-y-1 text-xs text-slate-600">Image position<Select aria-label="Header image position" value={header.imagePosition} onChange={(event) => update({ imagePosition: event.target.value as SlideHeader["imagePosition"] })}><option value="center">Center</option><option value="top">Top</option><option value="bottom">Bottom</option></Select></label>
-          <label className="space-y-1 text-xs text-slate-600">Overlay (%)<Input type="number" aria-label="Header image overlay" min={0} max={90} value={header.overlayOpacity} onChange={(event) => { const value = event.target.valueAsNumber; if (Number.isInteger(value) && value >= 0 && value <= 90) update({ overlayOpacity: value }); }} /></label>
+          <label className="space-y-1 text-xs text-slate-600">Overlay (%)<SlideNumberSettingInput aria-label="Header image overlay" min={0} max={90} value={header.overlayOpacity} onValueChange={(overlayOpacity) => update({ overlayOpacity })} /></label>
         </div>
         <Button variant="ghost" size="sm" className="text-rose-600" onClick={() => update({ imageSrc: "", background: "transparent" })}><Trash2 size={14} aria-hidden="true" />Remove header image</Button>
       </>}

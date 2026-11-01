@@ -228,9 +228,14 @@ export function CoursePreview({
           ]),
         );
         setSelectedLessonId(
-          (current) => initialLessonId ?? (slideCourse && current === firstSlideId
-            ? snapshot?.selectedLessonId ?? firstSlideId
-            : current ?? snapshot?.selectedLessonId ?? firstSlideId),
+          (current) => {
+            const fallbackId = slideCourse || initialLessonId ? lessons[0]?.id ?? null : null;
+            if (selectedPreviewLesson) return selectedPreviewLesson.id;
+            if (slideCourse && current === firstSlideId) return resumedLesson?.id ?? fallbackId;
+            if (lessons.some((lesson) => lesson.id === current)) return current;
+            // Old HTML/LMS progress can refer to a slide removed in a newer export.
+            return resumedLesson?.id ?? fallbackId;
+          },
         );
       } catch {
         setVisitedLessonIds(new Set());

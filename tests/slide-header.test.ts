@@ -1,7 +1,8 @@
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { defaultSlideCover, defaultSlideMaster, resolveSlideHeader, slideHeaderSchema, slideMasterSchema } from "@/lib/editor/slide-design";
+import { defaultSlideCover, defaultSlideMaster, resolveSlideHeader, resolveSlideHeaderTypography, slideHeaderSchema, slideHeaderStyleSchema, slideMasterSchema } from "@/lib/editor/slide-design";
+import { Lesson } from "@/models/Lesson";
 import { editorSnapshotSchema } from "@/lib/editor/schemas";
 import { courseAssetIds, remapCourseAssetUrls } from "@/lib/media/asset-references";
 import { parseScorm12Snapshot } from "@/lib/scorm12/snapshot";
@@ -23,7 +24,7 @@ describe("presentation headers", () => {
     expect(resolveSlideHeader(changed).backgroundColor).toBe("#fff7ed");
     const markup = renderToStaticMarkup(createElement(SlideSurface, { master: changed, title: "Theme title", number: 1, total: 1 }));
     expect(markup).toContain("background-color:#fff7ed");
-    expect(markup).toMatch(/data-slide-header[^>]*style="color:#431407/);
+    expect(markup).toMatch(/data-slide-header[^>]*style="[^"]*color:#431407/);
     const legacy = slideMasterSchema.parse({ ...master, header: { ...master.header, background: "transparent", backgroundColor: "#ffffff" } });
     expect(resolveSlideHeader(legacy).backgroundColor).toBe("#0f172a");
     expect(resolveSlideHeader({ ...legacy, header: { ...legacy.header!, backgroundCustomized: true } }).backgroundColor).toBe("#ffffff");
@@ -52,7 +53,8 @@ describe("presentation headers", () => {
       const markup = renderToStaticMarkup(createElement(CoursePreview, { initialData: { ...snapshot, courseId: "slides" }, authorName: "", initialLessonId: "first", standalone }));
       expect(markup).toContain('data-slide-header-background="color"');
       expect(markup).toContain("background-color:#123456");
-      expect(markup).toMatch(/data-slide-header[^>]*style="color:#ffffff;[^\"]*font-size:32px/);
+      expect(markup).toMatch(/data-slide-header[^>]*style="[^"]*color:#ffffff/);
+      expect(markup).toMatch(/data-slide-header[^>]*style="[^"]*font-size:32px/);
     }
   });
 
@@ -62,6 +64,30 @@ describe("presentation headers", () => {
     expect(markup).toContain('data-slide-title-text');
     expect(markup).toContain('class="absolute left-12 right-12 top-9');
     expect(markup).not.toContain('min-h-14 truncate');
+  });
+
+  it("validates per-slide text formatting and retains it in lesson documents and export snapshots", () => {
+    const style = slideHeaderStyleSchema.parse({ fontSize: 22, fontFamily: "serif", color: "#123456", textAlign: "right", fontWeight: "normal", fontStyle: "italic", textDecoration: "underline" });
+    const snapshot = editorSnapshotSchema.parse({ ...course, lessons: [{ ...course.lessons[0], slideHeaderStyle: style }] });
+    const document = new Lesson({ courseId: assetId, sectionId: "section", order: 0, title: "Introduction", slideHeaderStyle: style });
+    expect(document.validateSync()).toBeUndefined();
+    expect(document.toObject().slideHeaderStyle).toEqual(style);
+    expect(parseScorm12Snapshot(JSON.parse(JSON.stringify(snapshot))).lessons[0].slideHeaderStyle).toEqual(style);
+    for (const invalid of [{ fontSize: 11 }, { fontSize: 73 }, { fontSize: 22.5 }, { fontSize: "22" }, { color: "red" }, { textAlign: "justify" }, { fontFamily: "unknown" }]) {
+      expect(editorSnapshotSchema.safeParse({ ...snapshot, lessons: [{ ...snapshot.lessons[0], slideHeaderStyle: { ...style, ...invalid } }] }).success).toBe(false);
+    }
+    expect(resolveSlideHeaderTypography(undefined)).toMatchObject({ fontSize: 32, fontWeight: "bold", textAlign: "left" });
+  });
+
+  it.each(["content", "quiz"] as const)("shares per-slide %s title styles across thumbnails, preview, and offline learners", (lessonType) => {
+    const style = slideHeaderStyleSchema.parse({ fontSize: 22, fontFamily: "serif", color: "#123456", textAlign: "right", textDecoration: "underline" });
+    const snapshot = editorSnapshotSchema.parse({ ...course, slideMaster: { header: { fontSize: 44 } }, lessons: [{ ...course.lessons[0], lessonType, slideHeaderStyle: style }] });
+    const markup = [renderToStaticMarkup(createElement(SlideThumbnail, { slide: snapshot.lessons[0], index: 0, master: snapshot.slideMaster }))];
+    for (const standalone of [false, true]) markup.push(renderToStaticMarkup(createElement(CoursePreview, { initialData: { ...snapshot, courseId: "slides" }, authorName: "", initialLessonId: "first", standalone })));
+    for (const view of markup) {
+      const header = view.match(/<header data-slide-header[^>]*>/)?.[0];
+      expect(header).toContain("font-size:22px"); expect(header).toContain("text-align:right"); expect(header).toContain("text-decoration:underline"); expect(header).toContain("color:#123456");
+    }
   });
 
   it("shares the header with thumbnails while covers retain their hero background", () => {

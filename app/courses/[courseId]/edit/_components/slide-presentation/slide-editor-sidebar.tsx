@@ -15,6 +15,7 @@ type Props = {
   activeId: string | null;
   onSelect: (id: string) => void;
   onAdd: () => void;
+  onAddBlank?: () => void;
   onAddQuiz?: () => void;
   onDuplicate?: (id: string) => void;
   onDelete: (id: string) => void;
@@ -36,7 +37,7 @@ function SortableSlide({ slide, index, total, activeId, onSelect, onDuplicate, o
   </div>;
 }
 
-export function SlideEditorSidebar({ slides, activeId, onSelect, onAdd, onAddQuiz, onDuplicate, onDelete, onReorder, master, courseTitle }: Props) {
+export function SlideEditorSidebar({ slides, activeId, onSelect, onAdd, onAddBlank, onAddQuiz, onDuplicate, onDelete, onReorder, master, courseTitle }: Props) {
   const dndId = `slide-thumbnails-${useId().replaceAll(":", "")}`;
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
   function reorder(event: DragEndEvent) {
@@ -55,6 +56,7 @@ export function SlideEditorSidebar({ slides, activeId, onSelect, onAdd, onAddQui
         </SortableContext>
       </DndContext>
       {!slides.length && <p className="py-4 text-center text-xs text-slate-500">No slides yet</p>}
+      {onAddBlank && <Button variant="outline" size="sm" onClick={onAddBlank} className="mt-3 w-full border-dashed"><Plus size={15} />Blank slide</Button>}
       {onReorder && slides.length > 1 && <p className="mt-2 px-1 text-[11px] text-slate-500">Drag the handles to reorder slides.</p>}
       <div className={`mt-3 grid gap-2 ${onAddQuiz ? "grid-cols-2" : "grid-cols-1"}`}><Button type="button" variant="outline" size="sm" onClick={onAdd} className="border-dashed"><Plus size={15} />Add slide</Button>{onAddQuiz && <Button type="button" variant="outline" size="sm" onClick={onAddQuiz} className="border-dashed"><Plus size={15} />Quiz slide</Button>}</div>
     </aside>

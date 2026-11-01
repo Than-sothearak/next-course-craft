@@ -273,7 +273,11 @@ function getListContext(editor: Editor) {
   return { activeListType, listDepth };
 }
 
-export const textEditorExtensions = [...sharedTextExtensions, SingleElementDocument, SingleElementEditing];
+// A heading/title is one block. StarterKit's trailing paragraph would add an
+// empty body line and enlarge the fitted object after every heading edit.
+const exactTextExtensions = sharedTextExtensions.map((extension) => extension.name === "starterKit" ? extension.configure({ trailingNode: false }) : extension);
+export const textEditorExtensions = [...exactTextExtensions, SingleElementDocument, SingleElementEditing];
+export const previewTextEditorExtensions = [...exactTextExtensions, Document];
 export const richTextEditorExtensions = [...sharedTextExtensions, Document];
 
 const highlightColors = ["#fef08a", "#bfdbfe", "#bbf7d0", "#fecaca", "#e9d5ff"];

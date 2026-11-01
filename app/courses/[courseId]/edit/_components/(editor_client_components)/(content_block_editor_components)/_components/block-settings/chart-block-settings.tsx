@@ -7,6 +7,7 @@ import type { ContentBlock } from "@/lib/schemas/block";
 import { createClientId } from "@/lib/client-id";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NumberInput } from "@/components/ui/number-input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -78,19 +79,18 @@ export function ChartBlockSettings({ block, onChange }: { block: Extract<Content
               placeholder="Label"
               className="h-9 min-w-0 flex-1"
             />
-            <Input
+            <NumberInput
               aria-label={`Chart field ${index + 1} value`}
-              type="number"
-              min="0"
-              max="1000000000000"
-              step="any"
+              min={0}
+              max={1000000000000}
+              precision="any"
               value={field.value}
-              onChange={(event) => onChange({
+              onValueChange={(value) => onChange({
                 ...block,
                 data: {
                   ...block.data,
                   fields: block.data.fields.map((item) => item.id === field.id
-                    ? { ...item, value: Math.max(0, Number(event.target.value) || 0) }
+                    ? { ...item, value }
                     : item),
                 },
               })}

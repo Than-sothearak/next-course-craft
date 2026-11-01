@@ -7,6 +7,7 @@ import { PublishMenu } from "@/components/publish-menu";
 import type { SlideItem } from "@/app/courses/[courseId]/_components/slide-presentation/slide-navigation";
 import { SlidePresentationContext } from "./slide-presentation-context";
 import { slideMediaRestartEvent } from "@/lib/editor/slide-playback";
+import { replaySlideObjectAnimations } from "@/lib/editor/slide-animation";
 import type { SlideNavigationGuide } from "@/lib/editor/slide-design";
 import { usePresentationGuidance } from "./use-presentation-guidance";
 import { SlidePreviewZoom } from "./slide-preview-zoom";
@@ -71,7 +72,8 @@ export function SlidePresentationPreview({
 
   function restartSlide() {
     const canvas = rootRef.current?.querySelector('[data-slide-canvas][data-slide-active="true"]');
-    canvas?.querySelectorAll("[data-slide-media-player]").forEach((media) => media.dispatchEvent(new Event(slideMediaRestartEvent)));
+    if (canvas) replaySlideObjectAnimations(canvas);
+    canvas?.querySelectorAll("[data-slide-media-player], [data-slide-game-player]").forEach((media) => media.dispatchEvent(new Event(slideMediaRestartEvent)));
     const coverAudio = slides[index]?.slideCover?.instructions?.audioSrc;
     if (coverAudio) support.playAudio(coverAudio);
   }

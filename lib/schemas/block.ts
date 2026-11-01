@@ -1,11 +1,16 @@
 import { z } from "zod";
 import { colorValueSchema } from "@/lib/color";
 import { isSafeLinkHref } from "@/lib/editor/link-utils";
-import { slideBackgroundSchema, slideBorderRadiusSchema, slideFrameSchema, slideMediaSchema, slidePlaybackSchema, slideTextLayoutSchema } from "@/lib/editor/slide-design";
+import { slideAudioFrameSchema, slideBackgroundSchema, slideBorderRadiusSchema, slideFrameSchema, slideMediaSchema, slidePlaybackSchema, slideTextLayoutSchema } from "@/lib/editor/slide-design";
 import { graphicImageFitSchema } from "@/lib/editor/graphic-layout";
 import { slideCropSchema } from "@/lib/editor/slide-crop";
 import { interactionButtonPositions, interactionIcons } from "@/lib/editor/interaction-button";
 import { slideImageSourceSchema } from "@/lib/editor/slide-design";
+import { slideAnimationSchema } from "@/lib/editor/slide-animation";
+import { audioInstructionGuideSchema } from "@/lib/editor/audio-instruction-guide";
+import { balloonArcherDataSchema } from "./balloon-archer";
+import { peelSettingsSchema } from "./peel-to-reveal";
+import { hangingRopeSettingsSchema, ropeCardSettingsSchema } from "./hanging-rope-cards";
 
 export const blockTypes = [
   "heading",
@@ -16,6 +21,9 @@ export const blockTypes = [
   "audio",
   "audioInstruction",
   "interactionButton",
+  "balloonArcher",
+  "peelToReveal",
+  "hangingRopeCards",
   "attachment",
   "link",
   "divider",
@@ -68,6 +76,7 @@ const base = {
     .default("#ffffff"),
   headingPadding: spacing.optional(),
   slideFrame: slideFrameSchema.optional(),
+  slideAnimation: slideAnimationSchema.optional(),
   slideBackground: slideBackgroundSchema.optional(),
   slideBorderRadius: slideBorderRadiusSchema.optional(),
   slideTextLayout: slideTextLayoutSchema.optional(),
@@ -138,6 +147,7 @@ export const videoBlockSchema = z.object({
 export const audioBlockSchema = z.object({
   ...blockBase("medium", 40),
   type: z.literal("audio"),
+  slideFrame: slideAudioFrameSchema.optional(),
   slidePlayback: slidePlaybackSchema.optional(),
   data: z.object({
     src: z.string().regex(/^\/api\/assets\/[a-f\d]{24}\/file$/i).or(z.literal("")),
@@ -156,6 +166,7 @@ export const audioInstructionBlockSchema = z.object({
     showText: z.boolean().default(true),
     color: colorValueSchema.default("#f8fafc"),
     textColor: colorValueSchema.default("#334155"),
+    guide: audioInstructionGuideSchema.optional(),
   }),
 });
 export const attachmentBlockSchema = z.object({
@@ -168,9 +179,7 @@ export const attachmentBlockSchema = z.object({
   }),
 });
 
-export const popupContentBlockSchema = z.discriminatedUnion("type", [headingBlockSchema, richTextBlockSchema, imageBlockSchema, videoBlockSchema, audioBlockSchema]);
-export type PopupContentBlock = z.infer<typeof popupContentBlockSchema>;
-export const interactionButtonBlockSchema = z.object({
+const interactionButtonBaseSchema = z.object({
   ...blockBase("small", 0),
   type: z.literal("interactionButton"),
   data: z.object({
@@ -184,6 +193,8 @@ export const interactionButtonBlockSchema = z.object({
     iconColor: colorValueSchema.default("#ffffff"),
     radarColor: colorValueSchema.default("#8b5cf6"),
     radarEnabled: z.boolean().default(true),
+    radarSize: z.number().int().min(0).max(24).optional(),
+    radarWeight: z.number().int().min(1).max(8).optional(),
     radius: z.number().min(0).max(64).default(16),
     iconSize: z.number().min(16).max(96).default(40),
     buttonSize: z.number().min(24).max(256).default(80),
@@ -197,8 +208,7 @@ export const interactionButtonBlockSchema = z.object({
       backgroundColor: colorValueSchema.default("#ffffff"),
       textColor: colorValueSchema.default("#172033"),
       animation: z.enum(["fade", "zoom", "slide", "none"]).default("zoom"),
-      blocks: z.array(popupContentBlockSchema).max(20).default([]).refine((blocks) => new Set(blocks.map((block) => block.id)).size === blocks.length, "Popup objects must have unique IDs."),
-    }).default(() => ({ title: "Learn more", width: 800, height: 450, backgroundColor: "#ffffff", textColor: "#172033", animation: "zoom" as const, blocks: [] })),
+    }).default(() => ({ title: "Learn more", width: 800, height: 450, backgroundColor: "#ffffff", textColor: "#172033", animation: "zoom" as const })),
   }),
 });
 export const linkBlockSchema = z.object({
@@ -490,7 +500,38 @@ export const statementBlockSchema = z.object({
   }),
 });
 
-const contentBlockSchema = z.discriminatedUnion("type", [
+export const balloonArcherBlockSchema = z.object({
+  ...blockBase("full", 40),
+  type: z.literal("balloonArcher"),
+  data: balloonArcherDataSchema,
+});
+
+/** One level of ordinary learning content; interactions cannot recursively nest here. */
+export const revealContentBlockSchema = z.discriminatedUnion("type", [richTextBlockSchema, headingBlockSchema, statementBlockSchema, imageBlockSchema, galleryBlockSchema, videoBlockSchema, audioBlockSchema, linkBlockSchema]);
+export type RevealContentBlock = z.infer<typeof revealContentBlockSchema>;
+export const peelToRevealBlockSchema = z.object({
+  ...blockBase("medium", 40),
+  type: z.literal("peelToReveal"),
+  data: peelSettingsSchema.extend({
+    blocks: z.array(revealContentBlockSchema).min(1).max(12).default(() => [richTextBlockSchema.parse({ id: "reveal-text", version: 1, type: "richText", data: { html: "<h2>Something worth discovering</h2><p>Add your <strong>learning moment</strong> here. Replace this text or add images, video, and audio.</p>" }, blockPadding: 16 })]).refine((blocks) => new Set(blocks.map((block) => block.id)).size === blocks.length, "Reveal content must have unique IDs."),
+  }),
+});
+
+export const hangingRopeCardSchema = ropeCardSettingsSchema.extend({
+  blocks: z.array(revealContentBlockSchema).min(1).max(12).default(() => [richTextBlockSchema.parse({ id: "discovery", version: 1, type: "richText", blockPadding: 12, data: { html: "<h2>Follow your curiosity</h2><p>Replace this with your <strong>learning content</strong>, or add images, video, and audio.</p>" } })]).refine((blocks) => new Set(blocks.map((block) => block.id)).size === blocks.length, "Reveal content must have unique IDs."),
+});
+export const hangingRopeCardsBlockSchema = z.object({
+  ...blockBase("full", 40),
+  type: z.literal("hangingRopeCards"),
+  data: hangingRopeSettingsSchema.extend({
+    cards: z.array(hangingRopeCardSchema).min(1).max(6).default(() => ["Explore", "Connect", "Remember"].map((title, index) => hangingRopeCardSchema.parse({ id: `rope-${index + 1}`, title }))).refine((cards) => new Set(cards.map((card) => card.id)).size === cards.length, "Hanging cards must have unique IDs."),
+  }),
+});
+export type HangingRopeCard = z.infer<typeof hangingRopeCardSchema>;
+
+const plainContentBlockSchema = z.discriminatedUnion("type", [
+  hangingRopeCardsBlockSchema,
+  peelToRevealBlockSchema,
   headingBlockSchema,
   richTextBlockSchema,
   imageBlockSchema,
@@ -498,7 +539,6 @@ const contentBlockSchema = z.discriminatedUnion("type", [
   videoBlockSchema,
   audioBlockSchema,
   audioInstructionBlockSchema,
-  interactionButtonBlockSchema,
   attachmentBlockSchema,
   linkBlockSchema,
   dividerBlockSchema,
@@ -511,8 +551,46 @@ const contentBlockSchema = z.discriminatedUnion("type", [
   processStepsBlockSchema,
   lessonMapBlockSchema,
   chartBlockSchema,
+  balloonArcherBlockSchema,
 ]);
-export const blockSchema = z.preprocess((value) => {
+type InteractionButtonBase = z.infer<typeof interactionButtonBaseSchema>;
+export type InteractionButtonBlock = Omit<InteractionButtonBase, "data"> & {
+  data: Omit<InteractionButtonBase["data"], "popup"> & {
+    popup: InteractionButtonBase["data"]["popup"] & { blocks: ContentBlock[] };
+  };
+};
+export type ContentBlock = z.infer<typeof plainContentBlockSchema> | InteractionButtonBlock;
+export type PopupContentBlock = ContentBlock;
+export const popupContentBlockSchema: z.ZodType<PopupContentBlock> = z.lazy(() => blockSchema);
+function popupDepthValid(value: unknown): boolean {
+  const pending = [{ value, depth: 0 }];
+  while (pending.length) {
+    const current = pending.pop()!;
+    if (!current.value || typeof current.value !== "object" || !("type" in current.value) || current.value.type !== "interactionButton") continue;
+    if (current.depth >= 8) return false;
+    const data = (current.value as Record<string, unknown>).data;
+    const popup = data && typeof data === "object" && "popup" in data ? data.popup : null;
+    const blocks = popup && typeof popup === "object" && "blocks" in popup ? popup.blocks : null;
+    if (Array.isArray(blocks)) for (const child of blocks) pending.push({ value: child, depth: current.depth + 1 });
+  }
+  return true;
+}
+const popupSettingsSchema = interactionButtonBaseSchema.shape.data.shape.popup.unwrap();
+export const interactionButtonBlockSchema = interactionButtonBaseSchema.extend({
+  data: interactionButtonBaseSchema.shape.data.extend({
+    popup: popupSettingsSchema.extend({
+      blocks: z.array(popupContentBlockSchema).max(20).default([]).refine((blocks) => new Set(blocks.map((block) => block.id)).size === blocks.length, "Popup objects must have unique IDs."),
+    }).default(() => ({ ...popupSettingsSchema.parse({}), blocks: [] })),
+  }),
+}).superRefine((block, context) => {
+  if (!popupDepthValid(block)) context.addIssue({ code: "custom", message: "Popup mini slides can nest up to eight levels." });
+});
+const contentBlockSchema = z.discriminatedUnion("type", [...plainContentBlockSchema.options, interactionButtonBlockSchema]);
+export const blockSchema: z.ZodType<ContentBlock> = z.preprocess((value, context) => {
+  if (!popupDepthValid(value)) {
+    context.addIssue({ code: "custom", message: "Popup mini slides can nest up to eight levels." });
+    return z.NEVER;
+  }
   if (!value || typeof value !== "object" || Array.isArray(value)) return value;
   const candidate = value as Record<string, unknown>;
   if (candidate.type !== "divider" || !candidate.data || typeof candidate.data !== "object")
@@ -534,7 +612,6 @@ export const blockSchema = z.preprocess((value) => {
     },
   };
 }, contentBlockSchema);
-export type ContentBlock = z.infer<typeof blockSchema>;
 
 /** Normalize persisted flip cards written before cards were stored as a collection. */
 export function normalizeStoredFlipCardBlock(
@@ -547,9 +624,9 @@ export function normalizeStoredFlipCardBlock(
 export function defaultBlockWidth(
   type: ContentBlock["type"],
 ): ContentBlock["width"] {
-  if (type === "heading" || type === "richText") return "medium";
+  if (type === "heading" || type === "richText" || type === "peelToReveal") return "medium";
   if (type === "image" || type === "video" || type === "audio" || type === "gallery") return "medium";
-  if (type === "flipCard" || type === "labeledGraphic" || type === "lessonMap") return "full";
+  if (type === "flipCard" || type === "labeledGraphic" || type === "lessonMap" || type === "balloonArcher" || type === "hangingRopeCards") return "full";
   if (type === "accordion" || type === "processSteps" || type === "chart") return "medium";
   return "small";
 }

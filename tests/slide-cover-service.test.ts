@@ -26,6 +26,18 @@ describe("presentation cover image ownership", () => {
     await assertSlideCoverAssets("owner", "course", lesson(""));
     expect(findOne).not.toHaveBeenCalled();
   });
+  it("verifies per-slide background images against ready ownership in this course", async () => {
+    const slides = lesson(""); slides[0].slideCover = undefined;
+    slides[0].slideAppearance = { hideHeader: true, hideFooter: true, background: { type: "image", imageSrc: "/api/assets/123456789012345678901234/file", imagePosition: "center", overlayOpacity: 0 } };
+    await assertSlideCoverAssets("owner", "course", slides);
+    expect(findOne).toHaveBeenCalledWith({ _id: "123456789012345678901234", ownerId: "owner", courseId: "course", status: "ready", mimeType: /^image\// });
+    lean.mockResolvedValue(null);
+    await expect(assertSlideCoverAssets("owner", "course", slides)).rejects.toThrow("slide background image");
+    for (const imageSrc of ["./media/background.png", "data:image/png;base64,YQ=="]) {
+      slides[0].slideAppearance.background = { type: "image", imageSrc, imagePosition: "center", overlayOpacity: 0 };
+      await expect(assertSlideCoverAssets("owner", "course", slides)).rejects.toThrow("media library");
+    }
+  });
   it("verifies ready audio ownership and rejects missing, foreign, and offline audio sources", async () => {
     const lessons = lesson("");
     lessons[0].slideCover!.instructions = { audioSrc: "/api/assets/123456789012345678901234/file", audioName: "Intro.mp3", audioTrigger: "start", noticeEnabled: false, noticeTitle: "Welcome", noticeText: "Start here", noticeTrigger: "cover", firstVisitOnly: true };

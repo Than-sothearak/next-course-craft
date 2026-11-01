@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NumberInput } from "@/components/ui/number-input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { ContentBlock, LessonMapCheckpointIcon, LessonMapTemplate } from "@/lib/schemas/block";
@@ -398,10 +399,10 @@ export function LessonMapEditor({
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <label className="block text-xs font-semibold text-slate-600">Horizontal position
-                    <Input aria-label="Checkpoint horizontal position" type="number" min={6} max={94} step={1} value={Math.round(activeCheckpoint.x)} onChange={(event) => updateCheckpoint(activeCheckpoint.id, (checkpoint) => ({ ...checkpoint, x: Math.max(6, Math.min(94, Number(event.target.value) || 6)) }))} className="mt-1 h-9" />
+                    <NumberInput aria-label="Checkpoint horizontal position" min={6} max={94} precision={0} value={Math.round(activeCheckpoint.x)} onValueChange={(x) => updateCheckpoint(activeCheckpoint.id, (checkpoint) => ({ ...checkpoint, x }))} className="mt-1 h-9" />
                   </label>
                   <label className="block text-xs font-semibold text-slate-600">Vertical position
-                    <Input aria-label="Checkpoint vertical position" type="number" min={8} max={92} step={1} value={Math.round(activeCheckpoint.y)} onChange={(event) => updateCheckpoint(activeCheckpoint.id, (checkpoint) => ({ ...checkpoint, y: Math.max(8, Math.min(92, Number(event.target.value) || 8)) }))} className="mt-1 h-9" />
+                    <NumberInput aria-label="Checkpoint vertical position" min={8} max={92} precision={0} value={Math.round(activeCheckpoint.y)} onValueChange={(y) => updateCheckpoint(activeCheckpoint.id, (checkpoint) => ({ ...checkpoint, y }))} className="mt-1 h-9" />
                   </label>
                 </div>
                 <label className="block text-xs font-semibold text-slate-600">Destination type

@@ -1,6 +1,6 @@
 "use client";
 
-import { AlignLeft, AudioLines, ChartColumn, Heading2, Image as ImageIcon, Images, Layers, LayoutGrid, MousePointer2, MousePointerClick, PanelTop, Paperclip, Video, Volume2, type LucideIcon } from "lucide-react";
+import { Cable, StickyNote, Crosshair, AlignLeft, AudioLines, ChartColumn, Heading2, Image as ImageIcon, Images, Layers, LayoutGrid, MousePointer2, MousePointerClick, PanelTop, Paperclip, Video, Volume2, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 type InsertTool = { id: string; label: string; icon: LucideIcon };
@@ -18,9 +18,12 @@ const groups: { label: string; tools: InsertTool[] }[] = [
     { id: "media-attachment", label: "File", icon: Paperclip },
   ] },
   { label: "Interactive", tools: [
+    { id: "interactive-hanging-rope-cards", label: "Hanging Rope Cards", icon: Cable },
+    { id: "interactive-peel-to-reveal", label: "Peel to Reveal", icon: StickyNote },
     { id: "interactive-reveal", label: "Flip cards", icon: Layers },
     { id: "interactive-labeled-graphic", label: "Interactive image", icon: MousePointer2 },
     { id: "interactive-button", label: "Interaction button", icon: MousePointerClick },
+    { id: "interactive-balloon-archer", label: "Balloon Archer", icon: Crosshair },
   ] },
   { label: "Data", tools: [{ id: "chart-bars", label: "Chart", icon: ChartColumn }] },
 ];

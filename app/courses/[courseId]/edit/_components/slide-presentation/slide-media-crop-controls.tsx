@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { Crop, Pause, Play, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
+import { SlideNumberSettingInput } from "./slide-number-setting-input";
 import { Select } from "@/components/ui/select";
 import type { ContentBlock } from "@/lib/schemas/block";
 import { fitSlideMediaFrame, resolveSlideFrame, type SlideSize } from "@/lib/editor/slide-design";
@@ -79,7 +79,7 @@ function CropDialog({ block, index, total, area, onChange, onClose }: Props & { 
         </div>
       </div>
       {block.type === "video" && <Button variant="outline" size="sm" onClick={() => { const media = video.current; if (!media) return; if (media.paused) void media.play()?.catch(() => setPlaying(false)); else media.pause(); }}>{playing ? <Pause size={14} /> : <Play size={14} />}{playing ? "Pause video" : "Preview video"}</Button>}
-      {dimensions && <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{(["x", "y", "width", "height"] as const).map((field) => { const dimension = field === "x" || field === "width" ? dimensions.width : dimensions.height; const label = { x: "Left", y: "Top", width: "Width", height: "Height" }[field]; return <label key={field} className="space-y-1 text-xs text-slate-600">{label} (px)<Input type="number" aria-label={`Crop ${label.toLowerCase()} (px)`} min={field === "x" || field === "y" ? 0 : dimension / 100} max={dimension} step={0.01} value={Number((rect[field] * dimension / 100).toFixed(2))} onChange={(event) => { const value = event.target.valueAsNumber * 100 / dimension; if (!Number.isFinite(value)) return; setRect(field === "x" || field === "y" ? moveCrop(rect, field === "x" ? value - rect.x : 0, field === "y" ? value - rect.y : 0) : resizeCrop(rect, "bottom-right", field === "width" ? value - rect.width : 0, field === "height" ? value - rect.height : 0, ratio)); }} /></label>; })}</div>}
+      {dimensions && <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{(["x", "y", "width", "height"] as const).map((field) => { const dimension = field === "x" || field === "width" ? dimensions.width : dimensions.height; const label = { x: "Left", y: "Top", width: "Width", height: "Height" }[field]; return <label key={field} className="space-y-1 text-xs text-slate-600">{label} (px)<SlideNumberSettingInput aria-label={`Crop ${label.toLowerCase()} (px)`} min={field === "x" || field === "y" ? 0 : dimension / 100} max={dimension} step={0.01} value={Number((rect[field] * dimension / 100).toFixed(2))} onValueChange={(pixels) => { const value = pixels * 100 / dimension; setRect(field === "x" || field === "y" ? moveCrop(rect, field === "x" ? value - rect.x : 0, field === "y" ? value - rect.y : 0) : resizeCrop(rect, "bottom-right", field === "width" ? value - rect.width : 0, field === "height" ? value - rect.height : 0, ratio)); }} /></label>; })}</div>}
       {error && <p role="alert" className="text-xs text-rose-700">{error}</p>}
     </div>
   </Dialog>;

@@ -166,6 +166,7 @@ function InteractiveFlipCardItem({
       type="button"
       aria-label={flipped ? `Show the front of card ${cardNumber}` : `Flip card ${cardNumber} to reveal the back`}
       aria-pressed={flipped}
+      data-slide-animation-item
       onClick={flip}
       className={`cursor-pointer group w-full min-w-0 ${flipCardStyleClasses[cardStyle]} text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-4`}
       style={{ perspective: "1000px" }}
@@ -227,6 +228,7 @@ export function InteractiveKnowledgeCheck({
         {options.map((option, index) => (
           <label
             key={`${blockId}-${index}`}
+            data-slide-animation-item
             className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm transition-colors hover:border-slate-400"
             style={selectedOptionIndex === index ? { borderColor: "var(--course-primary, #2f5f9f)", backgroundColor: "color-mix(in srgb, var(--course-primary, #2f5f9f) 9%, white)" } : undefined}
           >
@@ -285,6 +287,7 @@ export function InteractiveSurvey({
         {[1, 2, 3, 4, 5].map((value) => (
           <label
             key={`${blockId}-${value}`}
+            data-slide-animation-item
             className="flex cursor-pointer flex-col items-center gap-1 text-sm"
           >
             <input
@@ -348,6 +351,7 @@ export function InteractiveAccordion({
               <button
                 key={item.id}
                 id={`${blockId}-tab-${item.id}`}
+                data-slide-animation-item
                 type="button"
                 role="tab"
                 aria-selected={selected}
@@ -381,7 +385,7 @@ export function InteractiveAccordion({
           ? expandedItemIds.has(item.id)
           : item.id === activeItemId;
         return (
-          <section key={item.id} className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+          <section key={item.id} data-slide-animation-item className="overflow-hidden rounded-xl border border-slate-200 bg-white">
             <button
               type="button"
               aria-expanded={expanded}

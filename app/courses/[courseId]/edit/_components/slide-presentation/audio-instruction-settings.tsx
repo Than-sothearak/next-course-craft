@@ -7,6 +7,7 @@ import { ColorPicker } from "@/components/ui/color-picker";
 import { Input } from "@/components/ui/input";
 import { audioInstructionBlockSchema, type ContentBlock } from "@/lib/schemas/block";
 import { MediaLibraryDialog } from "../media-library-dialog";
+import { AudioInstructionGuideSettings } from "./audio-instruction-guide-settings";
 
 type Instruction = Extract<ContentBlock, { type: "audioInstruction" }>;
 export function AudioInstructionSettings({ block, courseId, onChange }: { block: Instruction; courseId: string; onChange: (block: ContentBlock) => void }) {
@@ -19,6 +20,7 @@ export function AudioInstructionSettings({ block, courseId, onChange }: { block:
     <div className="grid grid-cols-2 gap-2">{([{ field: "autoPlay", label: "Autoplay on slide" }, { field: "showIcon", label: "Show icon" }, { field: "showText", label: "Show text" }] as const).map(({ field, label }) => <label key={field} className="flex items-center gap-2 rounded-md border border-slate-200 p-2 text-xs text-slate-600"><Checkbox aria-label={`Audio instruction ${label.toLowerCase()}`} checked={block.data[field]} onChange={(event) => update({ [field]: event.target.checked })} />{label}</label>)}</div>
     <div className="grid grid-cols-2 gap-2">{(["color", "textColor"] as const).map((field) => <div key={field} className="space-y-1 text-xs text-slate-600">{field === "color" ? "Button fill" : "Icon & text"}<ColorPicker aria-label={`Audio instruction ${field}`} value={block.data[field]} onChange={(value) => update({ [field]: value })} /></div>)}</div>
     <p className="text-[11px] leading-4 text-slate-500">Choose icon, text, both, or hide both for background audio. Keep a visible control if learners need to start audio when their browser blocks autoplay.</p>
+    <AudioInstructionGuideSettings id={block.id} value={block.data.guide} onChange={(guide) => update({ guide })} />
     {error && <p role="alert" className="text-xs text-rose-700">{error}</p>}
     <MediaLibraryDialog courseId={courseId} kind="audio" open={open} onClose={() => setOpen(false)} onSelect={(asset) => { const parsed = audioInstructionBlockSchema.safeParse({ ...block, data: { ...block.data, src: asset.fileUrl, fileName: asset.originalName, mimeType: asset.contentType } }); if (parsed.success) { onChange(parsed.data); setError(""); setOpen(false); } else setError("Choose a supported audio file."); }} />
   </div>;

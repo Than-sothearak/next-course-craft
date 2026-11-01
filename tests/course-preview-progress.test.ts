@@ -118,6 +118,9 @@ let container: HTMLDivElement;
 let root: Root;
 
 beforeEach(() => {
+  vi.stubGlobal("IntersectionObserver", class { observe() {} unobserve() {} disconnect() {} });
+  Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value: function (this: HTMLDialogElement) { this.open = true; } });
+  Object.defineProperty(HTMLDialogElement.prototype, "close", { configurable: true, value: function (this: HTMLDialogElement) { this.open = false; this.dispatchEvent(new Event("close")); } });
   Object.defineProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT", {
     configurable: true,
     value: true,
@@ -155,6 +158,9 @@ afterEach(() => {
   container.remove();
   localStorage.clear();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+  delete (HTMLDialogElement.prototype as unknown as Record<string, unknown>).showModal;
+  delete (HTMLDialogElement.prototype as unknown as Record<string, unknown>).close;
 });
 
 describe("admin course preview progress", () => {
@@ -256,6 +262,7 @@ describe("admin course preview progress", () => {
       'button[aria-label="Show the front of card 1"]',
     )?.getAttribute("aria-pressed")).toBe("true");
     expect((save.mock.lastCall![1] as LearnerProgressSnapshot).interactedContentIds).toContain("study-cards:card-1");
+    await act(async () => { await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve())); });
     expect(getLessonCircle()?.getAttribute("aria-label")).toBe("Lesson 75% complete");
     expect(getSecondLesson()?.disabled).toBe(true);
 
@@ -489,6 +496,7 @@ describe("admin course preview progress", () => {
       await new Promise((resolve) => window.setTimeout(resolve, 10));
     });
 
+    await act(async () => { await new Promise((resolve) => window.setTimeout(resolve, 10)); });
     const menuViewport = container.querySelector<HTMLElement>(
       "aside > div.min-h-0.flex-1.overflow-y-auto.py-2",
     );
@@ -517,8 +525,9 @@ describe("admin course preview progress", () => {
       targetLesson.click();
       await new Promise((resolve) => window.setTimeout(resolve, 0));
     });
+    await act(async () => { await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve())); });
 
-    expect(targetLesson.getAttribute("aria-current")).toBe("page");
+    expect(container.querySelector('aside button[aria-label^="Lesson 7"]')?.getAttribute("aria-current")).toBe("page");
     expect(scrollTo).toHaveBeenCalledWith({ top: 90, behavior: "smooth" });
   });
 

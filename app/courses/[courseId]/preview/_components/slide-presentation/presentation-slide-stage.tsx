@@ -4,14 +4,15 @@ import type { ReactNode, Ref, UIEventHandler } from "react";
 import { SlideStage } from "@/app/courses/[courseId]/_components/slide-presentation/slide-stage";
 import { SlideSurface } from "@/app/courses/[courseId]/_components/slide-presentation/slide-surface";
 import { SlideCoverRuntime } from "./slide-cover-runtime";
-import { resolveSlideSize, slideNavigationLabel, type SlideCover, type SlideMaster } from "@/lib/editor/slide-design";
+import { resolveSlideSize, slideNavigationLabel, type SlideCover, type SlideMaster, type SlideHeaderStyle } from "@/lib/editor/slide-design";
 import { useSlidePresentationContext } from "./slide-presentation-context";
 import { SlidePresentationControls } from "./slide-presentation-controls";
 import { SlideCanvasMenu } from "./slide-canvas-menu";
 import { SlideCanvasFullscreen } from "./slide-canvas-fullscreen";
 import { SlidePlaybackContext } from "../../../_components/slide-presentation/slide-playback-context";
+import type { SlideAppearance } from "@/lib/editor/slide-design";
 
-export function PresentationSlideStage({ active, visible, title, courseTitle, number, total, master, cover, quiz = false, quizFinished = true, canvasRef, onScroll, children, lessonId }: {
+export function PresentationSlideStage({ active, visible, title, courseTitle, number, total, master, headerStyle, appearance, cover, quiz = false, quizFinished = true, canvasRef, onScroll, children, lessonId }: {
   active: boolean;
   visible: boolean;
   title: string;
@@ -19,6 +20,8 @@ export function PresentationSlideStage({ active, visible, title, courseTitle, nu
   number: number;
   total: number;
   master?: SlideMaster;
+  headerStyle?: SlideHeaderStyle;
+  appearance?: SlideAppearance;
   cover?: SlideCover;
   quiz?: boolean;
   quizFinished?: boolean;
@@ -50,8 +53,10 @@ export function PresentationSlideStage({ active, visible, title, courseTitle, nu
       canvasClassName={`rounded-none ${presentation?.fullscreen ? "border-0" : "border border-slate-200"}`}
       canvasProps={{ "aria-label": `Slide: ${slideNavigationLabel(title, number - 1)}`, "data-slide-active": visible, onScroll }}
     >
-      {cover ? <SlideCoverRuntime lessonId={lessonId} visible={visible} cover={cover} title={courseTitle ?? title} master={master} number={number} total={total} controls={controls} menuControl={menuControl} onStart={next && presentation ? () => presentation.onSelect(next.id) : undefined} startDisabled={Boolean(nextLock)} startHint={nextLock ?? undefined}>{children}</SlideCoverRuntime> : <SlideSurface
+      {cover ? <SlideCoverRuntime appearance={appearance} lessonId={lessonId} visible={visible} cover={cover} title={courseTitle ?? title} master={master} number={number} total={total} controls={controls} menuControl={menuControl} onStart={next && presentation ? () => presentation.onSelect(next.id) : undefined} startDisabled={Boolean(nextLock)} startHint={nextLock ?? undefined}>{children}</SlideCoverRuntime> : <SlideSurface
         master={master}
+        appearance={appearance}
+        headerTextStyle={headerStyle}
         title={title}
         titleVisible={visible}
         number={number}

@@ -13,6 +13,8 @@ const LessonSchema = new Schema({
   quizQuestions: { type: [Schema.Types.Mixed], default: [] },
   blocks: { type: [Schema.Types.Mixed], default: [] },
   slideCover: { type: Schema.Types.Mixed, default: null },
+  slideHeaderStyle: { type: Schema.Types.Mixed, default: null },
+  slideAppearance: { type: Schema.Types.Mixed, default: null },
   revision: { type: Number, default: 0, min: 0 },
   settings: { type: Schema.Types.Mixed, default: {} },
 }, { timestamps: true, optimisticConcurrency: true });

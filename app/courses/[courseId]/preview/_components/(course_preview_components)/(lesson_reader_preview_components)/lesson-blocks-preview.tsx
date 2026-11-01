@@ -10,6 +10,7 @@ import type { ContentBlock } from "@/lib/schemas/block";
 import { resolveSlideFrame, slideObjectArea, type SlideSize } from "@/lib/editor/slide-design";
 import { isSlideMediaObject } from "@/lib/editor/slide-objects";
 import { SlideObjectContent } from "../../../../_components/slide-presentation/slide-object-content";
+import { SlideAnimatedObjectFrame } from "../../../../_components/slide-presentation/slide-animated-object-frame";
 import { Button } from "@/components/ui/button";
 import { getPendingInteractiveProgressIds } from "@/lib/export/progress";
 import { blockSurfaceStyle, blockWidthClass, slideObjectSurfaceStyle } from "../preview-utils";
@@ -80,6 +81,7 @@ function LessonBlockEntrance({
 export function LessonBlocksPreview({
   blocks,
   slideLayout = false,
+  authoring = false,
   slideBackgroundColor = "#ffffff",
   slideTextColor = "#172033",
   slideArea = slideObjectArea,
@@ -101,6 +103,7 @@ export function LessonBlocksPreview({
 }: {
   blocks: ContentBlock[];
   slideLayout?: boolean;
+  authoring?: boolean;
   slideBackgroundColor?: string;
   slideTextColor?: string;
   slideArea?: SlideSize;
@@ -145,7 +148,7 @@ export function LessonBlocksPreview({
   const place = (block: ContentBlock, index: number, content: ReactNode) => {
     if (!slideLayout) return content;
     const frame = resolveSlideFrame(block, index, blocks.length, slideArea);
-    return <div key={block.id} data-slide-object-frame data-slide-object-id={block.id} className="pointer-events-auto absolute overflow-hidden rounded-md" style={{ left: `${frame.x}%`, top: `${frame.y}%`, width: `${frame.width}%`, height: `${frame.height}%`, zIndex: frame.z + 1, ...slideObjectSurfaceStyle(block, slideBackgroundColor, slideTextColor) }}><SlideObjectContent media={isSlideMediaObject(block)}>{content}</SlideObjectContent></div>;
+    return <SlideAnimatedObjectFrame key={block.id} animation={block.slideAnimation} authoring={authoring} data-slide-object-frame data-slide-object-id={block.id} className="pointer-events-auto absolute overflow-hidden rounded-md" style={{ left: `${frame.x}%`, top: `${frame.y}%`, width: `${frame.width}%`, height: `${frame.height}%`, zIndex: frame.z + 1, ...slideObjectSurfaceStyle(block, slideBackgroundColor, slideTextColor) }}><SlideObjectContent media={isSlideMediaObject(block)}>{content}</SlideObjectContent></SlideAnimatedObjectFrame>;
   };
 
   return (
@@ -179,7 +182,7 @@ export function LessonBlocksPreview({
               key={`${block.id}-${animate ? "active" : "inactive"}`}
               blockId={block.id}
               fillHeight={slideLayout}
-              animate={animate}
+              animate={animate && !slideLayout}
               blockDelay={blockDelay}
             >
               {() => (
@@ -225,17 +228,18 @@ export function LessonBlocksPreview({
             key={`${block.id}-${animate ? "active" : "inactive"}`}
             blockId={block.id}
             fillHeight={slideLayout}
-            animate={animate}
+            animate={animate && !slideLayout}
             blockDelay={blockDelay}
           >
             {(entered) => (
               <PreviewBlock
                 block={block}
+                authoring={authoring}
                 lessonBlocks={blocks}
                 slideLayout={slideLayout}
                 device={device}
                 orientation={orientation}
-                animateListItems={entered}
+                animateListItems={entered && !slideLayout}
                 interactedContentIds={interactedContentIds}
                 onInteractiveProgress={onInteractiveProgress}
                 lessons={lessons}

@@ -28,6 +28,10 @@ export function getInteractiveItemProgressId(
 
 export function getInteractiveBlockProgressIds(block: ContentBlock, lessonBlocks?: readonly ContentBlock[]): string[] {
   switch (block.type) {
+    case "hangingRopeCards":
+      return block.data.cards.map((card) => getInteractiveItemProgressId(block.id, "rope", card.id));
+    case "peelToReveal":
+      return [`${block.id}:revealed`];
     case "interactionButton":
       return (block.data.action === "popup" ? block.data.popup.blocks.length > 0 : Boolean(block.data.targetBlockId) && (!lessonBlocks || lessonBlocks.some((item) => item.id === block.data.targetBlockId && isInteractionTarget(item, block.id)))) ? [`${block.id}:opened`] : [];
     case "flipCard":
@@ -42,6 +46,8 @@ export function getInteractiveBlockProgressIds(block: ContentBlock, lessonBlocks
       return block.data.markers.map((marker) =>
         getInteractiveItemProgressId(block.id, "marker", marker.id),
       );
+    case "balloonArcher":
+      return block.data.balloons.map((balloon) => getInteractiveItemProgressId(block.id, "balloon", balloon.id));
     case "processSteps":
       return block.data.steps.map((step) =>
         getInteractiveItemProgressId(block.id, "step", step.id),

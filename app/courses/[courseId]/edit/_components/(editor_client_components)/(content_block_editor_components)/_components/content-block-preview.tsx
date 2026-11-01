@@ -12,11 +12,13 @@ import { InteractiveAccordion, InteractiveFlipCard, InteractiveLabeledGraphic, I
 import { ImageBlockLayout } from "../../../image-block-layout";
 import { ChartBlockPreview } from "../../../../../preview/chart-block";
 import { PreviewBlock as LearnerBlock } from "../../../../../preview/_components/(course_preview_components)/(lesson_reader_preview_components)/(lesson_blocks_preview_components)/preview-block";
+import { BalloonArcher } from "@/components/balloon-archer";
 
 type PreviewBlock = Exclude<ContentBlock, { type: "heading" | "richText" | "statement" | "lessonMap" }>;
 
 export function ContentBlockPreview({ block, onChange, presentation = false }: { block: PreviewBlock; onChange: (block: ContentBlock) => void; presentation?: boolean }) {
-  return (block.type === "interactionButton" || block.type === "audioInstruction") ? <LearnerBlock block={block} device="desktop" orientation="landscape" slideLayout={presentation} authoring /> : block.type === "link" ? (
+  if (block.type === "balloonArcher") return <BalloonArcher blockId={block.id} data={block.data} presentation={presentation} authoring editing onPositionChange={(id, point) => onChange({ ...block, data: { ...block.data, balloons: block.data.balloons.map((balloon) => balloon.id === id ? { ...balloon, ...point } : balloon) } })} />;
+  return (block.type === "interactionButton" || block.type === "audioInstruction" || block.type === "peelToReveal" || block.type === "hangingRopeCards") ? <LearnerBlock block={block} device="desktop" orientation="landscape" slideLayout={presentation} authoring /> : block.type === "link" ? (
     <CourseLinkBlock data={block.data} interactive={false} />
   ) : block.type === "audio" ? (
     <AudioPlayer src={block.data.src} fileName={block.data.fileName} />

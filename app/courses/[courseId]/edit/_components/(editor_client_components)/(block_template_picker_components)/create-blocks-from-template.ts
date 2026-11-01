@@ -5,8 +5,26 @@ import {
   type ContentBlock,
   interactionButtonBlockSchema,
   audioInstructionBlockSchema,
+  balloonArcherBlockSchema,
+  peelToRevealBlockSchema,
+  hangingRopeCardsBlockSchema,
 } from "@/lib/schemas/block";
 import type { BlockTemplate } from "./block-template-data";
+import { resolveSlideTextLayout } from "@/lib/editor/slide-design";
+import { defaultSlideAudioSize } from "@/lib/editor/slide-audio";
+
+/** Slide insertion defaults stay separate from the normal lesson templates. */
+export function createSlideBlocksFromTemplate(template: BlockTemplate, id: string, courseTargets?: Parameters<typeof createBlocksFromTemplate>[2]): ContentBlock[] {
+  return createBlocksFromTemplate(template, id, courseTargets).map((created) => {
+    const block: ContentBlock = template.id === "text-subheading"
+      ? { ...created, type: "heading", data: { text: "Heading", level: 1, html: '<h1><span style="font-size: 48px">Heading</span></h1>' } }
+      : created;
+    if (block.type === "heading" || block.type === "richText") return { ...block, blockPadding: 0, slideBorderRadius: 0, slideTextLayout: { ...resolveSlideTextLayout(), paddingX: 0, paddingY: 0, fitToText: true } };
+    if (block.type === "statement") return { ...block, slideTextLayout: { ...resolveSlideTextLayout(block.slideTextLayout), fitToText: true } };
+    if (block.type === "audio") return { ...block, blockPadding: 0, slidePlayback: { autoPlay: false, showControls: true, ...block.slidePlayback, showFileName: false, audioSize: defaultSlideAudioSize } };
+    return block;
+  });
+}
 
 function commonBlock(id: string, type: ContentBlock["type"]) {
   return {
@@ -37,7 +55,19 @@ export function createBlocksFromTemplate(
       : {}),
     ...(template.width ? { width: template.width } : {}),
   };
+  if (template.type === "hangingRopeCards") {
+    const block = hangingRopeCardsBlockSchema.parse({ ...base, type: "hangingRopeCards", data: {} });
+    return [{ ...block, data: { ...block.data, cards: block.data.cards.map((card) => ({ ...card, id: createClientId(), blocks: card.blocks.map((content) => ({ ...content, id: createClientId() })) })) } }];
+  }
+  if (template.type === "peelToReveal") {
+    const block = peelToRevealBlockSchema.parse({ ...base, type: "peelToReveal", data: {} });
+    return [{ ...block, data: { ...block.data, blocks: block.data.blocks.map((content) => ({ ...content, id: createClientId() })) } }];
+  }
   if (template.type === "audioInstruction") return [audioInstructionBlockSchema.parse({ ...base, type: "audioInstruction", data: { src: "" } })];
+  if (template.type === "balloonArcher") {
+    const block = balloonArcherBlockSchema.parse({ ...base, type: "balloonArcher", data: {} });
+    return [{ ...block, data: { ...block.data, balloons: block.data.balloons.map((balloon) => ({ ...balloon, id: createClientId() })) } }];
+  }
   if (template.type === "interactionButton") return [interactionButtonBlockSchema.parse({ ...base, type: "interactionButton", data: { ...template.interactionButton, popup: template.interactionButton?.popup ?? { blocks: [{ id: createClientId(), type: "richText", version: 1, data: { html: "<p>Add your explanation here.</p>" }, slideFrame: { x: 8, y: 8, width: 84, height: 75, z: 0 } }] } } })];
   if (template.type === "knowledgeCheck") {
     if (!template.knowledgeCheck)

@@ -32,6 +32,10 @@ describe("master slide footer settings", () => {
   const clickText = (text: string) => act(async () => [...container.querySelectorAll<HTMLButtonElement>("button")].find((item) => item.textContent?.trim() === text)!.click());
   const changeSelect = (label: string, value: string) => act(async () => { const select = container.querySelector<HTMLSelectElement>(`[aria-label="${label}"]`)!; select.value = value; select.dispatchEvent(new Event("change", { bubbles: true })); });
   const input = (label: string, value: string) => act(async () => { const element = container.querySelector<HTMLInputElement>(`[aria-label="${label}"]`)!; Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(element, value); element.dispatchEvent(new Event("input", { bubbles: true })); element.dispatchEvent(new Event("change", { bubbles: true })); });
+  const finishInput = async (label: string, value: string) => {
+    const field = container.querySelector<HTMLInputElement>(`[aria-label="${label}"]`)!;
+    await act(async () => field.focus()); await input(label, value); await act(async () => field.blur());
+  };
   async function saved() {
     await act(async () => vi.advanceTimersByTimeAsync(1000));
     const call = fetchMock.mock.calls.findLast(([, init]) => init?.method === "PUT");
@@ -135,13 +139,13 @@ describe("master slide footer settings", () => {
     expect(container.querySelector<HTMLInputElement>('[aria-label="Footer horizontal padding"]')?.value).toBe("20");
     expect(container.querySelector<HTMLInputElement>('[aria-label="Footer vertical padding"]')?.value).toBe("8");
     expect(container.querySelector('[aria-label="Footer logo horizontal padding"]')).toBeNull();
-    await input("Footer horizontal padding", "100"); await input("Footer vertical padding", "100");
+    await finishInput("Footer horizontal padding", "100"); await finishInput("Footer vertical padding", "100");
     expect((await saved()).slideMaster?.footer).toMatchObject({ paddingX: 64, paddingY: 32 });
     const footer = container.querySelector<HTMLElement>('[data-slide-footer]')!;
     expect(footer.style.paddingInline).toBe("64px"); expect(footer.style.paddingBlock).toBe("19px");
-    await input("Footer horizontal padding", "");
+    await finishInput("Footer horizontal padding", "");
     expect(container.querySelector<HTMLInputElement>('[aria-label="Footer horizontal padding"]')?.value).toBe("64");
-    await input("Footer horizontal padding", "-2"); await input("Footer vertical padding", "0");
+    await finishInput("Footer horizontal padding", "-2"); await input("Footer vertical padding", "0");
     expect((await saved()).slideMaster?.footer).toMatchObject({ paddingX: 0, paddingY: 0 });
     expect(parseFloat(footer.style.paddingInline)).toBe(0); expect(parseFloat(footer.style.paddingBlock)).toBe(0);
   });
@@ -151,11 +155,11 @@ describe("master slide footer settings", () => {
     await changeSelect("Footer content", "logos");
     expect(container.querySelector<HTMLInputElement>('[aria-label="Footer logo horizontal gap"]')?.value).toBe("8");
     expect(container.querySelector<HTMLInputElement>('[aria-label="Footer logo vertical gap"]')?.value).toBe("4");
-    await input("Footer logo horizontal gap", "100"); await input("Footer logo vertical gap", "100");
+    await finishInput("Footer logo horizontal gap", "100"); await finishInput("Footer logo vertical gap", "100");
     expect((await saved()).slideMaster?.footer).toMatchObject({ logoGapX: 32, logoGapY: 12 });
-    await input("Footer logo horizontal gap", "");
+    await finishInput("Footer logo horizontal gap", "");
     expect(container.querySelector<HTMLInputElement>('[aria-label="Footer logo horizontal gap"]')?.value).toBe("32");
-    await input("Footer logo horizontal gap", "-1"); await input("Footer logo vertical gap", "0");
+    await finishInput("Footer logo horizontal gap", "-1"); await input("Footer logo vertical gap", "0");
     expect((await saved()).slideMaster?.footer).toMatchObject({ logoGapX: 0, logoGapY: 0, logoJustify: "center", logoAlign: "middle" });
   });
 });

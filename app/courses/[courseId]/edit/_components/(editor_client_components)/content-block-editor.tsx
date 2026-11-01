@@ -29,6 +29,9 @@ import { SurveyBlockSettings } from "./(content_block_editor_components)/_compon
 import { ContentBlockPreview } from "./(content_block_editor_components)/_components/content-block-preview";
 import { AudioInstructionSettings } from "../slide-presentation/audio-instruction-settings";
 import { InteractionButtonSettings } from "../slide-presentation/interaction-button-settings";
+import { BalloonArcherSettings } from "@/components/balloon-archer/balloon-archer-settings";
+import { PeelSettingsEditor } from "@/components/physics-interaction/peel-settings";
+import { HangingRopeSettingsEditor } from "@/components/physics-interaction/hanging-rope-settings";
 
 export function ContentBlockEditor({
   block,
@@ -276,8 +279,11 @@ export function ContentBlockEditor({
     {block.type === "accordion" && <AccordionBlockSettings block={block} onChange={onChange} />}
     {block.type === "labeledGraphic" && <LabeledGraphicBlockSettings block={block} onChange={onChange} setMediaLibraryTarget={setMediaLibraryTarget} presentation={inlineSettings} />}
     {block.type === "processSteps" && <ProcessStepsBlockSettings block={block} onChange={onChange} />}
+    {block.type === "balloonArcher" && <BalloonArcherSettings block={block} onChange={onChange} />}
+    {block.type === "peelToReveal" && <PeelSettingsEditor block={block} courseId={courseId} onChange={onChange} renderContentEditor={(content, change) => <ContentBlockEditor block={content} courseId={courseId} onChange={change} inlineSettings />} />}
+    {block.type === "hangingRopeCards" && <HangingRopeSettingsEditor block={block} courseId={courseId} onChange={onChange} renderContentEditor={(content, change) => <ContentBlockEditor block={content} courseId={courseId} onChange={change} inlineSettings />} />}
     {block.type === "audioInstruction" && <AudioInstructionSettings block={block} courseId={courseId} onChange={onChange} />}
-    {block.type === "interactionButton" && <InteractionButtonSettings block={block} courseId={courseId} lessonBlocks={lessonBlocks} onChange={onChange} />}
+    {block.type === "interactionButton" && <InteractionButtonSettings block={block} courseId={courseId} lessonBlocks={lessonBlocks} sections={sections} lessons={lessons} onChange={onChange} />}
     {block.type === "knowledgeCheck" && <KnowledgeCheckBlockSettings block={block} onChange={onChange} />}
     {block.type === "survey" && <SurveyBlockSettings block={block} onChange={onChange} />}
   </>;

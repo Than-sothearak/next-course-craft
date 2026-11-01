@@ -7,11 +7,13 @@ export function duplicateLessonBlocks(blocks: Lesson["blocks"], createId: () => 
   const ids = new Map(blocks.map((block) => [block.id, createId()]));
   return structuredClone(blocks).map((block) => {
     const id = ids.get(block.id)!;
+    if (block.type === "hangingRopeCards") return { ...block, id, data: { ...block.data, cards: block.data.cards.map((card) => ({ ...card, id: createId(), blocks: card.blocks.map((content) => ({ ...content, id: createId() })) })) } };
+    if (block.type === "peelToReveal") return { ...block, id, data: { ...block.data, blocks: block.data.blocks.map((content) => ({ ...content, id: createId() })) } };
     if (block.type !== "interactionButton") return { ...block, id };
     return { ...block, id, data: {
       ...block.data,
       targetBlockId: ids.get(block.data.targetBlockId) ?? "",
-      popup: { ...block.data.popup, blocks: block.data.popup.blocks.map((item) => ({ ...item, id: createId() })) },
+      popup: { ...block.data.popup, blocks: duplicateLessonBlocks(block.data.popup.blocks, createId) },
     } };
   });
 }

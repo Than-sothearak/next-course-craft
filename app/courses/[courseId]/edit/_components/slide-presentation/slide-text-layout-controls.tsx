@@ -1,7 +1,7 @@
 "use client";
 
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
+import { SlideNumberSettingInput } from "./slide-number-setting-input";
 import { Select } from "@/components/ui/select";
 import { resolveSlideTextLayout, slideTextLayoutSchema } from "@/lib/editor/slide-design";
 import type { ContentBlock } from "@/lib/schemas/block";
@@ -31,16 +31,10 @@ export function SlideTextLayoutControls({ block, onChange }: { block: ContentBlo
       <fieldset className="grid grid-cols-2 gap-2" aria-label="Text box padding">
         <legend className="sr-only">Text box padding</legend>
         <label className="block text-xs text-slate-600">Horizontal padding (px)
-          <Input aria-label="Text box horizontal padding" type="number" min={0} max={96} step={1} value={layout.paddingX} onChange={(event) => {
-            const value = event.target.valueAsNumber;
-            if (Number.isInteger(value) && value >= 0 && value <= 96) update({ paddingX: value });
-          }} className="mt-1 h-9 text-xs" />
+          <SlideNumberSettingInput aria-label="Text box horizontal padding" min={0} max={96} value={layout.paddingX} onValueChange={(paddingX) => update({ paddingX })} className="mt-1 h-9 text-xs" />
         </label>
         <label className="block text-xs text-slate-600">Vertical padding (px)
-          <Input aria-label="Text box vertical padding" type="number" min={0} max={96} step={1} value={layout.paddingY} onChange={(event) => {
-            const value = event.target.valueAsNumber;
-            if (Number.isInteger(value) && value >= 0 && value <= 96) update({ paddingY: value });
-          }} className="mt-1 h-9 text-xs" />
+          <SlideNumberSettingInput aria-label="Text box vertical padding" min={0} max={96} value={layout.paddingY} onValueChange={(paddingY) => update({ paddingY })} className="mt-1 h-9 text-xs" />
         </label>
       </fieldset>
       <label className="flex items-start gap-2 text-xs text-slate-600">

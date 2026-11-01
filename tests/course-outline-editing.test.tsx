@@ -334,7 +334,7 @@ describe("course outline editing", () => {
     await act(async () => root.render(<EditorClient initialData={slideData} authorName="Author" />));
     const back = container.querySelector<HTMLElement>('[data-slide-object-id="back"]')!;
     const front = container.querySelector<HTMLElement>('[data-slide-object-id="front"]')!;
-    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Select heading object from layers"]:last-child')!.click());
+    await act(async () => container.querySelector<HTMLButtonElement>('[data-slide-layer="back"] [aria-label="Select heading object from layers"]')!.click());
     expect(Number(back.style.zIndex)).toBeGreaterThan(Number(front.style.zIndex));
     expect(back.style.left).toBe("11%");
     expect(back.style.top).toBe("8%");

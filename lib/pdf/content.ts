@@ -121,6 +121,12 @@ export function getHandoutBlockText(block: ContentBlock): string[] {
       ];
     case "processSteps":
       return block.data.steps.flatMap((step, index) => [`Step ${index + 1}: ${step.title}`, htmlToHandoutText(step.body)]).filter(Boolean);
+    case "peelToReveal":
+      return [block.data.title, block.data.instructions, ...block.data.blocks.flatMap(getHandoutBlockText)];
+    case "hangingRopeCards":
+      return [block.data.title, block.data.instructions, ...block.data.cards.flatMap((card) => [card.title, card.description, ...card.blocks.flatMap(getHandoutBlockText)])];
+    case "balloonArcher":
+      return [block.data.title, block.data.instructions, ...block.data.balloons.flatMap((balloon) => [balloon.word, balloon.content])].filter(Boolean);
     case "lessonMap":
       return [
         `Lesson map: ${{ modernCity: "Modern City", farmFields: "Farm Fields", cityProvince: "City Province", learningRoad: "Learning Road" }[block.data.template]}`,

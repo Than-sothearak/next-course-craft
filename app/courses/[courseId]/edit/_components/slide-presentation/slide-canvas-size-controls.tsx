@@ -2,21 +2,23 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { SlideNumberSettingInput } from "./slide-number-setting-input";
 import { Select } from "@/components/ui/select";
 import { resolveSlideSize, slideSizePresets, slideSizeSchema, type SlideMaster, type SlideSize } from "@/lib/editor/slide-design";
 
 export function SlideCanvasSizeControls({ master, onChange }: { master: SlideMaster; onChange: (master: SlideMaster) => void }) {
   const size = resolveSlideSize(master);
-  const [width, setWidth] = useState(String(size.width));
-  const [height, setHeight] = useState(String(size.height));
+  const [width, setWidth] = useState(size.width);
+  const [height, setHeight] = useState(size.height);
+  const [widthDraft, setWidthDraft] = useState<string | null>(null);
+  const [heightDraft, setHeightDraft] = useState<string | null>(null);
   const [custom, setCustom] = useState(false);
   const preset = slideSizePresets.find((entry) => (entry.width === size.width && entry.height === size.height) || (entry.width === size.height && entry.height === size.width));
-  const draft = slideSizeSchema.safeParse({ width: Number(width), height: Number(height) });
+  const draft = slideSizeSchema.safeParse({ width: Number(widthDraft ?? width), height: Number(heightDraft ?? height) });
   const orientation = size.width >= size.height ? "landscape" : "portrait";
 
   function update(next: SlideSize) {
-    setWidth(String(next.width)); setHeight(String(next.height));
+    setWidth(next.width); setHeight(next.height); setWidthDraft(null); setHeightDraft(null);
     onChange({ ...master, size: next });
   }
 
@@ -40,8 +42,8 @@ export function SlideCanvasSizeControls({ master, onChange }: { master: SlideMas
       }}><option value="landscape">Landscape</option><option value="portrait">Portrait</option></Select>
     </label>
     <div className="grid grid-cols-2 gap-2">
-      <label className="space-y-1 text-xs text-slate-600">Width (px)<Input type="number" aria-label="Slide width (px)" min={480} max={3840} step={1} value={width} onChange={(event) => { setWidth(event.target.value); setCustom(true); }} /></label>
-      <label className="space-y-1 text-xs text-slate-600">Height (px)<Input type="number" aria-label="Slide height (px)" min={480} max={3840} step={1} value={height} onChange={(event) => { setHeight(event.target.value); setCustom(true); }} /></label>
+      <label className="space-y-1 text-xs text-slate-600">Width (px)<SlideNumberSettingInput aria-label="Slide width (px)" min={480} max={3840} value={width} onDraftChange={(text) => { setWidthDraft(text); setCustom(true); }} onValueChange={setWidth} /></label>
+      <label className="space-y-1 text-xs text-slate-600">Height (px)<SlideNumberSettingInput aria-label="Slide height (px)" min={480} max={3840} value={height} onDraftChange={(text) => { setHeightDraft(text); setCustom(true); }} onValueChange={setHeight} /></label>
     </div>
     <p className="text-[11px] text-slate-500">480–3840 pixels per side. Applies to every slide.</p>
     <Button type="button" variant="outline" size="sm" className="w-full" disabled={!draft.success || (draft.data.width === size.width && draft.data.height === size.height)} onClick={() => { if (draft.success) update(draft.data); }}>Apply custom size</Button>

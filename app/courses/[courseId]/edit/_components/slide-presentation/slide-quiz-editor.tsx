@@ -9,14 +9,18 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { createQuizChoice, createQuizQuestion } from "@/lib/editor/quiz-question";
 import { isQuizAnswerCorrect } from "@/lib/interactive/quiz-assessment";
-import { resolveSlideSize, type SlideMaster } from "@/lib/editor/slide-design";
+import { resolveSlideSize, type SlideMaster, type SlideHeaderStyle } from "@/lib/editor/slide-design";
 import type { QuizQuestion } from "@/lib/schemas/quiz";
 import { QuizQuestionPreview } from "@/app/courses/[courseId]/preview/_components/(course_preview_components)/(lesson_reader_preview_components)/(quiz_assessment_preview_components)/quiz-question-preview";
 import { SlideSurface } from "../../../_components/slide-presentation/slide-surface";
 import { QuizQuestionProgress } from "../../../_components/slide-presentation/quiz-question-progress";
 import { SlideEditorCanvas } from "./slide-editor-canvas";
-import { SlideInspectorTabs } from "./slide-inspector-tabs";
+import { SlideInspectorTabs, type SlideInspectorTab } from "./slide-inspector-tabs";
+import { SlideHeaderTitleEditor } from "./slide-header-title-editor";
+import { SlideHeaderTextSettings } from "./slide-header-text-settings";
 import { SlideNumberSettingInput } from "./slide-number-setting-input";
+import { SlideAppearanceSettings } from "./slide-appearance-settings";
+import type { SlideAppearance } from "@/lib/editor/slide-design";
 
 function QuizCanvasQuestion({ question, index, total, passingScore }: { question: QuizQuestion; index: number; total: number; passingScore: number }) {
   const [selectedChoiceIds, setSelectedChoiceIds] = useState<string[]>([]);
@@ -27,9 +31,14 @@ function QuizCanvasQuestion({ question, index, total, passingScore }: { question
   </div>;
 }
 
-export function SlideQuizEditor({ title, onTitleChange, questions, onChange, passingScore, onPassingScoreChange, master, number, total, zoom, onZoomChange, controls, masterSettings, coverSettings }: {
+export function SlideQuizEditor({ title, onTitleChange, headerStyle, onHeaderStyleChange, appearance, onAppearanceChange, courseId, questions, onChange, passingScore, onPassingScoreChange, master, number, total, zoom, onZoomChange, controls, masterSettings, coverSettings }: {
   title: string;
   onTitleChange: (title: string) => void;
+  headerStyle?: SlideHeaderStyle;
+  onHeaderStyleChange: (style?: SlideHeaderStyle) => void;
+  appearance?: SlideAppearance;
+  onAppearanceChange: (appearance?: SlideAppearance) => void;
+  courseId: string;
   questions: QuizQuestion[];
   onChange: (questions: QuizQuestion[]) => void;
   passingScore: number;
@@ -44,6 +53,9 @@ export function SlideQuizEditor({ title, onTitleChange, questions, onChange, pas
   coverSettings: ReactNode;
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(() => questions[0]?.id ?? null);
+  const [headerSelected, setHeaderSelected] = useState(false);
+  const [inspectorTab, setInspectorTab] = useState<SlideInspectorTab>("object");
+  const selectHeader = () => { setHeaderSelected(true); setInspectorTab("object"); };
   const active = questions.find((question) => question.id === selectedId) ?? questions[0] ?? null;
   const index = active ? questions.findIndex((question) => question.id === active.id) : -1;
   const updateQuestion = (change: (question: QuizQuestion) => QuizQuestion) => {
@@ -64,17 +76,19 @@ export function SlideQuizEditor({ title, onTitleChange, questions, onChange, pas
   };
   return <div className="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1fr)_380px] 2xl:grid-cols-[minmax(0,1fr)_420px]" aria-label="Presentation quiz editor">
     <SlideEditorCanvas label={`Quiz slide ${number} / ${total}`} size={resolveSlideSize(master)} zoom={zoom} onZoomChange={onZoomChange}>
-      <SlideSurface master={master} title={<Input aria-label="Slide title" value={title} onChange={(event) => onTitleChange(event.target.value)} style={{ color: "inherit", fontFamily: "inherit", fontSize: "inherit", fontWeight: "inherit", fontStyle: "inherit", letterSpacing: "inherit" }} className="h-auto w-full border-0 bg-transparent px-0 py-0 leading-tight shadow-none outline-none focus-visible:ring-0" placeholder="Quiz title" />} number={number} total={total} controls={controls} contentRegion>
+      <SlideSurface master={master} appearance={appearance} headerTextStyle={headerStyle} title={<SlideHeaderTitleEditor title={title} selected={headerSelected} onSelect={selectHeader} onChange={onTitleChange} />} number={number} total={total} controls={controls} contentRegion>
         {active ? <QuizCanvasQuestion key={`${active.id}:${active.selectionMode}:${active.correctChoiceIds.join(",")}`} question={active} index={index} total={questions.length} passingScore={passingScore} /> : <div className="mx-auto mt-10 max-w-[720px] rounded-xl border border-dashed border-slate-300 bg-white px-5 py-8 text-center text-sm text-slate-500">Add the first question in Quiz settings.</div>}
       </SlideSurface>
     </SlideEditorCanvas>
     <aside aria-label="Slide inspector" className="max-h-[760px] min-w-0 overflow-y-auto">
-      <SlideInspectorTabs objectLabel="Quiz" collapsibleObjectSettings={false} master={masterSettings} cover={coverSettings}>
+      <SlideInspectorTabs value={inspectorTab} onChange={setInspectorTab} objectLabel="Quiz" collapsibleObjectSettings={false} master={masterSettings} cover={coverSettings}>
+        <SlideAppearanceSettings value={appearance} onChange={onAppearanceChange} master={master} courseId={courseId} />
+        {headerSelected && <SlideHeaderTextSettings master={master} value={headerStyle} onChange={onHeaderStyleChange} />}
         <section aria-label="Quiz settings" className="space-y-4 rounded-lg border border-slate-200 bg-white p-3">
           <label className="block space-y-1 text-xs font-medium text-slate-600">Passing score (%)<SlideNumberSettingInput aria-label="Quiz passing score percentage" value={passingScore} min={0} max={100} onValueChange={onPassingScoreChange} /></label>
           <div className="space-y-2">
             <div className="flex items-center justify-between"><h2 className="text-xs font-semibold text-slate-700">Questions</h2><span className="text-xs text-slate-500">{questions.length} / 100</span></div>
-            <div className="grid grid-cols-3 gap-1.5" aria-label="Quiz question list">{questions.map((question, questionIndex) => <Button key={question.id} type="button" size="sm" variant={question.id === active?.id ? "secondary" : "outline"} aria-label={`Edit quiz question ${questionIndex + 1}`} aria-pressed={question.id === active?.id} onClick={() => setSelectedId(question.id)} className="min-w-0 justify-start truncate px-2">Q{questionIndex + 1}</Button>)}</div>
+            <div className="grid grid-cols-3 gap-1.5" aria-label="Quiz question list">{questions.map((question, questionIndex) => <Button key={question.id} type="button" size="sm" variant={question.id === active?.id ? "secondary" : "outline"} aria-label={`Edit quiz question ${questionIndex + 1}`} aria-pressed={question.id === active?.id} onClick={() => { setHeaderSelected(false); setSelectedId(question.id); }} className="min-w-0 justify-start truncate px-2">Q{questionIndex + 1}</Button>)}</div>
             <Button type="button" size="sm" variant="outline" disabled={questions.length >= 100} onClick={() => { const question = createQuizQuestion(); onChange([...questions, question]); setSelectedId(question.id); }} className="w-full"><Plus size={14} />Add question</Button>
           </div>
           {active && <>

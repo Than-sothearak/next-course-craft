@@ -40,19 +40,21 @@ export function useEditorDraft({ initialDraft, initialRevision, courseId, titleV
 
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-  function commit(next: Draft) {
+  function commit(next: Draft, recordHistory = true) {
     if (JSON.stringify(next) === JSON.stringify(draftRef.current)) return;
-    historyRef.current = [...historyRef.current.slice(-79), draftRef.current];
-    redoRef.current = [];
-    setCanUndo(true);
-    setCanRedo(false);
+    if (recordHistory) {
+      historyRef.current = [...historyRef.current.slice(-79), draftRef.current];
+      redoRef.current = [];
+      setCanUndo(true);
+      setCanRedo(false);
+    }
     draftRef.current = next;
     setDraft(next);
     setHasUnsavedChanges(JSON.stringify(next) !== lastSavedRef.current);
   }
 
-  function updateDraft(update: (current: Draft) => Draft) {
-    commit(update(draftRef.current));
+  function updateDraft(update: (current: Draft) => Draft, options?: { recordHistory?: boolean }) {
+    commit(update(draftRef.current), options?.recordHistory);
   }
 
   function openRouteAfterSave(path: string) {

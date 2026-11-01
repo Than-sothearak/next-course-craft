@@ -11,7 +11,7 @@ const SectionsContext = createContext<{
 } | null>(null);
 
 export function SlideInspectorSections({ label, children }: { label: string; children: ReactNode }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const [overrides, setOverrides] = useState<Record<string, boolean>>({});
   const setAll = (open: boolean) => { setExpanded(open); setOverrides({}); };
   return <SectionsContext.Provider value={{ expanded, overrides, toggle: (id, open) => setOverrides((current) => ({ ...current, [id]: open })) }}>
@@ -35,7 +35,7 @@ export function SlideInspectorSection({ title, icon: Icon, children, actions, la
 }) {
   const id = useId();
   const sections = useContext(SectionsContext);
-  const [localOpen, setLocalOpen] = useState(false);
+  const [localOpen, setLocalOpen] = useState(true);
   const open = sections ? sections.overrides[id] ?? sections.expanded : localOpen;
   return <section data-inspector-section aria-label={label ?? title} className="min-w-0 rounded-lg border border-slate-200 bg-white">
     <div className="flex items-center gap-1 px-2">

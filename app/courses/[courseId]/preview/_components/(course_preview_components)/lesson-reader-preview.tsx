@@ -153,6 +153,8 @@ export function LessonReaderPreview({
                 number={index + 1}
                 total={lessons.length}
                 master={initialData.slideMaster}
+                headerStyle={lesson.slideHeaderStyle}
+                appearance={lesson.slideAppearance}
                 cover={lesson.slideCover}
                 quiz={lesson.lessonType === "quiz"}
                 quizFinished={lesson.quizQuestions.length === 0 || (quizAttemptFinished[lesson.id] ?? passedQuizIds.has(lesson.id))}

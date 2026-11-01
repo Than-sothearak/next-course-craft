@@ -116,6 +116,7 @@ export async function copyCourseLesson(
     sectionId,
     title: lesson.title,
     titleHtml: lesson.titleHtml,
+    slideHeaderStyle: lesson.slideHeaderStyle,
     icon: lesson.icon ?? "file",
     lessonType: lesson.lessonType,
     passingScore: lesson.passingScore ?? 70,

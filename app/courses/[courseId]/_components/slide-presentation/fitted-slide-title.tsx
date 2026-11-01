@@ -3,7 +3,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 
 /** Keep the whole slide title visible on the single line used by the editor. */
-export function FittedSlideTitle({ title, visible = true, fontSize: titleFontSize = 32 }: { title: string; visible?: boolean; fontSize?: number }) {
+export function FittedSlideTitle({ title, visible = true, fontSize: titleFontSize = 32, textAlign = "left" }: { title: string; visible?: boolean; fontSize?: number; textAlign?: "left" | "center" | "right" }) {
   const textRef = useRef<HTMLSpanElement>(null);
   const [fontSize, setFontSize] = useState(titleFontSize);
 
@@ -23,6 +23,7 @@ export function FittedSlideTitle({ title, visible = true, fontSize: titleFontSiz
     measure();
     const resize = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
     resize?.observe(header);
+    resize?.observe(text);
     document.fonts?.addEventListener("loadingdone", measure);
     window.addEventListener("resize", measure);
     return () => {
@@ -32,5 +33,5 @@ export function FittedSlideTitle({ title, visible = true, fontSize: titleFontSiz
     };
   }, [title, visible, titleFontSize]);
 
-  return <span ref={textRef} data-slide-title-text title={title} className="block w-max whitespace-nowrap" style={{ fontSize, lineHeight: `${Math.max(40, titleFontSize * 1.25)}px` }}>{title}</span>;
+  return <span ref={textRef} data-slide-title-text title={title} className="block w-max whitespace-nowrap" style={{ fontSize, lineHeight: `${Math.max(40, titleFontSize * 1.25)}px`, marginLeft: textAlign === "left" ? undefined : "auto", marginRight: textAlign === "center" ? "auto" : undefined }}>{title}</span>;
 }

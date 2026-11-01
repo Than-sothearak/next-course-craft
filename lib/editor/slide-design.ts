@@ -4,6 +4,7 @@ import { colorValueSchema, parseGradient, textPaint } from "@/lib/color";
 import { croppedDimensions, type SlideCrop } from "./slide-crop";
 import { slideNavigationButtonsSchema } from "./slide-navigation-design";
 import { courseThemeFontFamilies, courseThemeFontFamilyIds } from "./theme";
+import { defaultSlideAudioSize, slideAudioSizes } from "./slide-audio";
 
 export const slideTypographySchema = z.object({
   fontFamily: z.enum(courseThemeFontFamilyIds).optional(),
@@ -48,6 +49,9 @@ export const slideFrameSchema = z.object({
   z: z.number().int().min(0).max(500),
 }).refine((frame) => frame.x + frame.width <= 100 && frame.y + frame.height <= 100, "Slide objects must stay on the canvas.");
 export type SlideFrame = z.infer<typeof slideFrameSchema>;
+// Compact audio remains small even on tall, custom presentation canvases.
+export const minimumSlideAudioHeight = .5;
+export const slideAudioFrameSchema = slideFrameSchema.safeExtend({ height: z.number().min(minimumSlideAudioHeight).max(100) });
 export const slideBorderRadiusSchema = z.number().min(0).max(100);
 export const defaultSlideBorderRadius = 12;
 
@@ -88,6 +92,7 @@ export const slidePlaybackSchema = z.object({
   autoPlay: z.boolean().default(false),
   showControls: z.boolean().default(true),
   showFileName: z.boolean().optional(),
+  audioSize: z.enum(["small", "medium", "large"]).optional(),
 });
 
 export const defaultSlideTextPaddingX = 0;
@@ -119,9 +124,9 @@ export const slideMediaSchema = z.object({
 });
 export type SlideMedia = z.infer<typeof slideMediaSchema>;
 
-export function fitSlideFrame(frame: SlideFrame, update: Partial<SlideFrame>): SlideFrame {
+export function fitSlideFrame(frame: SlideFrame, update: Partial<SlideFrame>, minimumHeight = 5): SlideFrame {
   let width = Math.max(5, Math.min(100, update.width ?? frame.width));
-  let height = Math.max(5, Math.min(100, update.height ?? frame.height));
+  let height = Math.max(minimumHeight, Math.min(100, update.height ?? frame.height));
   let x = Math.max(0, Math.min(95, update.x ?? frame.x));
   let y = Math.max(0, Math.min(95, update.y ?? frame.y));
   if (update.width !== undefined && update.x === undefined) width = Math.min(width, 100 - x);
@@ -179,6 +184,15 @@ export const slideMasterBackgroundSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("image"), imageSrc: slideImageSourceSchema.default(""), imagePosition: z.enum(["center", "top", "bottom"]).default("center"), overlayOpacity: z.number().int().min(0).max(90).default(30) }),
 ]);
 
+export const slideAppearanceSchema = z.object({
+  background: slideMasterBackgroundSchema.optional(),
+  backgroundColor: colorValueSchema.optional(),
+  hideHeader: z.boolean().default(false),
+  hideFooter: z.boolean().default(false),
+});
+export type SlideAppearance = z.infer<typeof slideAppearanceSchema>;
+export const defaultSlideAppearance = slideAppearanceSchema.parse({});
+
 export const slideFooterSchema = z.object({
   height: z.number().int().min(48).max(160).default(64),
   fontSize: z.number().int().min(10).max(24).default(12),
@@ -222,6 +236,11 @@ export const slideHeaderSchema = z.object({
 });
 export type SlideHeader = z.infer<typeof slideHeaderSchema>;
 
+export const slideHeaderStyleSchema = slideTypographySchema.extend({
+  fontSize: z.number().int().min(12).max(72),
+});
+export type SlideHeaderStyle = z.infer<typeof slideHeaderStyleSchema>;
+
 export const slideNavigationGuideSchema = z.object({
   enabled: z.boolean().default(false),
   firstVisitOnly: z.boolean().default(true),
@@ -250,6 +269,10 @@ export const slideMasterSchema = z.object({
 export type SlideMaster = z.infer<typeof slideMasterSchema>;
 export const defaultSlideMaster: SlideMaster = slideMasterSchema.parse({});
 
+export function resolveSlideAppearanceMaster(master: SlideMaster = defaultSlideMaster, appearance?: SlideAppearance): SlideMaster {
+  return { ...master, background: appearance?.background ?? master.background, backgroundColor: appearance?.backgroundColor ?? master.backgroundColor };
+}
+
 export function hasLegacySlideHeaderBackground(header?: SlideHeader): boolean {
   return Boolean(header && header.background === "transparent" && header.backgroundCustomized !== true && header.backgroundColor === "#ffffff");
 }
@@ -257,6 +280,12 @@ export function hasLegacySlideHeaderBackground(header?: SlideHeader): boolean {
 export function resolveSlideHeader(master: SlideMaster): SlideHeader & { backgroundColor: string } {
   const header = slideHeaderSchema.parse(master.header ?? {});
   return { ...header, backgroundColor: hasLegacySlideHeaderBackground(header) ? master.backgroundColor : header.backgroundColor ?? master.backgroundColor };
+}
+
+export function resolveSlideHeaderTypography(master: SlideMaster = defaultSlideMaster, style?: SlideHeaderStyle): SlideHeaderStyle {
+  if (style) return style;
+  const header = resolveSlideHeader(master);
+  return { fontFamily: header.fontFamily, fontSize: header.fontSize, fontWeight: header.fontWeight, fontStyle: header.fontStyle, textDecoration: "none", textAlign: "left", color: header.textColor ?? master.textColor };
 }
 
 export function hasLegacySlideFooterColors(footer?: SlideFooter): boolean {
@@ -331,6 +360,10 @@ export const slideMasterPresets: { id: SlideMaster["template"]; name: string; ba
 ];
 
 export function defaultSlideFrame(index: number, type: string): SlideFrame {
+  if (type === "balloonArcher") return { x: 5, y: 10, width: 90, height: 80, z: index };
+  if (type === "peelToReveal") return { x: 12, y: 8, width: 76, height: 84, z: index };
+  if (type === "hangingRopeCards") return { x: 5, y: 5, width: 90, height: 90, z: index };
+  if (type === "audio") return { x: 12, y: Math.min(8 + index * 5, 80), width: slideAudioSizes[defaultSlideAudioSize].width, height: 16, z: index };
   if (type === "audioInstruction") return { x: 35, y: Math.min(80 + index * 2, 86), width: 30, height: 12, z: index };
   if (type === "interactionButton") return { x: 44, y: Math.min(12 + index * 4, 70), width: 12, height: 28, z: index };
   const interactive = ["flipCard", "accordion", "labeledGraphic", "processSteps", "knowledgeCheck", "survey", "chart", "lessonMap"].includes(type);

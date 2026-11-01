@@ -365,6 +365,9 @@ describe("prebuilt interactive block templates", () => {
     );
 
     expect(interactiveTemplates.map((item) => item.id)).toEqual([
+      "interactive-hanging-rope-cards",
+      "interactive-peel-to-reveal",
+      "interactive-balloon-archer",
       "interactive-button",
       "interactive-reveal",
       "interactive-accordion",

@@ -68,6 +68,9 @@ export type BlockTemplate = {
 };
 
 export const blockTemplates: BlockTemplate[] = [
+  { id: "interactive-hanging-rope-cards", category: "Interactive", title: "Hanging Rope Cards", description: "Stretch and sway hanging cards. Pull to a glowing point to discover content.", type: "hangingRopeCards", preview: "hanging-rope-cards" },
+  { id: "interactive-peel-to-reveal", category: "Interactive", title: "Peel to Reveal", description: "Peel a curled paper corner to uncover text, images, video, or audio.", type: "peelToReveal", preview: "peel-to-reveal" },
+  { id: "interactive-balloon-archer", category: "Interactive", title: "Balloon Archer", description: "Pull, aim, and shoot word balloons to reveal hidden explanations.", type: "balloonArcher", preview: "balloon-archer" },
   { id: "media-audio-instruction", category: "Multimedia", title: "Audio instruction", description: "Instruction audio with autoplay and optional icon and text.", type: "audioInstruction", preview: "audio-instruction" },
   { id: "interactive-button", category: "Interactive", title: "Interaction button", description: "An image or icon button that opens a custom mini slide or another block.", type: "interactionButton", interactionButton: { label: "Learn more", icon: "info", radarEnabled: true }, preview: "interaction-button" },
   {

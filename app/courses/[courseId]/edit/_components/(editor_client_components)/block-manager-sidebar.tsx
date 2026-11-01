@@ -41,6 +41,9 @@ function blockTypeLabel(block: ContentBlock) {
   if (block.type === "accordion") return block.data.layout === "tabs" ? "Tabs" : "Accordion";
   if (block.type === "labeledGraphic") return block.data.interactionMode === "spotTarget" ? "Mini-game" : "Labeled graphic";
   if (block.type === "processSteps") return "Process steps";
+  if (block.type === "balloonArcher") return "Balloon Archer";
+  if (block.type === "peelToReveal") return "Peel to Reveal";
+  if (block.type === "hangingRopeCards") return "Hanging Rope Cards";
   if (block.type === "lessonMap") return "Lesson Map";
   if (block.type === "chart") return "Chart";
   if (block.type === "knowledgeCheck") return "Knowledge check";
@@ -79,6 +82,9 @@ function blockTitle(block: ContentBlock) {
     return `${block.data.markers.length} labeled marker${block.data.markers.length === 1 ? "" : "s"}`;
   }
   if (block.type === "processSteps") return block.data.steps[0]?.title.trim() || "Process steps";
+  if (block.type === "balloonArcher") return block.data.title.trim() || "Balloon Archer";
+  if (block.type === "peelToReveal") return block.data.title.trim() || "Peel to Reveal";
+  if (block.type === "hangingRopeCards") return block.data.title.trim() || "Hanging Rope Cards";
   if (block.type === "lessonMap") return `${block.data.checkpoints.length} map checkpoint${block.data.checkpoints.length === 1 ? "" : "s"}`;
   if (block.type === "chart") return block.data.title.trim() || "Chart";
   if (block.type === "attachment") return block.data.fileName.trim() || "File attachment";

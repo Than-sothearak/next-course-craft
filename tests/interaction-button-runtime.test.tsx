@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PreviewBlock } from "@/app/courses/[courseId]/preview/_components/(course_preview_components)/(lesson_reader_preview_components)/(lesson_blocks_preview_components)/preview-block";
 import { SlidePlaybackContext } from "@/app/courses/[courseId]/_components/slide-presentation/slide-playback-context";
 import { blockSchema, interactionButtonBlockSchema, type ContentBlock } from "@/lib/schemas/block";
+import { replaySlideObjectAnimations } from "@/lib/editor/slide-animation";
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 const button = interactionButtonBlockSchema.parse({ id: "button", version: 1, type: "interactionButton", data: { label: "Explore details", popup: { title: "Discover", blocks: [
@@ -17,6 +18,7 @@ describe("learner interaction button", () => {
   let root: Root; let container: HTMLDivElement; let play: ReturnType<typeof vi.spyOn>; let pause: ReturnType<typeof vi.spyOn>;
   beforeEach(() => {
     vi.useFakeTimers();
+    vi.stubGlobal("IntersectionObserver", class { observe() {} unobserve() {} disconnect() {} });
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => setTimeout(() => callback(0), 16));
     vi.stubGlobal("cancelAnimationFrame", (id: number) => clearTimeout(id));
     Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value: function (this: HTMLDialogElement) { this.open = true; } });
@@ -76,6 +78,78 @@ describe("learner interaction button", () => {
     await render(interactionButtonBlockSchema.parse({ ...button, data: { ...button.data, iconColor: gradient } }));
     expect(document.querySelector('[aria-label="Explore details"] svg')?.getAttribute("stroke")).toMatch(/^url\(#interaction-icon-/);
     expect(document.querySelectorAll("linearGradient stop")).toHaveLength(2);
+  });
+
+  it("answers a popup activity and unlocks Continue without adding lesson progress tasks", async () => {
+    const configured = interactionButtonBlockSchema.parse({ ...button, data: { ...button.data, popup: { blocks: [
+      { id: "question", version: 1, type: "knowledgeCheck", data: { question: "Ready?", options: ["Yes", "No"], correctOptionIndex: 0 } },
+      { id: "continue", version: 1, type: "divider", data: { style: "continue", label: "Show result", completionType: "completeAbove" } },
+      { id: "result", version: 1, type: "chart", data: { chartType: "bar", title: "Results", fields: [{ id: "one", label: "Score", value: 10 }] } },
+    ] } } });
+    const progress = vi.fn(); await render(configured, true, progress); await open();
+    expect(document.querySelector('[data-interaction-popup-canvas]')?.textContent).not.toContain("Results");
+    expect(document.querySelector<HTMLButtonElement>('[aria-label^="Show result"]')?.disabled).toBe(true);
+    await act(async () => document.querySelector<HTMLInputElement>('input[type="radio"][value="0"]')!.click());
+    await act(async () => [...document.querySelectorAll<HTMLButtonElement>("dialog button")].find((item) => item.textContent === "Check answer")!.click());
+    expect(document.querySelector<HTMLButtonElement>('[aria-label="Show result"]')?.disabled).toBe(false);
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="Show result"]')!.click());
+    expect(document.querySelector('[data-interaction-popup-canvas]')?.textContent).toContain("Results");
+    expect(progress.mock.calls).toEqual([["button:opened"]]);
+  });
+
+  it("opens a popup-local linked block in a nested dialog and closes only that dialog on Escape", async () => {
+    const configured = interactionButtonBlockSchema.parse({ ...button, data: { ...button.data, popup: { blocks: [
+      { id: "details", version: 1, type: "richText", data: { html: "<p>Nested explanation</p>" } },
+      { id: "nested", version: 1, type: "interactionButton", data: { label: "Open nested details", action: "block", targetBlockId: "details" } },
+    ] } } });
+    await render(configured); await open();
+    const parent = document.querySelector<HTMLDialogElement>("dialog[open]")!;
+    await act(async () => parent.querySelector<HTMLButtonElement>('[aria-label="Open nested details"]')!.click());
+    const nested = parent.querySelector<HTMLDialogElement>("dialog[open]")!;
+    expect(nested.textContent).toContain("Nested explanation");
+    await act(async () => nested.dispatchEvent(new Event("cancel", { bubbles: true, cancelable: true })));
+    expect(parent.open).toBe(true); expect(parent.querySelector("dialog[open]")).toBeNull();
+  });
+
+  it("uses authored entrance animation settings for popup objects", async () => {
+    const configured = interactionButtonBlockSchema.parse({ ...button, data: { ...button.data, popup: { blocks: [
+      { id: "text", version: 1, type: "richText", slideAnimation: { effect: "slide-left", duration: 600, delay: 80 }, data: { html: "<p>Animated popup text</p>" } },
+    ] } } });
+    await render(configured); await open();
+    expect(document.querySelector('[data-interaction-popup-canvas] [data-slide-object-animation="slide-left"]')?.textContent).toContain("Animated popup text");
+  });
+
+  it("staggers popup list items with the shared 1000 ms Slide up default", async () => {
+    const configured = interactionButtonBlockSchema.parse({ ...button, data: { ...button.data, popup: { blocks: [
+      { id: "list", version: 1, type: "richText", data: { html: "<ol><li><p>First</p></li><li><p>Second</p></li><li><p>Third</p></li></ol>" } },
+    ] } } });
+    await render(configured); await open();
+    const canvas = document.querySelector<HTMLElement>("[data-interaction-popup-canvas]")!;
+    const items = [...canvas.querySelectorAll("li")].map((item) => {
+      const animate = vi.fn((_frames: Keyframe[], _options: KeyframeAnimationOptions) => ({ cancel: vi.fn() }));
+      Object.defineProperty(item, "animate", { configurable: true, value: animate }); return animate;
+    });
+    expect(items).toHaveLength(3);
+    act(() => replaySlideObjectAnimations(canvas));
+    items.forEach((animate, index) => expect(animate.mock.calls[0]).toEqual([[{ opacity: 0, transform: "translateY(24px)" }, { opacity: 1, transform: "none" }], { duration: 1000, delay: index * 120, easing: "cubic-bezier(0.22, 1, 0.36, 1)", fill: "backwards" }]));
+  });
+
+  it.each(["#8b5cf6", "linear-gradient(135deg, #2563eb 0%, #f97316 100%)"])("applies radar size and weight with %s rings", async (radarColor) => {
+    await render(interactionButtonBlockSchema.parse({ ...button, data: { ...button.data, radarColor, radarSize: 7, radarWeight: 4 } }));
+    const trigger = container.querySelector<HTMLButtonElement>('[aria-label="Explore details"]')!;
+    expect(trigger.classList.contains("labeled-graphic-radar")).toBe(true);
+    expect(trigger.classList.contains("labeled-graphic-radar-gradient")).toBe(radarColor.startsWith("linear-gradient"));
+    expect(trigger.style.getPropertyValue("--radar-size")).toBe("7px");
+    expect(trigger.style.getPropertyValue("--radar-weight")).toBe("4px");
+    await open();
+    expect(document.querySelector("dialog[open]")).not.toBeNull();
+  });
+
+  it("keeps the original radar appearance for older buttons", async () => {
+    await render();
+    const trigger = container.querySelector<HTMLButtonElement>('[aria-label="Explore details"]')!;
+    expect(trigger.style.getPropertyValue("--radar-size")).toBe("3px");
+    expect(trigger.style.getPropertyValue("--radar-weight")).toBe("2px");
   });
 
   it.each([

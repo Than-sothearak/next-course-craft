@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { blockSchema, interactionButtonBlockSchema, popupContentBlockSchema } from "@/lib/schemas/block";
+import { blockSchema, blockTypes, interactionButtonBlockSchema, popupContentBlockSchema, type ContentBlock } from "@/lib/schemas/block";
 import { editorSnapshotSchema } from "@/lib/editor/schemas";
 import { duplicateLessonContent, removeLessonBlock } from "@/lib/editor/course-content";
 import { courseAssetIds, remapCourseAssetUrls } from "@/lib/media/asset-references";
@@ -28,11 +28,52 @@ describe("interaction button content contract", () => {
     { icon: "script" }, { action: "javascript" }, { color: "url(https://example.com)" },
     { imageSrc: "javascript:alert(1)" }, { radius: -1 }, { iconSize: 1000 },
     { buttonSize: 0 }, { buttonSize: 257 }, { position: "outside" },
+    { radarSize: -1 }, { radarSize: 25 }, { radarSize: 1.5 }, { radarSize: "3" },
+    { radarWeight: 0 }, { radarWeight: 9 }, { radarWeight: 1.5 }, { radarWeight: "2" },
     { popup: { width: 10000 } }, { popup: { animation: "spin" } },
-    { popup: { blocks: [button] } }, { popup: { blocks: [text, text] } },
+    { popup: { blocks: [{ ...text, type: "unknown" }] } }, { popup: { blocks: [text, text] } },
     { popup: { blocks: Array.from({ length: 21 }, (_, i) => ({ ...text, id: `${i}` })) } },
-  ])("rejects invalid or recursive popup configuration: %j", (data) => {
+  ])("rejects invalid popup configuration: %j", (data) => {
     expect(blockSchema.safeParse({ ...button, data: { ...button.data, ...data } }).success).toBe(false);
+  });
+
+  it("accepts every regular slide block type and retains it in editor and SCORM snapshots", () => {
+    const examples = new Map<ContentBlock["type"], ContentBlock>(blockTemplates.flatMap((template) => createBlocksFromTemplate(template, template.id)).map((block) => [block.type, block]));
+    examples.set("heading", blockSchema.parse({ id: "heading", version: 1, type: "heading", data: { text: "Heading", level: 2 } }));
+    examples.set("lessonMap", blockSchema.parse({ id: "map", version: 1, type: "lessonMap", data: { checkpoints: [] } }));
+    expect([...examples.keys()].sort()).toEqual([...blockTypes, "lessonMap"].sort());
+    for (const child of examples.values()) {
+      const parent = interactionButtonBlockSchema.parse({ ...button, data: { ...button.data, popup: { blocks: [child] } } });
+      const parsed = parseScorm12Snapshot({ ...snapshot, lessons: [{ ...snapshot.lessons[0], blocks: [parent] }] });
+      expect(parsed.lessons[0].blocks[0]).toMatchObject({ data: { popup: { blocks: [{ type: child.type }] } } });
+    }
+  });
+
+  it("bounds nested popup depth while allowing nested interaction buttons", () => {
+    let nested: ContentBlock = text;
+    for (let depth = 0; depth < 8; depth++) nested = blockSchema.parse({ ...button, id: `level-${depth}`, data: { ...button.data, popup: { blocks: [nested] } } });
+    expect(blockSchema.safeParse(nested).success).toBe(true);
+    expect(blockSchema.safeParse({ ...button, data: { ...button.data, popup: { blocks: [nested] } } }).success).toBe(false);
+    expect(interactionButtonBlockSchema.safeParse({ ...button, data: { ...button.data, popup: { blocks: [nested] } } }).success).toBe(false);
+  });
+
+  it("duplicates nested popup IDs and sibling links independently at every level", () => {
+    const nested = interactionButtonBlockSchema.parse({ ...button, id: "nested", data: { ...button.data, action: "block", targetBlockId: "text" } });
+    const parent = interactionButtonBlockSchema.parse({ ...button, data: { ...button.data, popup: { blocks: [text, nested] } } });
+    let index = 0;
+    const copied = duplicateLessonContent({ ...snapshot.lessons[0], blocks: [parent] }, () => `copy-${++index}`).blocks[0];
+    if (copied.type !== "interactionButton") throw new Error("Wrong type");
+    const copiedNested = copied.data.popup.blocks[1];
+    if (copiedNested.type !== "interactionButton") throw new Error("Wrong type");
+    expect(copiedNested.data.targetBlockId).toBe(copied.data.popup.blocks[0].id);
+    expect(copiedNested.data.popup.blocks[0].id).not.toBe(text.id);
+    expect(parent.data.popup.blocks[1]).toMatchObject({ data: { targetBlockId: "text" } });
+  });
+
+  it.each([[0, 1], [7, 4], [24, 8]])("preserves radar size %s and weight %s through snapshots and static export", (radarSize, radarWeight) => {
+    const configured = { ...button, data: { ...button.data, radarSize, radarWeight } };
+    const parsed = editorSnapshotSchema.parse({ ...snapshot, lessons: [{ ...snapshot.lessons[0], blocks: [configured] }] });
+    expect(parseScorm12Snapshot(parsed).lessons[0].blocks[0]).toMatchObject({ data: { radarSize, radarWeight } });
   });
 
   it("packages nested images, videos, audio and the trigger for offline HTML and SCORM", () => {

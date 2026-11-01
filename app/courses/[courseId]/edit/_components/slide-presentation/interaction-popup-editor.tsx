@@ -1,62 +1,94 @@
 "use client";
+
 import { useState } from "react";
 import type { Editor } from "@tiptap/react";
-import { AudioLines, Image as ImageIcon, Plus, Trash2, Type, Video } from "lucide-react";
+import { Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { createClientId } from "@/lib/client-id";
-import { popupContentBlockSchema, type ContentBlock } from "@/lib/schemas/block";
+import { blockSchema, type ContentBlock } from "@/lib/schemas/block";
 import { backgroundPaint, solidColor } from "@/lib/color";
-import { slideMasterSchema } from "@/lib/editor/slide-design";
+import { defaultSlideFrame, slideMasterSchema } from "@/lib/editor/slide-design";
+import { duplicateLessonBlocks, removeLessonBlock } from "@/lib/editor/course-content";
+import { reorderSlideLayers } from "@/lib/editor/slide-layers";
 import { SlideStage } from "../../../_components/slide-presentation/slide-stage";
 import { SlideObject } from "./slide-editable-object";
-import { SlideObjectSizeControls } from "./slide-object-size-controls";
-import { SlideObjectBackgroundControls } from "./slide-object-background-controls";
-import { SlidePlaybackControls } from "./slide-playback-controls";
-import { SlideMediaPicker } from "./slide-media-picker";
+import { SlideObjectSettings } from "./slide-object-settings";
+import { SlideObjectLayers } from "./slide-object-layers";
+import { SlideInspectorSection, SlideInspectorSections } from "./slide-inspector-section";
+import { SlideInsertToolbar } from "./slide-insert-toolbar";
+import { BlockTemplatePicker } from "../(editor_client_components)/block-template-picker";
+import { blockTemplates, type BlockTemplate } from "../(editor_client_components)/(block_template_picker_components)/block-template-data";
+import { createSlideBlocksFromTemplate } from "../(editor_client_components)/(block_template_picker_components)/create-blocks-from-template";
 import { MediaLibraryDialog, type MediaLibraryAsset } from "../media-library-dialog";
-import { TextFormattingToolbar } from "../(editor_client_components)/(text_editing_components)/text-formatting-toolbar";
 
 type Popup = Extract<ContentBlock, { type: "interactionButton" }>["data"]["popup"];
-export function InteractionPopupEditor({ popup, courseId, onApply, onClose }: { popup: Popup; courseId: string; onApply: (popup: Popup) => void; onClose: () => void }) {
+export type PopupTargets = { sections: { id: string; title: string; order: number }[]; lessons: { id: string; title: string; sectionId: string; order: number; lessonType?: "content" | "quiz" }[] };
+export function InteractionPopupEditor({ popup, courseId, sections, lessons, onApply, onClose }: PopupTargets & { popup: Popup; courseId: string; onApply: (popup: Popup) => void; onClose: () => void }) {
   const [draft, setDraft] = useState(() => structuredClone(popup));
   const [selectedId, setSelectedId] = useState<string | null>(popup.blocks[0]?.id ?? null);
   const [focused, setFocused] = useState<{ id: string; editor: Editor } | null>(null);
-  const [picker, setPicker] = useState<"image" | "video" | "audio" | null>(null);
+  const [picker, setPicker] = useState<{ template: BlockTemplate; replace?: ContentBlock } | null>(null);
+  const [templates, setTemplates] = useState<{ replace?: ContentBlock } | null>(null);
   const [error, setError] = useState("");
   const selected = draft.blocks.find((item) => item.id === selectedId);
   const master = slideMasterSchema.parse({ backgroundColor: draft.backgroundColor, textColor: draft.textColor });
-  function change(next: ContentBlock) { const parsed = popupContentBlockSchema.safeParse(next); if (parsed.success) setDraft((current) => ({ ...current, blocks: current.blocks.map((item) => item.id === next.id ? parsed.data : item) })); }
-  function add(type: "richText" | "image" | "video" | "audio", asset?: MediaLibraryAsset) {
-    if (draft.blocks.length >= 20) return;
-    const id = createClientId(), index = draft.blocks.length;
-    const data = type === "richText" ? { html: "<p>Add your text here.</p>" } : type === "image" ? { src: asset?.fileUrl, alt: asset?.originalName ?? "" } : { src: asset?.fileUrl, fileName: asset?.originalName ?? "", mimeType: asset?.contentType };
-    const parsed = popupContentBlockSchema.safeParse({ id, version: 1, type, data, slideFrame: { x: 8 + index % 3 * 3, y: Math.min(8 + index * 9, 55), width: type === "richText" ? 80 : type === "audio" ? 70 : 55, height: type === "richText" ? 45 : type === "audio" ? 25 : 60, z: index } });
-    if (!parsed.success) { setError("Choose a supported image, MP4/WebM video, or audio file."); return; }
-    setDraft((current) => ({ ...current, blocks: [...current.blocks, parsed.data] })); setSelectedId(id); setPicker(null); setError("");
+  const reorder = (activeId: string, overId: string) => setDraft((current) => ({ ...current, blocks: reorderSlideLayers(current.blocks, activeId, overId, current) }));
+  function change(next: ContentBlock) {
+    const parsed = blockSchema.safeParse(next);
+    if (!parsed.success) { setError(parsed.error.issues[0]?.message ?? "Check this object's settings."); return; }
+    setDraft((current) => ({ ...current, blocks: current.blocks.map((item) => item.id === next.id ? parsed.data : item) })); setError("");
   }
-  return <Dialog open onClose={onClose} title="Edit popup mini slide" className="max-w-6xl" footer={<><Button variant="outline" onClick={onClose}>Cancel</Button><Button onClick={() => onApply(draft)}>Apply popup</Button></>}>
-    <div className="mb-3 flex flex-wrap gap-2">{([{ type: "richText", label: "Text", Icon: Type }, { type: "image", label: "Image", Icon: ImageIcon }, { type: "video", label: "Video", Icon: Video }, { type: "audio", label: "Audio", Icon: AudioLines }] as const).map(({ type, label, Icon }) => <Button key={type} size="sm" variant="outline" disabled={draft.blocks.length >= 20} onClick={() => type === "richText" ? add(type) : setPicker(type)}><Plus size={12} /><Icon size={14} />{label}</Button>)}</div>
-    <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
+  function add(template: BlockTemplate, asset?: MediaLibraryAsset, replacing = templates?.replace) {
+    if (!replacing && draft.blocks.length >= 20) { setError("A popup can contain up to 20 objects."); return; }
+    if (!asset && replacing?.type !== template.type && ["image", "video", "audio"].includes(template.type)) { setPicker({ template, replace: replacing }); setTemplates(null); return; }
+    const id = replacing?.id ?? createClientId();
+    const created = createSlideBlocksFromTemplate(template, id, { sections, lessons }).map((block, offset) => {
+      let next: ContentBlock = { ...block, slideAnimation: replacing?.slideAnimation, blockPadding: Math.min(block.blockPadding, 12), slideFrame: replacing?.slideFrame ?? defaultSlideFrame(draft.blocks.length + offset, block.type) };
+      if (!asset && replacing?.type === "image" && next.type === "image") next = { ...next, slideMedia: replacing.slideMedia, slideCrop: replacing.slideCrop, data: { ...next.data, src: replacing.data.src, alt: replacing.data.alt } };
+      if (!asset && replacing?.type === "video" && next.type === "video") next = { ...next, slideMedia: replacing.slideMedia, slideCrop: replacing.slideCrop, data: { ...next.data, ...replacing.data } };
+      if (!asset && replacing?.type === "audio" && next.type === "audio") next = { ...next, data: { ...next.data, ...replacing.data } };
+      if (asset && next.type === "image") next = { ...next, data: { ...next.data, src: asset.fileUrl, alt: asset.originalName } };
+      if (asset && next.type === "video") next = { ...next, data: { ...next.data, src: asset.fileUrl, mimeType: asset.contentType as "video/mp4" | "video/webm" } };
+      if (asset && next.type === "audio") next = { ...next, data: { ...next.data, src: asset.fileUrl, fileName: asset.originalName, mimeType: asset.contentType as "audio/mpeg" } };
+      return next;
+    });
+    const parsed = blockSchema.array().safeParse(created);
+    if (!parsed.success) { setError("Choose a supported image, MP4/WebM video, or audio file."); return; }
+    if (replacing) change(parsed.data[0]); else setDraft((current) => ({ ...current, blocks: [...current.blocks, ...parsed.data] }));
+    setSelectedId(id); setFocused(null); setPicker(null); setTemplates(null); setError("");
+  }
+  function duplicate(id: string) {
+    if (draft.blocks.length >= 20) { setError("A popup can contain up to 20 objects."); return; }
+    const source = draft.blocks.find((block) => block.id === id);
+    if (!source) return;
+    let copy = duplicateLessonBlocks([source], createClientId)[0];
+    if (copy.type === "interactionButton" && source.type === "interactionButton") copy = { ...copy, data: { ...copy.data, targetBlockId: source.data.targetBlockId } };
+    setDraft((current) => ({ ...current, blocks: [...current.blocks, { ...copy, slideFrame: { ...(copy.slideFrame ?? defaultSlideFrame(current.blocks.length, copy.type)), z: Math.min(500, Math.max(0, ...current.blocks.map((block) => block.slideFrame?.z ?? 0)) + 1) } }] })); setSelectedId(copy.id); setFocused(null);
+  }
+  function apply() {
+    const parsed = blockSchema.safeParse({ id: "popup-draft", version: 1, type: "interactionButton", data: { popup: draft } });
+    if (!parsed.success) { setError(parsed.error.issues[0]?.message ?? "Check the popup objects before applying."); return; }
+    if (parsed.data.type === "interactionButton") onApply(parsed.data.data.popup);
+  }
+  return <Dialog open onClose={onClose} title="Edit popup mini slide" className="max-w-7xl" footer={<><Button variant="outline" onClick={onClose}>Cancel</Button><Button onClick={apply}>Apply popup</Button></>}>
+    <fieldset disabled={draft.blocks.length >= 20} className="mb-3 min-w-0"><SlideInsertToolbar onInsert={(id) => { const template = blockTemplates.find((item) => item.id === id); if (template) add(template); }} onCover={() => {}} onMore={() => setTemplates({})} /></fieldset>
+    <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
       <div className="min-w-0 space-y-3">
         <SlideStage size={draft} fillWidth className="h-[min(52dvh,460px)] w-full bg-slate-100" canvasProps={{ "data-popup-editor-canvas": true }}>
-          <div data-slide-objects className="relative h-full w-full" style={{ ...backgroundPaint(draft.backgroundColor), color: solidColor(draft.textColor) }}>{draft.blocks.map((item, index) => <SlideObject key={item.id} block={item} index={index} total={draft.blocks.length} master={master} area={draft} selected={selectedId === item.id} onSelect={() => setSelectedId(item.id)} onFrame={(slideFrame) => change({ ...item, slideFrame })} onChange={change} onEditorFocus={(editor) => { setSelectedId(item.id); setFocused({ id: item.id, editor }); }} onFooterSnap={() => {}} />)}</div>
+          <div data-slide-objects className="relative h-full w-full" style={{ ...backgroundPaint(draft.backgroundColor), color: solidColor(draft.textColor) }}>{draft.blocks.map((item, index) => <SlideObject key={item.id} block={item} lessonBlocks={draft.blocks} index={index} total={draft.blocks.length} master={master} area={draft} selected={selectedId === item.id} onSelect={() => setSelectedId(item.id)} onFrame={(slideFrame) => change({ ...item, slideFrame })} onChange={change} onEditorFocus={(editor) => { setSelectedId(item.id); setFocused({ id: item.id, editor }); }} onFooterSnap={() => {}} />)}</div>
         </SlideStage>
-        {focused?.id === selectedId && !focused.editor.isDestroyed && <div className="rounded-lg border border-slate-200 bg-white p-2"><TextFormattingToolbar editor={focused.editor} /></div>}
-        <p className="text-xs text-slate-500">Click text to edit. Use an object’s move handle or corner to position and resize it.</p>
+        <p className="text-xs text-slate-500">Click text to edit. Use an object's move handle or corner to position and resize it.</p>
       </div>
-      <aside aria-label="Popup object settings" className="max-h-[52dvh] min-w-0 space-y-3 overflow-y-auto rounded-lg border border-slate-200 p-3">
-        <div className="grid grid-cols-2 gap-2">{draft.blocks.map((item, index) => <Button key={item.id} variant={selectedId === item.id ? "secondary" : "outline"} size="sm" className="min-w-0 truncate px-1 text-xs" aria-label={`Select popup object ${index + 1}`} onClick={() => setSelectedId(item.id)}>{index + 1}. {item.type === "richText" ? "Text" : item.type}</Button>)}</div>
-        {selected && <>
-          <SlideMediaPicker key={selected.id} block={selected} courseId={courseId} onChange={change} />
-          <SlideObjectSizeControls block={selected} index={draft.blocks.indexOf(selected)} total={draft.blocks.length} area={draft} onChange={change} />
-          <SlideObjectBackgroundControls block={selected} onChange={change} />
-          {(selected.type === "audio" || selected.type === "video") && <SlidePlaybackControls block={selected} onChange={change} />}
-          <Button variant="ghost" size="sm" className="w-full text-rose-600" onClick={() => { const blocks = draft.blocks.filter((item) => item.id !== selectedId); setDraft({ ...draft, blocks }); setSelectedId(blocks[0]?.id ?? null); setFocused(null); }}><Trash2 size={14} />Remove popup object</Button>
-        </>}
+      <aside aria-label="Popup object settings" className="max-h-[52dvh] min-w-0 space-y-3 overflow-y-auto">
+        <SlideInspectorSections label="Popup object">
+          <SlideInspectorSection title="Objects & layers" icon={Layers}><SlideObjectLayers blocks={draft.blocks} selectedId={selectedId} onSelect={setSelectedId} onReorder={reorder} /></SlideInspectorSection>
+          {selected && <SlideObjectSettings selected={selected} blocks={draft.blocks} courseId={courseId} sections={sections} lessons={lessons} area={draft} activeTextEditor={focused?.id === selectedId && !focused.editor.isDestroyed ? focused.editor : null} onBlockChange={change} onReorderLayer={reorder} onDuplicate={duplicate} onDelete={(id) => { const blocks = removeLessonBlock(draft.blocks, id); setDraft({ ...draft, blocks }); setSelectedId(blocks[0]?.id ?? null); setFocused(null); }} onReplaceTemplate={(block) => setTemplates({ replace: block })} />}
+        </SlideInspectorSections>
       </aside>
     </div>
     {error && <p role="alert" className="mt-3 text-xs text-rose-700">{error}</p>}
-    <MediaLibraryDialog courseId={courseId} kind={picker ?? "image"} open={picker !== null} onClose={() => setPicker(null)} onSelect={(asset) => { if (picker) add(picker, asset); }} />
+    <MediaLibraryDialog courseId={courseId} kind={picker?.template.type === "video" ? "video" : picker?.template.type === "audio" ? "audio" : "image"} open={picker !== null} onClose={() => setPicker(null)} onSelect={(asset) => { if (picker) add(picker.template, asset, picker.replace); }} />
+    <BlockTemplatePicker open={templates !== null} nativeDialog mode={templates?.replace ? "replace" : "add"} onClose={() => setTemplates(null)} onSelect={(template) => add(template)} />
   </Dialog>;
 }

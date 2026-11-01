@@ -82,7 +82,8 @@ describe("presentation slide thumbnails", () => {
   it("honors audio file name visibility while keeping the thumbnail player silent", async () => {
     const play = vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
     const audio = audioBlockSchema.parse({ id: "audio", version: 1, type: "audio", data: { src: "/api/assets/123456789012345678901234/file", fileName: "Narration.mp3" } });
-    await render([{ id: "media", title: "Media", blocks: [audio] }]); expect(container.textContent).toContain("Narration.mp3");
+    await render([{ id: "media", title: "Media", blocks: [audio] }]); expect(container.textContent).not.toContain("Narration.mp3");
+    await render([{ id: "media", title: "Media", blocks: [{ ...audio, slidePlayback: { autoPlay: true, showControls: true, showFileName: true } }] }]); expect(container.textContent).toContain("Narration.mp3");
     await render([{ id: "media", title: "Media", blocks: [{ ...audio, slidePlayback: { autoPlay: false, showControls: true, showFileName: false } }] }]);
     expect(container.textContent).not.toContain("Narration.mp3"); expect(container.querySelector("audio")!.controls).toBe(true); expect(container.querySelector("audio")!.muted).toBe(true); expect(play).not.toHaveBeenCalled();
   });

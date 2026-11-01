@@ -90,7 +90,7 @@ describe("cover settings and editor footer navigation", () => {
   });
 
   it("adds an audio instruction block on the cover, configures its display and restores it after saving", async () => {
-    await render(); await click("Audio instruction"); await act(async () => button("Toggle Content & interaction settings").click());
+    await render(); await click("Audio instruction");
     await click("Choose or upload instruction audio"); await act(async () => button("Use Intro.mp3").click());
     const toggle = (label: string) => container.querySelector<HTMLInputElement>('[aria-label="Audio instruction ' + label + '"]')!;
     await act(async () => toggle("autoplay on slide").click()); await act(async () => toggle("show icon").click());
@@ -110,7 +110,6 @@ describe("cover settings and editor footer navigation", () => {
     const frame = container.querySelector('[data-slide-canvas] [data-slide-object-id]')!;
     expect(frame.querySelector("audio")?.getAttribute("src")).toBe(asset.fileUrl);
     await act(async () => frame.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, button: 0 })));
-    await act(async () => button("Toggle Content & interaction settings").click());
     await act(async () => button("Remove instruction audio file").click());
     expect(container.querySelector('[data-slide-canvas] audio')?.hasAttribute("src")).toBe(false); await act(async () => button("Undo").click());
     await act(async () => button("Delete object").click()); const snapshot = await saved();

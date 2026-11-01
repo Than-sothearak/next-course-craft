@@ -41,6 +41,8 @@ function lessonWriteOperations(
           order: lesson.order,
           blocks: lesson.blocks,
           slideCover: lesson.slideCover ?? null,
+          slideHeaderStyle: lesson.slideHeaderStyle ?? null,
+          slideAppearance: lesson.slideAppearance ?? null,
         },
         $setOnInsert: {
           courseId,

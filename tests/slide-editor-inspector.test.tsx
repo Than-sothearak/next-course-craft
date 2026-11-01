@@ -42,9 +42,10 @@ describe("presentation inspector tabs", () => {
     const frame = { x: 11.23456, y: 8.76543, width: 65.4321, height: 24.56789, z: 0 };
     await act(async () => root.render(<EditorClient initialData={makeData([{ ...first, blocks: [{ ...heading, slideFrame: frame }] }])} authorName="Author" />));
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Select heading object from layers"]')!.click());
-    const inputs = [...panel("Object block").querySelectorAll<HTMLInputElement>('input[type="number"]:not([aria-label="Object border radius"])')];
+    const inputs = [...panel("Object block").querySelectorAll<HTMLInputElement>('[aria-label="Object position and size"] input[role="spinbutton"]')];
     expect(inputs.slice(0, 4).map((input) => input.value)).toEqual(["107.85", "47.33", "628.15", "132.67"]);
-    expect(inputs.slice(0, 4).every((input) => input.step === "0.01")).toBe(true);
+    expect(inputs.every((input) => input.inputMode === "decimal")).toBe(true);
+    expect(inputs.every((input) => input.closest('[data-number-input]')?.querySelector('button[title="Increase by 1"]'))).toBe(true);
     await act(async () => vi.advanceTimersByTimeAsync(1000));
     expect(fetchMock).not.toHaveBeenCalled();
     await act(async () => {
@@ -53,6 +54,25 @@ describe("presentation inspector tabs", () => {
     });
     const snapshot = await saved();
     expect(snapshot.lessons[0].blocks[0].slideFrame).toEqual({ ...frame, x: 120.25 / 960 * 100 });
+  });
+
+  it("allows typing object sizes and steps by one with undo, saving, and reload", async () => {
+    await act(async () => root.render(<EditorClient initialData={makeData([{ ...first, blocks: [{ ...heading, slideFrame: { x: 10, y: 10, width: 50, height: 50, z: 0 } }] }])} authorName="Author" />));
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Select heading object from layers"]')!.click());
+    const field = () => panel("Object block").querySelector<HTMLInputElement>('[aria-label="Width (px)"]')!;
+    await act(async () => field().focus());
+    for (const value of ["", "6", "60", "600"]) {
+      await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(field(), value); field().dispatchEvent(new Event("input", { bubbles: true })); });
+      expect(field().value).toBe(value);
+    }
+    await act(async () => panel("Object block").querySelector<HTMLButtonElement>('[aria-label="Increase Width (px) by 1"]')!.click());
+    expect(field().value).toBe("601");
+    await act(async () => field().blur());
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Undo"]')!.click()); expect(field().value).toBe("600");
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Redo"]')!.click()); expect(field().value).toBe("601");
+    const snapshot = await saved(); expect(snapshot.lessons[0].blocks[0].slideFrame?.width).toBeCloseTo(601 / 960 * 100);
+    await act(async () => root.render(<EditorClient key="numeric-reload" initialData={{ ...snapshot, courseId: "slides" }} authorName="Author" />));
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Select heading object from layers"]')!.click()); expect(field().value).toBe("601");
   });
 
   it("keeps canvas pixels independent of zoom and converts vertical size edits back to saved geometry", async () => {
@@ -85,7 +105,7 @@ describe("presentation inspector tabs", () => {
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Select image object from layers"]')!.click());
     const scale = container.querySelector<HTMLInputElement>('[aria-label="Media scale"]')!;
     expect(scale.value).toBe("11.23");
-    expect(scale.step).toBe("0.01");
+    expect(scale.closest('[data-number-input]')?.querySelector('button[title="Increase by 1"]')).not.toBeNull();
     await act(async () => {
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(scale, "12.34");
       scale.dispatchEvent(new Event("input", { bubbles: true }));
@@ -154,22 +174,24 @@ describe("presentation inspector tabs", () => {
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Select knowledgeCheck object from layers"]')!.click()); expect(toggle().checked).toBe(false);
   });
 
-  it("starts all tabs collapsed and retains individual or grouped changes without saving", async () => {
+  it("starts all tabs expanded and retains individual or grouped changes without saving", async () => {
     await act(async () => root.render(<EditorClient initialData={makeData()} authorName="Author" />));
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Select heading object from layers"]')!.click());
     const collapse = (label: string) => act(async () => container.querySelector<HTMLButtonElement>(`[aria-label="${label}"]`)!.click());
     const sections = (label: string) => [...panel(label).querySelectorAll<HTMLElement>('[data-inspector-section-content]')];
     const position = container.querySelector<HTMLButtonElement>('[aria-label="Toggle Position & size settings"]')!;
-    expect(position.getAttribute("aria-expanded")).toBe("false");
-    expect(sections("Object block").every((section) => section.hidden)).toBe(true);
-    expect(sections("Master slide").every((section) => section.hidden)).toBe(true);
-    expect(sections("Cover page").every((section) => section.hidden)).toBe(true);
+    expect(position.getAttribute("aria-expanded")).toBe("true");
+    expect(sections("Object block").every((section) => !section.hidden)).toBe(true);
+    expect(sections("Master slide").every((section) => !section.hidden)).toBe(true);
+    expect(sections("Cover page").every((section) => !section.hidden)).toBe(true);
     expect(position.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
     await collapse("Toggle Position & size settings");
-    expect(document.getElementById(position.getAttribute("aria-controls")!)?.hidden).toBe(false);
+    expect(document.getElementById(position.getAttribute("aria-controls")!)?.hidden).toBe(true);
     await collapse("Hide all Object block settings");
     expect(sections("Object block").every((section) => section.hidden)).toBe(true);
     await clickTab("Master slide");
+    expect(sections("Master slide").every((section) => !section.hidden)).toBe(true);
+    await collapse("Hide all Master slide settings");
     expect(sections("Master slide").every((section) => section.hidden)).toBe(true);
     await collapse("Toggle Header settings");
     expect(sections("Master slide").filter((section) => !section.hidden)).toHaveLength(1);
@@ -184,7 +206,58 @@ describe("presentation inspector tabs", () => {
     expect(container.querySelector<HTMLInputElement>('[aria-label="Width (px)"]')?.value).toBe("748.8");
     await act(async () => vi.advanceTimersByTimeAsync(1000)); expect(fetchMock).not.toHaveBeenCalled();
     await act(async () => root.render(<EditorClient key="reset-inspector" initialData={makeData()} authorName="Author" />));
-    expect(container.querySelectorAll('[data-inspector-section-content]:not([hidden])')).toHaveLength(0);
+    expect([...container.querySelectorAll<HTMLElement>('[data-inspector-section-content]')].every((section) => !section.hidden)).toBe(true);
+  });
+
+  it("keeps text formatting and every selected object's controls inside its settings card", async () => {
+    const image = { id: "image", version: 1, type: "image", data: { src: "/diagram.png", alt: "Diagram" } };
+    await act(async () => root.render(<EditorClient initialData={makeData([{ ...first, blocks: [heading, image] }])} authorName="Author" />));
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Select heading object from layers"]')!.click());
+    const card = container.querySelector('[data-slide-object-settings="heading"]')!;
+    for (const label of ["Slide text formatting", "Position & size", "Text box layout", "Appearance", "Navigation & progress", "Text content"]) {
+      expect(card.querySelector(`[data-inspector-section][aria-label="${label}"]`)).not.toBeNull();
+    }
+    expect(card.querySelector('[aria-label="Duplicate object"]')).not.toBeNull();
+    expect(card.querySelector('[aria-label="Delete object"]')).not.toBeNull();
+    expect(card.querySelector('[aria-label="Slide object layers"]')).toBeNull();
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Select image object from layers"]')!.click());
+    expect(container.querySelector('[data-slide-object-settings="heading"]')).toBeNull();
+    const imageCard = container.querySelector('[data-slide-object-settings="image"]')!;
+    for (const label of ["Position & size", "Media source", "Crop", "Appearance", "Navigation & progress", "Content & interaction"]) {
+      expect(imageCard.querySelector(`[data-inspector-section][aria-label="${label}"]`)).not.toBeNull();
+    }
+    await act(async () => vi.advanceTimersByTimeAsync(1000)); expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("previews per-object animation without changing geometry and saves choices with undo and reload", async () => {
+    await act(async () => root.render(<EditorClient initialData={makeData()} authorName="Author" />));
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Select heading object from layers"]')!.click());
+    const effect = () => container.querySelector<HTMLSelectElement>('[aria-label="Object entrance animation"]')!;
+    const choose = (value: string) => act(async () => { effect().value = value; effect().dispatchEvent(new Event("change", { bubbles: true })); });
+    expect(effect().value).toBe("slide-up");
+    expect(container.querySelector<HTMLInputElement>('[aria-label="Object animation duration"]')?.value).toBe("1000");
+    expect([...effect().options].map((option) => option.textContent)).toEqual(["Fade in", "Zoom in", "Slide up", "Slide down", "Slide left", "Slide right", "None"]);
+    const object = container.querySelector<HTMLElement>('[data-slide-canvas] [data-slide-object-id="heading"]')!;
+    const geometry = object.style.cssText;
+    const animate = vi.fn(() => ({ cancel: vi.fn() })); Object.defineProperty(object, "animate", { configurable: true, value: animate });
+    await choose("slide-up");
+    for (const [label, value] of [["Object animation duration", "620"], ["Object animation delay", "120"]]) {
+      const input = container.querySelector<HTMLInputElement>(`[aria-label="${label}"]`)!;
+      await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value); input.dispatchEvent(new Event("input", { bubbles: true })); });
+    }
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Preview object animation"]')!.click());
+    expect(animate.mock.calls[0]).toEqual([[{ opacity: 0, transform: "translateY(24px)" }, { opacity: 1, transform: "none" }], { duration: 620, delay: 120, easing: "cubic-bezier(0.22, 1, 0.36, 1)", fill: "backwards" }]);
+    expect(object.style.cssText).toBe(geometry);
+    await choose("zoom"); await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Undo"]')!.click()); expect(effect().value).toBe("slide-up");
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Redo"]')!.click()); expect(effect().value).toBe("zoom");
+    const snapshot = await saved(); expect(snapshot.lessons[0].blocks[0].slideAnimation).toEqual({ effect: "zoom", duration: 620, delay: 120 });
+    await act(async () => root.render(<EditorClient key="animation-reload" initialData={{ ...snapshot, courseId: "slides" }} authorName="Author" />));
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Select heading object from layers"]')!.click());
+    expect(effect().value).toBe("zoom");
+    const count = fetchMock.mock.calls.length;
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Preview object animation"]')!.click());
+    await act(async () => vi.advanceTimersByTimeAsync(1000)); expect(fetchMock.mock.calls.length).toBe(count);
+    await choose("none"); expect(container.querySelector<HTMLButtonElement>('[aria-label="Preview object animation"]')!.disabled).toBe(true);
   });
 
   it("adds a cover from its tab and preserves existing slide objects", async () => {

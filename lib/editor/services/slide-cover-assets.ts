@@ -6,6 +6,7 @@ export async function assertSlideCoverAssets(ownerId: string, courseId: string, 
   for (const lesson of lessons) {
     const cover = lesson.slideCover;
     for (const { src, type, message } of [
+      { src: lesson.slideAppearance?.background?.type === "image" ? lesson.slideAppearance.background.imageSrc : undefined, type: /^image\//, message: "Choose a slide background image from this course's media library." },
       { src: cover?.imageSrc, type: /^image\//, message: "Choose a slide cover image from this course’s media library." },
       { src: cover?.instructions?.audioSrc, type: /^audio\//, message: "Choose cover instruction audio from this course’s media library." },
     ]) {

@@ -22,7 +22,7 @@ function BarChart({ data }: { data: ChartBlockData }) {
   return (
     <div className="space-y-4" aria-label="Horizontal bar chart">
       {data.fields.map((field) => (
-        <div key={field.id} className="grid grid-cols-[minmax(72px,1fr)_minmax(0,3fr)_auto] items-center gap-3 sm:gap-4">
+        <div key={field.id} data-slide-animation-item className="grid grid-cols-[minmax(72px,1fr)_minmax(0,3fr)_auto] items-center gap-3 sm:gap-4">
           <span className="truncate text-sm text-slate-600">{field.label || "Untitled field"}</span>
           <span className="h-3 overflow-hidden rounded-full bg-slate-100">
             <span
@@ -60,7 +60,7 @@ function ColumnChart({ data, gradientId }: { data: ChartBlockData; gradientId: s
         const x = index * step + (step - barWidth) / 2;
         const y = chartHeight - height;
         return (
-          <g key={field.id}>
+          <g key={field.id} data-slide-animation-item>
             <rect x={x} y={y} width={barWidth} height={height} rx="6" fill="var(--chart-svg)" opacity={0.88} />
             <text x={x + barWidth / 2} y={Math.max(14, y - 8)} textAnchor="middle" className="fill-slate-700 text-[12px]">
               {formatValue(field.value)}
@@ -100,7 +100,7 @@ function LineChart({ data, gradientId }: { data: ChartBlockData; gradientId: str
       <path d={`M ${padding} 0 V ${chartHeight} H ${chartWidth - padding}`} fill="none" stroke="#e2e8f0" strokeWidth="2" />
       {points.length > 1 && <polyline points={pointString} fill="none" stroke="var(--chart-svg)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />}
       {points.map((point, index) => (
-        <g key={point.id}>
+        <g key={point.id} data-slide-animation-item>
           <circle cx={point.x} cy={point.y} r="6" fill="white" stroke="var(--chart-svg)" strokeWidth="4" />
           <text x={point.x} y={Math.max(12, point.y - 12)} textAnchor="middle" className="fill-slate-700 text-[12px]">
             {formatValue(point.value)}
@@ -147,7 +147,7 @@ function DonutChart({ data, gradientId }: { data: ChartBlockData; gradientId: st
       </svg>
       <div className="min-w-0 space-y-3">
         {data.fields.map((field, index) => (
-          <div key={field.id} className="flex items-center gap-3 text-sm">
+          <div key={field.id} data-slide-animation-item className="flex items-center gap-3 text-sm">
             <span
               aria-hidden="true"
               className="size-3 shrink-0 rounded-sm"
@@ -182,7 +182,7 @@ function StackedChart({ data }: { data: ChartBlockData }) {
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {data.fields.map((field, index) => (
-          <div key={field.id} className="flex min-w-0 items-center gap-2 text-sm">
+          <div key={field.id} data-slide-animation-item className="flex min-w-0 items-center gap-2 text-sm">
             <span
               aria-hidden="true"
               className="size-3 shrink-0 rounded-sm"

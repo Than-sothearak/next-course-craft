@@ -52,7 +52,7 @@ describe("presentation media playback", () => {
   });
 
   it("hides the audio file name without interrupting playback or changing its accessible name and completion", async () => {
-    const end = vi.fn(), shown = audioBlockSchema.parse({ ...audio, slidePlayback: { autoPlay: false, showControls: true } });
+    const end = vi.fn(), shown = audioBlockSchema.parse({ ...audio, slidePlayback: { autoPlay: false, showControls: true, showFileName: true } });
     await render(shown, true, end); expect(container.textContent).toContain("Narration");
     const player = media(); await act(async () => player.play()); player.currentTime = 3;
     const hidden = audioBlockSchema.parse({ ...shown, slidePlayback: { ...shown.slidePlayback, showFileName: false } });
@@ -61,6 +61,25 @@ describe("presentation media playback", () => {
     await act(async () => player.dispatchEvent(new Event("ended"))); expect(end).toHaveBeenCalledOnce();
     await render(shown, true, end); expect(container.textContent).toContain("Narration");
     expect(parseScorm12Snapshot({ ...snapshot, lessons: [{ ...snapshot.lessons[0], blocks: [hidden] }] }).lessons[0].blocks[0]).toMatchObject({ slidePlayback: { showFileName: false }, data: { fileName: "Narration" } });
+  });
+
+  it("changes audio height without replacing, restarting or pausing playback and retains the size in exports", async () => {
+    const shown = audioBlockSchema.parse({ ...audio, slidePlayback: { autoPlay: false, showControls: true } });
+    await render(shown); const player = media(); await act(async () => player.play()); player.currentTime = 7;
+    for (const [audioSize, height] of [["small", 32], ["large", 68], ["medium", 54]] as const) {
+      const resized = audioBlockSchema.parse({ ...shown, slidePlayback: { ...shown.slidePlayback, audioSize } });
+      await render(resized);
+      expect(media()).toBe(player); expect(player.style.height).toBe(`${height}px`); expect(player.currentTime).toBe(7); expect(player.paused).toBe(false); expect(pause).not.toHaveBeenCalled();
+      expect(parseScorm12Snapshot({ ...snapshot, lessons: [{ ...snapshot.lessons[0], blocks: [resized] }] }).lessons[0].blocks[0]).toMatchObject({ slidePlayback: { audioSize } });
+    }
+    expect(play).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses the compact Small player when no audio size has been saved", async () => {
+    await render({ ...audio, slidePlayback: undefined });
+    expect(media().style.height).toBe("32px"); expect(media().controls).toBe(true);
+    expect(container.querySelector('[data-slide-audio-size="small"]')).not.toBeNull();
+    expect(container.querySelector('[data-slide-audio-title]')).toBeNull();
   });
 
   it("keeps cropped video controls within the viewport and retains seeking, captions and completion", async () => {
