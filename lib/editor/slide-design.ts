@@ -47,13 +47,14 @@ export const slideFrameSchema = z.object({
   width: z.number().min(5).max(100),
   height: z.number().min(5).max(100),
   z: z.number().int().min(0).max(500),
+  rotation: z.number().min(0).max(360).optional(),
 }).refine((frame) => frame.x + frame.width <= 100 && frame.y + frame.height <= 100, "Slide objects must stay on the canvas.");
 export type SlideFrame = z.infer<typeof slideFrameSchema>;
 // Compact audio remains small even on tall, custom presentation canvases.
 export const minimumSlideAudioHeight = .5;
-export const slideAudioFrameSchema = slideFrameSchema.safeExtend({ height: z.number().min(minimumSlideAudioHeight).max(100) });
+export const slideAudioFrameSchema = slideFrameSchema.safeExtend({ height: z.number().min(minimumSlideAudioHeight).max(100), y: z.number().min(0).max(100 - minimumSlideAudioHeight) });
 export const slideBorderRadiusSchema = z.number().min(0).max(100);
-export const defaultSlideBorderRadius = 12;
+export const defaultSlideBorderRadius = 0;
 
 export const slideSizeSchema = z.object({
   width: z.number().int().min(480).max(3840),
@@ -93,6 +94,7 @@ export const slidePlaybackSchema = z.object({
   showControls: z.boolean().default(true),
   showFileName: z.boolean().optional(),
   audioSize: z.enum(["small", "medium", "large"]).optional(),
+  fitHeight: z.boolean().optional(),
 });
 
 export const defaultSlideTextPaddingX = 0;
@@ -128,12 +130,20 @@ export function fitSlideFrame(frame: SlideFrame, update: Partial<SlideFrame>, mi
   let width = Math.max(5, Math.min(100, update.width ?? frame.width));
   let height = Math.max(minimumHeight, Math.min(100, update.height ?? frame.height));
   let x = Math.max(0, Math.min(95, update.x ?? frame.x));
-  let y = Math.max(0, Math.min(95, update.y ?? frame.y));
+  let y = Math.max(0, Math.min(100 - minimumHeight, update.y ?? frame.y));
   if (update.width !== undefined && update.x === undefined) width = Math.min(width, 100 - x);
   else x = Math.min(x, 100 - width);
   if (update.height !== undefined && update.y === undefined) height = Math.min(height, 100 - y);
   else y = Math.min(y, 100 - height);
-  return { x, y, width, height, z: Math.max(0, Math.min(500, Math.round(update.z ?? frame.z))) };
+  return { ...frame, x, y, width, height, z: Math.max(0, Math.min(500, Math.round(update.z ?? frame.z))), ...(update.rotation !== undefined ? { rotation: update.rotation } : {}) };
+}
+
+/** Individual rotation composes with entrance animations that use transform. */
+export function slideFrameStyle(frame: SlideFrame): CSSProperties {
+  return {
+    left: `${frame.x}%`, top: `${frame.y}%`, width: `${frame.width}%`, height: `${frame.height}%`,
+    zIndex: frame.z + 1, rotate: frame.rotation ? `${frame.rotation}deg` : undefined,
+  };
 }
 
 /** Fit a text object's frame to measured content in its current coordinate system. */

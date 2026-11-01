@@ -14,7 +14,7 @@ describe("presentation slide dimensions", () => {
     expect(master.size).toBeUndefined();
     expect(resolveSlideSize()).toEqual(defaultSlideSize);
     expect(resolveSlideSize(master)).toEqual({ width: 960, height: 540 });
-    expect(resolveSlideObjectArea(master)).toEqual({ width: 960, height: 368 });
+    expect(resolveSlideObjectArea(master)).toEqual({ width: 960, height: 384 });
   });
 
   it("validates and stores presets, portrait, and custom dimensions", () => {
@@ -23,7 +23,7 @@ describe("presentation slide dimensions", () => {
       const document = new Course({ ownerId: "123456789012345678901234", title: "Slides", slideMaster: master });
       expect(document.validateSync()).toBeUndefined();
       expect(slideMasterSchema.parse(document.toObject().slideMaster).size).toEqual(size);
-      expect(resolveSlideObjectArea(master)).toEqual({ width: size.width, height: size.height - 172 });
+      expect(resolveSlideObjectArea(master)).toEqual({ width: size.width, height: size.height - 108 - 48 });
     }
   });
 

@@ -6,6 +6,7 @@ import { blockSchema, blockTypes } from "@/lib/schemas/block";
 import { resolveSlideBackground } from "@/lib/editor/slide-design";
 import { editorSnapshotSchema } from "@/lib/editor/schemas";
 import { parseScorm12Snapshot } from "@/lib/scorm12/snapshot";
+import { slideObjectShadows } from "@/lib/editor/slide-object-appearance";
 
 const blocks = [
   ...new Map(blockTemplates.flatMap((template) => createBlocksFromTemplate(template, template.id)).map((block) => [block.type, block])).values(),
@@ -16,9 +17,9 @@ const background = { color: "#2563eb", opacity: 40 };
 const text = blockSchema.parse({ id: "text", version: 1, type: "richText", backgroundColor: "#fff7ed", data: { html: "<p>Example</p>" } });
 
 describe("presentation object backgrounds", () => {
-  it("provides rounded defaults and supports square or custom corners for every block type", () => {
+  it("defaults to square corners and supports custom corners for every block type", () => {
     for (const block of blocks) {
-      expect(slideObjectSurfaceStyle(block).borderRadius).toBe("12px");
+      expect(slideObjectSurfaceStyle(block).borderRadius).toBe("0px");
       for (const slideBorderRadius of [0, 11.23, 100]) {
         const parsed = blockSchema.parse({ ...block, slideBorderRadius });
         expect(parsed.slideBorderRadius).toBe(slideBorderRadius);
@@ -35,6 +36,33 @@ describe("presentation object backgrounds", () => {
     for (const block of blocks) {
       expect(blockSchema.parse({ ...block, slideBackground: background }).slideBackground).toEqual(background);
     }
+  });
+
+  it("provides border and shadow settings on every block with zero-width square defaults", () => {
+    const border = { width: 3.5, style: "dashed" as const, color: "#2563eb", opacity: 60 };
+    for (const block of blocks) {
+      expect(slideObjectSurfaceStyle(block)).toMatchObject({ borderWidth: "0px", borderRadius: "0px", boxShadow: "none" });
+      const parsed = blockSchema.parse({ ...block, slideBorder: border, slideShadow: "medium", slideBorderRadius: 12.25 });
+      expect(parsed.slideBorder).toEqual(border);
+      expect(slideObjectSurfaceStyle(parsed)).toMatchObject({ borderWidth: "3.5px", borderStyle: "dashed", borderColor: "rgba(37, 99, 235, 0.6)", borderRadius: "12.25px", boxShadow: slideObjectShadows.medium });
+    }
+  });
+
+  it.each([
+    { width: -1 }, { width: 25 }, { width: NaN }, { width: "3" }, { style: "hidden" },
+    { color: "red" }, { color: "url(https://example.com)" }, { opacity: -1 }, { opacity: 101 }, { opacity: 1.5 },
+  ])("rejects invalid border settings: %j", (slideBorder) => {
+    expect(blockSchema.safeParse({ ...text, slideBorder }).success).toBe(false);
+  });
+
+  it("retains borders, corners and shadows in snapshots for the standalone learner", () => {
+    const configured = { ...text, slideBorder: { width: 2, color: "#123456", style: "double", opacity: 80 }, slideBorderRadius: 8, slideShadow: "large" };
+    const snapshot = editorSnapshotSchema.parse({ title: "Presentation", description: "", courseLayout: "slides", revision: 1,
+      sections: [{ id: "section", title: "Slides", order: 0 }],
+      lessons: [{ id: "slide", sectionId: "section", title: "Slide", order: 0, blocks: [configured] }],
+    });
+    expect(parseScorm12Snapshot(snapshot).lessons[0].blocks[0]).toMatchObject(configured);
+    expect(blockSchema.safeParse({ ...text, slideShadow: "invalid" }).success).toBe(false);
   });
 
   it.each([

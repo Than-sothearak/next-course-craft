@@ -3,7 +3,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import type { ContentBlock } from "@/lib/schemas/block";
 import type { QuizQuestion } from "@/lib/schemas/quiz";
-import { resolveCanvasSlideFrame, resolveSlideSize, slideNavigationLabel, type SlideCover, type SlideMaster, type SlideHeaderStyle } from "@/lib/editor/slide-design";
+import { resolveCanvasSlideFrame, resolveSlideSize, slideFrameStyle, slideNavigationLabel, type SlideCover, type SlideMaster, type SlideHeaderStyle } from "@/lib/editor/slide-design";
 import { isSlideMediaObject, resolveSlideMedia } from "@/lib/editor/slide-objects";
 import { PreviewBlock } from "../../preview/_components/(course_preview_components)/(lesson_reader_preview_components)/(lesson_blocks_preview_components)/preview-block";
 import { QuizAssessmentPreview } from "../../preview/_components/(course_preview_components)/(lesson_reader_preview_components)/quiz-assessment-preview";
@@ -45,7 +45,7 @@ export function SlideThumbnail({ slide, index, total = 1, master, courseTitle }:
   const blockObjects = (<div className="relative h-full w-full">
               {slide.blocks.map((block, blockIndex) => {
                 const frame = resolveCanvasSlideFrame(block, blockIndex, slide.blocks.length, master, Boolean(slide.slideCover));
-                return <div key={block.id} data-slide-object-frame data-slide-thumbnail-object-id={block.id} className="absolute overflow-hidden rounded-md" style={{ left: `${frame.x}%`, top: `${frame.y}%`, width: `${frame.width}%`, height: `${frame.height}%`, zIndex: frame.z + 1, ...slideObjectSurfaceStyle(block, master?.backgroundColor, master?.textColor) }}>
+                return <div key={block.id} data-slide-object-frame data-slide-thumbnail-object-id={block.id} className="absolute overflow-hidden rounded-md" style={{ ...slideFrameStyle(frame), ...slideObjectSurfaceStyle(block, master?.backgroundColor, master?.textColor) }}>
                   <SlideObjectContent media={isSlideMediaObject(block)}><ThumbnailBlock block={{ ...block, id: `thumbnail-${slide.id}-${block.id}` }} /></SlideObjectContent>
                 </div>;
               })}

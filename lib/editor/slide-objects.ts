@@ -18,7 +18,7 @@ export function resolveSlideDisplayMedia(block: ContentBlock): SlideMedia | unde
 export function resizeSlideObjectFrame(block: ContentBlock, frame: SlideFrame, update: Partial<SlideFrame>, area: SlideSize = slideObjectArea): SlideFrame {
   if (!isSlideMediaObject(block) || (update.width === undefined && update.height === undefined)) return fitSlideFrame(frame, update, block.type === "audio" ? minimumSlideAudioHeight : undefined);
   const media = resolveSlideDisplayMedia(block) ?? { width: frame.width * area.width, height: frame.height * area.height };
-  return fitSlideMediaFrame(fitSlideFrame(frame, { x: update.x, y: update.y, z: update.z }), media, update, area);
+  return fitSlideMediaFrame(fitSlideFrame(frame, { x: update.x, y: update.y, z: update.z, rotation: update.rotation }), media, update, area);
 }
 
 /** Use screen pixels so the footer snap feels the same at every canvas zoom. */

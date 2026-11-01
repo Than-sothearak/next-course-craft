@@ -61,7 +61,7 @@ export const SlideStage = forwardRef<HTMLDivElement, SlideStageProps>(function S
           {...canvasProps}
           ref={canvasRef}
           data-slide-canvas=""
-          style={{ ...canvasProps?.style, width: canvasWidth, height: canvasHeight, transform: `scale(${(fittedWidth ?? canvasWidth) / canvasWidth})`, transformOrigin: "top left" }}
+          style={{ ...canvasProps?.style, width: canvasWidth, height: canvasHeight, transform: `scale(${(fittedWidth ?? canvasWidth) / canvasWidth})`, transformOrigin: "top left", "--slide-canvas-scale": (fittedWidth ?? canvasWidth) / canvasWidth } as CSSProperties}
           className={cn("absolute left-0 top-0 overflow-y-auto overscroll-contain rounded-sm bg-white text-slate-900", canvasClassName)}
         >
           {children}

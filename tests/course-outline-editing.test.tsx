@@ -257,7 +257,7 @@ describe("course outline editing", () => {
 
   it.each(["video", "audio"] as const)("saves and restores presentation playback settings for %s", async (type) => {
     const mediaFrame = { x: 11, y: 8, width: 78, height: 24, z: 0 };
-    const slideData = { courseId: "slides", ...editorSnapshotSchema.parse({ title: "Presentation", description: "", revision: 1, courseLayout: "slides", slideMaster: { objectLayout: "canvas" },
+    const slideData = { courseId: "slides", ...editorSnapshotSchema.parse({ title: "Presentation", description: "", revision: 1, courseLayout: "slides", slideMaster: { objectLayout: "canvas", footer: { height: 64 } },
       sections: [{ id: "section", title: "Slides", order: 0 }],
       lessons: [{ id: "first", sectionId: "section", title: "Media", order: 0, blocks: [{ id: "media", version: 1, type, slideFrame: mediaFrame, data: { src: "/api/assets/123456789012345678901234/file", mimeType: type === "video" ? "video/webm" : "audio/webm", fileName: "Narration" } }] }],
     }) };

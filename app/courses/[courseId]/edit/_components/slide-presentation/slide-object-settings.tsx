@@ -1,9 +1,9 @@
 "use client";
 
 import type { Editor } from "@tiptap/react";
-import { AlignLeft, AlignVerticalJustifyEnd, ArrowDown, ArrowUp, Copy, Crop, Image as ImageIcon, Layers, ListChecks, Maximize, Paintbrush, SlidersHorizontal, Sparkles, Trash2, Type, Video } from "lucide-react";
+import { AlignLeft, ArrowDown, ArrowUp, Copy, Crop, Image as ImageIcon, Layers, ListChecks, Maximize, Paintbrush, SlidersHorizontal, Sparkles, Trash2, Type, Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { fitSlideFrame as fitFrame, resolveSlideFrame, resolveSlideTextLayout, type SlideSize } from "@/lib/editor/slide-design";
+import { resolveSlideTextLayout, type SlideSize } from "@/lib/editor/slide-design";
 import { isSlideMediaObject } from "@/lib/editor/slide-objects";
 import { isSlideVideoFile } from "@/lib/editor/slide-crop";
 import { getSlideLayers } from "@/lib/editor/slide-layers";
@@ -20,6 +20,8 @@ import { SlideObjectSizeControls } from "./slide-object-size-controls";
 import { SlideMediaSizeControls } from "./slide-media-size-controls";
 import { SlideAudioSizeControls } from "./slide-audio-size-controls";
 import { SlideObjectBackgroundControls } from "./slide-object-background-controls";
+import { SlideObjectBorderControls } from "./slide-object-border-controls";
+import { SlideObjectAlignmentControls } from "./slide-object-alignment-controls";
 import { SlidePlaybackControls } from "./slide-playback-controls";
 import { SlideTextLayoutControls } from "./slide-text-layout-controls";
 import { SlideProgressControls } from "./slide-progress-controls";
@@ -33,6 +35,7 @@ type Props = {
   lessons: { id: string; title: string; sectionId: string; order: number; lessonType?: "content" | "quiz" }[];
   area: SlideSize;
   footerTop?: number;
+  headerBottom?: number;
   activeTextEditor: Editor | null;
   onBlockChange: (block: ContentBlock) => void;
   onReorderLayer: (activeId: string, overId: string) => void;
@@ -42,7 +45,7 @@ type Props = {
   onReplaceTemplate?: (block: ContentBlock) => void;
 };
 
-export function SlideObjectSettings({ selected, blocks, courseId, sections, lessons, area, footerTop, activeTextEditor, onBlockChange, onReorderLayer, onApplyBorderRadiusToAll, onDuplicate, onDelete, onReplaceTemplate }: Props) {
+export function SlideObjectSettings({ selected, blocks, courseId, sections, lessons, area, footerTop, headerBottom, activeTextEditor, onBlockChange, onReorderLayer, onApplyBorderRadiusToAll, onDuplicate, onDelete, onReplaceTemplate }: Props) {
   const layers = getSlideLayers(blocks);
   const selectedLayerIndex = layers.findIndex((block) => block.id === selected.id);
   const SelectedIcon = objectIcons[selected.type] ?? Layers;
@@ -60,7 +63,7 @@ export function SlideObjectSettings({ selected, blocks, courseId, sections, less
             <SlideObjectSizeControls block={selected} index={blocks.indexOf(selected)} total={blocks.length} area={area} onChange={onBlockChange} />
             <div className="flex gap-2"><Button type="button" variant="outline" size="sm" disabled={selectedLayerIndex === layers.length - 1} onClick={() => onReorderLayer(selected.id, layers[selectedLayerIndex + 1].id)}><ArrowDown size={14} />Back</Button><Button type="button" variant="outline" size="sm" disabled={selectedLayerIndex === 0} onClick={() => onReorderLayer(selected.id, layers[selectedLayerIndex - 1].id)}><ArrowUp size={14} />Front</Button></div>
             <SlideMediaSizeControls block={selected} index={blocks.indexOf(selected)} total={blocks.length} area={area} onChange={onBlockChange} />
-            {footerTop !== undefined && <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => { const frame = resolveSlideFrame(selected, blocks.indexOf(selected), blocks.length, area); onBlockChange({ ...selected, slideFrame: fitFrame(frame, { y: Math.max(0, footerTop - frame.height) }) }); }}><AlignVerticalJustifyEnd size={14} aria-hidden="true" />Align to footer</Button>}
+            <SlideObjectAlignmentControls block={selected} index={blocks.indexOf(selected)} total={blocks.length} area={area} headerBottom={headerBottom} footerTop={footerTop} onChange={onBlockChange} />
             </SlideInspectorSection>
             {(["image", "video", "audio", "gallery", "attachment", "labeledGraphic"] as string[]).includes(selected.type) && <SlideInspectorSection title="Media source" icon={ImageIcon}>
               <SlideMediaPicker key={`media-${selected.id}`} block={selected} courseId={courseId} onChange={onBlockChange} />
@@ -71,7 +74,8 @@ export function SlideObjectSettings({ selected, blocks, courseId, sections, less
             {(selected.type === "video" || selected.type === "audio") && <SlideInspectorSection title="Playback" icon={Video}><SlidePlaybackControls block={selected} onChange={onBlockChange} /></SlideInspectorSection>}
             {isSlideTextBlock(selected) && <SlideInspectorSection title="Text box layout" icon={AlignLeft}><SlideTextLayoutControls block={selected} onChange={onBlockChange} /></SlideInspectorSection>}
             <SlideInspectorSection title="Appearance" icon={Paintbrush}>
-            <SlideObjectBackgroundControls block={selected} onChange={onBlockChange} onApplyBorderRadiusToAll={onApplyBorderRadiusToAll} />
+            <SlideObjectBackgroundControls block={selected} onChange={onBlockChange} />
+            <SlideObjectBorderControls block={selected} onChange={onBlockChange} onApplyBorderRadiusToAll={onApplyBorderRadiusToAll} />
             </SlideInspectorSection>
             <SlideInspectorSection title="Navigation & progress" icon={ListChecks}>
               <SlideProgressControls block={selected} onChange={onBlockChange} />

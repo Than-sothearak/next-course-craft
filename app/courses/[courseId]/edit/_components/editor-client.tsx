@@ -31,14 +31,11 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUp,
-  Check,
   ChevronDown,
-  CircleAlert,
   Copy,
   Eye,
   EyeOff,
   FilePlus2,
-  LoaderCircle,
   List,
   Plus,
   Redo2,
@@ -95,8 +92,10 @@ import { blockTemplates } from "./(editor_client_components)/(block_template_pic
 import { migrateCoverAudio } from "@/lib/editor/audio-instruction";
 import { defaultCanvasSlideFrame, defaultSlideCover, defaultSlideMaster, normalizeSlideLessonFrames, resolveSlideSize, resolveSlideTextLayout } from "@/lib/editor/slide-design";
 import { reorderSlideLayers } from "@/lib/editor/slide-layers";
+import { pasteSlideObject } from "@/lib/editor/slide-clipboard";
 
 import { useEditorDraft, type Draft } from "./_components/use-editor-draft";
+import { EditorSaveStatus } from "./_components/editor-save-status";
 
 type InitialData = { courseId: string } & EditorSnapshotInput;
 type TemplatePickerState =
@@ -185,6 +184,7 @@ export function EditorClient({
   );
   const [blockManagerOpen, setBlockManagerOpen] = useState(false);
   const [slideZoom, setSlideZoom] = useState<number | undefined>(undefined);
+  const [slideSnapEnabled, setSlideSnapEnabled] = useState(true);
   const [titleValid, setTitleValid] = useState(true);
   const titleValidRef = useRef(true);
   const { draft, draftRef, pendingRouteRef, canUndo, canRedo, saveState, saveMessage, hasUnsavedChanges, updateDraft, openRouteAfterSave, undo, redo, saveLatest, clearSaveError } = useEditorDraft({ initialDraft, initialRevision: initialData.revision, courseId: initialData.courseId, titleValid, titleValidRef, onNavigate: router.push });
@@ -686,6 +686,16 @@ export function EditorClient({
     });
   }
 
+  function pastePresentationObject(source: ContentBlock): string {
+    const lesson = draftRef.current.lessons.find((item) => item.id === activeLessonId);
+    if (!slideCourse || !lesson || lesson.lessonType === "quiz") throw new Error("Choose a content slide before pasting an object.");
+    if (lesson.slideCover && source.type !== "audioInstruction") throw new Error("A cover slide can contain only audio instruction objects.");
+    if (lesson.blocks.length >= 500) throw new Error("A slide can contain up to 500 objects.");
+    const copy = pasteSlideObject(source, lesson.blocks, newId);
+    updateDraft((current) => ({ ...current, lessons: current.lessons.map((item) => item.id === lesson.id ? { ...item, blocks: [...item.blocks, copy] } : item) }));
+    return copy.id;
+  }
+
   function deleteBlock(blockId: string) {
     if (!activeLesson) return;
     updateLesson(activeLesson.id, (lesson) => ({
@@ -718,26 +728,8 @@ export function EditorClient({
     );
   }
 
-  const stateIcon =
-    saveState === "saving" ? (
-      <LoaderCircle size={15} className="animate-spin" />
-    ) : saveState === "error" || saveState === "conflict" ? (
-      <CircleAlert size={15} />
-    ) : (
-      <Check size={15} />
-    );
   const isCourseOverview = !focusedLessonId && !activeLesson;
-  const stateLabel = !titleValid
-    ? isCourseOverview
-      ? "Check course title"
-      : "Check lesson title"
-    : saveState === "saving"
-      ? "Saving changes"
-      : saveState === "error"
-        ? "Save failed"
-        : saveState === "conflict"
-          ? "Conflict"
-          : "All changes saved";
+  const saveStatus = <EditorSaveStatus saveState={saveState} hasUnsavedChanges={hasUnsavedChanges} saveMessage={saveMessage} validationMessage={!titleValid ? isCourseOverview ? "Check course title" : "Check lesson title" : undefined} />;
   const isQuizLesson = activeLesson?.lessonType === "quiz";
   const isDraftSaved =
     saveState === "saved" && titleValid && !hasUnsavedChanges;
@@ -792,6 +784,7 @@ export function EditorClient({
           }
           primaryAction={
             <div className="flex items-center gap-2">
+              {saveStatus}
               {slideCourse && <>
                 <Button type="button" variant="ghost" size="icon" aria-label="Undo" disabled={!canUndo} onClick={undo}><Undo2 size={16} /></Button>
                 <Button type="button" variant="ghost" size="icon" aria-label="Redo" disabled={!canRedo} onClick={redo}><Redo2 size={16} /></Button>
@@ -880,6 +873,7 @@ export function EditorClient({
               </div>
             </div>
             <div aria-label={slideCourse ? "Presentation editor actions" : undefined} className={slideCourse ? "flex max-w-full shrink-0 items-center gap-1" : "flex max-w-full flex-wrap items-center gap-1 sm:gap-2"}>
+              {saveStatus}
               {activeLesson && activeLesson.lessonType !== "quiz" && (
                 <Button
                   type="button"
@@ -975,17 +969,6 @@ export function EditorClient({
             </div>
           )}
         </header>
-      )}
-      {isCourseOverview && (
-        <div
-          role="status"
-          aria-live="polite"
-          title={stateLabel}
-          className={`fixed right-5 top-[76px] z-30 flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-xs shadow-sm ${saveState === "error" || saveState === "conflict" || !titleValid ? "text-rose-700" : "text-slate-500"}`}
-        >
-          {stateIcon}
-          <span className="sr-only">{stateLabel}</span>
-        </div>
       )}
       {isCourseOverview &&
         (saveState === "error" || saveState === "conflict") && (
@@ -1186,6 +1169,8 @@ export function EditorClient({
                     courseId={initialData.courseId}
                     zoom={slideZoom}
                     onZoomChange={setSlideZoom}
+                    snapEnabled={slideSnapEnabled}
+                    onSnapEnabledChange={setSlideSnapEnabled}
                     onTitleChange={(title) => updateLesson(activeLesson.id, (lesson) => ({ ...lesson, title, titleHtml: undefined }))}
                     onMasterChange={(slideMaster) => updateDraft((current) => ({ ...current, slideMaster }))}
                     onCoverChange={(slideCover) => updateLesson(activeLesson.id, (lesson) => ({ ...lesson, slideCover }))}
@@ -1199,6 +1184,7 @@ export function EditorClient({
                     onMoreTemplates={() => openAddTemplatePicker(activeLesson.blocks.length)}
                     onReplaceTemplate={openReplaceTemplatePicker}
                     onDuplicate={duplicateBlock}
+                    onPasteObject={pastePresentationObject}
                     onDelete={deleteBlock}
                   />
                 ) : activeLesson.lessonType === "quiz" && slideCourse ? (

@@ -21,7 +21,7 @@ export function SlideAudioSizeControls({ block, index, total, area, onChange }: 
       {(Object.keys(slideAudioSizes) as SlideAudioSize[]).map((value) => {
         const { label, width } = slideAudioSizes[value];
         const selected = size === value && Math.abs(frame.width - width) < .01;
-        return <Button key={value} type="button" size="sm" variant={selected ? "default" : "outline"} aria-label={`${label} audio size`} aria-pressed={selected} onClick={() => onChange({ ...block, slidePlayback: { autoPlay: false, showControls: true, ...block.slidePlayback, audioSize: value }, slideFrame: fitSlideFrame(frame, { width, x: Math.min(frame.x, 100 - width) }, minimumSlideAudioHeight) })}>{label}</Button>;
+        return <Button key={value} type="button" size="sm" variant={selected ? "default" : "outline"} aria-label={`${label} audio size`} aria-pressed={selected} onClick={() => onChange({ ...block, slidePlayback: { autoPlay: false, showControls: true, ...block.slidePlayback, audioSize: value, fitHeight: true }, slideFrame: fitSlideFrame(frame, { width, x: Math.min(frame.x, 100 - width) }, minimumSlideAudioHeight) })}>{label}</Button>;
       })}
     </div>
     <p className="text-[11px] leading-4 text-slate-500">Changes the player width and height. Use Width below for a custom width.</p>

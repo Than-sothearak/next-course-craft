@@ -67,6 +67,40 @@ describe("interaction button presentation authoring", () => {
     expect(container.querySelector('[data-slide-canvas] [aria-haspopup="dialog"] img')?.getAttribute("src")).toBe(assets[0].fileUrl);
   });
 
+  it("provides eight resize handles and saves rotation on a popup object when applying", async () => {
+    await start(); await clickText("Edit popup mini slide (1 objects)");
+    const editor = popup();
+    expect(editor.querySelectorAll("[data-slide-resize-handle]")).toHaveLength(8);
+    expect(editor.querySelector('[aria-label="Move richText object"]')).not.toBeNull();
+    expect(editor.querySelector('[aria-label="Rotate richText object"]')).not.toBeNull();
+    const field = editor.querySelector<HTMLInputElement>('[aria-label="Object rotation (degrees)"]')!;
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(field, "45");
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    expect(editor.querySelector<HTMLElement>("[data-slide-object-id]")?.style.rotate).toBe("45deg");
+    await clickText("Apply popup", editor);
+    const snapshot = await saved();
+    expect(snapshot.lessons[0].blocks[0]).toMatchObject({ data: { popup: { blocks: [{ slideFrame: { rotation: 45 } }] } } });
+    await clickLabel("Undo");
+    await clickText("Edit popup mini slide (1 objects)");
+    expect(popup().querySelector<HTMLElement>("[data-slide-object-id]")?.style.rotate).toBe("");
+    await clickText("Cancel", popup());
+  });
+
+  it("shares canvas alignment, snapping and borders with popup objects", async () => {
+    await start(); await clickText("Edit popup mini slide (1 objects)");
+    const editor = popup();
+    expect(editor.querySelector<HTMLInputElement>('[aria-label="Snap to guides"]')?.checked).toBe(true);
+    expect(editor.querySelector('[aria-label="Snap to guides"]')?.closest('[aria-label="Popup canvas toolbar"]')).not.toBeNull();
+    await act(async () => editor.querySelector<HTMLButtonElement>('[aria-label="Align object left"]')!.click());
+    const width = editor.querySelector<HTMLInputElement>('[aria-label="Object border width"]')!;
+    expect(width.value).toBe("0");
+    await act(async () => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(width, "3"); width.dispatchEvent(new Event("input", { bubbles: true })); });
+    await clickText("Apply popup", editor);
+    expect((await saved()).lessons[0].blocks[0]).toMatchObject({ data: { popup: { blocks: [{ slideFrame: { x: 0 }, slideBorder: { width: 3 } }] } } });
+  });
+
   it("saves fixed button size and alignment with undo and reload", async () => {
     await start(); await input("Interaction button size", "96.25");
     await clickLabel("Interaction button position bottom right");

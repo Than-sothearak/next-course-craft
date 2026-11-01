@@ -13,7 +13,7 @@ export function SlideMediaSizeControls({ block, index, total, area = slideObject
   const scale = media ? Number((frame.width * area.width / media.width).toFixed(2)) : 100;
   return (
     <div className="space-y-2 border-t pt-3" aria-label="Media proportions">
-      <p className="text-xs text-slate-500">Resize proportionally using the corner handle, width, height, or scale.</p>
+      <p className="text-xs text-slate-500">Resize proportionally using any resize handle, width, height, or scale.</p>
       {media && <label className="block text-xs text-slate-600">Scale %
         <SlideNumberSettingInput aria-label="Media scale" min={0.1} max={Number((Math.min(area.width / media.width, area.height / media.height) * 100).toFixed(2))} step={0.01} value={scale} onValueChange={(value) => {
           onChange({ ...block, slideFrame: fitSlideMediaFrame(frame, media, { width: media.width * value / area.width }, area) });

@@ -102,6 +102,7 @@ describe("presentation canvas zoom", () => {
 
   it.each([50, 150])("moves objects in slide coordinates at %s%% zoom", async (zoom) => {
     await render(); await chooseZoom(String(zoom));
+    await act(async () => container.querySelector<HTMLInputElement>('[aria-label="Snap to guides"]')!.click());
     await act(async () => button("Select heading object from layers").click());
     const objects = container.querySelector<HTMLElement>("[data-slide-objects]")!;
     vi.spyOn(objects, "getBoundingClientRect").mockReturnValue({ width: 960 * zoom / 100, height: 540 * zoom / 100 } as DOMRect);

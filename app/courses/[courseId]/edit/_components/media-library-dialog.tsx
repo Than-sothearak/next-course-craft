@@ -49,6 +49,7 @@ export function MediaLibraryDialog({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [assets, setAssets] = useState<MediaLibraryAsset[] | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
   const [deletingAssetId, setDeletingAssetId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const apiPath = `/api/courses/${courseId}/assets`;
@@ -90,69 +91,89 @@ export function MediaLibraryDialog({
   }, [apiPath, open]);
 
   async function uploadFile(file: File) {
-    setUploading(true);
-    setError(null);
+    const initResponse = await fetch(apiPath, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fileName: file.name,
+        contentType: kind === "attachment" ? "application/octet-stream" : kind === "audio" ? audioUploadContentType(file) : file.type,
+        ...(kind === "attachment" ? { purpose: "attachment" } : {}),
+        size: file.size,
+      }),
+    });
+    if (!initResponse.ok) throw new Error(await responseError(initResponse));
+    const upload = (await initResponse.json()) as {
+      assetId: string;
+      uploadUrl: string;
+      fields: Record<string, string>;
+      method?: "POST" | "PUT";
+      contentType: string;
+    };
+
+    const formData = new FormData();
+    for (const [name, value] of Object.entries(upload.fields))
+      formData.append(name, value);
+    formData.append("file", file);
+    let storageResponse: Response;
     try {
-      const initResponse = await fetch(apiPath, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          fileName: file.name,
-          contentType: kind === "attachment" ? "application/octet-stream" : kind === "audio" ? audioUploadContentType(file) : file.type,
-          ...(kind === "attachment" ? { purpose: "attachment" } : {}),
-          size: file.size,
-        }),
+      storageResponse = await fetch(upload.uploadUrl, {
+        method: upload.method ?? "POST",
+        headers: upload.method === "PUT" ? { "Content-Type": upload.contentType } : undefined,
+        body: upload.method === "PUT" ? file : formData,
       });
-      if (!initResponse.ok) throw new Error(await responseError(initResponse));
-      const upload = (await initResponse.json()) as {
-        assetId: string;
-        uploadUrl: string;
-        fields: Record<string, string>;
-        method?: "POST" | "PUT";
-        contentType: string;
-      };
+    } catch {
+      throw new Error(upload.method === "PUT" ? "The upload could not reach local storage. Please try again." : mediaStorageUploadError(window.location.origin));
+    }
+    if (!storageResponse.ok)
+      throw new Error(
+        upload.method === "PUT" ? await responseError(storageResponse) : mediaStorageUploadError(
+          window.location.origin,
+          storageResponse.status,
+        ),
+      );
 
-      const formData = new FormData();
-      for (const [name, value] of Object.entries(upload.fields))
-        formData.append(name, value);
-      formData.append("file", file);
-      let storageResponse: Response;
-      try {
-        storageResponse = await fetch(upload.uploadUrl, {
-          method: upload.method ?? "POST",
-          headers: upload.method === "PUT" ? { "Content-Type": upload.contentType } : undefined,
-          body: upload.method === "PUT" ? file : formData,
-        });
-      } catch {
-        throw new Error(upload.method === "PUT" ? "The upload could not reach local storage. Please try again." : mediaStorageUploadError(window.location.origin));
+    const completeResponse = await fetch(
+      `${apiPath}/${upload.assetId}/complete`,
+      { method: "POST" },
+    );
+    if (!completeResponse.ok)
+      throw new Error(await responseError(completeResponse));
+    const asset = (await completeResponse.json()) as MediaLibraryAsset;
+    setAssets((current) => [
+      asset,
+      ...(current ?? []).filter((existing) => existing.id !== asset.id),
+    ]);
+    return asset;
+  }
+
+  async function uploadFiles(files: File[]) {
+    if (files.length === 0) return;
+    setUploading(true);
+    setUploadProgress({ current: 1, total: files.length });
+    setError(null);
+    const failures: string[] = [];
+
+    try {
+      for (const [index, file] of files.entries()) {
+        setUploadProgress({ current: index + 1, total: files.length });
+        try {
+          await uploadFile(file);
+        } catch (uploadError: unknown) {
+          const message = uploadError instanceof Error
+            ? uploadError.message
+            : "The file could not be uploaded.";
+          failures.push(`${file.name}: ${message}`);
+        }
       }
-      if (!storageResponse.ok)
-        throw new Error(
-          upload.method === "PUT" ? await responseError(storageResponse) : mediaStorageUploadError(
-            window.location.origin,
-            storageResponse.status,
-          ),
-        );
-
-      const completeResponse = await fetch(
-        `${apiPath}/${upload.assetId}/complete`,
-        { method: "POST" },
-      );
-      if (!completeResponse.ok)
-        throw new Error(await responseError(completeResponse));
-      const asset = (await completeResponse.json()) as MediaLibraryAsset;
-      setAssets((current) => [
-        asset,
-        ...(current ?? []).filter((existing) => existing.id !== asset.id),
-      ]);
-    } catch (uploadError: unknown) {
-      setError(
-        uploadError instanceof Error
-          ? uploadError.message
-          : "The file could not be uploaded.",
-      );
     } finally {
       setUploading(false);
+      setUploadProgress(null);
+    }
+
+    if (failures.length > 0) {
+      const failureSummary = failures.slice(0, 3).join(" ");
+      const remainingCount = failures.length - 3;
+      setError(`${failures.length} of ${files.length} files could not be uploaded. ${failureSummary}${remainingCount > 0 ? ` And ${remainingCount} more.` : ""}`);
     }
   }
 
@@ -226,6 +247,7 @@ export function MediaLibraryDialog({
           <input
             ref={fileInputRef}
             type="file"
+            multiple
             accept={
               kind === "image"
                 ? "image/avif,image/gif,image/jpeg,image/png,image/webp"
@@ -237,9 +259,9 @@ export function MediaLibraryDialog({
             className="sr-only"
             aria-label={`Upload ${kindLabel}`}
             onChange={(event) => {
-              const file = event.currentTarget.files?.[0];
+              const files = Array.from(event.currentTarget.files ?? []);
               event.currentTarget.value = "";
-              if (file) void uploadFile(file);
+              void uploadFiles(files);
             }}
           />
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -252,6 +274,7 @@ export function MediaLibraryDialog({
               size="sm"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploading || deletingAssetId !== null}
+              aria-busy={uploading}
             >
               {uploading ? (
                 <LoaderCircle size={15} className="animate-spin" />
@@ -264,7 +287,13 @@ export function MediaLibraryDialog({
               ) : (
                 <Video size={15} />
               )}
-              {uploading ? "Uploading…" : kind === "attachment" ? "Upload file" : kind === "audio" ? "Upload audio" : "Upload media"}
+              {uploading
+                ? `Uploading ${uploadProgress?.current ?? 1} of ${uploadProgress?.total ?? 1}…`
+                : kind === "attachment"
+                  ? "Upload files"
+                  : kind === "audio"
+                    ? "Upload audio files"
+                    : "Upload media files"}
             </Button>
           </div>
           {error && (

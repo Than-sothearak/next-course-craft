@@ -42,7 +42,7 @@ describe("presentation inspector tabs", () => {
     const frame = { x: 11.23456, y: 8.76543, width: 65.4321, height: 24.56789, z: 0 };
     await act(async () => root.render(<EditorClient initialData={makeData([{ ...first, blocks: [{ ...heading, slideFrame: frame }] }])} authorName="Author" />));
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Select heading object from layers"]')!.click());
-    const inputs = [...panel("Object block").querySelectorAll<HTMLInputElement>('[aria-label="Object position and size"] input[role="spinbutton"]')];
+    const inputs = [...panel("Object block").querySelectorAll<HTMLInputElement>('[aria-label="Object position and size"] input[aria-label$="(px)"]')];
     expect(inputs.slice(0, 4).map((input) => input.value)).toEqual(["107.85", "47.33", "628.15", "132.67"]);
     expect(inputs.every((input) => input.inputMode === "decimal")).toBe(true);
     expect(inputs.every((input) => input.closest('[data-number-input]')?.querySelector('button[title="Increase by 1"]'))).toBe(true);
@@ -79,7 +79,7 @@ describe("presentation inspector tabs", () => {
     const frame = { x: 10, y: 10, width: 50, height: 50, z: 0 };
     await act(async () => root.render(<EditorClient initialData={makeData([{ ...first, blocks: [{ ...heading, slideFrame: frame }] }])} authorName="Author" />));
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Select heading object from layers"]')!.click());
-    const inputs = () => [...container.querySelectorAll<HTMLInputElement>('[aria-label="Object position and size"] input')];
+    const inputs = () => [...container.querySelectorAll<HTMLInputElement>('[aria-label="Object position and size"] input[aria-label$="(px)"]')];
     for (const zoom of ["50", "150"]) {
       const select = container.querySelector<HTMLSelectElement>('[aria-label="Canvas zoom"]')!;
       await act(async () => { select.value = zoom; select.dispatchEvent(new Event("change", { bubbles: true })); });
@@ -115,7 +115,7 @@ describe("presentation inspector tabs", () => {
   });
 
   it("applies square corners to every block across slides with one undoable bulk change", async () => {
-    const image = { id: "other", version: 1, type: "image", data: { src: "/diagram.png", alt: "Diagram" } };
+    const image = { id: "other", version: 1, type: "image", slideBorderRadius: 12, data: { src: "/diagram.png", alt: "Diagram" } };
     const data = makeData([first, { ...first, id: "second", order: 1, blocks: [image] }]);
     await act(async () => root.render(<EditorClient initialData={data} authorName="Author" />));
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Select heading object from layers"]')!.click());

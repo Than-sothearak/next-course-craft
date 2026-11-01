@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { Editor } from "@tiptap/react";
 import { Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,11 @@ import { BlockTemplatePicker } from "../(editor_client_components)/block-templat
 import { blockTemplates, type BlockTemplate } from "../(editor_client_components)/(block_template_picker_components)/block-template-data";
 import { createSlideBlocksFromTemplate } from "../(editor_client_components)/(block_template_picker_components)/create-blocks-from-template";
 import { MediaLibraryDialog, type MediaLibraryAsset } from "../media-library-dialog";
+import { pasteSlideObject } from "@/lib/editor/slide-clipboard";
+import { useSlideObjectClipboard } from "./use-slide-object-clipboard";
+import type { SlideSnapGuide } from "@/lib/editor/slide-alignment";
+import { SlideObjectSnapGuides } from "./slide-object-snap-guides";
+import { SlideSnapControls } from "./slide-snap-controls";
 
 type Popup = Extract<ContentBlock, { type: "interactionButton" }>["data"]["popup"];
 export type PopupTargets = { sections: { id: string; title: string; order: number }[]; lessons: { id: string; title: string; sectionId: string; order: number; lessonType?: "content" | "quiz" }[] };
@@ -31,9 +36,22 @@ export function InteractionPopupEditor({ popup, courseId, sections, lessons, onA
   const [picker, setPicker] = useState<{ template: BlockTemplate; replace?: ContentBlock } | null>(null);
   const [templates, setTemplates] = useState<{ replace?: ContentBlock } | null>(null);
   const [error, setError] = useState("");
+  const [snapEnabled, setSnapEnabled] = useState(true);
+  const [snapGuides, setSnapGuides] = useState<SlideSnapGuide[]>([]);
+  const clipboardRef = useRef<HTMLDivElement>(null);
   const selected = draft.blocks.find((item) => item.id === selectedId);
   const master = slideMasterSchema.parse({ backgroundColor: draft.backgroundColor, textColor: draft.textColor });
   const reorder = (activeId: string, overId: string) => setDraft((current) => ({ ...current, blocks: reorderSlideLayers(current.blocks, activeId, overId, current) }));
+  const clipboardNotice = useSlideObjectClipboard({ scopeRef: clipboardRef, courseId, blocks: draft.blocks, selectedId, area: draft, onSelect: (id) => { setSelectedId(id); setFocused(null); }, onPaste: (source) => {
+    if (draft.blocks.length >= 20) throw new Error("A popup can contain up to 20 objects.");
+    const copy = pasteSlideObject(source, draft.blocks, createClientId);
+    const next = { ...draft, blocks: [...draft.blocks, copy] };
+    const parsed = blockSchema.safeParse({ id: "popup-draft", version: 1, type: "interactionButton", data: { popup: next } });
+    if (!parsed.success) throw new Error(parsed.error.issues[0]?.message ?? "This object cannot be pasted into this popup.");
+    setDraft(next);
+    setError("");
+    return copy.id;
+  } });
   function change(next: ContentBlock) {
     const parsed = blockSchema.safeParse(next);
     if (!parsed.success) { setError(parsed.error.issues[0]?.message ?? "Check this object's settings."); return; }
@@ -73,12 +91,15 @@ export function InteractionPopupEditor({ popup, courseId, sections, lessons, onA
   }
   return <Dialog open onClose={onClose} title="Edit popup mini slide" className="max-w-7xl" footer={<><Button variant="outline" onClick={onClose}>Cancel</Button><Button onClick={apply}>Apply popup</Button></>}>
     <fieldset disabled={draft.blocks.length >= 20} className="mb-3 min-w-0"><SlideInsertToolbar onInsert={(id) => { const template = blockTemplates.find((item) => item.id === id); if (template) add(template); }} onCover={() => {}} onMore={() => setTemplates({})} /></fieldset>
-    <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
+    <div ref={clipboardRef} className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
       <div className="min-w-0 space-y-3">
+        <section className="overflow-hidden border border-slate-200 bg-slate-100">
+        <div data-slide-editor-toolbar role="group" aria-label="Popup canvas toolbar" className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-3 py-2 text-xs text-slate-600"><span className="font-medium">Popup canvas</span><SlideSnapControls enabled={snapEnabled} onChange={setSnapEnabled} compact /></div>
         <SlideStage size={draft} fillWidth className="h-[min(52dvh,460px)] w-full bg-slate-100" canvasProps={{ "data-popup-editor-canvas": true }}>
-          <div data-slide-objects className="relative h-full w-full" style={{ ...backgroundPaint(draft.backgroundColor), color: solidColor(draft.textColor) }}>{draft.blocks.map((item, index) => <SlideObject key={item.id} block={item} lessonBlocks={draft.blocks} index={index} total={draft.blocks.length} master={master} area={draft} selected={selectedId === item.id} onSelect={() => setSelectedId(item.id)} onFrame={(slideFrame) => change({ ...item, slideFrame })} onChange={change} onEditorFocus={(editor) => { setSelectedId(item.id); setFocused({ id: item.id, editor }); }} onFooterSnap={() => {}} />)}</div>
+          <div data-slide-objects className="relative h-full w-full" style={{ ...backgroundPaint(draft.backgroundColor), color: solidColor(draft.textColor) }}>{draft.blocks.map((item, index) => <SlideObject key={item.id} block={item} lessonBlocks={draft.blocks} index={index} total={draft.blocks.length} master={master} area={draft} snapEnabled={snapEnabled} selected={selectedId === item.id} onSelect={() => setSelectedId(item.id)} onFrame={(slideFrame) => change({ ...item, slideFrame })} onChange={change} onEditorFocus={(editor) => { setSelectedId(item.id); setFocused({ id: item.id, editor }); }} onSnapGuides={setSnapGuides} />)}{selected && <SlideObjectSnapGuides guides={snapGuides} />}</div>
         </SlideStage>
-        <p className="text-xs text-slate-500">Click text to edit. Use an object's move handle or corner to position and resize it.</p>
+        </section>
+        <p className="text-xs text-slate-500">Click text to edit. Use the move handle, eight resize points, or circular rotation handle. Hold Shift while rotating to snap to 15°.</p>
       </div>
       <aside aria-label="Popup object settings" className="max-h-[52dvh] min-w-0 space-y-3 overflow-y-auto">
         <SlideInspectorSections label="Popup object">
@@ -87,6 +108,7 @@ export function InteractionPopupEditor({ popup, courseId, sections, lessons, onA
         </SlideInspectorSections>
       </aside>
     </div>
+    {clipboardNotice && <p role={clipboardNotice.error ? "alert" : "status"} className={`mt-3 text-xs ${clipboardNotice.error ? "text-rose-700" : "text-slate-500"}`}>{clipboardNotice.message}</p>}
     {error && <p role="alert" className="mt-3 text-xs text-rose-700">{error}</p>}
     <MediaLibraryDialog courseId={courseId} kind={picker?.template.type === "video" ? "video" : picker?.template.type === "audio" ? "audio" : "image"} open={picker !== null} onClose={() => setPicker(null)} onSelect={(asset) => { if (picker) add(picker.template, asset, picker.replace); }} />
     <BlockTemplatePicker open={templates !== null} nativeDialog mode={templates?.replace ? "replace" : "add"} onClose={() => setTemplates(null)} onSelect={(template) => add(template)} />

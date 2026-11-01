@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import { backgroundPaint, parseGradient, representativeColor, solidColor } from "@/lib/color";
 import { defaultSlideMaster, defaultSlideBorderRadius, resolveSlideBackground } from "@/lib/editor/slide-design";
+import { slideObjectDecorationStyle } from "@/lib/editor/slide-object-appearance";
 import {
   defaultBlockPaddingForBlock,
   defaultBlockWidthForBlock,
@@ -62,7 +63,7 @@ export function slideObjectSurfaceStyle(
 ): CSSProperties {
   const { color, opacity } = resolveSlideBackground(block);
   const radius = `${block.slideBorderRadius ?? defaultSlideBorderRadius}px`;
-  const shape = { borderRadius: radius, "--slide-object-radius": radius, "--slide-text-paint": parseGradient(slideTextColor) ? slideTextColor : "none", "--slide-text-fill": parseGradient(slideTextColor) ? "transparent" : slideTextColor } as CSSProperties;
+  const shape = { ...slideObjectDecorationStyle(block), borderRadius: radius, "--slide-object-radius": radius, "--slide-text-paint": parseGradient(slideTextColor) ? slideTextColor : "none", "--slide-text-fill": parseGradient(slideTextColor) ? "transparent" : slideTextColor } as CSSProperties;
   if (opacity === 0) return { ...shape, backgroundColor: "transparent", color: solidColor(slideTextColor) };
   const representative = representativeColor(color);
   const canvas = representativeColor(slideColor);

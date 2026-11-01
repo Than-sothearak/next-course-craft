@@ -7,7 +7,7 @@ import {
 } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import type { ContentBlock } from "@/lib/schemas/block";
-import { resolveSlideFrame, slideObjectArea, type SlideSize } from "@/lib/editor/slide-design";
+import { resolveSlideFrame, slideFrameStyle, slideObjectArea, type SlideSize } from "@/lib/editor/slide-design";
 import { isSlideMediaObject } from "@/lib/editor/slide-objects";
 import { SlideObjectContent } from "../../../../_components/slide-presentation/slide-object-content";
 import { SlideAnimatedObjectFrame } from "../../../../_components/slide-presentation/slide-animated-object-frame";
@@ -148,7 +148,7 @@ export function LessonBlocksPreview({
   const place = (block: ContentBlock, index: number, content: ReactNode) => {
     if (!slideLayout) return content;
     const frame = resolveSlideFrame(block, index, blocks.length, slideArea);
-    return <SlideAnimatedObjectFrame key={block.id} animation={block.slideAnimation} authoring={authoring} data-slide-object-frame data-slide-object-id={block.id} className="pointer-events-auto absolute overflow-hidden rounded-md" style={{ left: `${frame.x}%`, top: `${frame.y}%`, width: `${frame.width}%`, height: `${frame.height}%`, zIndex: frame.z + 1, ...slideObjectSurfaceStyle(block, slideBackgroundColor, slideTextColor) }}><SlideObjectContent media={isSlideMediaObject(block)}>{content}</SlideObjectContent></SlideAnimatedObjectFrame>;
+    return <SlideAnimatedObjectFrame key={block.id} animation={block.slideAnimation} authoring={authoring} data-slide-object-frame data-slide-object-id={block.id} className="pointer-events-auto absolute overflow-hidden rounded-md" style={{ ...slideFrameStyle(frame), ...slideObjectSurfaceStyle(block, slideBackgroundColor, slideTextColor) }}><SlideObjectContent media={isSlideMediaObject(block)}>{content}</SlideObjectContent></SlideAnimatedObjectFrame>;
   };
 
   return (

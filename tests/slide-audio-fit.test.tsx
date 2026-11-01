@@ -37,7 +37,7 @@ describe("presentation audio object fitting", () => {
     const block = { ...initial(), slideFrame: { x: 90, y: 20, width: 10, height: 10, z: 2 } }, change = vi.fn();
     await act(async () => root.render(<SlideAudioSizeControls block={block} index={0} total={1} area={{ width: 960, height: 540 }} onChange={change} />));
     await act(async () => container.querySelector<HTMLButtonElement>(`[aria-label="${label} audio size"]`)!.click());
-    expect(change).toHaveBeenCalledExactlyOnceWith({ ...block, slidePlayback: { ...block.slidePlayback, audioSize: label.toLowerCase() }, slideFrame: { x: 100 - width, y: 20, width, height: 10, z: 2 } });
+    expect(change).toHaveBeenCalledExactlyOnceWith({ ...block, slidePlayback: { ...block.slidePlayback, audioSize: label.toLowerCase(), fitHeight: true }, slideFrame: { x: 100 - width, y: 20, width, height: 10, z: 2 } });
     expect(audioBlockSchema.safeParse(change.mock.lastCall![0]).success).toBe(true);
   });
 
@@ -60,6 +60,27 @@ describe("presentation audio object fitting", () => {
     expect(audioBlockSchema.safeParse({ ...block, slideFrame: fitted }).success).toBe(true);
   });
 
+  it("retains a manually resized height until an audio size preset restores automatic fitting", async () => {
+    const changes = vi.fn();
+    function Harness() {
+      const [block, setBlock] = useState<ContentBlock>(initial);
+      const change = (next: ContentBlock) => { changes(next); setBlock(next); };
+      return <><SlideAudioSizeControls block={block} index={0} total={1} area={{ width: 960, height: 540 }} onChange={change} /><div data-slide-objects><SlideObject block={block} index={0} total={1} area={{ width: 960, height: 540 }} selected onSelect={() => {}} onChange={change} onFrame={(slideFrame) => setBlock((current) => ({ ...current, slideFrame }))} onEditorFocus={() => {}} onFooterSnap={() => {}} /></div></>;
+    }
+    await act(async () => root.render(<Harness />));
+    vi.spyOn(container.querySelector<HTMLElement>("[data-slide-objects]")!, "getBoundingClientRect").mockReturnValue({ width: 960, height: 540 } as DOMRect);
+    const handle = container.querySelector('[data-slide-resize-handle="bottom"]')!;
+    const pointer = (type: string, y: number) => { const event = new MouseEvent(type, { bubbles: true, button: 0, clientY: y }); Object.defineProperty(event, "pointerId", { value: 1 }); return event; };
+    await act(async () => handle.dispatchEvent(pointer("pointerdown", 100)));
+    await act(async () => handle.dispatchEvent(pointer("pointermove", 154)));
+    await act(async () => handle.dispatchEvent(pointer("pointerup", 154)));
+    expect(changes.mock.lastCall![0].slidePlayback.fitHeight).toBe(false);
+    expect(Number.parseFloat(container.querySelector<HTMLElement>("[data-slide-object-frame]")!.style.height)).toBeCloseTo(32 / 540 * 100 + 10);
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Small audio size"]')!.click());
+    expect(changes.mock.lastCall![0].slidePlayback.fitHeight).toBe(true);
+    expect(Number.parseFloat(container.querySelector<HTMLElement>("[data-slide-object-frame]")!.style.height)).toBeCloseTo(32 / 540 * 100);
+  });
+
   it("fits a previously oversized object, preserves width and position, and follows the title and controls", async () => {
     const changes = vi.fn();
     function Harness() {
@@ -79,7 +100,9 @@ describe("presentation audio object fitting", () => {
     await act(async () => container.querySelector<HTMLInputElement>('[aria-label="Show audio file name"]')!.click());
     expect(changes.mock.lastCall![0].height).toBeCloseTo(36 / 540 * 100);
     expect(container.querySelector('[aria-label="Play audio"]')).not.toBeNull();
-    expect(container.querySelector('[aria-label="Move audio object"]')!.className).toContain("-top-6");
+    expect(container.querySelectorAll("[data-slide-resize-handle]")).toHaveLength(8);
+    expect(container.querySelector('[aria-label="Move audio object"]')).not.toBeNull();
+    expect(container.querySelector('[aria-label="Rotate audio object"]')).not.toBeNull();
     const count = changes.mock.calls.length;
     await act(async () => container.querySelector("audio")!.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, button: 0 })));
     expect(changes).toHaveBeenCalledTimes(count);

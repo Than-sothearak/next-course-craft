@@ -7,6 +7,7 @@ import { slideCropSchema } from "@/lib/editor/slide-crop";
 import { interactionButtonPositions, interactionIcons } from "@/lib/editor/interaction-button";
 import { slideImageSourceSchema } from "@/lib/editor/slide-design";
 import { slideAnimationSchema } from "@/lib/editor/slide-animation";
+import { slideBorderSchema, slideShadowSchema } from "@/lib/editor/slide-object-appearance";
 import { audioInstructionGuideSchema } from "@/lib/editor/audio-instruction-guide";
 import { balloonArcherDataSchema } from "./balloon-archer";
 import { peelSettingsSchema } from "./peel-to-reveal";
@@ -79,6 +80,8 @@ const base = {
   slideAnimation: slideAnimationSchema.optional(),
   slideBackground: slideBackgroundSchema.optional(),
   slideBorderRadius: slideBorderRadiusSchema.optional(),
+  slideBorder: slideBorderSchema.optional(),
+  slideShadow: slideShadowSchema.optional(),
   slideTextLayout: slideTextLayoutSchema.optional(),
   slideMedia: slideMediaSchema.optional(),
   slideCrop: slideCropSchema.optional(),
