@@ -8,6 +8,7 @@ import { createScorm12Manifest } from "../scorm12/manifest";
 import { createScorm2004Manifest } from "./manifest-2004";
 import { parseScorm12Snapshot } from "../scorm12/snapshot";
 import { createZipArchiveAsync, type ZipFile } from "../scorm12/zip";
+import { courseExportFilename } from "@/lib/export/filename";
 
 const assetUrlPattern = /\/api\/assets\/([\da-f]{24})\/file\b/gi;
 const MAX_MEDIA_BYTES = 200 * 1024 * 1024;
@@ -71,10 +72,6 @@ function htmlEscape(value: string) {
     '"': "&quot;",
     "'": "&#39;",
   })[character]!);
-}
-
-function safeFilename(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "course";
 }
 
 async function buildScormPackage({
@@ -227,7 +224,7 @@ async function buildScormPackage({
   signal?.throwIfAborted();
   report?.("Export ready", 90);
   return {
-    filename: `${safeFilename(course.title)}.zip`,
+    filename: courseExportFilename(course.title, version === "1.2" ? "scorm12" : "scorm2004"),
     archive,
   };
 }

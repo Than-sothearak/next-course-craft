@@ -14,6 +14,7 @@ import { resolveCourseAccess } from "@/lib/workspaces/access";
 import { getCourseAuthorName } from "@/lib/editor/services/course";
 import { progressExportResponse } from "@/lib/export/progress-stream";
 import { createEmbeddedMediaTable, replaceExportMediaReferences } from "@/lib/export/embedded-media";
+import { courseExportFilename } from "@/lib/export/filename";
 
 const paramsSchema = z.object({ courseId: z.string().regex(/^[\da-f]{24}$/i) });
 const dataUriPattern = /\/api\/assets\/([\da-f]{24})\/file/g;
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ co
       const safeJson = JSON.stringify(courseData).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
       const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="${course.description.replace(/[&<>"']/g, " ").slice(0, 300)}"><title>${course.title.replace(/[&<>"']/g, " ")}</title><style>${css}</style></head><body><div id="export-root"></div><script>window.COURSE_EXPORT_MEDIA=${mediaJson};window.COURSE_EXPORT_DATA=${safeJson}</script><script>${js}</script></body></html>`;
       report({ stage: "Export ready", value: 90 });
-      return { data: html, filename: `${course.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "course"}.html` };
+      return { data: html, filename: courseExportFilename(course.title, "html") };
     });
   } catch (error) {
     return dashboardErrorResponse(error);

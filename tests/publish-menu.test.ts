@@ -44,12 +44,13 @@ describe("publish format menu", () => {
   });
 
   it("receives streamed export progress and the final binary file", async () => {
-    const header = new TextEncoder().encode(`${JSON.stringify({ type: "progress", stage: "Packaging", value: 70 })}\n${JSON.stringify({ type: "file", filename: "course.zip", size: 3 })}\n`);
+    const filename = "My Presentation មេរៀន-scorm-1.2.zip";
+    const header = new TextEncoder().encode(`${JSON.stringify({ type: "progress", stage: "Packaging", value: 70 })}\n${JSON.stringify({ type: "file", filename, size: 3 })}\n`);
     const body = new Uint8Array(header.length + 3);
     body.set(header); body.set([80, 75, 3], header.length);
     const updates: Array<{ stage: string; value: number }> = [];
     const result = await receiveExport(new Response(body), (stage, value) => updates.push({ stage, value }));
-    expect(result.filename).toBe("course.zip");
+    expect(result.filename).toBe(filename);
     const fileBytes = await new Promise<ArrayBuffer>((resolve, reject) => {
       const fileReader = new FileReader();
       fileReader.onload = () => resolve(fileReader.result as ArrayBuffer);

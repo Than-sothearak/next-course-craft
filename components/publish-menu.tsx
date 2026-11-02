@@ -4,19 +4,16 @@ import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Download, LoaderCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { courseExportFilename, type CourseExportFormat } from "@/lib/export/filename";
 
-type PublishFormat = "html" | "pdf" | "scorm12" | "scorm2004";
+type PublishFormat = CourseExportFormat;
 
-const formats: Array<{ id: PublishFormat; label: string; endpoint: string; extension: string }> = [
-  { id: "html", label: "HTML", endpoint: "", extension: "html" },
-  { id: "pdf", label: "PDF handout", endpoint: "/pdf", extension: "pdf" },
-  { id: "scorm12", label: "SCORM 1.2", endpoint: "/scorm12", extension: "zip" },
-  { id: "scorm2004", label: "SCORM 2004", endpoint: "/scorm2004", extension: "zip" },
+const formats: Array<{ id: PublishFormat; label: string; endpoint: string }> = [
+  { id: "html", label: "HTML", endpoint: "" },
+  { id: "pdf", label: "PDF handout", endpoint: "/pdf" },
+  { id: "scorm12", label: "SCORM 1.2", endpoint: "/scorm12" },
+  { id: "scorm2004", label: "SCORM 2004", endpoint: "/scorm2004" },
 ];
-
-function safeFilename(title: string) {
-  return title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "course";
-}
 
 export async function receiveExport(response: Response, onProgress: (stage: string, value: number) => void) {
   if (!response.body) throw new Error("The export response was empty.");
@@ -26,7 +23,7 @@ export async function receiveExport(response: Response, onProgress: (stage: stri
   let receivedBytes = 0;
   let pending = new Uint8Array();
   let fileSize = 0;
-  let filename = "course-export";
+  let filename = "";
   let readingFile = false;
   const append = (left: Uint8Array, right: Uint8Array) => {
     const joined = new Uint8Array(left.length + right.length);
@@ -131,7 +128,7 @@ export function PublishMenu({
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = filename || `${safeFilename(title)}.${selected.extension}`;
+      link.download = filename || courseExportFilename(title, format);
       document.body.append(link);
       link.click();
       link.remove();
