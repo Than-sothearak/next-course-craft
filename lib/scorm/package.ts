@@ -7,7 +7,7 @@ import { storedMediaBytes } from "@/lib/media/service";
 import { createScorm12Manifest } from "../scorm12/manifest";
 import { createScorm2004Manifest } from "./manifest-2004";
 import { parseScorm12Snapshot } from "../scorm12/snapshot";
-import { createZipArchive, type ZipFile } from "../scorm12/zip";
+import { createZipArchiveAsync, type ZipFile } from "../scorm12/zip";
 
 const assetUrlPattern = /\/api\/assets\/([\da-f]{24})\/file\b/gi;
 const MAX_MEDIA_BYTES = 200 * 1024 * 1024;
@@ -82,12 +82,18 @@ async function buildScormPackage({
   courseId,
   authorName,
   version,
+  signal,
+  report,
 }: {
   ownerId: string;
   courseId: string;
   authorName: string;
   version: "1.2" | "2004";
+  signal?: AbortSignal;
+  report?: (stage: string, value: number) => void;
 }) {
+  signal?.throwIfAborted();
+  report?.("Loading presentation", 8);
   const editorCourse = await getCourseEditor(ownerId, courseId);
   const { courseId: snapshotCourseId, ...untrustedSnapshot } = editorCourse;
   const course = parseScorm12Snapshot(untrustedSnapshot);
@@ -115,7 +121,9 @@ async function buildScormPackage({
 
   const mediaFiles: ZipFile[] = [];
   const mediaSources = new Map<string, string>();
+  let completedMediaBytes = 0;
   for (let offset = 0; offset < assets.length; offset += 8) {
+    signal?.throwIfAborted();
     const batch = await Promise.all(assets.slice(offset, offset + 8).map(async (asset) => {
       const mimeType = asset.mimeType.split(";")[0].trim().toLowerCase();
       const extension = extensionsByMimeType[mimeType];
@@ -124,7 +132,7 @@ async function buildScormPackage({
       }
       const assetId = String(asset._id).toLowerCase();
       const path = `media/${assetId}.${extension}`;
-      const bytes = await storedMediaBytes(asset);
+      const bytes = await storedMediaBytes(asset, { signal });
       if (bytes.length !== asset.size) {
         throw new DashboardError(`Media file ${asset.originalName} changed while it was being exported.`, 409);
       }
@@ -134,6 +142,8 @@ async function buildScormPackage({
       mediaFiles.push({ path, data: bytes });
       mediaSources.set(assetId, `./${path}`);
     }
+    completedMediaBytes += batch.reduce((total, { bytes }) => total + bytes.length, 0);
+    report?.(`Reading media (${Math.min(offset + batch.length, assets.length)} of ${assets.length} files)`, 12 + 45 * completedMediaBytes / Math.max(estimatedMediaBytes, 1));
   }
 
   const exportDir = join(process.cwd(), "public", "course-export");
@@ -205,19 +215,27 @@ async function buildScormPackage({
   const manifest = version === "1.2"
     ? createScorm12Manifest(manifestInput)
     : createScorm2004Manifest(manifestInput);
+  signal?.throwIfAborted();
+  report?.("Packaging SCORM course", 65);
+  const archive = await createZipArchiveAsync([
+    { path: "imsmanifest.xml", data: manifest },
+    ...files,
+  ], {
+    signal,
+    onProgress: (completed, total) => report?.(`Compressing package (${completed} of ${total} files)`, 66 + 23 * completed / Math.max(total, 1)),
+  });
+  signal?.throwIfAborted();
+  report?.("Export ready", 90);
   return {
     filename: `${safeFilename(course.title)}.zip`,
-    archive: createZipArchive([
-      { path: "imsmanifest.xml", data: manifest },
-      ...files,
-    ]),
+    archive,
   };
 }
 
-export function buildScorm12Package(input: { ownerId: string; courseId: string; authorName: string }) {
+export function buildScorm12Package(input: { ownerId: string; courseId: string; authorName: string; signal?: AbortSignal; report?: (stage: string, value: number) => void }) {
   return buildScormPackage({ ...input, version: "1.2" });
 }
 
-export function buildScorm2004Package(input: { ownerId: string; courseId: string; authorName: string }) {
+export function buildScorm2004Package(input: { ownerId: string; courseId: string; authorName: string; signal?: AbortSignal; report?: (stage: string, value: number) => void }) {
   return buildScormPackage({ ...input, version: "2004" });
 }

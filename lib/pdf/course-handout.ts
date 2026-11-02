@@ -176,6 +176,7 @@ export async function renderCourseHandoutPdf(
   course: HandoutSnapshot,
   authorName: string,
   assets: Map<string, HandoutAsset> = new Map(),
+  options: { signal?: AbortSignal; onProgress?: (completed: number, total: number) => void } = {},
 ) {
   const doc = new PDFDocument({
     size: "A4",
@@ -201,27 +202,41 @@ export async function renderCourseHandoutPdf(
   for (const lesson of [...course.lessons].sort((left, right) => left.order - right.order)) {
     lessonsBySection.set(lesson.sectionId, [...(lessonsBySection.get(lesson.sectionId) ?? []), lesson]);
   }
-  for (const section of [...course.sections].sort((left, right) => left.order - right.order)) {
+  const orderedSections = [...course.sections].sort((left, right) => left.order - right.order);
+  const totalLessons = orderedSections.reduce((total, section) => total + (lessonsBySection.get(section.id)?.length ?? 0), 0);
+  let completedLessons = 0;
+  for (const section of orderedSections) {
+    options.signal?.throwIfAborted();
     const lessons = lessonsBySection.get(section.id) ?? [];
     if (!lessons.length) continue;
     ensureSpace(doc, 42);
     doc.moveDown(0.9);
     writeText(doc, section.title, { size: 19, color: "#334155" });
     doc.moveDown(0.45);
-    lessons.forEach((lesson, index) => renderLesson(doc, lesson, index, assets));
+    for (const [index, lesson] of lessons.entries()) {
+      options.signal?.throwIfAborted();
+      renderLesson(doc, lesson, index, assets);
+      completedLessons += 1;
+      options.onProgress?.(completedLessons, totalLessons);
+      await new Promise<void>((resolve) => setImmediate(resolve));
+    }
   }
 
   addPageFooters(doc);
   return new Promise<Buffer>((resolve, reject) => {
     const chunks: Buffer[] = [];
     doc.on("data", (chunk: Buffer) => chunks.push(Buffer.from(chunk)));
-    doc.on("end", () => resolve(Buffer.concat(chunks)));
-    doc.on("error", reject);
+    const cleanup = () => options.signal?.removeEventListener("abort", abort);
+    const abort = () => doc.destroy(options.signal?.reason instanceof Error ? options.signal.reason : new DOMException("Export cancelled", "AbortError"));
+    doc.on("end", () => { cleanup(); resolve(Buffer.concat(chunks)); });
+    doc.on("error", (error) => { cleanup(); reject(error); });
+    options.signal?.addEventListener("abort", abort, { once: true });
+    if (options.signal?.aborted) abort();
     doc.end();
   });
 }
 
-async function loadReferencedImages(course: HandoutSnapshot, ownerId: string, courseId: string) {
+async function loadReferencedImages(course: HandoutSnapshot, ownerId: string, courseId: string, signal?: AbortSignal, report?: (stage: string, value: number) => void) {
   const ids = new Set([...JSON.stringify(course).matchAll(assetUrlPattern)].map((match) => match[1].toLowerCase()));
   if (ids.size > maxMediaFiles) {
     throw new DashboardError("This PDF handout exceeds the 2,000 media file limit. Remove some media and try again.", 413);
@@ -240,24 +255,37 @@ async function loadReferencedImages(course: HandoutSnapshot, ownerId: string, co
   }
 
   const result = new Map<string, HandoutAsset>();
+  let completedBytes = 0;
   for (let offset = 0; offset < images.length; offset += 8) {
+    signal?.throwIfAborted();
     const batch = await Promise.all(images.slice(offset, offset + 8).map(async (asset) => {
       const id = String(asset._id).toLowerCase();
       const mimeType = asset.mimeType.split(";")[0].trim().toLowerCase();
-      const bytes = await storedMediaBytes(asset);
+      const bytes = await storedMediaBytes(asset, { signal });
       if (bytes.length !== asset.size) throw new DashboardError(`Image ${asset.originalName} changed while it was being exported.`, 409);
       return { id, mimeType, bytes };
     }));
     batch.forEach(({ id, mimeType, bytes }) => result.set(id, { mimeType, bytes }));
+    completedBytes += batch.reduce((total, { bytes }) => total + bytes.length, 0);
+    report?.(`Reading images (${Math.min(offset + batch.length, images.length)} of ${images.length} files)`, 12 + 55 * completedBytes / Math.max(totalBytes, 1));
   }
   return result;
 }
 
-export async function buildCourseHandoutPdf({ ownerId, courseId, authorName }: { ownerId: string; courseId: string; authorName: string }) {
+export async function buildCourseHandoutPdf({ ownerId, courseId, authorName, signal, report }: { ownerId: string; courseId: string; authorName: string; signal?: AbortSignal; report?: (stage: string, value: number) => void }) {
+  signal?.throwIfAborted();
+  report?.("Loading course", 8);
   const editorCourse = await getCourseEditor(ownerId, courseId);
   const course = parseScorm12Snapshot(editorCourse);
-  const images = await loadReferencedImages(course, ownerId, courseId);
-  const pdf = await renderCourseHandoutPdf(course, authorName, images);
+  const images = await loadReferencedImages(course, ownerId, courseId, signal, report);
+  signal?.throwIfAborted();
+  report?.("Creating PDF", 75);
+  const pdf = await renderCourseHandoutPdf(course, authorName, images, {
+    signal,
+    onProgress: (completed, total) => report?.(`Creating PDF (${completed} of ${total} lessons)`, 75 + 12 * completed / Math.max(total, 1)),
+  });
   const filename = `${course.title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "course"}.pdf`;
+  signal?.throwIfAborted();
+  report?.("Export ready", 90);
   return { pdf, filename };
 }

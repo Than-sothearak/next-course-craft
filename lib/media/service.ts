@@ -58,8 +58,9 @@ export function deleteStoredMedia(asset: StoredMedia) {
 }
 
 // Bound exports and copies even when storage returns a corrupt Content-Length.
-export async function storedMediaBytes(asset: StoredMedia) {
-  const response = await readStoredMedia(asset);
+export async function storedMediaBytes(asset: StoredMedia, options: { signal?: AbortSignal } = {}) {
+  options.signal?.throwIfAborted();
+  const response = await readStoredMedia(asset, options);
   if (!response.ok || !response.body) throw new DashboardError("The media file could not be read.", 502);
   const reader = response.body.getReader();
   const chunks: Buffer[] = [];
@@ -68,6 +69,7 @@ export async function storedMediaBytes(asset: StoredMedia) {
     while (true) {
       const { value, done } = await reader.read();
       if (done) break;
+      options.signal?.throwIfAborted();
       count += value.byteLength;
       if (count > asset.size) throw new DashboardError("Media changed while it was being read.", 409);
       chunks.push(Buffer.from(value));

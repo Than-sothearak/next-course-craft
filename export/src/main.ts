@@ -14,6 +14,7 @@ declare global {
       scorm12Enabled?: boolean;
       scorm2004Enabled?: boolean;
     };
+    COURSE_EXPORT_MEDIA?: Record<string, string>;
   }
 }
 
@@ -27,15 +28,30 @@ if (!courseData) {
   throw new Error("Course export data is missing.");
 }
 
-createRoot(exportRoot).render(
-  createElement(CoursePreview, {
-    initialData: courseData,
-    authorName: courseData.authorName ?? "",
+void (async () => {
+  const mediaSources = new Map<string, string>();
+  for (const [id, dataUri] of Object.entries(window.COURSE_EXPORT_MEDIA ?? {})) {
+    const blob = await fetch(dataUri).then((response) => response.blob());
+    mediaSources.set(id, URL.createObjectURL(blob));
+  }
+  function resolveMedia(value: unknown): unknown {
+    if (typeof value === "string") return value.replace(/coursecraft-media:([\da-f]{24})/gi, (match, id: string) => mediaSources.get(id.toLowerCase()) ?? match);
+    if (Array.isArray(value)) return value.map(resolveMedia);
+    if (value && typeof value === "object") return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, resolveMedia(item)]));
+    return value;
+  }
+  const resolvedData = resolveMedia(courseData) as typeof courseData;
+  createRoot(exportRoot).render(createElement(CoursePreview, {
+    initialData: resolvedData,
+    authorName: resolvedData.authorName ?? "",
     standalone: true,
-    progressAdapter: courseData.scorm2004Enabled
-      ? createScorm2004ProgressAdapter(courseData) ?? undefined
-      : courseData.scorm12Enabled
-        ? createScormProgressAdapter(courseData) ?? undefined
+    progressAdapter: resolvedData.scorm2004Enabled
+      ? createScorm2004ProgressAdapter(resolvedData) ?? undefined
+      : resolvedData.scorm12Enabled
+        ? createScormProgressAdapter(resolvedData) ?? undefined
         : undefined,
-  }),
-);
+  }));
+})().catch((error: unknown) => {
+  exportRoot.innerHTML = "<main role='alert' class='min-h-screen p-6 text-slate-900'>Course media could not be loaded.</main>";
+  console.error(error);
+});

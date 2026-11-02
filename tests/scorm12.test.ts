@@ -5,7 +5,7 @@ import { DashboardError } from "@/lib/dashboard/rules";
 import { createScorm12Manifest } from "@/lib/scorm12/manifest";
 import { createScorm2004Manifest } from "@/lib/scorm/manifest-2004";
 import { parseScorm12Snapshot } from "@/lib/scorm12/snapshot";
-import { createZipArchive } from "@/lib/scorm12/zip";
+import { createZipArchive, createZipArchiveAsync } from "@/lib/scorm12/zip";
 import {
   createScormProgressAdapter,
   createScorm2004ProgressAdapter,
@@ -74,6 +74,26 @@ describe("SCORM 1.2 package primitives", () => {
 
   it("rejects unsafe archive paths", () => {
     expect(() => createZipArchive([{ path: "../imsmanifest.xml", data: "bad" }])).toThrow("cannot traverse");
+  });
+
+  it("stores compressed media directly and asynchronously compresses text files", async () => {
+    const archive = await createZipArchiveAsync([
+      { path: "media/photo.png", data: Buffer.from([1, 2, 3]) },
+      { path: "index.html", data: "offline course" },
+    ]);
+    const firstNameLength = archive.readUInt16LE(26);
+    const firstExtraLength = archive.readUInt16LE(28);
+    const next = 30 + firstNameLength + firstExtraLength + archive.readUInt32LE(18);
+    const secondMethod = archive.readUInt16LE(next + 8);
+    expect(archive.readUInt16LE(8)).toBe(0);
+    expect(secondMethod).toBe(8);
+    expect(inflateRawSync(archive.subarray(next + 30 + archive.readUInt16LE(next + 26), next + 30 + archive.readUInt16LE(next + 26) + archive.readUInt32LE(next + 18))).toString()).toBe("offline course");
+  });
+
+  it("stops asynchronous ZIP work when cancelled", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    await expect(createZipArchiveAsync([{ path: "index.html", data: "course" }], { signal: controller.signal })).rejects.toMatchObject({ name: "AbortError" });
   });
 });
 

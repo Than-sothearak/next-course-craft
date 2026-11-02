@@ -11,7 +11,9 @@ const vite = await createServer({ configFile: false, root: process.cwd(), resolv
 let browser;
 try {
   const { editorSnapshotSchema } = await vite.ssrLoadModule("/lib/editor/schemas.ts");
-  const image = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==";
+  const imageId = "507f1f77bcf86cd799439013";
+  const imageData = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==";
+  const image = `/api/assets/${imageId}/file`;
   const gradient = "linear-gradient(135deg, #2563eb 0%, #f97316 100%)";
   const data = { courseId: "html-reproduction", ...editorSnapshotSchema.parse({ title: "Presentation export", description: "Test", revision: 1, courseLayout: "slides", slideMaster: { objectLayout: "canvas", background: { type: "image", imageSrc: image, overlayColor: "#0066cc", overlayOpacity: 20 } }, navigationMode: "free", sections: [{ id: "section", title: "Learn", order: 0 }], lessons: ["first", "second"].map((id, order) => ({ id, sectionId: "section", title: `Visible ${id} slide`, order, blocks: [
     { id: `heading-${id}`, type: "heading", version: 1, data: { text: `The ${id} course slide is visible`, level: 1 } },
@@ -26,7 +28,8 @@ try {
   const css = await inlineLocalFontAssets(readFileSync(resolve(assets, names.find((name) => name.endsWith(".css"))), "utf8"), assets);
   assert.doesNotMatch(css, /url\(["']?\.\/[^)]+\.(?:woff2?|ttf)/, 'All local equation/font assets must be embedded in the HTML');
   new Script(js);
-  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}</style></head><body><div id="export-root"></div><script>window.COURSE_EXPORT_DATA=${JSON.stringify(data).replaceAll("<", "\\u003c")}</script><script>${js}</script></body></html>`;
+  const serializedData = JSON.stringify(data).replaceAll(image, `coursecraft-media:${imageId}`).replaceAll("<", "\\u003c");
+  const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>${css}</style></head><body><div id="export-root"></div><script>window.COURSE_EXPORT_MEDIA=${JSON.stringify({ [imageId]: imageData })};window.COURSE_EXPORT_DATA=${serializedData}</script><script>${js}</script></body></html>`;
   mkdirSync("test-results", { recursive: true }); const file = resolve("test-results/presentation-inline.html"); writeFileSync(file, html);
   browser = await chromium.launch({ headless: true });
   for (const saved of [null, "deleted-slide", "second"]) {
@@ -40,6 +43,8 @@ try {
     await page.goto(pathToFileURL(file).href);
     const expectedId = saved === "second" ? "second" : "first";
     await page.waitForFunction((expectedId) => document.querySelector(`article#preview-content-${expectedId}`)?.getAttribute("aria-hidden") === "false", expectedId);
+    await page.waitForFunction(() => document.body.innerHTML.includes("blob:"));
+    assert.equal(await page.locator("#export-root").evaluate((element) => element.innerHTML.includes("coursecraft-media:")), false, "Shared media references resolve to local Blob URLs before learner rendering");
     const canvas = page.locator('[data-slide-active="true"]'); await canvas.waitFor();
     await canvas.evaluate(async (element) => {
       await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));

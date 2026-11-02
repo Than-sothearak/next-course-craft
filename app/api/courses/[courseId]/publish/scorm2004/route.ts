@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { z } from "zod";
 import { connectToDatabase } from "@/lib/db/mongodb";
 import { dashboardErrorResponse, requireOwnerId } from "@/lib/dashboard/http";
@@ -6,10 +6,11 @@ import { DashboardError } from "@/lib/dashboard/rules";
 import { buildScorm2004Package } from "@/lib/scorm/package";
 import { resolveCourseAccess } from "@/lib/workspaces/access";
 import { getCourseAuthorName } from "@/lib/editor/services/course";
+import { progressExportResponse } from "@/lib/export/progress-stream";
 
 const paramsSchema = z.object({ courseId: z.string().regex(/^[\da-f]{24}$/i) });
 
-export async function POST(_request: NextRequest, context: { params: Promise<{ courseId: string }> }) {
+export async function POST(request: NextRequest, context: { params: Promise<{ courseId: string }> }) {
   try {
     const userId = await requireOwnerId();
     const parsed = paramsSchema.safeParse(await context.params);
@@ -17,23 +18,15 @@ export async function POST(_request: NextRequest, context: { params: Promise<{ c
     await connectToDatabase();
     const { ownerId } = await resolveCourseAccess(userId, parsed.data.courseId, "courses.export");
     await resolveCourseAccess(userId, parsed.data.courseId, "courses.publish");
-    const result = await buildScorm2004Package({
-      ownerId,
-      courseId: parsed.data.courseId,
-      authorName: await getCourseAuthorName(ownerId, parsed.data.courseId),
-    });
-    const archiveBody = new Uint8Array(
-      result.archive.buffer,
-      result.archive.byteOffset,
-      result.archive.byteLength,
-    );
-    return new NextResponse(archiveBody, {
-      headers: {
-        "Content-Type": "application/zip",
-        "Content-Disposition": `attachment; filename="${result.filename}"`,
-        "Content-Length": String(result.archive.byteLength),
-        "Cache-Control": "private, no-store",
-      },
+    return progressExportResponse(request, async (report, signal) => {
+      const result = await buildScorm2004Package({
+        ownerId,
+        courseId: parsed.data.courseId,
+        authorName: await getCourseAuthorName(ownerId, parsed.data.courseId),
+        signal,
+        report: (stage, value) => report({ stage, value }),
+      });
+      return { data: new Uint8Array(result.archive.buffer, result.archive.byteOffset, result.archive.byteLength), filename: result.filename };
     });
   } catch (error) {
     return dashboardErrorResponse(error);
