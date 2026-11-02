@@ -6,6 +6,7 @@ import Placeholder from "@tiptap/extension-placeholder";
 import { Settings2 } from "lucide-react";
 import { TextFormattingToolbar, textEditorExtensions } from "./text-formatting-toolbar";
 import { useTextSelectionToolbar } from "./use-text-selection-toolbar";
+import { EquationDialog } from "./equation-dialog";
 
 function escapeHtml(value: string) {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
@@ -59,6 +60,7 @@ export function StatementTextEditor({
   }, [editor, html, tag, text]);
 
   return <div ref={rootRef} className="relative min-w-0">
+    <EquationDialog editor={editor} />
     <EditorContent
       editor={editor}
       aria-label={label}

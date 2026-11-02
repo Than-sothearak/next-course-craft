@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+.tiptap-mathematics-render { max-width: 100%; }
+.tiptap-mathematics-render[data-type="inline-math"] { display: inline-block; vertical-align: baseline; overflow-x: auto; }
+.tiptap-mathematics-render[data-type="block-math"] { display: block; overflow-x: auto; margin-block: .5em; }
+.tiptap-mathematics-render .katex-display { margin: .25em 0; }
+.tiptap-mathematics-render--editable { cursor: pointer; }
+.tiptap-mathematics-render--editable:focus-visible { outline: 2px solid #6366f1; outline-offset: 2px; }
+.tiptap-mathematics-render[data-equation-error] { color: #be123c; white-space: pre-wrap; overflow-wrap: anywhere; }
+
 :root {
   color-scheme: light;
   --background: #ffffff;

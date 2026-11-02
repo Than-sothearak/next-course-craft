@@ -43,7 +43,8 @@ export function SlideCoverEditor({ cover, courseId, onChange, onRemove }: {
     <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => setImageOpen(true)}><ImagePlus size={14} aria-hidden="true" />{cover.imageSrc ? "Replace cover image" : "Choose or upload cover image"}</Button>
     {cover.imageSrc && <Button type="button" variant="ghost" size="sm" onClick={() => onChange({ ...cover, imageSrc: "" })}>Remove image</Button>}
     <label className="block text-xs font-medium text-slate-600">Image description<Input value={cover.imageAlt} maxLength={500} onChange={(event) => onChange({ ...cover, imageAlt: event.target.value })} className="mt-1" /></label>
-    <label className="block text-xs font-medium text-slate-600">Dark overlay: {cover.overlayOpacity}%<Input type="range" min={0} max={90} value={cover.overlayOpacity} onChange={(event) => onChange({ ...cover, overlayOpacity: Number(event.target.value) })} className="mt-1" /></label>
+    <div className="space-y-1 text-xs text-slate-600">Overlay color<ColorPicker aria-label="Cover image overlay color" value={cover.overlayColor ?? "#040a20"} onChange={(overlayColor) => onChange({ ...cover, overlayColor })} /></div>
+    <label className="block text-xs font-medium text-slate-600">Color overlay: {cover.overlayOpacity}%<Input type="range" min={0} max={90} value={cover.overlayOpacity} onChange={(event) => onChange({ ...cover, overlayOpacity: Number(event.target.value) })} className="mt-1" /></label>
     <SlideNumberSettingInput aria-label="Cover dark overlay percentage" min={0} max={90} value={cover.overlayOpacity} onValueChange={(overlayOpacity) => onChange({ ...cover, overlayOpacity })} className="h-8" />
     </SlideInspectorSection>
     <SlideInspectorSection title="Cover layout" icon={Move}><SlideCoverLayoutControls cover={cover} onChange={onChange} /></SlideInspectorSection>

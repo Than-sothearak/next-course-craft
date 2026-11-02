@@ -33,4 +33,12 @@ describe("standalone export font assets", () => {
       temporaryDirectory,
     )).rejects.toThrow("invalid local font path");
   });
+
+  it("inlines KaTeX TTF fallbacks alongside WOFF and WOFF2", async () => {
+    temporaryDirectory = await mkdtemp(join(tmpdir(), "course-math-fonts-"));
+    await writeFile(join(temporaryDirectory, "KaTeX_Main.ttf"), Buffer.from([1, 2, 3]));
+    const result = await inlineLocalFontAssets('src:url(./KaTeX_Main.ttf) format("truetype")', temporaryDirectory);
+    expect(result).toContain("data:font/ttf;base64,AQID");
+    expect(result).not.toContain("./KaTeX_Main.ttf");
+  });
 });

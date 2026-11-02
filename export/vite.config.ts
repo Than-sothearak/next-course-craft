@@ -19,6 +19,7 @@ export default defineConfig({
         fileName,
         text: readFileSync(resolve(licensesDirectory, fileName), "utf8"),
       }));
+      licenseTexts.push({ fileName: "KaTeX-LICENSE.txt", text: readFileSync(resolve(__dirname, "../node_modules/katex/LICENSE"), "utf8") });
 
       for (const { fileName, text } of licenseTexts) {
         this.emitFile({

@@ -5,6 +5,7 @@ import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import type { ContentBlock } from "@/lib/schemas/block";
 import { TextFormattingToolbar, textEditorExtensions } from "../(text_editing_components)/text-formatting-toolbar";
 import { useTextSelectionToolbar } from "../(text_editing_components)/use-text-selection-toolbar";
+import { EquationDialog } from "../(text_editing_components)/equation-dialog";
 
 type HeadingBlock = Extract<ContentBlock, { type: "heading" }>;
 
@@ -53,6 +54,7 @@ export function HeadingBlockEditor({ block, onChange, externalToolbar = false, o
   }, [headingContent, editor]);
 
   return <div ref={rootRef} className="relative">
+    <EquationDialog editor={editor} />
     <EditorContent editor={editor} aria-label="Edit heading text" className="min-h-10 cursor-text rounded-md [&_.tiptap]:min-h-10 [&_.tiptap]:outline-none [&_.tiptap]:text-inherit [&_.tiptap_*]:text-inherit [&_h1]:text-3xl sm:[&_h1]:text-4xl [&_h1]:font-semibold [&_h1]:tracking-tight [&_h2]:text-2xl sm:[&_h2]:text-2xl [&_h2]:font-bold [&_h2]:tracking-tight [&_h3]:text-xl sm:[&_h3]:text-2xl [&_h3]:font-semibold [&_h3]:tracking-tight [&_p]:text-3xl sm:[&_p]:text-4xl [&_p]:font-semibold" />
     {!externalToolbar && isTextSelected && <div className="absolute left-0 top-full z-30 mt-2 w-[360px] max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white p-2.5 text-slate-700 shadow-xl">
       <div className="mb-2 px-1 text-xs font-medium text-slate-500">Edit text format</div>

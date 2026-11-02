@@ -1,4 +1,15 @@
-import type { Editor } from "@tiptap/core";
+import type { ChainedCommands, Editor } from "@tiptap/core";
+
+// With a caret, the new text controls format this text object. With selected
+// text they affect only that range. Restore the caret after a whole-object edit.
+export function formatTextRange(editor: Editor, change: (chain: ChainedCommands) => ChainedCommands) {
+  const { from, to, empty } = editor.state.selection;
+  let chain = editor.chain().focus();
+  if (empty && editor.state.doc.textContent.length) chain = chain.selectAll();
+  chain = change(chain);
+  if (empty && editor.state.doc.textContent.length) chain = chain.setTextSelection({ from, to });
+  return chain.run();
+}
 
 export function setInlineStyle(editor: Editor, attribute: "fontSize" | "color" | "highlight", value: string | null) {
   editor.chain().focus().setMark("inlineStyle", { [attribute]: value }).run();

@@ -106,7 +106,7 @@ describe("interaction button presentation authoring", () => {
     await clickLabel("Interaction button position bottom right");
     expect(container.querySelector('[data-slide-canvas] [data-interaction-button-container]')?.getAttribute("data-button-position")).toBe("bottom-right");
     await clickLabel("Undo"); expect(container.querySelector('[aria-label="Interaction button position center"]')?.getAttribute("aria-pressed")).toBe("true"); await clickLabel("Redo");
-    const snapshot = await saved(); expect(snapshot.lessons[0].blocks[0]).toMatchObject({ data: { buttonSize: 96.25, position: "bottom-right", iconSize: 40 } });
+    const snapshot = await saved(); expect(snapshot.lessons[0].blocks[0]).toMatchObject({ data: { buttonSize: 96.25, position: "bottom-right", iconSize: 18 } });
     await act(async () => root.render(<EditorClient key="sizing-reload" initialData={{ ...snapshot, courseId: "slides" }} authorName="Author" />));
     expect(container.querySelector('[data-slide-canvas] [data-interaction-button-container]')?.getAttribute("data-button-position")).toBe("bottom-right");
   });
@@ -115,7 +115,7 @@ describe("interaction button presentation authoring", () => {
     await start();
     const field = (label: string) => container.querySelector<HTMLInputElement>(`[aria-label="Interaction button radar ${label}"]`)!;
     const trigger = () => container.querySelector<HTMLButtonElement>('[data-slide-canvas] [aria-label="Learn more"]')!;
-    expect(field("size").value).toBe("3"); expect(field("weight").value).toBe("2");
+    expect(field("size").value).toBe("2"); expect(field("weight").value).toBe("2");
     await input("Interaction button radar size", "7"); await input("Interaction button radar weight", "4");
     expect(trigger().style.getPropertyValue("--radar-size")).toBe("7px");
     expect(trigger().style.getPropertyValue("--radar-weight")).toBe("4px");

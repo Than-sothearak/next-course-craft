@@ -27,6 +27,7 @@ describe("slide-specific background and layout authoring", () => {
   const click = (label: string) => act(async () => container.querySelector<HTMLButtonElement>(`[aria-label="${label}"]`)!.click());
   const toggle = (label: string) => act(async () => container.querySelector<HTMLInputElement>(`[aria-label="${label}"]`)!.click());
   const textButton = (text: string) => [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === text)!;
+  const input = (label: string, value: string) => act(async () => { const element = container.querySelector<HTMLInputElement>(`[aria-label="${label}"]`)!; Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(element, value); element.dispatchEvent(new Event("input", { bubbles: true })); });
   const save = async () => { await act(async () => vi.advanceTimersByTimeAsync(1000)); return editorSnapshotSchema.parse(JSON.parse(fetchMock.mock.calls.findLast(([, init]) => init?.method === "PUT")![1].body)); };
   it("edits one slide, preserves content, supports undo/reload, and renders the same blank image slide in preview", async () => {
     await act(async () => root.render(<EditorClient initialData={initial()} authorName="Author" />));
@@ -35,12 +36,15 @@ describe("slide-specific background and layout authoring", () => {
     await act(async () => textButton("Choose or upload slide background image").click());
     await act(async () => textButton("Pick test background").click());
     expect(canvas().querySelector('[data-slide-master-background="image"] img')!.getAttribute("src")).toBe("/api/assets/123456789012345678901234/file");
+    await input("Slide background overlay color hex code", "#ff8800"); await input("Slide background image overlay", "45");
+    await act(async () => textButton("Replace slide background image").click()); await act(async () => textButton("Pick test background").click());
+    expect(canvas().querySelector<HTMLElement>('[data-slide-master-background="image"] [data-slide-color-overlay]')?.style.backgroundColor).toBe("rgb(255, 136, 0)");
     await click("Blank slide"); expect(canvas().querySelector('[data-slide-header]')).toBeNull(); expect(canvas().querySelector('[data-slide-footer]')).toBeNull(); expect(canvas().querySelector('[data-slide-floating-navigation]')).toBeNull(); expect(canvas().textContent).toContain("Existing editable content");
     await click("Undo"); expect(canvas().querySelector('[data-slide-header]')).not.toBeNull(); expect(canvas().querySelector('[data-slide-footer]')).not.toBeNull(); await click("Redo");
     await toggle("Show navigation buttons"); expect(canvas().querySelector('[data-slide-floating-navigation]')).not.toBeNull(); expect(canvas().querySelector('[aria-label="Next"]')).not.toBeNull();
     await toggle("Show navigation buttons"); expect(canvas().querySelector('[data-slide-floating-navigation]')).toBeNull();
     await toggle("Show navigation buttons");
-    const snapshot = await save(); expect(snapshot.lessons[0].slideAppearance).toMatchObject({ hideHeader: true, hideFooter: true, showNavigationButtons: true, background: { type: "image", overlayOpacity: 0 } }); expect(snapshot.lessons[1].slideAppearance).toBeUndefined();
+    const snapshot = await save(); expect(snapshot.lessons[0].slideAppearance).toMatchObject({ hideHeader: true, hideFooter: true, showNavigationButtons: true, background: { type: "image", overlayColor: "#ff8800", overlayOpacity: 45 } }); expect(snapshot.lessons[1].slideAppearance).toBeUndefined();
     await click("Edit slide 2: Quiz"); expect(canvas().querySelector('[data-slide-header]')).not.toBeNull(); expect(canvas().querySelector('[data-slide-footer]')).not.toBeNull(); expect(container.querySelector<HTMLInputElement>('[aria-label="Blank slide"]')!.checked).toBe(false);
     await click("Show slide footer"); expect(canvas().querySelector('[data-slide-footer]')).toBeNull(); expect(canvas().querySelector('[data-slide-header]')).not.toBeNull();
     await act(async () => root.render(<EditorClient key="reload" initialData={{ ...snapshot, courseId: "course" }} authorName="Author" />)); expect(canvas().querySelector('[data-slide-header]')).toBeNull(); expect(canvas().querySelector('[data-slide-footer]')).toBeNull();

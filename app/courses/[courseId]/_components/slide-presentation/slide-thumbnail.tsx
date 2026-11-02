@@ -14,6 +14,7 @@ import { SlideObjectContent } from "./slide-object-content";
 import { SlideMediaPlayer } from "./slide-media-player";
 import { croppedMediaStyle, cropViewportStyle, isSlideVideoFile, resolveSlideCrop } from "@/lib/editor/slide-crop";
 import type { SlideAppearance } from "@/lib/editor/slide-design";
+import { SlideColorOverlay } from "./slide-color-overlay";
 
 export type SlideItem = { id: string; title: string; blocks: readonly ContentBlock[]; slideCover?: SlideCover; slideHeaderStyle?: SlideHeaderStyle; slideAppearance?: SlideAppearance; lessonType?: "content" | "quiz"; quizQuestions?: readonly QuizQuestion[]; passingScore?: number };
 
@@ -21,7 +22,7 @@ function ThumbnailBlock({ block }: { block: ContentBlock }) {
   if (block.type === "video" && isSlideVideoFile(block)) {
     const crop = resolveSlideCrop(block);
     const dimensions = resolveSlideMedia(block);
-    return <div className="flex h-full w-full items-center justify-center" style={crop ? { containerType: "size" } : undefined}><div className="relative h-full w-full overflow-hidden" style={crop && dimensions ? cropViewportStyle(dimensions, crop) : undefined} data-slide-media-crop={crop ? true : undefined}><video src={block.data.src || undefined} muted playsInline preload="metadata" tabIndex={-1} style={crop ? croppedMediaStyle(crop) : undefined} className="h-full w-full object-contain" /></div></div>;
+    return <div className="flex h-full w-full items-center justify-center" style={crop ? { containerType: "size" } : undefined}><div className="relative h-full w-full overflow-hidden" style={crop && dimensions ? cropViewportStyle(dimensions, crop) : undefined} data-slide-media-crop={crop ? true : undefined}><video src={block.data.src || undefined} muted playsInline preload="metadata" tabIndex={-1} style={crop ? croppedMediaStyle(crop) : undefined} className="h-full w-full object-contain" />{block.slideMediaOverlay && <SlideColorOverlay {...block.slideMediaOverlay} />}</div></div>;
   }
   if (block.type === "audio") return <SlideMediaPlayer block={block} decorative />;
   return <PreviewBlock block={block} slideLayout authoring decorative device="desktop" orientation="landscape" />;

@@ -38,11 +38,12 @@ export function SlideAppearanceSettings({ value, onChange, master, courseId }: {
           <div aria-label="Slide background image preview" className="relative aspect-video overflow-hidden rounded-md border"><SlideMasterBackground master={resolveSlideAppearanceMaster(master, appearance)} /></div>
           <label className="block space-y-1 text-xs text-slate-600">Image position<Select aria-label="Slide background image position" value={background.imagePosition} onChange={(event) => change({ background: { ...background, imagePosition: event.target.value as "center" | "top" | "bottom" } })}><option value="center">Center</option><option value="top">Top</option><option value="bottom">Bottom</option></Select></label>
           <label className="block space-y-1 text-xs text-slate-600">Color overlay (%)<SlideNumberSettingInput aria-label="Slide background image overlay" min={0} max={90} value={background.overlayOpacity} onValueChange={(overlayOpacity) => change({ background: { ...background, overlayOpacity } })} /></label>
+          <div className="space-y-1 text-xs text-slate-600">Overlay color<ColorPicker aria-label="Slide background overlay color" value={background.overlayColor ?? resolveSlideAppearanceMaster(master, appearance).backgroundColor} onChange={(overlayColor) => change({ background: { ...background, overlayColor } })} /></div>
           <Button variant="ghost" size="sm" onClick={() => change({ background: undefined, backgroundColor: undefined })}>Remove slide background image</Button>
         </>}
       </>}
       <Button variant="ghost" size="sm" onClick={() => onChange(undefined)}>Reset slide appearance</Button>
     </div>
-    <MediaLibraryDialog courseId={courseId} kind="image" open={imageOpen} onClose={() => setImageOpen(false)} onSelect={(asset) => { change({ background: { type: "image", imageSrc: asset.fileUrl, imagePosition: background?.type === "image" ? background.imagePosition : "center", overlayOpacity: background?.type === "image" ? background.overlayOpacity : 0 } }); setImageOpen(false); }} />
+    <MediaLibraryDialog courseId={courseId} kind="image" open={imageOpen} onClose={() => setImageOpen(false)} onSelect={(asset) => { change({ background: { type: "image", imageSrc: asset.fileUrl, imagePosition: background?.type === "image" ? background.imagePosition : "center", overlayOpacity: background?.type === "image" ? background.overlayOpacity : 0, overlayColor: background?.type === "image" ? background.overlayColor : undefined } }); setImageOpen(false); }} />
   </SlideInspectorSection>;
 }

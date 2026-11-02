@@ -38,6 +38,17 @@ function decodeHtmlEntities(value: string) {
 export function htmlToHandoutText(value: string) {
   const text = value
     .replace(/<\s*(script|style)\b[^>]*>[\s\S]*?<\s*\/\s*\1\s*>/gi, " ")
+    // PDF handouts are text-based. Retain the original equation rather than
+    // dropping an empty, source-carrying math node during HTML stripping.
+    .replace(/<(span|div)\b((?:"[^"]*"|'[^']*'|[^'">])*)>\s*<\/\1\s*>/gi, (match, tag: string, attributes: string) => {
+      if (!/\bdata-type\s*=\s*["'](?:inline|block)-math["']/i.test(attributes)) return match;
+      const source = attributes.match(/\bdata-latex\s*=\s*(?:"([^"]*)"|'([^']*)')/i);
+      if (!source) return match;
+      // Decode only after HTML stripping, so formula comparisons such as x<y
+      // remain text instead of being interpreted as HTML.
+      const latex = (source[1] ?? source[2]).replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+      return tag.toLowerCase() === "div" ? `\n${latex}\n` : ` ${latex} `;
+    })
     .replace(/<img\b[^>]*\balt\s*=\s*(?:"([^"]*)"|'([^']*)')[^>]*>/gi, (_match, doubleQuoted: string | undefined, singleQuoted: string | undefined) => ` [Image: ${doubleQuoted ?? singleQuoted ?? ""}] `)
     .replace(/<\s*br\s*\/?>/gi, "\n")
     .replace(/<\s*li\b[^>]*>/gi, "\n- ")

@@ -50,6 +50,7 @@ export function SlideHeaderControls({ master, courseId, onChange }: { master: Sl
           <label className="space-y-1 text-xs text-slate-600">Image position<Select aria-label="Header image position" value={header.imagePosition} onChange={(event) => update({ imagePosition: event.target.value as SlideHeader["imagePosition"] })}><option value="center">Center</option><option value="top">Top</option><option value="bottom">Bottom</option></Select></label>
           <label className="space-y-1 text-xs text-slate-600">Overlay (%)<SlideNumberSettingInput aria-label="Header image overlay" min={0} max={90} value={header.overlayOpacity} onValueChange={(overlayOpacity) => update({ overlayOpacity })} /></label>
         </div>
+        <div className="space-y-1 text-xs text-slate-600">Overlay color<ColorPicker aria-label="Header image overlay color" value={header.overlayColor ?? header.backgroundColor} onChange={(overlayColor) => update({ overlayColor })} /></div>
         <Button variant="ghost" size="sm" className="text-rose-600" onClick={() => update({ imageSrc: "", background: "transparent" })}><Trash2 size={14} aria-hidden="true" />Remove header image</Button>
       </>}
     </>}

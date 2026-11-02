@@ -20,11 +20,14 @@ import { SlideInspectorTabs, type SlideInspectorTab } from "./slide-inspector-ta
 import { SlideMasterPanel } from "./slide-master-panel";
 import { SlideObjectLayers } from "./slide-object-layers";
 import { SlideObjectSettings } from "./slide-object-settings";
+import { SlideSelectionControls } from "./slide-selection-controls";
+import type { SlideSelection } from "./use-slide-selection";
 
 type ClipboardNotice = { message: string; error: boolean } | null;
 
 type Props = {
   inspectorRef: Ref<HTMLElement>;
+  selection: SlideSelection;
   clipboardNotice: ClipboardNotice;
   inspectorTab: SlideInspectorTab;
   onInspectorTabChange: (tab: SlideInspectorTab) => void;
@@ -44,7 +47,7 @@ type Props = {
   onHeaderStyleChange: (style?: SlideHeaderStyle) => void;
   blocks: ContentBlock[];
   selectedId: string | null;
-  onSelectObject: (id: string) => void;
+  onSelectObject: (id: string, modifiers?: { shiftKey?: boolean; ctrlKey?: boolean; metaKey?: boolean }) => void;
   selected: ContentBlock | null;
   sections: { id: string; title: string; order: number }[];
   lessons: {
@@ -68,6 +71,7 @@ type Props = {
 
 export function SlideObjectInspector({
   inspectorRef,
+  selection,
   clipboardNotice,
   inspectorTab,
   onInspectorTabChange,
@@ -150,6 +154,7 @@ export function SlideObjectInspector({
             onChange={onHeaderStyleChange}
           />
         )}
+        <SlideSelectionControls selection={selection} blocks={blocks} />
         {blocks.length > 0 && (
           <SlideInspectorSection
             title="Objects & layers"
@@ -159,6 +164,10 @@ export function SlideObjectInspector({
             <SlideObjectLayers
               blocks={blocks}
               selectedId={selectedId}
+              selectedIds={selection.selectedIds}
+              onToggleSelect={(id) => onSelectObject(id, { shiftKey: true })}
+              onSelectMember={(id) => { onSelectObject(id); selection.enterMember(id); }}
+              onToggleFlag={selection.toggleFlag}
               onSelect={onSelectObject}
               onReorder={onReorderLayer}
             />
@@ -172,7 +181,7 @@ export function SlideObjectInspector({
           </section>
         )}
         {selected && (
-          <SlideObjectSettings
+          <fieldset disabled={!selection.editable} inert={!selection.editable}><SlideObjectSettings
             selected={selected}
             blocks={blocks}
             courseId={courseId}
@@ -188,7 +197,7 @@ export function SlideObjectInspector({
             onDuplicate={onDuplicate}
             onDelete={onDelete}
             onReplaceTemplate={cover ? undefined : onReplaceTemplate}
-          />
+          /></fieldset>
         )}
       </SlideInspectorTabs>
     </SlideEditorInspector>

@@ -5,7 +5,9 @@ type Lesson = EditorSnapshotInput["lessons"][number];
 
 export function duplicateLessonBlocks(blocks: Lesson["blocks"], createId: () => string): Lesson["blocks"] {
   const ids = new Map(blocks.map((block) => [block.id, createId()]));
-  return structuredClone(blocks).map((block) => {
+  const groups = new Map([...new Set(blocks.flatMap((block) => block.slideGroupId ? [block.slideGroupId] : []))].map((id) => [id, createId()]));
+  return structuredClone(blocks).map((original) => {
+    const block = { ...original, ...(original.slideGroupId ? { slideGroupId: groups.get(original.slideGroupId)! } : {}) };
     const id = ids.get(block.id)!;
     if (block.type === "hangingRopeCards") return { ...block, id, data: { ...block.data, cards: block.data.cards.map((card) => ({ ...card, id: createId(), blocks: card.blocks.map((content) => ({ ...content, id: createId() })) })) } };
     if (block.type === "peelToReveal") return { ...block, id, data: { ...block.data, blocks: block.data.blocks.map((content) => ({ ...content, id: createId() })) } };

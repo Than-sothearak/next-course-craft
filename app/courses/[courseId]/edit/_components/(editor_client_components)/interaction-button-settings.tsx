@@ -29,7 +29,7 @@ const buttonPositions = [
 export function InteractionButtonSettings({ block, courseId, lessonBlocks, sections, lessons, onChange }: PopupTargets & { block: Interaction; courseId: string; lessonBlocks: readonly ContentBlock[]; onChange: (block: ContentBlock) => void }) {
   const [imageOpen, setImageOpen] = useState(false), [popupOpen, setPopupOpen] = useState(false);
   const data = block.data, popup = data.popup;
-  const buttonSize = data.buttonSize ?? 80, position = data.position ?? "middle-center";
+  const buttonSize = data.buttonSize ?? 20, position = data.position ?? "middle-center";
   const update = (change: Partial<Interaction["data"]>) => onChange({ ...block, data: { ...data, ...change } });
   const updatePopup = (change: Partial<typeof popup>) => update({ popup: { ...popup, ...change } });
   const targets = lessonBlocks.filter((item) => isInteractionTarget(item, block.id));
@@ -38,14 +38,14 @@ export function InteractionButtonSettings({ block, courseId, lessonBlocks, secti
     <Select aria-label="Interaction button appearance" value={data.trigger} onChange={(event) => update({ trigger: event.target.value as "icon" | "image" })}><option value="icon">Preset icon</option><option value="image">Uploaded image</option></Select>
     {data.trigger === "icon" ? <div className="grid grid-cols-6 gap-1" aria-label="Interaction button icon choices">{interactionIcons.map((icon) => <Button key={icon} variant={data.icon === icon ? "secondary" : "outline"} size="icon" className="size-8 min-w-0" aria-label={`Interaction icon ${icon}`} title={icon} aria-pressed={data.icon === icon} onClick={() => update({ icon })}><InteractionIcon name={icon} size={17} /></Button>)}</div> : <Button variant="outline" size="sm" className="w-full" onClick={() => setImageOpen(true)}><ImagePlus size={14} />{data.imageSrc ? "Replace button image" : "Choose or upload button image"}</Button>}
     {data.trigger === "image" && <Input aria-label="Interaction button image description" value={data.imageAlt} maxLength={500} onChange={(event) => update({ imageAlt: event.target.value })} placeholder="Image description" />}
-    <label className="block space-y-1 text-xs text-slate-600">Button size (px)<NumberInput aria-label="Interaction button size" min={24} max={256} value={buttonSize} onValueChange={(value) => update({ buttonSize: value })} /></label>
+    <label className="block space-y-1 text-xs text-slate-600">Button size (px)<NumberInput aria-label="Interaction button size" min={20} max={256} value={buttonSize} onValueChange={(value) => update({ buttonSize: value })} /></label>
     <fieldset className="space-y-2"><legend className="text-xs font-medium text-slate-600">Button position inside object</legend>
       <div className="grid grid-cols-3 gap-1">{buttonPositions.map(({ value, label, Icon }) => <Button key={value} variant={position === value ? "secondary" : "outline"} size="sm" className="min-w-0 gap-1 px-1 text-[10px]" aria-label={`Interaction button position ${label.toLowerCase()}`} aria-pressed={position === value} onClick={() => update({ position: value })}><Icon size={13} aria-hidden="true" className="shrink-0" />{label}</Button>)}</div>
       <p className="text-[11px] leading-4 text-slate-500">The button keeps its pixel size inside larger object boxes and fits smaller boxes automatically.</p>
     </fieldset>
     <div className="grid grid-cols-2 gap-2"><label className="flex items-center gap-2 text-xs text-slate-600"><Checkbox aria-label="Interaction button radar" checked={data.radarEnabled} onChange={(event) => update({ radarEnabled: event.target.checked })} />Radar effect</label><label className="flex items-center gap-2 text-xs text-slate-600"><Checkbox aria-label="Interaction button show label" checked={data.showLabel} onChange={(event) => update({ showLabel: event.target.checked })} />Show label</label></div>
     <div className="grid grid-cols-2 gap-2">
-      <label className="space-y-1 text-xs text-slate-600">Radar size (px)<SlideNumberSettingInput aria-label="Interaction button radar size" min={0} max={24} value={data.radarSize ?? 3} disabled={!data.radarEnabled} onValueChange={(radarSize) => update({ radarSize })} /></label>
+      <label className="space-y-1 text-xs text-slate-600">Radar size (px)<SlideNumberSettingInput aria-label="Interaction button radar size" min={0} max={24} value={data.radarSize ?? 2} disabled={!data.radarEnabled} onValueChange={(radarSize) => update({ radarSize })} /></label>
       <label className="space-y-1 text-xs text-slate-600">Radar weight (px)<SlideNumberSettingInput aria-label="Interaction button radar weight" min={1} max={8} value={data.radarWeight ?? 2} disabled={!data.radarEnabled} onValueChange={(radarWeight) => update({ radarWeight })} /></label>
     </div>
     <div className="grid grid-cols-2 gap-3">{(["color", "iconColor", "radarColor"] as const).map((field) => <div key={field} className="space-y-1 text-xs text-slate-600">{field === "color" ? "Button fill" : field === "iconColor" ? "Icon & label" : "Radar color"}<ColorPicker aria-label={`Interaction ${field}`} value={data[field]} onChange={(value) => update({ [field]: value })} /></div>)}</div>

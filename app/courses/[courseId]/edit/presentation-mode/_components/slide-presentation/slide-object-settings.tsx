@@ -15,6 +15,7 @@ import { SlideInspectorSection } from "./slide-inspector-section";
 import { objectIcons, objectLabels } from "./slide-object-labels";
 import { isSlideTextBlock } from "./slide-text-object-editor";
 import { SlideMediaPicker } from "./slide-media-picker";
+import { SlideMediaOverlayControls } from "./slide-media-overlay-controls";
 import { SlideMediaCropControls } from "./slide-media-crop-controls";
 import { SlideObjectSizeControls } from "./slide-object-size-controls";
 import { SlideMediaSizeControls } from "./slide-media-size-controls";
@@ -67,6 +68,7 @@ export function SlideObjectSettings({ selected, blocks, courseId, sections, less
             </SlideInspectorSection>
             {(["image", "video", "audio", "gallery", "attachment", "labeledGraphic"] as string[]).includes(selected.type) && <SlideInspectorSection title="Media source" icon={ImageIcon}>
               <SlideMediaPicker key={`media-${selected.id}`} block={selected} courseId={courseId} onChange={onBlockChange} />
+              <SlideMediaOverlayControls block={selected} onChange={onBlockChange} />
             </SlideInspectorSection>}
             {isSlideMediaObject(selected) && (selected.type === "image" || isSlideVideoFile(selected)) && <SlideInspectorSection title="Crop" icon={Crop}>
               <SlideMediaCropControls key={`crop-${selected.id}-${selected.data.src}`} block={selected} index={blocks.indexOf(selected)} total={blocks.length} area={area} onChange={onBlockChange} />

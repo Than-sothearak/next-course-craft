@@ -20,6 +20,7 @@ export function SlideObjectTransformHandles({ type, insetTools, rotation, onStar
       data-slide-rotation-handle onPointerDown={(event) => onStart(event, "rotate")} onKeyDown={(event) => onKeyDown(event, "rotate")}
       className="absolute left-1/2 z-30 size-6 -translate-x-1/2 touch-none rounded-full border-indigo-500 bg-white text-indigo-700 shadow-sm" style={{ top: insetTools ? 12 : -36, cursor: "grab", scale: "calc(1 / var(--slide-canvas-scale, 1))" }}><RotateCw size={13} aria-hidden="true" /></Button>
     <Button type="button" variant="outline" size="icon" aria-label={`Move ${type} object`} title="Drag to move object. Arrow keys move by 1 px; Shift moves by 10 px."
+      data-slide-move-handle
       onPointerDown={(event) => onStart(event, "move")} onKeyDown={(event) => onKeyDown(event, "move")}
       className="absolute right-3 z-30 size-6 touch-none rounded border-indigo-500 bg-white text-indigo-700 shadow-sm" style={{ top: insetTools ? 12 : -36, cursor: "grab", scale: "calc(1 / var(--slide-canvas-scale, 1))" }}><Move size={14} aria-hidden="true" /></Button>
     {slideResizeHandles.map((handle) => <Button key={handle.id} type="button" variant="outline" size="icon"

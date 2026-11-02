@@ -50,7 +50,7 @@ function measureTextBox(textBox: HTMLElement, maxWidth: number) {
   return { width: rect.width, height: rect.height };
 }
 
-export function SlideObject({ block, index, total, master, area: customArea, footerTop, headerBottom, snapEnabled = true, lessonBlocks = [], selected, onSelect, onFrame, onChange, onEditorFocus, onFooterSnap, onSnapGuides }: {
+export function SlideObject({ block, index, total, master, area: customArea, footerTop, headerBottom, snapEnabled = true, lessonBlocks = [], selected, onSelect, onFrame, onChange, onEditorFocus, onFooterSnap, onSnapGuides, readOnly = false, suppressTransforms = false, suspendAutoFit = false, onPointerSelect, onEnterMember }: {
   block: ContentBlock;
   index: number;
   total: number;
@@ -61,6 +61,11 @@ export function SlideObject({ block, index, total, master, area: customArea, foo
   snapEnabled?: boolean;
   lessonBlocks?: ContentBlock[];
   selected: boolean;
+  readOnly?: boolean;
+  suppressTransforms?: boolean;
+  suspendAutoFit?: boolean;
+  onPointerSelect?: (event: PointerEvent<HTMLElement>) => boolean;
+  onEnterMember?: () => void;
   onSelect: () => void;
   onFrame: (frame: SlideFrame, options?: { recordHistory?: boolean }) => void;
   onChange: (block: ContentBlock) => void;
@@ -78,7 +83,7 @@ export function SlideObject({ block, index, total, master, area: customArea, foo
   const drag = useRef<{ pointerId: number; target: HTMLElement; kind: SlideTransformKind; handle: SlideResizeHandle; startX: number; startY: number; startAngle: number; frame: SlideFrame; bounds: DOMRect } | null>(null);
   const objectRef = useRef<HTMLDivElement>(null);
   const animationEffect = useSlideObjectAnimation(objectRef, block.slideAnimation, false);
-  const fitToText = editableText && block.slideTextLayout?.fitToText !== false;
+  const fitToText = editableText && !readOnly && !suspendAutoFit && block.slideTextLayout?.fitToText !== false;
 
   useEffect(() => () => {
     const current = drag.current;
@@ -87,7 +92,7 @@ export function SlideObject({ block, index, total, master, area: customArea, foo
   }, []);
 
   useLayoutEffect(() => {
-    if (block.type !== "audio" || block.slidePlayback?.fitHeight === false) return;
+    if (readOnly || suspendAutoFit || block.type !== "audio" || block.slidePlayback?.fitHeight === false) return;
     const object = objectRef.current;
     const player = object?.querySelector<HTMLElement>("[data-slide-audio-content]");
     if (!object || !player) return;
@@ -107,7 +112,7 @@ export function SlideObject({ block, index, total, master, area: customArea, foo
     observer?.observe(player);
     document.fonts?.addEventListener("loadingdone", measure);
     return () => { observer?.disconnect(); document.fonts?.removeEventListener("loadingdone", measure); };
-  }, [block, index, total, area, onFrame]);
+  }, [block, index, total, area, onFrame, readOnly, suspendAutoFit]);
 
   useLayoutEffect(() => {
     if (!fitToText) return;
@@ -156,7 +161,7 @@ export function SlideObject({ block, index, total, master, area: customArea, foo
   }, [area, block, fitToText, index, onFrame, total]);
 
   function start(event: PointerEvent<HTMLElement>, kind: SlideTransformKind, fromHandle = false, handle: SlideResizeHandle = "bottom-right") {
-    if (event.button !== 0 || drag.current) return;
+    if (readOnly || suppressTransforms || (!fromHandle && (event.shiftKey || event.ctrlKey || event.metaKey)) || event.button !== 0 || drag.current) return;
     if (kind === "move" && !fromHandle && (event.target as HTMLElement).closest("button, a, input, textarea, select, audio, video, [contenteditable='true']")) return;
     const bounds = event.currentTarget.closest<HTMLElement>("[data-slide-objects]")?.getBoundingClientRect();
     if (!bounds?.width || !bounds.height) return;
@@ -246,7 +251,7 @@ export function SlideObject({ block, index, total, master, area: customArea, foo
   }
 
   function recordMediaDimensions(dimensions: { width: number; height: number }) {
-    if (!isSlideMediaObject(block)) return;
+    if (readOnly || suspendAutoFit || !isSlideMediaObject(block)) return;
     const parsed = slideMediaSchema.safeParse({ source: block.data.src, ...dimensions });
     if (!parsed.success) return;
     const previous = resolveSlideMedia(block);
@@ -255,13 +260,13 @@ export function SlideObject({ block, index, total, master, area: customArea, foo
   }
 
   return (
-    <div ref={objectRef} tabIndex={selected ? 0 : -1} data-slide-object-animation={animationEffect} data-slide-object-frame data-slide-object-id={block.id} onFocusCapture={onSelect} onPointerDownCapture={(event) => { if (event.button === 0) onSelect(); }} onPointerDown={(event) => start(event, "move")} onPointerMove={move} onPointerUp={stop} onPointerCancel={(event) => { if (drag.current?.pointerId === event.pointerId) cancel(); }} onLostPointerCapture={(event) => { if (drag.current?.pointerId === event.pointerId) cancel(); }} onKeyDownCapture={(event) => { if (event.key === "Escape" && drag.current) { event.preventDefault(); event.stopPropagation(); cancel(); } }} onDragStart={(event) => event.preventDefault()} className={`pointer-events-auto absolute ${selected ? "overflow-visible" : "overflow-hidden"} outline-2 outline-offset-1 ${editableText || editableInteractive ? "touch-auto" : "touch-none"} ${selected ? "cursor-grab outline-indigo-500 active:cursor-grabbing" : "cursor-grab outline-transparent hover:outline-indigo-300"}`} style={{ ...slideFrameStyle(frame), zIndex: selected ? 1000 : frame.z + 1, ...slideObjectSurfaceStyle(block, master?.backgroundColor, master?.textColor) }}>
-      <div className={`h-full overflow-hidden rounded-[inherit] ${editableText ? "cursor-text" : editableInteractive ? "cursor-default" : "pointer-events-none"}`}>
+    <div ref={objectRef} tabIndex={selected ? 0 : -1} data-slide-object-animation={animationEffect} data-slide-object-frame data-slide-object-id={block.id} data-slide-object-locked={readOnly || undefined} onFocusCapture={() => { if (!readOnly) onSelect(); }} onPointerDownCapture={(event) => { if (readOnly || onPointerSelect?.(event)) { event.preventDefault(); event.stopPropagation(); return; } if (event.button === 0) onSelect(); }} onDoubleClick={onEnterMember} onPointerDown={(event) => start(event, "move")} onPointerMove={move} onPointerUp={stop} onPointerCancel={(event) => { if (drag.current?.pointerId === event.pointerId) cancel(); }} onLostPointerCapture={(event) => { if (drag.current?.pointerId === event.pointerId) cancel(); }} onKeyDownCapture={(event) => { if (event.key === "Escape" && drag.current) { event.preventDefault(); event.stopPropagation(); cancel(); } }} onDragStart={(event) => event.preventDefault()} className={`pointer-events-auto absolute ${selected ? "overflow-visible" : "overflow-hidden"} outline-2 outline-offset-1 ${editableText || editableInteractive ? "touch-auto" : "touch-none"} ${selected ? "cursor-grab outline-indigo-500 active:cursor-grabbing" : "cursor-grab outline-transparent hover:outline-indigo-300"}`} style={{ ...slideFrameStyle(frame), zIndex: selected && !readOnly && !suppressTransforms ? 1000 : frame.z + 1, ...slideObjectSurfaceStyle(block, master?.backgroundColor, master?.textColor) }}>
+      <div inert={readOnly || suppressTransforms} className={`h-full overflow-hidden rounded-[inherit] ${readOnly || suppressTransforms ? "pointer-events-none" : editableText ? "cursor-text" : editableInteractive ? "cursor-default" : "pointer-events-none"}`}>
         <SlideObjectContent media={isSlideMediaObject(block)}>
-        {isSlideTextBlock(block) ? <SlideTextObjectEditor block={block} onChange={onChange} onEditorFocus={onEditorFocus} /> : block.type === "audioInstruction" ? <AudioInstruction key={block.data.src} block={block} authoring presentation guideEditing={selected} onGuideChange={(change) => onChange({ ...block, data: { ...block.data, guide: { ...(block.data.guide ?? defaultAudioInstructionGuide), ...change } } })} /> : (block.type === "labeledGraphic" || block.type === "balloonArcher") ? <ContentBlockPreview block={block} onChange={onChange} presentation /> : isSlideMediaObject(block) ? <SlideMediaObject key={block.data.src} block={block} onDimensions={recordMediaDimensions} /> : <PreviewBlock block={block} authoring lessonBlocks={lessonBlocks} slideLayout device="desktop" orientation="landscape" />}
+        {readOnly ? <PreviewBlock block={block} authoring decorative lessonBlocks={lessonBlocks} slideLayout device="desktop" orientation="landscape" /> : isSlideTextBlock(block) ? <SlideTextObjectEditor block={block} onChange={onChange} onEditorFocus={onEditorFocus} /> : block.type === "audioInstruction" ? <AudioInstruction key={block.data.src} block={block} authoring presentation guideEditing={selected && !suppressTransforms} onGuideChange={(change) => onChange({ ...block, data: { ...block.data, guide: { ...(block.data.guide ?? defaultAudioInstructionGuide), ...change } } })} /> : (block.type === "labeledGraphic" || block.type === "balloonArcher") ? <ContentBlockPreview block={block} onChange={onChange} presentation /> : isSlideMediaObject(block) ? <SlideMediaObject key={block.data.src} block={block} onDimensions={recordMediaDimensions} /> : <PreviewBlock block={block} authoring lessonBlocks={lessonBlocks} slideLayout device="desktop" orientation="landscape" />}
         </SlideObjectContent>
       </div>
-      {selected && <SlideObjectTransformHandles type={block.type} insetTools={frame.y / 100 * area.height < 40} rotation={frame.rotation ?? 0} onStart={(event, kind, handle) => { event.stopPropagation(); start(event, kind, true, handle); }} onKeyDown={transformKey} />}
+      {selected && !readOnly && !suppressTransforms && <SlideObjectTransformHandles type={block.type} insetTools={frame.y / 100 * area.height < 40} rotation={frame.rotation ?? 0} onStart={(event, kind, handle) => { event.stopPropagation(); start(event, kind, true, handle); }} onKeyDown={transformKey} />}
     </div>
   );
 }

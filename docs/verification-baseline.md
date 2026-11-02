@@ -1,5 +1,21 @@
 # Verification baseline
 
+## Presentation text and LaTeX checks: 2026-11-03
+
+Passed 68 focused tests across seven files: `presentation-text-settings`, `export-font-assets`, `pdf-handout`, `code-example`, `slide-text-insertion`, `slide-selection-editor`, and `interaction-button-editor`. Coverage includes selected/whole-object font formatting, mutually exclusive super/subscript, all six formula templates, invalid and bounded LaTeX, accessible math, HTML/save/clipboard round trips, source-preserving PDF handouts, equation cancellation and undo, and existing slide/popup behavior.
+
+`npm.cmd run typecheck`, zero-warning ESLint on changed text/export modules, and `npm.cmd run build:export` passed. The export build retains its existing module-directive/sourcemap and chunk-size warnings. `node scripts/testing/presentation-text-browser.mjs` passed real Chromium checks for main-slide font controls, inline/display equation dialogs, syntax validation, editing, undo, reload, learner preview, popup Apply/Cancel, and nested Escape; its dialog also fits a 390-pixel phone viewport. Screenshots are written under `test-results/presentation-equation-*.png`. `node scripts/testing/html-export-browser.mjs` verifies compiled single-file HTML on `file://`, with rendered inline/display formulas, loaded embedded KaTeX fonts, formatting, and no external requests. SCORM continues to package this same static runtime and local assets; a new SCORM/LMS browser run was not performed for this text slice.
+
+This is focused verification, not a full repository test run. PDF equations are retained as LaTeX source rather than typeset formulas. Advanced spacing and the general symbol picker are deferred. The existing thumbnail footer-position failure recorded below remains separate.
+
+## Faster Presentation Editing checks: 2026-11-03
+
+Focused geometry/editor tests cover multi-selection, flat grouping, batch clipboard compatibility, atomic history, proportional resizing, locks, editor-only visibility, and popup Apply/Cancel. `node scripts/testing/slide-selection-browser.mjs` exercises real mouse/touch gestures at 50% and 150% zoom. `node scripts/testing/html-export-browser.mjs` checks the compiled static learner, including grouped media hidden in authoring remaining visible to learners.
+
+Passed: 168 focused Vitest tests across 13 files, strict TypeScript (`npx tsc --noEmit`), zero-warning ESLint on the changed selection/editor modules, the static learner build, and both browser scripts above. This is focused verification rather than a full repository test run. Older interaction-button assertions were aligned with the previously requested 20-pixel button, 18-pixel icon, and 2-pixel radar defaults.
+
+An existing failure is tracked separately in `tests/slide-thumbnails.test.tsx`, "renders actual blocks, backgrounds, frames, alignment, and branding at slide scale". Its legacy-coordinate expectation hardcodes a 368-pixel object region, corresponding to a 64-pixel footer. The current default footer is 48 pixels, so the actual region is 384 pixels: the test expects a top position of approximately 33.6296%, while the renderer gives approximately 34.2222%. This discrepancy predates the selection tools; this feature does not change the footer default or legacy coordinate conversion.
+
 The requested Phase 15 work establishes repeatable checks, separates the large AI/editor modules, and measures 100 concurrent authors browsing and editing. It keeps the existing Next.js application and static learner export boundaries.
 
 ## Running checks

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SlideNumberSettingInput } from "./slide-number-setting-input";
 import { Select } from "@/components/ui/select";
+import { ColorPicker } from "@/components/ui/color-picker";
 import { slideAbstractDesigns, type SlideMaster } from "@/lib/editor/slide-design";
 import { SlideMasterBackground } from "@/app/courses/[courseId]/_components/slide-presentation/slide-master-background";
 import { MediaLibraryDialog } from "@/app/courses/[courseId]/edit/_components/media-library-dialog";
@@ -36,13 +37,14 @@ export function SlideMasterBackgroundControls({ master, courseId, onChange }: {
       {background.imageSrc && <>
         <div aria-label="Master background image preview" className="relative aspect-video overflow-hidden rounded-md border"><SlideMasterBackground master={master} /></div>
         <label className="block text-xs font-medium text-slate-600">Image position<Select aria-label="Master background image position" value={background.imagePosition} className="mt-1" onChange={(event) => onChange({ ...master, background: { ...background, imagePosition: event.target.value as "center" | "top" | "bottom" } })}><option value="center">Center</option><option value="top">Top</option><option value="bottom">Bottom</option></Select></label>
+        <div className="space-y-1 text-xs text-slate-600">Overlay color<ColorPicker aria-label="Master background overlay color" value={background.overlayColor ?? master.backgroundColor} onChange={(overlayColor) => onChange({ ...master, background: { ...background, overlayColor } })} /></div>
         <label className="block text-xs font-medium text-slate-600">Color overlay: {background.overlayOpacity}%<Input aria-label="Master background image overlay" type="range" min={0} max={90} value={background.overlayOpacity} className="mt-1" onChange={(event) => onChange({ ...master, background: { ...background, overlayOpacity: Number(event.target.value) } })} /></label>
         <SlideNumberSettingInput aria-label="Master background image overlay percentage" min={0} max={90} value={background.overlayOpacity} onValueChange={(overlayOpacity) => onChange({ ...master, background: { ...background, overlayOpacity } })} className="h-8" />
         <Button type="button" variant="ghost" size="sm" onClick={() => onChange({ ...master, background: { type: "solid" } })}>Remove background image</Button>
       </>}
     </>}
     <MediaLibraryDialog courseId={courseId} kind="image" open={imageOpen} onClose={() => setImageOpen(false)} onSelect={(asset) => {
-      onChange({ ...master, background: { type: "image", imageSrc: asset.fileUrl, imagePosition: background?.type === "image" ? background.imagePosition : "center", overlayOpacity: background?.type === "image" ? background.overlayOpacity : 30 } });
+      onChange({ ...master, background: { type: "image", imageSrc: asset.fileUrl, imagePosition: background?.type === "image" ? background.imagePosition : "center", overlayOpacity: background?.type === "image" ? background.overlayOpacity : 30, overlayColor: background?.type === "image" ? background.overlayColor : undefined } });
       setImageOpen(false);
     }} />
   </div>;

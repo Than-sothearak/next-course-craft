@@ -1,3 +1,17 @@
+import { courseThemeFontFamilies, courseThemeFontFamilyIds } from "./theme";
+
+export function normalizeTextFontFamily(value: unknown) {
+  if (typeof value !== "string") return null;
+  const normalized = value.replaceAll(/["']/g, "").replaceAll(/\s+/g, " ").trim().toLowerCase();
+  return courseThemeFontFamilyIds.find((id) => id === value || courseThemeFontFamilies[id].replaceAll(/["']/g, "").toLowerCase() === normalized) ?? null;
+}
+
+export const textFontFamilyLabels = {
+  sans: "Sans serif", serif: "Serif", rounded: "Rounded",
+  "noto-sans-khmer": "Noto Sans Khmer", battambang: "Battambang",
+  "kantumruy-pro": "Kantumruy Pro", nokora: "Nokora",
+} as const;
+
 export function normalizeFontSize(value: string | number | null | undefined) {
   if (value === null || value === undefined) return null;
   const match = String(value).trim().match(/^(\d+)(?:px)?$/i);

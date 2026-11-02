@@ -7,6 +7,7 @@ import { SlideSurfaceFooter } from "./slide-surface-footer";
 import { SlideMasterBackground } from "./slide-master-background";
 import { SlideCoverPositionFrame } from "./slide-cover-position-frame";
 import { backgroundPaint } from "@/lib/color";
+import { SlideColorOverlay } from "./slide-color-overlay";
 
 export function SlideCoverSurface({ cover, title, master, appearance, number = 1, total = 1, controls, menuControl, instructionsControl, onStart, startDisabled = false, startHint, decorative, children }: {
   cover: SlideCover;
@@ -34,7 +35,7 @@ export function SlideCoverSurface({ cover, title, master, appearance, number = 1
   </div>;
   return <div className="relative h-full w-full overflow-hidden bg-slate-900 text-white" style={{ "--slide-footer-height": `${appearance?.hideFooter ? 0 : resolveSlideFooterHeight(master)}px`, ...slideBodyTypographyVariables(master?.bodyTypography) } as CSSProperties}>
     {appearance?.background ? <SlideMasterBackground master={resolveSlideAppearanceMaster(master, appearance)} /> : <>{cover.imageSrc ? <Image src={cover.imageSrc} alt={cover.imageAlt} fill unoptimized className="object-cover" sizes="960px" /> : <div className="absolute inset-0 bg-gradient-to-br from-indigo-950 via-indigo-700 to-sky-600" />}
-    <div className="absolute inset-0" style={{ backgroundColor: `rgba(4, 10, 32, ${cover.overlayOpacity / 100})` }} /></>}
+    <SlideColorOverlay color={cover.overlayColor ?? "#040a20"} opacity={cover.overlayOpacity} /></>}
     {!appearance?.hideHeader && <><SlideCoverPositionFrame layout={{ position: cover.contentPosition ?? "middle-center", offsetX: 0, offsetY: 0 }}>
       {cover.lessonOf && <p data-cover-element="label" className="mb-4 uppercase tracking-[0.24em]" style={slideTypographyStyle(cover.labelStyle ?? defaultSlideCoverTypography.label)}>{cover.lessonOf}</p>}
       {!cover.titleLayout && titleContent}

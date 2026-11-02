@@ -716,6 +716,9 @@ export function EditorClient({
       updateBlock(existing.id, {
         ...slideReplacement,
         slideFrame: existing.slideFrame,
+        slideGroupId: existing.slideGroupId,
+        slideLocked: existing.slideLocked,
+        slideHiddenInEditor: existing.slideHiddenInEditor,
         slideAnimation: existing.slideAnimation,
         requiredForProgress:
           existing.requiredForProgress ??

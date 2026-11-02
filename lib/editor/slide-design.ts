@@ -191,7 +191,7 @@ export const slideAbstractDesigns = [
 export const slideMasterBackgroundSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("solid") }),
   z.object({ type: z.literal("abstract"), design: z.enum(["waves", "orbits", "prism", "ribbons", "dots", "glow"]) }),
-  z.object({ type: z.literal("image"), imageSrc: slideImageSourceSchema.default(""), imagePosition: z.enum(["center", "top", "bottom"]).default("center"), overlayOpacity: z.number().int().min(0).max(90).default(30) }),
+  z.object({ type: z.literal("image"), imageSrc: slideImageSourceSchema.default(""), imagePosition: z.enum(["center", "top", "bottom"]).default("center"), overlayColor: colorValueSchema.optional(), overlayOpacity: z.number().int().min(0).max(90).default(30) }),
 ]);
 
 export const slideAppearanceSchema = z.object({
@@ -248,6 +248,7 @@ export const slideHeaderSchema = z.object({
   imageSrc: slideImageSourceSchema.default(""),
   imagePosition: z.enum(["center", "top", "bottom"]).default("center"),
   overlayOpacity: z.number().int().min(0).max(90).default(20),
+  overlayColor: colorValueSchema.optional(),
 });
 export type SlideHeader = z.infer<typeof slideHeaderSchema>;
 
@@ -352,6 +353,7 @@ export const slideCoverSchema = z.object({
   lessonOf: z.string().max(160).default(""),
   startLabel: z.string().trim().min(1).max(60).default("Start"),
   overlayOpacity: z.number().int().min(0).max(90).default(50),
+  overlayColor: colorValueSchema.optional(),
   titleStyle: slideTypographySchema.optional(),
   subtitleStyle: slideTypographySchema.optional(),
   labelStyle: slideTypographySchema.optional(),

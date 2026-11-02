@@ -134,6 +134,8 @@ describe("master slide header settings", () => {
     expect(container.querySelector<HTMLInputElement>('[aria-label="Upload image"]')?.accept).toContain("image/png");
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Use Header.png"]')!.click());
     await select("Header image position", "bottom"); await input("Header image overlay", "45");
+    await input("Header image overlay color hex code", "#ff8800");
+    expect(background().querySelector<HTMLElement>("[data-slide-color-overlay]")?.style.backgroundColor).toBe("rgb(255, 136, 0)");
     expect(background().querySelector("img")?.style.objectPosition).toBe("bottom");
     expect(container.querySelector('[data-slide-thumbnail-canvas] [data-slide-header-background] img')?.getAttribute("src")).toBe(asset.fileUrl);
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Hide all Master slide settings"]')!.click());
@@ -145,7 +147,7 @@ describe("master slide header settings", () => {
     await act(async () => vi.advanceTimersByTimeAsync(1000));
     const call = fetchMock.mock.calls.findLast(([, init]) => init?.method === "PUT")!;
     const snapshot = editorSnapshotSchema.parse(JSON.parse(call[1].body));
-    expect(snapshot.slideMaster?.header).toMatchObject({ background: "image", backgroundColor: "#123456", textColor: "#ffffff", imageSrc: asset.fileUrl, imagePosition: "bottom", overlayOpacity: 45 });
+    expect(snapshot.slideMaster?.header).toMatchObject({ background: "image", backgroundColor: "#123456", textColor: "#ffffff", imageSrc: asset.fileUrl, imagePosition: "bottom", overlayColor: "#ff8800", overlayOpacity: 45 });
     await act(async () => root.render(<EditorClient key="reload" initialData={{ ...snapshot, courseId: "slides" }} authorName="Author" />));
     expect(background().querySelector("img")?.getAttribute("src")).toBe(asset.fileUrl);
     for (const standalone of [false, true]) {

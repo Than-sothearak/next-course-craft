@@ -18,7 +18,7 @@ describe("interaction button content contract", () => {
     const template = blockTemplates.find((item) => item.id === "interactive-button")!;
     const first = createBlocksFromTemplate(template, "first")[0];
     const second = createBlocksFromTemplate(template, "second")[0];
-    expect(first).toMatchObject({ type: "interactionButton", blockPadding: 0, data: { trigger: "icon", radarEnabled: true, popup: { animation: "zoom", blocks: [{ type: "richText" }] } } });
+    expect(first).toMatchObject({ type: "interactionButton", blockPadding: 0, data: { trigger: "icon", buttonSize: 20, iconSize: 18, radius: 10, radarEnabled: true, radarSize: 2, radarWeight: 2, popup: { animation: "zoom", blocks: [{ type: "richText" }] } } });
     expect(blockSchema.safeParse(first).success).toBe(true);
     if (first.type !== "interactionButton" || second.type !== "interactionButton") throw new Error("Wrong template type");
     expect(first.data.popup.blocks[0].id).not.toBe(second.data.popup.blocks[0].id);

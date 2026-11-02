@@ -1,8 +1,9 @@
 /* eslint-disable @next/next/no-img-element -- Presentation backgrounds also render in standalone static exports. */
 import { useId } from "react";
 import { defaultSlideMaster, type SlideMaster } from "@/lib/editor/slide-design";
-import { backgroundPaint, parseGradient, solidColor } from "@/lib/color";
+import { parseGradient, solidColor } from "@/lib/color";
 import { SvgGradient } from "@/components/svg-gradient";
+import { SlideColorOverlay } from "./slide-color-overlay";
 
 export function SlideMasterBackground({ master = defaultSlideMaster }: { master?: SlideMaster }) {
   const id = useId().replaceAll(":", "");
@@ -16,7 +17,7 @@ export function SlideMasterBackground({ master = defaultSlideMaster }: { master?
     <span aria-hidden="true" data-slide-master-background={background?.type ?? "theme"} className="pointer-events-none absolute inset-0 block overflow-hidden" style={{ background: fill }}>
       {background?.type === "image" && background.imageSrc && <>
         <img src={background.imageSrc} alt="" className="absolute inset-0 h-full w-full object-cover" style={{ objectPosition: background.imagePosition }} />
-        <span className="absolute inset-0" style={{ ...backgroundPaint(master.backgroundColor), opacity: background.overlayOpacity / 100 }} />
+        <SlideColorOverlay color={background.overlayColor ?? master.backgroundColor} opacity={background.overlayOpacity} />
       </>}
       {background?.type === "abstract" && <svg data-abstract-design={background.design} viewBox="0 0 960 540" preserveAspectRatio="xMidYMid slice" className="absolute inset-0 h-full w-full" fill="none">
         <SvgGradient id={`${id}-accent`} value={master.accentColor} />

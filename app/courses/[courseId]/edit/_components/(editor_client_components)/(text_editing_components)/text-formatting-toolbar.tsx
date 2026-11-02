@@ -5,6 +5,8 @@ import { useEditorState } from "@tiptap/react";
 import Document from "@tiptap/extension-document";
 import StarterKit from "@tiptap/starter-kit";
 import Underline from "@tiptap/extension-underline";
+import Superscript from "@tiptap/extension-superscript";
+import Subscript from "@tiptap/extension-subscript";
 import {
   AlignCenter,
   AlignJustify,
@@ -20,17 +22,22 @@ import {
   Redo2,
   RemoveFormatting,
   Strikethrough,
+  Superscript as SuperscriptIcon,
+  Subscript as SubscriptIcon,
+  Sigma,
   Underline as UnderlineIcon,
   Undo2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
-import { normalizeFontSize, normalizeHexColor } from "@/lib/editor/text-format";
+import { normalizeFontSize, normalizeHexColor, normalizeTextFontFamily, textFontFamilyLabels } from "@/lib/editor/text-format";
+import { courseThemeFontFamilies, courseThemeFontFamilyIds } from "@/lib/editor/theme";
+import { CourseBlockMath, CourseInlineMath, requestEquationDialog } from "@/lib/editor/text-equation-extension";
 import { FontSizeControl } from "./(text_formatting_toolbar_components)/font-size-control";
 import { TextColorControl } from "./(text_formatting_toolbar_components)/text-color-control";
 import { ToolbarButton } from "./(text_formatting_toolbar_components)/toolbar-button";
 import { LinkControl } from "./(text_formatting_toolbar_components)/link-control";
-import { setInlineStyle } from "./(text_formatting_toolbar_components)/text-formatting-commands";
+import { formatTextRange, setInlineStyle } from "./(text_formatting_toolbar_components)/text-formatting-commands";
 import { StyledCodeBlock } from "./(text_formatting_toolbar_components)/styled-code-block";
 import { parseGradient } from "@/lib/color";
 
@@ -48,6 +55,10 @@ const InlineStyle = Mark.create({
   name: "inlineStyle",
   addAttributes() {
     return {
+      fontFamily: {
+        default: null,
+        parseHTML: (element) => normalizeTextFontFamily(element.getAttribute("data-font-family")) ?? normalizeTextFontFamily((element as HTMLElement).style.fontFamily),
+      },
       fontSize: {
         default: null,
         parseHTML: (element) => (element as HTMLElement).style.fontSize || null,
@@ -67,16 +78,18 @@ const InlineStyle = Mark.create({
   },
   renderHTML({ HTMLAttributes }) {
     const style: string[] = [];
+    const fontFamily = normalizeTextFontFamily(HTMLAttributes.fontFamily);
     const fontSize = normalizeFontSize(HTMLAttributes.fontSize);
     const color = normalizeTextPaint(HTMLAttributes.color);
     const highlight = normalizeHexColor(HTMLAttributes.highlight);
     if (fontSize) style.push(`font-size: ${fontSize}`);
+    if (fontFamily) style.push(`font-family: ${courseThemeFontFamilies[fontFamily]}`);
     if (color) {
       if (parseGradient(color)) style.push(`color: transparent`, `background-image: ${color}`, "background-clip: text", "-webkit-background-clip: text");
       else style.push(`color: ${color}`);
     }
     if (highlight) style.push(`background-color: ${highlight}`);
-    return ["span", { style: style.join("; ") || null, ...(parseGradient(color) ? { "data-text-gradient": color } : {}) }, 0];
+    return ["span", { style: style.join("; ") || null, ...(fontFamily ? { "data-font-family": fontFamily } : {}), ...(parseGradient(color) ? { "data-text-gradient": color } : {}) }, 0];
   },
 });
 
@@ -253,6 +266,10 @@ const sharedTextExtensions = [
   CourseOverviewHeader,
   CourseOverviewCell,
   Underline,
+  Superscript.extend({ excludes: "subscript" }),
+  Subscript.extend({ excludes: "superscript" }),
+  CourseInlineMath,
+  CourseBlockMath,
   InlineStyle,
   ParagraphFormatting,
   ListMarkerFormatting,
@@ -290,10 +307,13 @@ export function TextFormattingToolbar({ editor, allowLists = true, textAlign, on
   const editorFormatting = useEditorState({
     editor,
     selector: ({ editor: currentEditor }) => {
-      if (!currentEditor) return { fontSize: null, color: null, activeListType: null, listDepth: 0, itemSpacing: "comfortable", listStyle: null };
+      if (!currentEditor) return { fontFamily: null, fontSize: null, color: null, activeListType: null, listDepth: 0, itemSpacing: "comfortable", listStyle: null, superscript: false, subscript: false };
       const inlineStyle = currentEditor.getAttributes("inlineStyle");
       const { activeListType, listDepth } = getListContext(currentEditor);
       return {
+        fontFamily: normalizeTextFontFamily(inlineStyle.fontFamily),
+        superscript: currentEditor.isActive("superscript"),
+        subscript: currentEditor.isActive("subscript"),
         fontSize: inlineStyle.fontSize as string | null,
         color: inlineStyle.color as string | null,
         activeListType,
@@ -324,12 +344,19 @@ export function TextFormattingToolbar({ editor, allowLists = true, textAlign, on
     }} className="h-8 w-[6.5rem] rounded-md border-slate-200 px-2 text-xs shadow-none">
       <option value="paragraph">Paragraph</option><option value="1">Heading 1</option><option value="2">Heading 2</option><option value="3">Heading 3</option>
     </Select>
+    <Select aria-label="Font family" value={editorFormatting?.fontFamily ?? ""} onChange={(event) => formatTextRange(editor, (chain) => chain.setMark("inlineStyle", { fontFamily: normalizeTextFontFamily(event.target.value) }))} className="h-8 w-[9rem] rounded-md border-slate-200 px-2 text-xs shadow-none">
+      <option value="">Slide default</option>
+      {courseThemeFontFamilyIds.map((id) => <option key={id} value={id}>{textFontFamilyLabels[id]}</option>)}
+    </Select>
     <FontSizeControl editor={editor} selectedFontSize={selectedFontSize} />
     <span className="mx-1 h-6 w-px bg-slate-200" />
     <ToolbarButton label="Bold" active={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()}><Bold size={16} /></ToolbarButton>
     <ToolbarButton label="Italic" active={editor.isActive("italic")} onClick={() => editor.chain().focus().toggleItalic().run()}><Italic size={16} /></ToolbarButton>
     <ToolbarButton label="Underline" active={editor.isActive("underline")} onClick={() => editor.chain().focus().toggleUnderline().run()}><UnderlineIcon size={16} /></ToolbarButton>
     <ToolbarButton label="Strikethrough" active={editor.isActive("strike")} onClick={() => editor.chain().focus().toggleStrike().run()}><Strikethrough size={16} /></ToolbarButton>
+    <ToolbarButton label="Superscript" active={editorFormatting?.superscript} onClick={() => formatTextRange(editor, (chain) => chain.toggleSuperscript())}><SuperscriptIcon size={16} /></ToolbarButton>
+    <ToolbarButton label="Subscript" active={editorFormatting?.subscript} onClick={() => formatTextRange(editor, (chain) => chain.toggleSubscript())}><SubscriptIcon size={16} /></ToolbarButton>
+    <ToolbarButton label="Equation" onClick={() => requestEquationDialog(editor)}><Sigma size={16} /></ToolbarButton>
     <span className="mx-1 h-6 w-px bg-slate-200" />
     <TextColorControl key={selectedColor} editor={editor} selectedColor={selectedColor} />
     <LinkControl editor={editor} active={editor.isActive("link")} />

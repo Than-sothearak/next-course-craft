@@ -17,7 +17,7 @@ export function SlidePreviewZoom({ zoom, onZoomChange, fullscreen, onToggleFulls
       <option value="fit">Fit to screen</option>
       {zoomLevels.map((level) => <option key={level} value={level}>{level}%</option>)}
     </Select>
-    {zoom !== undefined && <Button type="button" variant="ghost" size="icon" aria-label={fullscreen ? "Exit full screen" : "Present full screen"} title={fullscreen ? "Exit full screen" : "Present full screen"} onClick={onToggleFullscreen} className="size-8 bg-white/90 text-slate-700 hover:bg-white">
+    {zoom !== undefined && <Button type="button" variant="ghost" size="icon" aria-label={fullscreen ? "Exit full screen" : "Present full screen"} title={fullscreen ? "Exit full screen" : "Present full screen"} onClick={onToggleFullscreen} className="size-8 rounded-none bg-white/90 text-slate-700 hover:bg-white">
       {fullscreen ? <Minimize size={15} /> : <Expand size={15} />}
     </Button>}
   </div>;

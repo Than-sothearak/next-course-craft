@@ -91,12 +91,12 @@ export function SlidePresentationPreview({
         {onEdit && <Button type="button" variant="outline" size="sm" onClick={onEdit} className="h-8">Edit</Button>}
         {!standalone && canPublish && <PublishMenu courseId={courseId} title={title} className="h-8" />}
       </header>}
-      {fullscreen && <div className="absolute left-1/2 top-0 z-50 -translate-x-1/2 rounded-b-md bg-white/90 shadow-sm">
+      {fullscreen && <div className="absolute left-1/2 top-0 z-50 -translate-x-1/2 bg-white/90 shadow-sm">
         <SlidePreviewZoom zoom={zoom} onZoomChange={setZoom} fullscreen onToggleFullscreen={() => void toggleFullscreen()} />
       </div>}
       {support.audioElement}
       <SlidePresentationContext.Provider value={{ slides, selectedId, onSelect, onRestart: restartSlide, getLockMessage, menuOpen, onMenuOpenChange, menu, fullscreen, onToggleFullscreen: () => void toggleFullscreen(), zoom, courseId, standalone, playInstructionAudio: support.playAudio, pauseInstructionAudio: support.pauseAudio, instructionAudioPlaying: support.playing, instructionAudioSource: support.source, instructionAudioControl: support.audioControl, navigationGuide, guideStep: support.guideStep, onGuideStep: support.changeGuideStep }}>
-        <div className="relative flex min-h-0 min-w-0 flex-1">{children}</div>
+        <div data-presentation-workspace className={`relative flex min-h-0 min-w-0 flex-1 p-0 ${!fullscreen && zoom === undefined ? "xl:p-6" : ""}`}>{children}</div>
       </SlidePresentationContext.Provider>
     </div>
   );

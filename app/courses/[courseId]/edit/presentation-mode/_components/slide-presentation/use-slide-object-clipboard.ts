@@ -3,7 +3,7 @@
 import { useEffect, useState, type RefObject } from "react";
 import type { ContentBlock } from "@/lib/schemas/block";
 import type { SlideSize } from "@/lib/editor/slide-design";
-import { readSlideObjectClipboard, serializeSlideObject, slideObjectClipboardType } from "@/lib/editor/slide-clipboard";
+import { readSlideObjectClipboard, readSlideObjectsClipboard, serializeSlideObject, serializeSlideObjects, slideObjectClipboardType } from "@/lib/editor/slide-clipboard";
 
 const modalSelector = 'dialog[open], [role="dialog"][aria-modal="true"], [role="alertdialog"][aria-modal="true"]';
 const textSelector = 'input, textarea, select, [contenteditable="true"], [contenteditable=""], [role="textbox"]';
@@ -17,13 +17,15 @@ function canHandleClipboard(event: ClipboardEvent, scope: HTMLElement | null): b
   return scope.closest(modalSelector) === modal;
 }
 
-export function useSlideObjectClipboard({ scopeRef, courseId, blocks, selectedId, area, onPaste, onSelect }: {
+export function useSlideObjectClipboard({ scopeRef, courseId, blocks, selectedId, selectedIds, area, onPaste, onPasteMany, onSelect }: {
   scopeRef: RefObject<HTMLElement | null>;
   courseId: string;
   blocks: ContentBlock[];
   selectedId: string | null;
+  selectedIds?: string[];
   area: SlideSize;
   onPaste: (source: ContentBlock) => string;
+  onPasteMany?: (sources: ContentBlock[]) => void;
   onSelect: (id: string) => void;
 }) {
   const [notice, setNotice] = useState<{ message: string; error: boolean } | null>(null);
@@ -33,7 +35,7 @@ export function useSlideObjectClipboard({ scopeRef, courseId, blocks, selectedId
       const index = blocks.findIndex((block) => block.id === selectedId);
       if (index < 0) return;
       try {
-        const text = serializeSlideObject(courseId, blocks[index], index, blocks.length, area);
+        const text = selectedIds && selectedIds.length > 1 ? serializeSlideObjects(courseId, blocks, selectedIds, area) : serializeSlideObject(courseId, blocks[index], index, blocks.length, area);
         try { event.clipboardData.setData(slideObjectClipboardType, text); } catch { /* Plain text supports browsers without custom clipboard types. */ }
         event.clipboardData.setData("text/plain", text);
         event.preventDefault();
@@ -45,6 +47,11 @@ export function useSlideObjectClipboard({ scopeRef, courseId, blocks, selectedId
     function paste(event: ClipboardEvent) {
       if (!canHandleClipboard(event, scopeRef.current) || !event.clipboardData) return;
       try {
+        if (onPasteMany) {
+          const sources = readSlideObjectsClipboard(event.clipboardData.getData(slideObjectClipboardType) || event.clipboardData.getData("text/plain"), courseId);
+          if (!sources) return;
+          event.preventDefault(); onPasteMany(sources); setNotice({ message: sources.length === 1 ? "Object pasted." : `${sources.length} objects pasted.`, error: false }); return;
+        }
         const source = readSlideObjectClipboard(event.clipboardData.getData(slideObjectClipboardType) || event.clipboardData.getData("text/plain"), courseId);
         if (!source) return;
         event.preventDefault();
@@ -58,6 +65,6 @@ export function useSlideObjectClipboard({ scopeRef, courseId, blocks, selectedId
     document.addEventListener("copy", copy);
     document.addEventListener("paste", paste);
     return () => { document.removeEventListener("copy", copy); document.removeEventListener("paste", paste); };
-  }, [scopeRef, courseId, blocks, selectedId, area, onPaste, onSelect]);
+  }, [scopeRef, courseId, blocks, selectedId, selectedIds, area, onPaste, onPasteMany, onSelect]);
   return notice;
 }

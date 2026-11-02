@@ -69,6 +69,16 @@ describe("cover settings and editor footer navigation", () => {
     expect(container.querySelector('[data-slide-canvas] [data-cover-position="button"]')).not.toBeNull();
   });
 
+  it("edits the cover overlay color with undo, saving and reload", async () => {
+    await render(); await input("Cover image overlay color hex code", "#ff8800");
+    const overlay = () => container.querySelector<HTMLElement>('[data-slide-canvas] [data-slide-color-overlay]')!;
+    expect(overlay().style.backgroundColor).toBe("rgb(255, 136, 0)");
+    await act(async () => button("Undo").click()); expect(overlay().style.backgroundColor).toBe("rgb(4, 10, 32)"); await act(async () => button("Redo").click());
+    const snapshot = await saved(); expect(snapshot.lessons[0].slideCover?.overlayColor).toBe("#ff8800");
+    await act(async () => root.render(<EditorClient key="overlay-reload" initialData={{ ...snapshot, courseId: "slides" }} authorName="Author" />));
+    expect(overlay().style.backgroundColor).toBe("rgb(255, 136, 0)");
+  });
+
   it("keeps welcome notices in cover settings and removes the cover audio controls", async () => {
     await render(); expect(container.querySelector('[aria-label="Instruction audio trigger"]')).toBeNull(); await act(async () => container.querySelector<HTMLInputElement>('[aria-label="Show cover notice"]')!.click());
     await input("Cover notice title", "Before you start"); await input("Cover notice text", "Click Next after reading each slide."); await select("Cover notice trigger", "start");

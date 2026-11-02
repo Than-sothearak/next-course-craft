@@ -145,10 +145,10 @@ describe("learner interaction button", () => {
     expect(document.querySelector("dialog[open]")).not.toBeNull();
   });
 
-  it("keeps the original radar appearance for older buttons", async () => {
+  it("uses the compact radar defaults for unconfigured buttons", async () => {
     await render();
     const trigger = container.querySelector<HTMLButtonElement>('[aria-label="Explore details"]')!;
-    expect(trigger.style.getPropertyValue("--radar-size")).toBe("3px");
+    expect(trigger.style.getPropertyValue("--radar-size")).toBe("2px");
     expect(trigger.style.getPropertyValue("--radar-weight")).toBe("2px");
   });
 
@@ -162,7 +162,7 @@ describe("learner interaction button", () => {
     const trigger = frame.querySelector("button")!;
     expect(frame.style.alignItems).toBe(alignItems); expect(frame.style.justifyItems).toBe(justifyItems);
     expect(trigger.style.width).toBe("min(96.25px, 100cqw, 100cqh)"); expect(trigger.style.height).toBe(trigger.style.width);
-    expect(trigger.querySelector("svg")?.getAttribute("width")).toBe("40");
+    expect(trigger.querySelector("svg")?.getAttribute("width")).toBe("18");
   });
 
   it("centers buttons saved before fixed sizing and alignment were added", async () => {
@@ -171,11 +171,11 @@ describe("learner interaction button", () => {
     delete (old.data as Partial<typeof old.data>).position;
     await render(old);
     expect(document.querySelector("[data-interaction-button-container]")?.getAttribute("data-button-position")).toBe("middle-center");
-    expect(document.querySelector<HTMLButtonElement>('[aria-label="Explore details"]')?.style.width).toBe("min(80px, 100cqw, 100cqh)");
+    expect(document.querySelector<HTMLButtonElement>('[aria-label="Explore details"]')?.style.width).toBe("min(20px, 100cqw, 100cqh)");
   });
 
   it("keeps the settings preview compact outside a presentation object", async () => {
     await act(async () => root.render(<PreviewBlock block={button} device="desktop" orientation="landscape" authoring />));
-    expect(document.querySelector<HTMLElement>("[data-interaction-button-container]")?.style.height).toBe("80px");
+    expect(document.querySelector<HTMLElement>("[data-interaction-button-container]")?.style.height).toBe("20px");
   });
 });

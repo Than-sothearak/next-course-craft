@@ -51,6 +51,18 @@ describe("presentation media playback", () => {
     expect(parseScorm12Snapshot(snapshot).lessons[0].blocks).toMatchObject([video, audio]);
   });
 
+  it("updates video overlay color and opacity without interrupting playback", async () => {
+    await render(video); const player = media(); await act(async () => player.play()); player.currentTime = 9;
+    await render({ ...video, slideMediaOverlay: { color: "#ff8800", opacity: 60 } });
+    expect(media()).toBe(player); expect(player.currentTime).toBe(9); expect(player.paused).toBe(false);
+    expect(pause).not.toHaveBeenCalled();
+    const overlay = container.querySelector<HTMLElement>("[data-slide-color-overlay]")!;
+    expect(overlay.style.backgroundColor).toBe("rgb(255, 136, 0)"); expect(overlay.style.opacity).toBe("0.6");
+    expect(overlay.classList.contains("pointer-events-none")).toBe(true);
+    await render({ ...video, slideMediaOverlay: { color: "#123456", opacity: 0 } });
+    expect(media()).toBe(player); expect(player.currentTime).toBe(9); expect(pause).not.toHaveBeenCalled();
+  });
+
   it("hides the audio file name without interrupting playback or changing its accessible name and completion", async () => {
     const end = vi.fn(), shown = audioBlockSchema.parse({ ...audio, slidePlayback: { autoPlay: false, showControls: true, showFileName: true } });
     await render(shown, true, end); expect(container.textContent).toContain("Narration");

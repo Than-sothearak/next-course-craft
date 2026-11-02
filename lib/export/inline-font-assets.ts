@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { extname, resolve, sep } from "node:path";
 
-const localFontUrlPattern = /url\((["']?)(\.\/[^)"']+\.woff2?)\1\)/gi;
+const localFontUrlPattern = /url\((["']?)(\.\/[^)"']+\.(?:woff2?|ttf))\1\)/gi;
 
 export async function inlineLocalFontAssets(css: string, assetsDirectory: string) {
   const assetsRoot = resolve(assetsDirectory);
@@ -16,7 +16,7 @@ export async function inlineLocalFontAssets(css: string, assetsDirectory: string
       throw new Error("The course export contains an invalid local font path.");
 
     const extension = extname(assetPath).toLowerCase();
-    const mimeType = extension === ".woff2" ? "font/woff2" : "font/woff";
+    const mimeType = extension === ".woff2" ? "font/woff2" : extension === ".ttf" ? "font/ttf" : "font/woff";
     const fontData = await readFile(assetPath);
     const dataUrl = `url("data:${mimeType};base64,${fontData.toString("base64")}")`;
     result = result.replaceAll(match[0], dataUrl);

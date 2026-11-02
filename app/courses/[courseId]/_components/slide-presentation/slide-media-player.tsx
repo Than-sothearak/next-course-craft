@@ -10,6 +10,7 @@ import { useSlidePlaybackActive } from "./slide-playback-context";
 import { croppedMediaStyle, cropViewportStyle, resolveSlideCrop } from "@/lib/editor/slide-crop";
 import { resolveSlideMedia } from "@/lib/editor/slide-objects";
 import { defaultSlideAudioSize, slideAudioSizes } from "@/lib/editor/slide-audio";
+import { SlideColorOverlay } from "./slide-color-overlay";
 
 export function SlideMediaPlayer({ block, onDimensions, onEnded, decorative = false }: {
   block: Extract<ContentBlock, { type: "video" | "audio" }>;
@@ -123,7 +124,7 @@ export function SlideMediaPlayer({ block, onDimensions, onEnded, decorative = fa
     {block.type === "audio" && (block.slidePlayback?.showFileName ?? false) && <div data-slide-audio-title className="flex min-w-0 items-center gap-2 text-sm" style={{ fontSize: audioSizeName === "small" ? 12 : undefined }}><Music2 size={audioSize?.icon} className="shrink-0" /><span className="min-w-0 break-words">{label}</span></div>}
     {block.type === "video" ? <div className="relative h-full w-full overflow-hidden" style={crop && dimensions ? cropViewportStyle(dimensions, crop) : undefined} data-slide-media-crop={crop ? true : undefined}><video {...common} ref={mediaRef as Ref<HTMLVideoElement>} tabIndex={0} playsInline style={crop ? croppedMediaStyle(crop) : undefined} className="h-full w-full object-contain">
       {block.data.captions && <track ref={trackRef} kind="captions" src={block.data.captions} srcLang="en" label="Captions" />}
-    </video></div> : <audio {...common} ref={mediaRef as Ref<HTMLAudioElement>} className="w-full shrink-0" style={{ height: audioSize?.height, display: controlsEnabled ? undefined : "none" }} />}
+    </video>{block.slideMediaOverlay && <SlideColorOverlay {...block.slideMediaOverlay} />}</div> : <audio {...common} ref={mediaRef as Ref<HTMLAudioElement>} className="w-full shrink-0" style={{ height: audioSize?.height, display: controlsEnabled ? undefined : "none" }} />}
     {crop && captionsEnabled && caption && <p data-cropped-video-caption className={`pointer-events-none absolute inset-x-3 whitespace-pre-line text-center text-sm text-white ${controls ? "bottom-12" : "bottom-3"}`}><span className="bg-black/80 px-1">{caption}</span></p>}
     {crop && controls && <div data-cropped-video-controls className="absolute inset-x-2 bottom-2 flex min-w-0 items-center gap-1 rounded-md bg-slate-950/85 p-1 text-white">
       <Button variant="ghost" size="icon" className="size-7 shrink-0 text-white hover:bg-white/20 hover:text-white" aria-label={playing ? "Pause video" : "Play video"} onClick={togglePlayback}>{playing ? <Pause size={14} /> : <Play size={14} />}</Button>

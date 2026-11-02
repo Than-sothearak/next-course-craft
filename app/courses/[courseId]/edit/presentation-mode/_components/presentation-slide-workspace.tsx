@@ -6,6 +6,7 @@ import type { Draft } from "@/app/courses/[courseId]/edit/_components/_component
 import type { SlideItem } from "@/app/courses/[courseId]/_components/slide-presentation/slide-thumbnail";
 import { resolveSlideSize } from "@/lib/editor/slide-design";
 import { reorderSlideLayers } from "@/lib/editor/slide-layers";
+import { slideSelectionUnits } from "@/lib/editor/slide-selection";
 import { SlideObjectWorkspace } from "./slide-presentation/slide-object-workspace";
 import { SlideEditorNavigation } from "./slide-presentation/slide-editor-navigation";
 
@@ -105,6 +106,7 @@ export function PresentationSlideWorkspace({
       onCourseTitleChange={onUpdateCourseTitle}
       onStart={onStart}
       onBlockChange={onBlockChange}
+      onBlocksChange={(blocks) => onUpdateLesson((current) => ({ ...current, blocks }))}
       onReorderLayer={(activeId, overId) =>
         onUpdateLesson((current) => ({
           ...current,
@@ -119,13 +121,10 @@ export function PresentationSlideWorkspace({
       onApplyBorderRadiusToAll={(slideBorderRadius) =>
         onUpdateDraft((current) => ({
           ...current,
-          lessons: current.lessons.map((currentLesson) => ({
-            ...currentLesson,
-            blocks: currentLesson.blocks.map((block) => ({
-              ...block,
-              slideBorderRadius,
-            })),
-          })),
+          lessons: current.lessons.map((currentLesson) => {
+            const locked = new Set(slideSelectionUnits(currentLesson.blocks).filter((unit) => unit.locked).flatMap((unit) => unit.blocks.map((block) => block.id)));
+            return { ...currentLesson, blocks: currentLesson.blocks.map((block) => locked.has(block.id) ? block : { ...block, slideBorderRadius }) };
+          }),
         }))
       }
       onAddTemplate={onAddTemplate}
