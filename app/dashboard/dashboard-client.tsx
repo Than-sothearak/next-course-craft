@@ -192,19 +192,19 @@ export default function DashboardClient({
   const loading = navigating || (loadedQueryKey !== queryKey && !unavailable);
 
   return (
-    <section className="min-w-0 px-5 py-7 sm:px-8 lg:px-8 xl:p-4">
+    <section className="min-w-0 px-4 py-6 sm:px-8 sm:py-7 lg:px-8 xl:p-4">
       <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
-        <div>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight sm:text-[34px]">
+        <div className="min-w-0 flex-1">
+          <h1 className="mt-1 break-words text-2xl font-semibold tracking-tight sm:text-[34px]">
             Good to see you, {userName.split(" ")[0]}
           </h1>
           <p className="mt-2 text-sm text-slate-500">
             Organize your workspace and pick up where you left off.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-2 lg:hidden">
-            <label>
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto">
+          <div className="flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto lg:hidden">
+            <label className="min-w-0 flex-1 sm:flex-initial">
               <span className="sr-only">Switch workspace</span>
               <Select
                 value={filters.workspaceId ?? ""}
@@ -212,7 +212,7 @@ export default function DashboardClient({
                 onChange={(event) =>
                   navigateToWorkspace(event.target.value || null)
                 }
-                className="h-9 max-w-52"
+                className="h-9 w-full max-w-full sm:max-w-52"
               >
                 <option value="">Personal</option>
                 {data.workspaces.map((workspace) => (
@@ -334,7 +334,7 @@ export default function DashboardClient({
       <div className="mt-8 flex flex-wrap items-center gap-3 text-sm">
         <nav
           aria-label="Breadcrumb"
-          className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto text-slate-500"
+          className="flex w-full min-w-0 items-center gap-1 overflow-x-auto text-slate-500 sm:w-auto sm:flex-1"
         >
           {loading || unavailable ? (
             <Skeleton className="h-5 w-32" />
@@ -364,7 +364,7 @@ export default function DashboardClient({
             ))
           )}
         </nav>
-        <label className="relative min-w-[210px] flex-1 sm:max-w-xs">
+        <label className="relative w-full min-w-0 sm:flex-1 sm:max-w-xs">
           <span className="sr-only">Search courses and folders</span>
           <Search
             size={16}
@@ -400,8 +400,8 @@ export default function DashboardClient({
             </>
           )}
         </div>
-        <div className="flex gap-2">
-          <label>
+        <div className="flex w-full min-w-0 flex-wrap gap-2 sm:w-auto">
+          <label className="min-w-0 flex-1 sm:flex-initial">
             <span className="sr-only">Filter course status</span>
             <Select
               aria-label="Filter course status"
@@ -413,7 +413,7 @@ export default function DashboardClient({
                   status: event.target.value as typeof status,
                 })
               }
-              className="h-9 w-auto pl-4 pr-8 text-slate-600"
+              className="h-9 w-full pl-3 pr-7 text-slate-600 sm:w-auto"
             >
               <option value="all">All status</option>
               <option value="draft">Draft</option>
@@ -445,7 +445,7 @@ export default function DashboardClient({
               </button>
             </div>
           )}
-          <label>
+          <label className="min-w-0 flex-1 sm:flex-initial">
             <span className="sr-only">Sort items</span>
             <Select
               aria-label="Sort courses"
@@ -457,7 +457,7 @@ export default function DashboardClient({
                   sort: event.target.value as typeof sort,
                 })
               }
-              className="h-9 w-auto  pl-4 pr-8 text-slate-600"
+              className="h-9 w-full pl-3 pr-7 text-slate-600 sm:w-auto"
             >
               <option value="updated">Recently edited</option>
               <option value="title">Title</option>
@@ -495,8 +495,8 @@ export default function DashboardClient({
               <div
                 className={
                   folderView === "grid"
-                    ? "grid gap-3 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
-                    : "grid gap-2"
+                    ? "grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+                    : "grid min-w-0 grid-cols-1 gap-2"
                 }
               >
                 {data.folders.map((folder) => (
@@ -530,7 +530,7 @@ export default function DashboardClient({
                 </span>
               </div>
               {data.courses.length ? (
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-6">
+                <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
                   {data.courses.map((course) => (
                     <CourseCard
                       key={`${course.id}:${data.workspaceId ?? "personal"}`}

@@ -2,6 +2,8 @@
 
 Work one phase at a time; stop after the requested phase.
 
+Requested dashboard mobile responsiveness fix: restore folder-tree/workspace access below the desktop breakpoint through the shared navigation modal, keep long course/folder text and card actions inside responsive grids, wrap navbar/workspace/filter controls, and match loading layouts. Existing ownership, permissions, routing, creation, and course-setting handlers remain in use. This fixes the completed dashboard slice without adding another application or expanding unfinished phases.
+
 1. **Foundation:** Next.js, TypeScript, MongoDB/Mongoose, Auth.js, shared schemas, UI/tooling, tests, and static export build boundary.
 2. **Dashboard and folders:** folder tree, course CRUD, search, breadcrumbs, and organization.
 3. **Lesson editor:** sections, lessons, block editing, ordering, autosave, and persistence.

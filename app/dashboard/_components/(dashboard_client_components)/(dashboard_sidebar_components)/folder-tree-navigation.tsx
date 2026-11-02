@@ -10,14 +10,18 @@ export function FolderTreeNavigation({
   filters,
   expanded,
   onToggle,
+  onNavigate,
+  depth = 0,
 }: {
   nodes: FolderTreeNode[];
   filters: DashboardFilters;
   expanded: Set<string>;
   onToggle: (id: string) => void;
+  onNavigate?: () => void;
+  depth?: number;
 }) {
   return (
-    <ul className="space-y-0.5" role="tree" aria-label="Folders">
+    <ul className="min-w-0 space-y-0.5" role={depth === 0 ? "tree" : "group"} aria-label={depth === 0 ? "Folders" : undefined}>
       {nodes.map((node) => {
         const hasChildren = node.children.length > 0;
         const isExpanded = expanded.has(node.id);
@@ -37,7 +41,7 @@ export function FolderTreeNavigation({
                   onClick={() => onToggle(node.id)}
                   aria-label={`${isExpanded ? "Collapse" : "Expand"} ${node.name}`}
                   aria-expanded={isExpanded}
-                  className="size-7 shrink-0 text-slate-400 hover:text-slate-700"
+                  className="size-9 shrink-0 text-slate-400 hover:text-slate-700 lg:size-7"
                 >
                   {isExpanded ? (
                     <ChevronDown size={14} />
@@ -46,13 +50,14 @@ export function FolderTreeNavigation({
                   )}
                 </Button>
               ) : (
-                <span className="size-7 shrink-0" aria-hidden="true" />
+                <span className="size-9 shrink-0 lg:size-7" aria-hidden="true" />
               )}
               <DashboardLink
                 href={dashboardHref({ ...filters, folderId: node.id })}
+                onClick={onNavigate}
                 aria-current={selected ? "page" : undefined}
                 title={node.name}
-                className="cursor-pointer flex h-9 min-w-0 flex-1 items-center gap-2 rounded-md text-left text-[13px] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-indigo-600"
+                className="cursor-pointer flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-md text-left text-[13px] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-indigo-600 lg:min-h-9"
               >
                 <Folder
                   size={15}
@@ -68,12 +73,14 @@ export function FolderTreeNavigation({
               </DashboardLink>
             </div>
             {hasChildren && isExpanded && (
-              <div className="ml-[13px] border-l border-slate-200 pl-1.5">
+              <div className={depth < 4 ? "ml-[13px] min-w-0 border-l border-slate-200 pl-1.5" : "ml-1 min-w-0 border-l border-slate-200 pl-1"}>
                 <FolderTreeNavigation
                   nodes={node.children}
                   filters={filters}
                   expanded={expanded}
                   onToggle={onToggle}
+                  onNavigate={onNavigate}
+                  depth={depth + 1}
                 />
               </div>
             )}

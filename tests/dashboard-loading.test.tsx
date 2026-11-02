@@ -68,6 +68,8 @@ describe("dashboard loading and shared controls", () => {
     Object.defineProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT", { configurable: true, value: true });
     fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
+    Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value: function (this: HTMLDialogElement) { this.open = true; } });
+    Object.defineProperty(HTMLDialogElement.prototype, "close", { configurable: true, value: function (this: HTMLDialogElement) { this.open = false; } });
     container = document.createElement("div");
     document.body.append(container);
     root = createRoot(container);
@@ -110,6 +112,60 @@ describe("dashboard loading and shared controls", () => {
     return [...container.querySelectorAll<HTMLButtonElement>('button[aria-label="Create team workspace"]')]
       .find((button) => Boolean(button.closest("aside")) === (surface === "sidebar"))!;
   }
+
+  it("opens the mobile folder tree, expands folders, and closes after selecting a child", async () => {
+    render(filters, { ...data, folderTree: [{ ...data.folderTree[0], children: [{ id: "nested-folder", name: "Nested resources", courseCount: 1, children: [] }] }] });
+    const trigger = container.querySelector<HTMLButtonElement>('[aria-label="Open folders and workspaces"]')!;
+    act(() => trigger.click());
+    const dialog = container.querySelector<HTMLDialogElement>("dialog[open]")!;
+    expect(dialog.textContent).toContain("Folders & workspaces");
+    expect(dialog.querySelector('[role="tree"] [role="group"]')).not.toBeNull();
+    act(() => dialog.querySelector<HTMLButtonElement>('[aria-label="Collapse Training"]')!.click());
+    expect(dialog.textContent).not.toContain("Nested resources");
+    act(() => dialog.querySelector<HTMLButtonElement>('[aria-label="Expand Training"]')!.click());
+    const child = dialog.querySelector<HTMLAnchorElement>('a[title="Nested resources"]')!;
+    expect(child.getAttribute("href")).toBe("/dashboard?folderId=nested-folder");
+    await act(async () => child.click());
+    expect(container.querySelector("dialog[open]")).toBeNull();
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    expect(linkNavigation.navigate).toHaveBeenCalledOnce();
+  });
+
+  it("opens folder creation from mobile navigation and closes the navigation modal", () => {
+    render();
+    act(() => container.querySelector<HTMLButtonElement>('[aria-label="Open folders and workspaces"]')!.click());
+    act(() => container.querySelector<HTMLDialogElement>("dialog[open]")!.querySelector<HTMLButtonElement>('[aria-label="Create folder"]')!.click());
+    expect(container.querySelector("dialog[open]")).toBeNull();
+    expect(container.querySelector('[role="dialog"] h2')?.textContent).toBe("Create a folder");
+  });
+
+  it("switches workspaces from the mobile tree while preserving filters and clearing the selected folder", () => {
+    render({ ...filters, folderId: "folder-1", q: "design", status: "published" }, teamData());
+    act(() => container.querySelector<HTMLButtonElement>('[aria-label="Open folders and workspaces"]')!.click());
+    const select = container.querySelector<HTMLDialogElement>("dialog[open]")!.querySelector<HTMLSelectElement>('[aria-label="Switch workspace"]')!;
+    act(() => { select.value = "workspace-1"; select.dispatchEvent(new Event("change", { bubbles: true })); });
+    expect(router.push).toHaveBeenCalledWith("/dashboard?workspaceId=workspace-1&q=design&status=published");
+    expect(container.querySelector("dialog[open]")).toBeNull();
+  });
+
+  it("keeps viewer creation controls disabled inside the mobile tree", () => {
+    render(filters, { ...data, workspaceRole: "viewer", permissions: [...roleCeilings.viewer] });
+    act(() => container.querySelector<HTMLButtonElement>('[aria-label="Open folders and workspaces"]')!.click());
+    const dialog = container.querySelector<HTMLDialogElement>("dialog[open]")!;
+    expect(dialog.querySelector<HTMLButtonElement>('[aria-label="Create folder"]')?.disabled).toBe(true);
+    expect(dialog.querySelector('[aria-label="Create team workspace"]')).toBeNull();
+  });
+
+  it("dismisses mobile navigation when resizing to desktop", () => {
+    let resize: (() => void) | undefined;
+    const media = { matches: false, addEventListener: vi.fn((_event, listener) => { resize = listener; }), removeEventListener: vi.fn() };
+    vi.stubGlobal("matchMedia", () => media);
+    render();
+    act(() => container.querySelector<HTMLButtonElement>('[aria-label="Open folders and workspaces"]')!.click());
+    expect(container.querySelector("dialog[open]")).not.toBeNull();
+    act(() => { media.matches = true; resize!(); });
+    expect(container.querySelector("dialog[open]")).toBeNull();
+  });
 
   it.each(["sidebar", "mobile"] as const)("opens only workspace creation from the %s plus button while a team is selected", (surface) => {
     render({ ...filters, workspaceId: "workspace-1" }, teamData());

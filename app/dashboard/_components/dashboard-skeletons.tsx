@@ -11,7 +11,7 @@ export function DashboardProfileSkeleton() {
 }
 
 export function DashboardSidebarSkeleton() {
-  return <aside aria-label="Workspace navigation" aria-busy="true" className="hidden border-r border-slate-200 bg-white lg:block">
+  return <><div className="flex items-center gap-3 border-b border-slate-200 bg-white px-4 py-2 sm:px-8 lg:hidden" role="status" aria-label="Loading folder navigation"><Button disabled variant="outline" size="sm" className="min-h-11">Folders</Button><Skeleton className="h-4 w-28" /></div><aside aria-label="Workspace navigation" aria-busy="true" className="hidden border-r border-slate-200 bg-white lg:block">
     <div className="sticky top-16 flex min-h-[calc(100vh-4rem)] flex-col px-3 py-7 xl:px-5">
       <p className="px-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">Workspace</p>
       <Button disabled variant="secondary" className="mt-3 w-full justify-start rounded-lg px-3"><BookOpen size={17} aria-hidden="true" />All courses</Button>
@@ -30,13 +30,13 @@ export function DashboardSidebarSkeleton() {
         <Button disabled variant="link" className="mt-3 h-auto min-h-0 p-0 text-xs">Create a course <span aria-hidden="true">→</span></Button>
       </div>
     </div>
-  </aside>;
+  </aside></>;
 }
 
 export function DashboardFoldersSkeleton({ view = "grid" }: { view?: "grid" | "list" }) {
   return <section className="mt-5" aria-label="Loading folders" aria-busy="true">
     <div className="mb-3 flex items-center justify-between"><h2 className="text-sm font-semibold text-slate-700">Folders</h2><Skeleton className="h-3 w-14" /></div>
-    <div className={view === "grid" ? "grid gap-3 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5" : "grid gap-2"}>
+    <div className={view === "grid" ? "grid min-w-0 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4" : "grid min-w-0 grid-cols-1 gap-2"}>
       {Array.from({ length: 4 }, (_, index) => <Card key={index} className="flex items-start gap-3 rounded-2xl p-4 shadow-[0_2px_8px_rgba(15,23,42,0.03)]">
         <Skeleton className="size-5 shrink-0" /><div className="min-w-0 flex-1 space-y-1"><Skeleton className="h-5 w-3/4" /><Skeleton className="h-4 w-full" /></div><Skeleton className="size-8 shrink-0" />
       </Card>)}
@@ -47,7 +47,7 @@ export function DashboardFoldersSkeleton({ view = "grid" }: { view?: "grid" | "l
 export function DashboardCoursesSkeleton() {
   return <section className="mt-8" aria-label="Loading courses" aria-busy="true">
     <div className="mb-3 flex items-center justify-between"><h2 className="text-sm font-semibold text-slate-700">Courses</h2><span className="text-xs text-slate-400">Showing up to 200</span></div>
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-6">
+    <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
       {Array.from({ length: 8 }, (_, index) => <Card key={index} className="overflow-hidden rounded-2xl">
         <Skeleton className="aspect-video w-full rounded-none" />
         <div className="p-4">
@@ -67,7 +67,7 @@ export function DashboardCoursesSkeleton() {
 }
 
 export function DashboardContentSkeleton() {
-  return <section aria-label="Loading workspace" className="min-w-0 px-5 py-7 sm:px-8 lg:px-8 xl:p-4">
+  return <section aria-label="Loading workspace" className="min-w-0 px-4 py-6 sm:px-8 sm:py-7 lg:px-8 xl:p-4">
     <div role="status" className="sr-only">Loading your folders and courses…</div>
     <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
       <div className="min-w-0"><Skeleton className="mt-1 h-10 w-80 max-w-full" /><p className="mt-2 text-sm text-slate-500">Organize your workspace and pick up where you left off.</p></div>

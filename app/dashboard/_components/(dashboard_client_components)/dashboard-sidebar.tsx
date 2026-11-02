@@ -1,4 +1,5 @@
 "use client";
+import { useId } from "react";
 import { BookOpen, FolderPlus, Sparkles, Users, Plus } from "lucide-react";
 import type { DashboardData, DashboardFilters } from "@/lib/dashboard/types";
 import { dashboardHref } from "@/lib/dashboard/query";
@@ -9,6 +10,8 @@ import { DashboardLink } from "../dashboard-link";
 import { FolderTreeNavigation } from "./(dashboard_sidebar_components)/folder-tree-navigation";
 
 type SidebarProps = {
+  mobile?: boolean;
+  onNavigate?: () => void;
   data: Pick<
     DashboardData,
     | "folderTree"
@@ -31,6 +34,8 @@ type SidebarProps = {
 };
 
 export function DashboardSidebar({
+  mobile = false,
+  onNavigate,
   data,
   error,
   filters,
@@ -43,6 +48,7 @@ export function DashboardSidebar({
   onCreateWorkspace,
   onManageWorkspace,
 }: SidebarProps) {
+  const workspaceSelectId = useId();
   const canCreate =
     Boolean(data.permissions?.includes("courses.create")) &&
     data.workspaceRole !== "viewer";
@@ -51,13 +57,13 @@ export function DashboardSidebar({
   );
   return (
     <aside
-      className="hidden border-r border-slate-200 bg-white lg:block"
+      className={mobile ? "min-w-0 bg-white" : "hidden min-w-0 border-r border-slate-200 bg-white lg:block"}
       aria-label="Workspace navigation"
     >
-      <div className="sticky top-16 flex min-h-[calc(100vh-4rem)] flex-col px-3 py-7 xl:px-5">
+      <div className={mobile ? "flex min-w-0 flex-col gap-1" : "sticky top-16 flex max-h-[calc(100dvh-4rem)] min-h-[calc(100dvh-4rem)] flex-col overflow-y-auto px-3 py-7 xl:px-5"}>
         <div className="flex items-center justify-between px-3">
           <label
-            htmlFor="dashboard-workspace"
+            htmlFor={workspaceSelectId}
             className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400"
           >
             Workspaces
@@ -76,7 +82,8 @@ export function DashboardSidebar({
           )}
         </div>
         <Select
-          id="dashboard-workspace"
+          id={workspaceSelectId}
+          aria-label="Switch workspace"
           value={data.workspaceId ?? ""}
           disabled={disabled}
           onChange={(event) => onWorkspaceChange(event.target.value || null)}
@@ -103,6 +110,7 @@ export function DashboardSidebar({
           )}
         <DashboardLink
           href={dashboardHref({ ...filters, folderId: null })}
+          onClick={onNavigate}
           aria-current={filters.folderId === null ? "page" : undefined}
           className={cn(
             buttonVariants({ variant: filters.folderId === null ? "secondary" : "ghost" }),
@@ -136,6 +144,7 @@ export function DashboardSidebar({
               filters={filters}
               expanded={expandedFolders}
               onToggle={onToggleFolder}
+              onNavigate={onNavigate}
             />
           ) : (
             <p className="px-3 py-2 text-sm text-slate-400">
@@ -143,7 +152,7 @@ export function DashboardSidebar({
             </p>
           )}
         </div>
-        <div className="mt-auto rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50 to-white p-4">
+        <div className="mt-6 rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50 to-white p-4 lg:mt-auto">
           <Sparkles size={18} className="text-indigo-600" aria-hidden="true" />
           <p className="mt-3 text-sm font-semibold">
             {canCreate ? "Start with a course" : "Your shared courses"}

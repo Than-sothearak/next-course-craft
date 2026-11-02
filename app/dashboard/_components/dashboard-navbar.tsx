@@ -17,17 +17,17 @@ type NavbarProps = { actions?: ReactNode; primaryAction?: ReactNode; permissions
 
 export function DashboardNavbar({ userName, profile, actions, primaryAction, permissions, hideAccount = false }: NavbarProps) {
   return <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/95 backdrop-blur">
-    <div className="flex h-16 w-full items-center justify-between px-5 sm:px-8 lg:px-9 xl:px-12">
-      <div className="flex items-center gap-3">
-        <Link href="/dashboard" className="flex items-center gap-3 rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-indigo-600">
+    <div className="flex min-h-16 w-full min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-3 sm:px-8 md:flex-nowrap lg:px-9 xl:px-12">
+      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+        <Link href="/dashboard" aria-label="Coursecraft dashboard" className="flex shrink-0 items-center gap-2 rounded-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-indigo-600 sm:gap-3">
           <span className="grid size-9 place-items-center rounded-xl bg-indigo-600 text-white"><BookOpen size={19} aria-hidden="true" /></span>
-          <span className="text-lg font-bold tracking-tight">Coursecraft</span>
+          <span className="text-base font-bold tracking-tight sm:text-lg">Coursecraft</span>
         </Link>
-        {actions && <div role="group" aria-label="Route navigation" className="flex items-center gap-1">{actions}</div>}
+        {actions && <div role="group" aria-label="Route navigation" className="flex min-w-0 items-center gap-1 overflow-x-auto">{actions}</div>}
       </div>
-      {!hideAccount && <nav aria-label="Account" className="flex items-center gap-3">
-        {primaryAction}
-        {profile ?? <DashboardUserProfile userName={userName ?? "Author"} permissions={permissions} />}
+      {!hideAccount && <nav aria-label="Account" className={`flex min-w-0 items-center justify-end gap-2 sm:gap-3 ${primaryAction ? "w-full md:w-auto md:flex-1" : "shrink-0"}`}>
+        {primaryAction && <div className="min-w-0 flex-1 [&>div]:flex-wrap [&>div]:justify-end md:flex-initial">{primaryAction}</div>}
+        <div className="shrink-0">{profile ?? <DashboardUserProfile userName={userName ?? "Author"} permissions={permissions} />}</div>
       </nav>}
     </div>
   </header>;

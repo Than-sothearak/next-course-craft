@@ -24,7 +24,7 @@ export function FolderCard({ folder, data, disabled, busy, error, href, onSubmit
   const [open, setOpen] = useState(false);
   const unavailable = disabled || busy;
   return (
-    <Card className="group rounded-2xl p-4 shadow-[0_2px_8px_rgba(15,23,42,0.03)] transition hover:border-indigo-200 hover:shadow-md">
+    <Card className="group min-w-0 rounded-2xl p-4 shadow-[0_2px_8px_rgba(15,23,42,0.03)] transition hover:border-indigo-200 hover:shadow-md">
       <div className="flex items-start justify-between gap-3">
         <DashboardLink href={href} className="flex min-w-0 flex-1 cursor-pointer items-start gap-3 rounded-lg text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
           <Folder size={20} aria-hidden="true" className="shrink-0" />

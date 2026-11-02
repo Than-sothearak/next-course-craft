@@ -1,5 +1,11 @@
 # Verification baseline
 
+## Dashboard mobile responsiveness checks: 2026-11-03
+
+Passed 40 focused tests across `dashboard-loading.test.tsx`, `course-card.test.ts`, and `folder-card.test.tsx`, strict TypeScript (`npx.cmd tsc --noEmit`), and zero-warning ESLint on changed dashboard modules, tests, and the browser script. New checks cover mobile folder expansion/navigation, folder creation, filter-preserving workspace switches, viewer restrictions, and dismissal on desktop resizing.
+
+`node scripts/testing/dashboard-responsive-browser.mjs` checks the actual dashboard components with isolated fixture data and mocked routing at 320, 390, 640, 768, 844, 1024, 1280, and 1536 pixels, including phone landscape. It verifies no horizontal page overflow, readable cards and aligned metadata, nonoverlapping card actions, card popovers, navbar Publish/profile menus, nested folder touch navigation, creation actions, workspace switching with long names, scroll restoration, Escape/focus restoration, desktop resize, and loading skeletons. Screenshots are written to `test-results/dashboard-responsive-*.png` and `test-results/dashboard-mobile-folders.png`. These are focused component/browser checks; no production-authenticated or database integration run was performed for this UI fix.
+
 ## Presentation text and LaTeX checks: 2026-11-03
 
 Passed 68 focused tests across seven files: `presentation-text-settings`, `export-font-assets`, `pdf-handout`, `code-example`, `slide-text-insertion`, `slide-selection-editor`, and `interaction-button-editor`. Coverage includes selected/whole-object font formatting, mutually exclusive super/subscript, all six formula templates, invalid and bounded LaTeX, accessible math, HTML/save/clipboard round trips, source-preserving PDF handouts, equation cancellation and undo, and existing slide/popup behavior.
