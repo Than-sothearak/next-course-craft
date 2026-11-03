@@ -95,6 +95,7 @@ export function LessonBlocksPreview({
   onReveal,
   onUnlockAnimationEnd,
   onInteractiveProgress,
+  onMediaDurationChange,
   lessons,
   visitedLessonIds,
   passedQuizIds,
@@ -117,6 +118,10 @@ export function LessonBlocksPreview({
   onReveal: (dividerId: string, nextBlockId?: string) => void;
   onUnlockAnimationEnd: (dividerId: string) => void;
   onInteractiveProgress: (progressId: string) => void;
+  onMediaDurationChange?: (
+    blockId: string,
+    duration: number | null,
+  ) => void;
   lessons: { id: string; title: string; sectionId: string; order: number; lessonType?: "content" | "quiz" }[];
   visitedLessonIds: ReadonlySet<string>;
   passedQuizIds: ReadonlySet<string>;
@@ -242,6 +247,9 @@ export function LessonBlocksPreview({
                 animateListItems={entered && !slideLayout}
                 interactedContentIds={interactedContentIds}
                 onInteractiveProgress={onInteractiveProgress}
+                onMediaDurationChange={(duration) =>
+                  onMediaDurationChange?.(block.id, duration)
+                }
                 lessons={lessons}
                 visitedLessonIds={visitedLessonIds}
                 passedQuizIds={passedQuizIds}

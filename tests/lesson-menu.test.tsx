@@ -8,7 +8,12 @@ const lessons: PreviewData["lessons"] = [
   { id: "practice", sectionId: "section", title: "Practice", order: 1, lessonType: "content", quizQuestions: [], blocks: [] },
 ];
 
-function renderMenu(courseLayout: "slides" | "standard", lessonSearch = "", locked = false) {
+function renderMenu(
+  courseLayout: "slides" | "standard",
+  lessonSearch = "",
+  locked = false,
+  slideMediaDurations?: Record<string, number>,
+) {
   return renderToStaticMarkup(<LessonMenu
     initialData={{ title: "Canvas design", courseLayout }}
     progress={0}
@@ -21,6 +26,7 @@ function renderMenu(courseLayout: "slides" | "standard", lessonSearch = "", lock
     lessonSearch={lessonSearch}
     selectedLesson={lessons[0]}
     lessonScrollProgress={{}}
+    slideMediaDurations={slideMediaDurations}
     visitedLessonIds={new Set()}
     getLessonNavigationLockMessage={() => locked ? "Finish the previous slide" : null}
     selectLesson={() => {}}
@@ -50,6 +56,19 @@ describe("preview lesson menu titles", () => {
 
   it("keeps navigation lock messages with the course title", () => {
     expect(renderMenu("slides", "", true)).toContain('aria-label="Canvas design. Locked. Finish the previous slide"');
+  });
+
+  it("shows known slide durations and their total only for presentation courses", () => {
+    const markup = renderMenu("slides", "", false, { cover: 80, practice: 105 });
+    expect(markup).toContain("Total media duration: 3:05");
+    expect(markup).toContain("1:20");
+    expect(markup).toContain("1:45");
+
+    const unavailable = renderMenu("slides", "", false, { practice: 105 });
+    expect(unavailable).not.toContain("1:20");
+    expect(unavailable).toContain("Total media duration: 1:45");
+
+    expect(renderMenu("standard", "", false, { cover: 80, practice: 105 })).not.toContain("Total media duration");
   });
 
   it("preserves first lesson titles and search in standard courses", () => {

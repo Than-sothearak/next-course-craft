@@ -28,5 +28,8 @@ export type SlidePresentationContextValue = {
   onGuideStep: (step: number | null) => void;
 };
 
-export const SlidePresentationContext = createContext<SlidePresentationContextValue | null>(null);
-export function useSlidePresentationContext() { return useContext(SlidePresentationContext); }
+export const SlidePresentationContext =
+  createContext<SlidePresentationContextValue | null>(null);
+export function useSlidePresentationContext() {
+  return useContext(SlidePresentationContext);
+}

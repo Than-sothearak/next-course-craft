@@ -25,8 +25,17 @@ describe("presentation media playback", () => {
   let play: ReturnType<typeof vi.spyOn>;
   let pause: ReturnType<typeof vi.spyOn>;
   let paused: WeakMap<HTMLMediaElement, boolean>;
+  let originalScrollToDescriptor: PropertyDescriptor | undefined;
   beforeEach(() => {
     vi.useFakeTimers();
+    originalScrollToDescriptor = Object.getOwnPropertyDescriptor(
+      HTMLElement.prototype,
+      "scrollTo",
+    );
+    Object.defineProperty(HTMLElement.prototype, "scrollTo", {
+      configurable: true,
+      value: vi.fn(),
+    });
     vi.stubGlobal("matchMedia", () => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(), addListener: vi.fn(), removeListener: vi.fn() }));
     vi.stubGlobal("IntersectionObserver", class { observe() {} unobserve() {} disconnect() {} });
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => setTimeout(() => callback(0), 16));
@@ -37,7 +46,20 @@ describe("presentation media playback", () => {
     pause = vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(function (this: HTMLMediaElement) { paused.set(this, true); this.dispatchEvent(new Event("pause")); });
     container = document.createElement("div"); document.body.append(container); root = createRoot(container);
   });
-  afterEach(() => { act(() => root.unmount()); container.remove(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+    if (originalScrollToDescriptor)
+      Object.defineProperty(
+        HTMLElement.prototype,
+        "scrollTo",
+        originalScrollToDescriptor,
+      );
+    else Reflect.deleteProperty(HTMLElement.prototype, "scrollTo");
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
   const media = () => container.querySelector<HTMLMediaElement>("video, audio")!;
   const render = (block: typeof video | typeof audio, active = true, onEnded = vi.fn()) => act(async () => root.render(<SlidePlaybackContext.Provider value={active}><SlideMediaPlayer key={block.data.src} block={block} onEnded={onEnded} /></SlidePlaybackContext.Provider>));
   const pointer = (type: "pointerover" | "pointerout" | "pointerdown", pointerType = "mouse", target: Element = media()) => act(async () => {
@@ -252,5 +274,72 @@ describe("presentation media playback", () => {
     expect(play).toHaveBeenCalledTimes(5);
     await act(async () => vi.advanceTimersByTimeAsync(1000));
     expect(save.mock.calls.at(-1)![1].interactedContentIds).toEqual(expect.arrayContaining(["video:watched", "audio:listened"]));
+  });
+
+  it("shows known per-slide media durations and the total in the presentation menu", async () => {
+    await act(async () => root.render(<CoursePreview initialData={{ ...snapshot, courseId: "media-duration-menu" }} initialLessonId="first" authorName="Author" standalone progressAdapter={{ load: () => null, save: vi.fn() }} />));
+    await act(async () => vi.advanceTimersByTimeAsync(50));
+    await act(async () =>
+      container
+        .querySelector<HTMLButtonElement>('[aria-label="Open slide menu"]')!
+        .click(),
+    );
+    expect(container.textContent).not.toContain("Total media duration");
+
+    const mediaDurations = new Map([
+      ["video", 70],
+      ["audio", 20],
+      ["other-video", 40],
+    ]);
+    for (const [blockId, duration] of mediaDurations) {
+      const player = container.querySelector<HTMLMediaElement>(
+        `[data-slide-media-player="${blockId}"]`,
+      );
+      if (!player) throw new Error(`Missing media player ${blockId}`);
+      Object.defineProperty(player, "duration", {
+        configurable: true,
+        value: duration,
+      });
+      await act(async () => player.dispatchEvent(new Event("loadedmetadata")));
+    }
+
+    expect(container.textContent).toContain("Total media duration: 2:10");
+    expect(container.textContent).toContain("Slide · 1:30");
+    expect(container.textContent).toContain("Slide · 0:40");
+
+    const audioPlayer = container.querySelector<HTMLMediaElement>(
+      '[data-slide-media-player="audio"]',
+    )!;
+    Object.defineProperty(audioPlayer, "duration", {
+      configurable: true,
+      value: Number.POSITIVE_INFINITY,
+    });
+    await act(async () =>
+      audioPlayer.dispatchEvent(new Event("durationchange")),
+    );
+    expect(container.textContent).not.toContain("1:30");
+    expect(container.textContent).toContain("Total media duration: 0:40");
+
+    Object.defineProperty(audioPlayer, "duration", {
+      configurable: true,
+      value: 20,
+    });
+    await act(async () =>
+      audioPlayer.dispatchEvent(new Event("durationchange")),
+    );
+    expect(container.textContent).toContain("Total media duration: 2:10");
+
+    const unavailablePlayer = container.querySelector<HTMLMediaElement>(
+      '[data-slide-media-player="other-video"]',
+    )!;
+    Object.defineProperty(unavailablePlayer, "duration", {
+      configurable: true,
+      value: Number.POSITIVE_INFINITY,
+    });
+    await act(async () =>
+      unavailablePlayer.dispatchEvent(new Event("durationchange")),
+    );
+    expect(container.textContent).not.toContain("0:40");
+    expect(container.textContent).toContain("Total media duration: 1:30");
   });
 });

@@ -37,6 +37,7 @@ export function PreviewBlock({
   animateListItems = false,
   interactedContentIds,
   onInteractiveProgress,
+  onMediaDurationChange,
   lessons = [],
   visitedLessonIds = new Set(),
   passedQuizIds = new Set(),
@@ -51,6 +52,7 @@ export function PreviewBlock({
   animateListItems?: boolean;
   interactedContentIds?: ReadonlySet<string>;
   onInteractiveProgress?: (progressId: string) => void;
+  onMediaDurationChange?: (duration: number | null) => void;
   lessons?: { id: string; title: string; sectionId: string; order: number; lessonType?: "content" | "quiz" }[];
   visitedLessonIds?: ReadonlySet<string>;
   passedQuizIds?: ReadonlySet<string>;
@@ -103,11 +105,11 @@ export function PreviewBlock({
   }
 
   if (slideLayout && isSlideMediaObject(block)) {
-    return <SlideMediaObject block={block} onVideoEnded={() => onInteractiveProgress?.(`${block.id}:watched`)} />;
+    return <SlideMediaObject block={block} onDurationChange={onMediaDurationChange} onVideoEnded={() => onInteractiveProgress?.(`${block.id}:watched`)} />;
   }
 
   if (slideLayout && block.type === "gallery") return <SlideGallery images={block.data.images} />;
-  if (slideLayout && block.type === "audio") return <SlideMediaPlayer key={block.data.src} block={block} decorative={decorative} onEnded={() => onInteractiveProgress?.(`${block.id}:listened`)} />;
+  if (slideLayout && block.type === "audio") return <SlideMediaPlayer key={block.data.src} block={block} decorative={decorative} onDurationChange={onMediaDurationChange} onEnded={() => onInteractiveProgress?.(`${block.id}:listened`)} />;
 
   let content: ReactNode;
   if (block.type === "heading") {

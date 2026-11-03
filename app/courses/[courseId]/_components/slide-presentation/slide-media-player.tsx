@@ -12,9 +12,10 @@ import { resolveSlideMedia } from "@/lib/editor/slide-objects";
 import { defaultSlideAudioSize, slideAudioSizes } from "@/lib/editor/slide-audio";
 import { SlideColorOverlay } from "./slide-color-overlay";
 
-export function SlideMediaPlayer({ block, onDimensions, onEnded, decorative = false }: {
+export function SlideMediaPlayer({ block, onDimensions, onDurationChange, onEnded, decorative = false }: {
   block: Extract<ContentBlock, { type: "video" | "audio" }>;
   onDimensions?: (dimensions: { width: number; height: number }) => void;
+  onDurationChange?: (duration: number | null) => void;
   onEnded?: () => void;
   decorative?: boolean;
 }) {
@@ -89,7 +90,15 @@ export function SlideMediaPlayer({ block, onDimensions, onEnded, decorative = fa
   function metadata(event: SyntheticEvent<HTMLMediaElement>) {
     const media = event.currentTarget;
     if (crop) setDuration(Number.isFinite(media.duration) ? media.duration : 0);
+    reportDuration(media);
     if (media instanceof HTMLVideoElement && media.videoWidth && media.videoHeight) onDimensions?.({ width: media.videoWidth, height: media.videoHeight });
+  }
+  function reportDuration(media: HTMLMediaElement) {
+    onDurationChange?.(
+      Number.isFinite(media.duration) && media.duration > 0
+        ? media.duration
+        : null,
+    );
   }
   function end() {
     if (!active) return;
@@ -103,7 +112,12 @@ export function SlideMediaPlayer({ block, onDimensions, onEnded, decorative = fa
     src: block.data.src || undefined, onEnded: end, onLoadedMetadata: metadata,
     onPlay: () => setPlaying(true), onPause: () => setPlaying(false),
     onTimeUpdate: () => { if (crop && mediaRef.current) setTime(mediaRef.current.currentTime); },
-    onDurationChange: () => { const value = mediaRef.current?.duration; if (crop && value !== undefined) setDuration(Number.isFinite(value) ? value : 0); },
+    onDurationChange: () => {
+      const media = mediaRef.current;
+      if (!media) return;
+      if (crop) setDuration(Number.isFinite(media.duration) ? media.duration : 0);
+      reportDuration(media);
+    },
     "aria-label": label,
   };
   return <div data-slide-audio-content={block.type === "audio" || undefined} data-slide-audio-size={audioSizeName} className={`relative flex ${block.type === "audio" ? "h-auto" : "h-full"} w-full flex-col justify-center gap-3 ${crop ? "items-center" : ""}`} style={audioSize ? { gap: audioSize.gap } : crop ? { containerType: "size" } : undefined} data-slide-playback-controls={controls ? "visible" : "hidden"}

@@ -13,6 +13,10 @@ import { Button } from "@/components/ui/button";
 import { defaultCourseNavigationMode } from "@/lib/editor/navigation";
 import { getCourseProgress } from "@/lib/editor/preview";
 import {
+  getSlideMediaBlockIds,
+  sumKnownMediaDurations,
+} from "@/lib/editor/slide-media-duration";
+import {
   canNavigateToLesson,
   canCompleteLesson,
   getFlipCardProgressId,
@@ -105,6 +109,9 @@ export function CoursePreview({
   const [lessonScrollProgress, setLessonScrollProgress] = useState<
     Record<string, number>
   >({});
+  const [slideMediaBlockDurations, setSlideMediaBlockDurations] = useState<
+    Record<string, Record<string, number>>
+  >({});
   const [quizScores, setQuizScores] = useState<Record<string, number>>({});
   const [passedQuizIds, setPassedQuizIds] = useState<Set<string>>(new Set());
   const [progressLoadedCourseId, setProgressLoadedCourseId] = useState<
@@ -194,6 +201,49 @@ export function CoursePreview({
     lessons.map((lesson) => lesson.id),
   );
   const completedLessonCount = completedLessonIds.size;
+  const slideMediaDurations = useMemo(
+    () => {
+      const durationsBySlide: Record<string, number> = {};
+      for (const lesson of lessons) {
+        const mediaBlockIds = getSlideMediaBlockIds(lesson.blocks);
+        const blockDurations = slideMediaBlockDurations[lesson.id];
+        if (
+          !mediaBlockIds.length ||
+          mediaBlockIds.some((blockId) => blockDurations?.[blockId] === undefined)
+        )
+          continue;
+        const duration = sumKnownMediaDurations(
+          mediaBlockIds.map((blockId) => blockDurations[blockId]),
+        );
+        if (duration !== null) durationsBySlide[lesson.id] = duration;
+      }
+      return durationsBySlide;
+    },
+    [lessons, slideMediaBlockDurations],
+  );
+  const recordSlideMediaDuration = useCallback(
+    (lessonId: string, blockId: string, duration: number | null) => {
+      setSlideMediaBlockDurations((previous) => {
+        const existingDuration = previous[lessonId]?.[blockId];
+        if (duration === null) {
+          if (existingDuration === undefined) return previous;
+          const nextSlideDurations = { ...previous[lessonId] };
+          delete nextSlideDurations[blockId];
+          const next = { ...previous };
+          if (Object.keys(nextSlideDurations).length)
+            next[lessonId] = nextSlideDurations;
+          else delete next[lessonId];
+          return next;
+        }
+        if (existingDuration === duration) return previous;
+        return {
+          ...previous,
+          [lessonId]: { ...previous[lessonId], [blockId]: duration },
+        };
+      });
+    },
+    [],
+  );
   const initials = authorInitials(authorName);
   const useMobileMenu = device === "mobile" || isMobileViewport;
   const lessonMenuProps = {
@@ -208,6 +258,7 @@ export function CoursePreview({
     lessonSearch,
     selectedLesson,
     lessonScrollProgress,
+    slideMediaDurations,
     visitedLessonIds: completedLessonIds,
     getLessonNavigationLockMessage,
     selectLesson,
@@ -739,6 +790,7 @@ export function CoursePreview({
     setPendingContinueScroll,
     setInteractedContentIds,
     setUnlockingDividerIds,
+    onMediaDurationChange: recordSlideMediaDuration,
   };
 
   if (slideCourse) {

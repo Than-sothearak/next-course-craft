@@ -51,6 +51,11 @@ type LessonReaderPreviewProps = {
   setPendingContinueScroll: Dispatch<SetStateAction<PendingContinueScroll>>;
   setInteractedContentIds: Dispatch<SetStateAction<Set<string>>>;
   setUnlockingDividerIds: Dispatch<SetStateAction<Set<string>>>;
+  onMediaDurationChange?: (
+    lessonId: string,
+    blockId: string,
+    duration: number | null,
+  ) => void;
 };
 
 export function LessonReaderPreview({
@@ -84,6 +89,7 @@ export function LessonReaderPreview({
   setPendingContinueScroll,
   setInteractedContentIds,
   setUnlockingDividerIds,
+  onMediaDurationChange,
 }: LessonReaderPreviewProps) {
   const { readerRef, navigateSection } = useLessonTransition({ selectedLessonId, active, device, orientation, lessonBodyScrollRefs, selectLesson, getLessonNavigationLockMessage });
   const [quizAttemptFinished, setQuizAttemptFinished] = useState<Record<string, boolean>>({});
@@ -248,6 +254,9 @@ export function LessonReaderPreview({
                       return new Set(previous).add(progressId);
                     });
                   }}
+                  onMediaDurationChange={(blockId, duration) =>
+                    onMediaDurationChange?.(lesson.id, blockId, duration)
+                  }
                   onUnlockAnimationEnd={(dividerId) => {
                     setUnlockingDividerIds((previous) => {
                       if (!previous.has(dividerId)) return previous;

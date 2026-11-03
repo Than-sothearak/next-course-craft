@@ -9,6 +9,10 @@ import { slideNavigationLabel } from "@/lib/editor/slide-design";
 import type { PreviewData, PreviewDevice, PreviewLesson } from "./preview-types";
 import { lessonIcons } from "./preview-icons";
 import { LessonProgressIndicator } from "./(lesson_menu_components)/lesson-progress-indicator";
+import {
+  formatMediaDuration,
+  sumKnownMediaDurations,
+} from "@/lib/editor/slide-media-duration";
 export function LessonMenu({
   initialData,
   progress,
@@ -21,6 +25,7 @@ export function LessonMenu({
   lessonSearch,
   selectedLesson,
   lessonScrollProgress,
+  slideMediaDurations = {},
   visitedLessonIds,
   getLessonNavigationLockMessage,
   selectLesson,
@@ -40,6 +45,7 @@ export function LessonMenu({
   lessonSearch: string;
   selectedLesson: PreviewLesson | null;
   lessonScrollProgress: Record<string, number>;
+  slideMediaDurations?: Record<string, number>;
   visitedLessonIds: Set<string>;
   getLessonNavigationLockMessage: (lessonId: string) => string | null;
   selectLesson: (lessonId: string) => void;
@@ -69,6 +75,9 @@ export function LessonMenu({
     ? `${slideCourse ? "w-[min(84%,240px)]" : "w-[min(84%,320px)]"} shrink-0 shadow-2xl`
     : `${device === "tablet" ? "w-[220px]" : "w-[270px]"} shrink-0 border-r border-slate-200`;
   const normalizedLessonSearch = lessonSearch.trim().toLocaleLowerCase();
+  const totalMediaDuration = slideCourse
+    ? sumKnownMediaDurations(Object.values(slideMediaDurations))
+    : null;
   const lessonTitle = (lesson: PreviewLesson) => {
     if (!slideCourse) return lesson.title;
     if (lesson.id === lessons[0]?.id) return initialData.title;
@@ -131,6 +140,14 @@ export function LessonMenu({
             style={{ width: `${progress}%` }}
           />
         </div>
+        {totalMediaDuration !== null && (
+          <p
+            aria-label={`Total media duration: ${formatMediaDuration(totalMediaDuration)}`}
+            className="mt-1.5 text-[10px] font-medium normal-case tracking-normal text-white/85"
+          >
+            Total duration: {formatMediaDuration(totalMediaDuration)}
+          </p>
+        )}
       </div>
       <div ref={menuScrollRef} className={cn("min-h-0 flex-1 overflow-y-auto", slideCourse ? "py-1" : "py-2")}>
         <div className={slideCourse ? "px-2 pb-2 pt-1" : "px-3 pb-3 pt-1"}>
@@ -238,6 +255,12 @@ export function LessonMenu({
                           </span>
                           <span className={cn("block text-slate-500", slideCourse ? "mt-0.5 text-[10px] leading-3" : "mt-1 text-[11px]")}>
                             {lesson.lessonType === "quiz" ? "Quiz" : slideCourse ? "Slide" : "Lesson"}
+                            {slideCourse && slideMediaDurations[lesson.id] !== undefined && (
+                              <span className="font-medium text-slate-700">
+                                {" · "}
+                                {formatMediaDuration(slideMediaDurations[lesson.id])}
+                              </span>
+                            )}
                             {locked ? ` · Locked until current ${slideCourse ? "slide" : "lesson"} is complete` : ""}
                           </span>
                         </span>

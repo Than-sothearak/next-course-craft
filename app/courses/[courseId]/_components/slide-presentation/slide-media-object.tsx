@@ -8,9 +8,10 @@ import { SlideMediaPlayer } from "./slide-media-player";
 import { isSlideVideoFile, resolveSlideCrop } from "@/lib/editor/slide-crop";
 import { SlideColorOverlay } from "./slide-color-overlay";
 
-export function SlideMediaObject({ block, onDimensions, onVideoEnded }: {
+export function SlideMediaObject({ block, onDimensions, onDurationChange, onVideoEnded }: {
   block: Extract<ContentBlock, { type: "image" | "video" }>;
   onDimensions?: (dimensions: { width: number; height: number }) => void;
+  onDurationChange?: (duration: number | null) => void;
   onVideoEnded?: () => void;
 }) {
   const dimensions = resolveSlideMedia(block);
@@ -20,7 +21,7 @@ export function SlideMediaObject({ block, onDimensions, onVideoEnded }: {
       {block.type === "image" ? (
         <PreviewImage src={block.data.src} alt={block.data.alt} caption={block.data.caption} className="h-full w-full object-contain" fitFrame dimensions={dimensions} crop={resolveSlideCrop(block)} onDimensions={onDimensions} />
       ) : videoFile ? (
-        <SlideMediaPlayer key={block.data.src} block={block} onDimensions={onDimensions} onEnded={onVideoEnded} />
+        <SlideMediaPlayer key={block.data.src} block={block} onDimensions={onDimensions} onDurationChange={onDurationChange} onEnded={onVideoEnded} />
       ) : (
         <a href={block.data.src} target="_blank" rel="noreferrer" onClick={onVideoEnded} className="flex h-full w-full items-center justify-center gap-3 bg-slate-950 text-white">
           <CirclePlay size={36} /><span className="text-sm font-medium">Open video</span>
