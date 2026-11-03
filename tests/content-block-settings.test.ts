@@ -110,6 +110,22 @@ describe("content block settings access", () => {
     }));
   });
 
+  it("lets Standard lesson authors exclude a media activity from completion progress", () => {
+    const onChange = vi.fn();
+    const video = blocks.find((block) => block.type === "video")!;
+    act(() => root.render(createElement(ContentBlockEditor, {
+      block: video,
+      courseId: "course-1",
+      onChange,
+    })));
+
+    act(() => document.querySelector<HTMLButtonElement>('[aria-label="Open content settings"]')!.click());
+    const toggle = document.querySelector<HTMLInputElement>('[role="switch"][aria-label="Required for progress"]')!;
+    expect(toggle.checked).toBe(true);
+    act(() => toggle.click());
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ id: "video", requiredForProgress: false }));
+  });
+
   it("opens the style replacement action from a block's own settings", () => {
     const onReplaceTemplate = vi.fn();
     act(() => root.render(createElement(ContentBlockEditor, {

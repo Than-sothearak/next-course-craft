@@ -12,7 +12,7 @@ import { LessonProgressIndicator } from "./(lesson_menu_components)/lesson-progr
 export function LessonMenu({
   initialData,
   progress,
-  visitedLessonCount,
+  completedLessonCount,
   lessons,
   sections,
   device,
@@ -31,7 +31,7 @@ export function LessonMenu({
 }: {
   initialData: Pick<PreviewData, "title" | "courseLayout">;
   progress: number;
-  visitedLessonCount: number;
+  completedLessonCount: number;
   lessons: PreviewData["lessons"];
   sections: PreviewData["sections"];
   device: PreviewDevice;
@@ -115,7 +115,7 @@ export function LessonMenu({
         <div className={cn("flex items-center justify-between font-semibold uppercase tracking-[0.12em]", slideCourse ? "mt-2.5 text-[9px]" : "mt-5 text-[10px]")}>
           <span>{progress}% complete</span>
           <span>
-            {visitedLessonCount}/{lessons.length}
+            {completedLessonCount}/{lessons.length}
           </span>
         </div>
         <div

@@ -173,19 +173,33 @@ export function CoursePreview({
   const lessonIndex = selectedLesson
     ? lessons.findIndex((lesson) => lesson.id === selectedLesson.id)
     : -1;
+  const completedLessonIds = useMemo(
+    () =>
+      new Set(
+        lessons
+          .filter((lesson) => {
+            if ((lessonScrollProgress[lesson.id] ?? 0) < 100) return false;
+            if (lesson.lessonType === "quiz") return passedQuizIds.has(lesson.id);
+            return getPendingInteractiveProgressIds(
+              lesson.blocks,
+              interactedContentIds,
+            ).length === 0;
+          })
+          .map((lesson) => lesson.id),
+      ),
+    [interactedContentIds, lessonScrollProgress, lessons, passedQuizIds],
+  );
   const progress = getCourseProgress(
-    visitedLessonIds,
+    completedLessonIds,
     lessons.map((lesson) => lesson.id),
   );
-  const visitedLessonCount = lessons.filter((lesson) =>
-    visitedLessonIds.has(lesson.id),
-  ).length;
+  const completedLessonCount = completedLessonIds.size;
   const initials = authorInitials(authorName);
   const useMobileMenu = device === "mobile" || isMobileViewport;
   const lessonMenuProps = {
     initialData,
     progress,
-    visitedLessonCount,
+    completedLessonCount,
     lessons,
     sections,
     device,
@@ -194,7 +208,7 @@ export function CoursePreview({
     lessonSearch,
     selectedLesson,
     lessonScrollProgress,
-    visitedLessonIds,
+    visitedLessonIds: completedLessonIds,
     getLessonNavigationLockMessage,
     selectLesson,
     setCollapsedSectionIds,
@@ -224,9 +238,46 @@ export function CoursePreview({
               }
             : parsed;
         }
-        setVisitedLessonIds(new Set(snapshot?.visitedLessonIds ?? []));
-        setLessonScrollProgress(snapshot?.lessonScrollProgress ?? {});
-        setQuizScores(snapshot?.quizScores ?? {});
+        const restoredInteractedContentIds = new Set([
+          ...(snapshot?.interactedContentIds ?? []),
+          ...(snapshot?.interactedFlipCardIds ?? []),
+        ]);
+        const restoredProgressLesson =
+          lessons.find((lesson) => lesson.id === initialLessonId) ??
+          lessons.find((lesson) => lesson.id === snapshot?.selectedLessonId);
+        if (restoredProgressLesson && restoredProgressLesson.lessonType !== "quiz") {
+          getInitiallyViewedInteractionIds(restoredProgressLesson.blocks).forEach(
+            (id) => restoredInteractedContentIds.add(id),
+          );
+        }
+        const restoredLessonScrollProgress = {
+          ...(snapshot?.lessonScrollProgress ?? {}),
+        };
+        for (const lesson of lessons) {
+          if (
+            lesson.lessonType === "quiz" ||
+            (restoredLessonScrollProgress[lesson.id] ?? 0) < 100
+          ) continue;
+          const pendingActivities = getPendingInteractiveProgressIds(
+            lesson.blocks,
+            restoredInteractedContentIds,
+          );
+          if (pendingActivities.length) {
+            restoredLessonScrollProgress[lesson.id] = getRestrictedLessonProgress(
+              100,
+              lesson.blocks,
+              restoredInteractedContentIds,
+            );
+          }
+        }
+        setVisitedLessonIds((current) =>
+          new Set([...(snapshot?.visitedLessonIds ?? []), ...current]),
+        );
+        setLessonScrollProgress((current) => ({
+          ...restoredLessonScrollProgress,
+          ...current,
+        }));
+        setQuizScores((current) => ({ ...snapshot?.quizScores, ...current }));
         const restoredPassedQuizIds =
           snapshot?.passedQuizIds ??
           lessons
@@ -236,10 +287,15 @@ export function CoursePreview({
                 snapshot?.visitedLessonIds?.includes(lesson.id),
             )
             .map((lesson) => lesson.id);
-        setPassedQuizIds(new Set(restoredPassedQuizIds));
-        setRevealedDividerIds(new Set(snapshot?.revealedDividerIds ?? []));
-        setCompletedDividerIds(new Set(snapshot?.completedDividerIds ?? []));
-        setUnlockingDividerIds(new Set());
+        setPassedQuizIds((current) =>
+          new Set([...restoredPassedQuizIds, ...current]),
+        );
+        setRevealedDividerIds((current) =>
+          new Set([...(snapshot?.revealedDividerIds ?? []), ...current]),
+        );
+        setCompletedDividerIds((current) =>
+          new Set([...(snapshot?.completedDividerIds ?? []), ...current]),
+        );
         const resumedLesson = lessons.find(
           (lesson) => lesson.id === snapshot?.selectedLessonId,
         );
@@ -247,14 +303,17 @@ export function CoursePreview({
           (lesson) => lesson.id === initialLessonId,
         );
         const progressLesson = selectedPreviewLesson ?? resumedLesson;
-        setInteractedContentIds(
-          new Set([
-            ...(snapshot?.interactedContentIds ?? []),
-            ...(snapshot?.interactedFlipCardIds ?? []),
-            ...(progressLesson && progressLesson.lessonType !== "quiz"
-              ? getInitiallyViewedInteractionIds(progressLesson.blocks)
-              : []),
-          ]),
+        if (
+          progressLesson &&
+          progressLesson.id !== restoredProgressLesson?.id &&
+          progressLesson.lessonType !== "quiz"
+        ) {
+          getInitiallyViewedInteractionIds(progressLesson.blocks).forEach((id) =>
+            restoredInteractedContentIds.add(id),
+          );
+        }
+        setInteractedContentIds((current) =>
+          new Set([...restoredInteractedContentIds, ...current]),
         );
         setSelectedLessonId((current) => {
           const fallbackId =
@@ -385,10 +444,12 @@ export function CoursePreview({
         revealedDividerIds.has(block.id),
       ).length;
       const reachedEnd = hasReachedContentEnd(element);
+      const pendingRequiredActivities = getPendingInteractiveProgressIds(
+        lesson.blocks,
+        interactedContentIds,
+      );
       const hasPendingRequiredActivities =
-        navigationMode === "restricted" &&
-        getPendingInteractiveProgressIds(lesson.blocks, interactedContentIds)
-          .length > 0;
+        navigationMode === "restricted" && pendingRequiredActivities.length > 0;
       const readingProgress = getLessonReadingProgress({
         scrollHeight: element.scrollHeight,
         clientHeight: element.clientHeight,
@@ -396,14 +457,11 @@ export function CoursePreview({
         revealedContinueCount,
         totalContinueCount: continueDividers.length,
       });
-      const trackedProgress =
-        navigationMode === "restricted"
-          ? getRestrictedLessonProgress(
-              readingProgress,
-              lesson.blocks,
-              interactedContentIds,
-            )
-          : readingProgress;
+      const trackedProgress = getRestrictedLessonProgress(
+        readingProgress,
+        lesson.blocks,
+        interactedContentIds,
+      );
       setLessonScrollProgress((previous) =>
         (previous[lesson.id] ?? 0) >= trackedProgress
           ? previous

@@ -25,7 +25,7 @@ import { SlideObjectBorderControls } from "./slide-object-border-controls";
 import { SlideObjectAlignmentControls } from "./slide-object-alignment-controls";
 import { SlidePlaybackControls } from "./slide-playback-controls";
 import { SlideTextLayoutControls } from "./slide-text-layout-controls";
-import { SlideProgressControls } from "./slide-progress-controls";
+import { BlockProgressControls } from "@/components/block-progress-controls";
 import { SlideObjectAnimationControls } from "./slide-object-animation-controls";
 
 type Props = {
@@ -84,7 +84,7 @@ export function SlideObjectSettings({ selected, blocks, courseId, sections, less
             </SlideInspectorSection>
             <SlideInspectorSection title="Animation" icon={Sparkles}><SlideObjectAnimationControls block={selected} onChange={onBlockChange} /></SlideInspectorSection>
             <SlideInspectorSection title="Navigation & progress" icon={ListChecks}>
-              <SlideProgressControls block={selected} onChange={onBlockChange} />
+              <BlockProgressControls block={selected} onChange={onBlockChange} lessonBlocks={blocks} />
             </SlideInspectorSection>
             </div>
           </section>;

@@ -233,6 +233,7 @@ export function StandardLessonEditor({
                               courseId={courseId}
                               sections={sections}
                               lessons={lessons}
+                              lessonBlocks={lesson.blocks}
                               saveState={saveState}
                               hasUnsavedChanges={hasUnsavedChanges}
                               saveMessage={saveMessage}

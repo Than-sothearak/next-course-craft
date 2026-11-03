@@ -29,6 +29,9 @@ export function VideoBlockSettings({ setMediaLibraryTarget, block, onChange }: {
         placeholder="Video URL"
         className="h-9"
       />
+      <p className="text-xs leading-5 text-slate-500">
+        Required video progress is recorded when a browser-playable video file finishes. External video pages open separately and cannot report when playback ends.
+      </p>
       <Input
         aria-label="Captions URL (optional)"
         type="url"

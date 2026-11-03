@@ -12,7 +12,7 @@ function renderMenu(courseLayout: "slides" | "standard", lessonSearch = "", lock
   return renderToStaticMarkup(<LessonMenu
     initialData={{ title: "Canvas design", courseLayout }}
     progress={0}
-    visitedLessonCount={0}
+    completedLessonCount={0}
     lessons={lessons}
     sections={[{ id: "section", title: "Getting started", order: 0 }]}
     device="desktop"

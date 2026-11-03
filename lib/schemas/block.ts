@@ -165,7 +165,7 @@ export const audioBlockSchema = z.object({
 export const audioInstructionBlockSchema = z.object({
   ...blockBase("small", 0),
   type: z.literal("audioInstruction"),
-  requiredForProgress: z.boolean().default(false),
+  requiredForProgress: z.boolean().default(true),
   data: audioBlockSchema.shape.data.extend({
     label: z.string().trim().min(1).max(120).default("Audio instructions"),
     autoPlay: z.boolean().default(false),

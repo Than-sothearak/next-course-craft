@@ -194,15 +194,9 @@ describe("admin course preview progress", () => {
     expect((save.mock.lastCall![1] as LearnerProgressSnapshot).visitedLessonIds).not.toContain(lesson.id);
     act(() => { body.scrollTop = 500; body.dispatchEvent(new Event("scroll", { bubbles: true })); });
     const snapshot = save.mock.lastCall![1] as LearnerProgressSnapshot;
-    const completesAfterReading = navigationMode !== "restricted";
-    expect(snapshot.visitedLessonIds.includes(lesson.id)).toBe(completesAfterReading);
-    if (navigationMode === "restricted") {
-      expect(snapshot.lessonScrollProgress[lesson.id]).toBe(60);
-      expect(container.querySelector('[aria-label="Lesson 60% complete"]')).not.toBeNull();
-    } else {
-      expect(snapshot.lessonScrollProgress[lesson.id]).toBe(100);
-    }
-    expect(save.mock.lastCall![2]).toBe(completesAfterReading);
+    expect(snapshot.visitedLessonIds.includes(lesson.id)).toBe(navigationMode !== "restricted");
+    expect(snapshot.lessonScrollProgress[lesson.id]).toBeLessThan(100);
+    expect(save.mock.lastCall![2]).toBe(false);
     expect(snapshot.interactedContentIds).not.toContain("study-cards:card-1");
     expect(snapshot.interactedContentIds).not.toContain("activity-3:answer");
     expect(container.querySelector('[data-lesson-block-id="study-cards"] button')?.getAttribute("aria-pressed")).toBe("false");
@@ -287,7 +281,7 @@ describe("admin course preview progress", () => {
     data.navigationMode = "free";
     const lesson = data.lessons[0];
     lesson.blocks.push(blockSchema.parse({ id: "after-gate", version: 1, type: "richText", data: { html: "<p>Read this final section.</p>" } }));
-    lesson.blocks.push(blockSchema.parse({ id: "optional-after-gate", version: 1, type: "flipCard", data: { cards: [{ id: "optional", frontLabel: "Question", front: { type: "text", text: "Optional question" }, backLabel: "Answer", back: { type: "text", text: "Optional answer" } }] } }));
+    lesson.blocks.push(blockSchema.parse({ id: "optional-after-gate", version: 1, type: "flipCard", requiredForProgress: false, data: { cards: [{ id: "optional", frontLabel: "Question", front: { type: "text", text: "Optional question" }, backLabel: "Answer", back: { type: "text", text: "Optional answer" } }] } }));
     const save = vi.fn();
     await act(async () => {
       root.render(createElement(CoursePreview, { initialData: data, authorName: "Author", standalone, initialLessonId: lesson.id, progressAdapter: { load: () => null, save } }));
@@ -310,6 +304,8 @@ describe("admin course preview progress", () => {
       container.querySelector<HTMLButtonElement>('[data-lesson-block-id="study-cards"] button[aria-label="Flip card 2 to reveal the back"]')!.click();
       await new Promise((resolve) => window.setTimeout(resolve, 10));
     });
+    expect((save.mock.lastCall![1] as LearnerProgressSnapshot).interactedContentIds).toContain("study-cards:card-1");
+    expect((save.mock.lastCall![1] as LearnerProgressSnapshot).interactedContentIds).toContain("study-cards:card-2");
     expect(continueButton.disabled).toBe(false);
     expect((save.mock.lastCall![1] as LearnerProgressSnapshot).visitedLessonIds).not.toContain(lesson.id);
     scrollHeight = 1500;
@@ -333,7 +329,8 @@ describe("admin course preview progress", () => {
     if (firstGate.type !== "divider") throw new Error("Expected Continue gate");
     firstGate.data.completionType = completionType;
     lesson.blocks.push(blockSchema.parse({ id: "second-gate", version: 1, type: "divider", data: { style: "continue", completionType: "none" } }));
-    await act(async () => root.render(createElement(CoursePreview, { initialData: data, authorName: "Author", initialLessonId: lesson.id, persistLocalProgress: false })));
+    const save = vi.fn();
+    await act(async () => root.render(createElement(CoursePreview, { initialData: data, authorName: "Author", initialLessonId: lesson.id, persistLocalProgress: false, progressAdapter: { load: () => null, save } })));
     const body = container.querySelector<HTMLElement>(`#preview-content-${lesson.id} > div`)!;
     Object.defineProperties(body, { scrollHeight: { configurable: true, value: 1000 }, clientHeight: { configurable: true, value: 500 }, scrollTop: { configurable: true, writable: true, value: 0 } });
     const nextSection = () => container.querySelector('nav[aria-label="Next section from content 1"] button');
@@ -343,10 +340,19 @@ describe("admin course preview progress", () => {
       expect(firstButton.disabled).toBe(true);
       act(() => { body.scrollTop = 500; body.dispatchEvent(new Event("scroll", { bubbles: true })); });
       expect(firstButton.disabled).toBe(true);
-      await act(async () => {
-        for (const button of container.querySelectorAll<HTMLButtonElement>('[data-lesson-block-id="study-cards"] button')) button.click();
-        await new Promise((resolve) => window.setTimeout(resolve, 10));
-      });
+      for (const label of [
+        "Flip card 1 to reveal the back",
+        "Flip card 2 to reveal the back",
+      ]) {
+        await act(async () => {
+          container.querySelector<HTMLButtonElement>(
+            `[data-lesson-block-id="study-cards"] button[aria-label="${label}"]`,
+          )!.click();
+          await new Promise((resolve) => window.setTimeout(resolve, 10));
+        });
+      }
+      expect((save.mock.lastCall![1] as LearnerProgressSnapshot).interactedContentIds).toContain("study-cards:card-1");
+      expect((save.mock.lastCall![1] as LearnerProgressSnapshot).interactedContentIds).toContain("study-cards:card-2");
     }
     expect(firstButton.disabled).toBe(false);
     expect(nextSection()).toBeNull();
@@ -535,6 +541,9 @@ describe("admin course preview progress", () => {
     const data = twoLessonCourse("sequential");
     data.lessons[0].blocks = data.lessons[0].blocks.filter(
       (block) => block.type !== "divider" || block.data.style !== "continue",
+    );
+    data.lessons[0].blocks = data.lessons[0].blocks.map((block) =>
+      block.type === "flipCard" ? { ...block, requiredForProgress: false } : block,
     );
     await act(async () => {
       root.render(createElement(CoursePreview, {

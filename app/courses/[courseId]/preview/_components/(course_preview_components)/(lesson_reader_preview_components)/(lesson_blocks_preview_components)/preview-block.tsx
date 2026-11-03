@@ -209,8 +209,7 @@ export function PreviewBlock({
         href={block.data.src}
         target="_blank"
         rel="noreferrer"
-        onClick={() => onInteractiveProgress?.(`${block.id}:watched`)}
-        className="flex aspect-video w-full items-center justify-center gap-3 rounded-xl bg-slate-950 text-white hover:bg-slate-900"
+          className="flex aspect-video w-full items-center justify-center gap-3 rounded-xl bg-slate-950 text-white hover:bg-slate-900"
       >
         <span className="grid size-14 place-items-center rounded-full bg-white/15">
           <CirclePlay size={27} />

@@ -32,6 +32,8 @@ import { InteractionButtonSettings } from "./interaction-button-settings";
 import { BalloonArcherSettings } from "@/components/balloon-archer/balloon-archer-settings";
 import { PeelSettingsEditor } from "@/components/physics-interaction/peel-settings";
 import { HangingRopeSettingsEditor } from "@/components/physics-interaction/hanging-rope-settings";
+import { BlockProgressControls } from "@/components/block-progress-controls";
+import { getInteractiveBlockProgressIds } from "@/lib/export/progress";
 
 export function ContentBlockEditor({
   block,
@@ -265,6 +267,9 @@ export function ContentBlockEditor({
     );
 
   const preview = <ContentBlockPreview block={block} onChange={onChange} />;
+  const hasProgressRequirement =
+    getInteractiveBlockProgressIds(block, lessonBlocks).length > 0 ||
+    (block.type === "divider" && block.data.style === "continue");
   const settingsContent = <>
     {replaceTemplateAction()}
     {block.type === "link" && <LinkBlockSettings block={block} onChange={onChange} />}
@@ -286,6 +291,10 @@ export function ContentBlockEditor({
     {block.type === "interactionButton" && <InteractionButtonSettings block={block} courseId={courseId} lessonBlocks={lessonBlocks} sections={sections} lessons={lessons} onChange={onChange} />}
     {block.type === "knowledgeCheck" && <KnowledgeCheckBlockSettings block={block} onChange={onChange} />}
     {block.type === "survey" && <SurveyBlockSettings block={block} onChange={onChange} />}
+    {!inlineSettings && hasProgressRequirement && <section className="space-y-2 border-t border-slate-200 pt-3" aria-label="Lesson completion settings">
+      <h3 className="text-xs font-semibold text-slate-700">Lesson completion</h3>
+      <BlockProgressControls block={block} lessonBlocks={lessonBlocks} onChange={onChange} />
+    </section>}
   </>;
 
   return (

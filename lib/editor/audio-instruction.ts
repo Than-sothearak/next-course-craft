@@ -9,6 +9,7 @@ export function migrateCoverAudio<T extends { slideCover?: SlideCover; blocks: C
   const existing = lesson.blocks.some((block) => block.type === "audioInstruction" && block.data.src === instructions.audioSrc);
   const block = audioInstructionBlockSchema.parse({
     id: createClientId(), version: 1, type: "audioInstruction",
+    requiredForProgress: true,
     slideFrame: master?.objectLayout === "canvas" ? defaultCanvasSlideFrame(lesson.blocks.length, "audioInstruction", master, true) : defaultSlideFrame(lesson.blocks.length, "audioInstruction"),
     data: { src: instructions.audioSrc, fileName: instructions.audioName, autoPlay: instructions.audioTrigger !== "manual" },
   });

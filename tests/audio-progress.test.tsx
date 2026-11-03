@@ -84,11 +84,32 @@ describe("audio learner completion", () => {
     expect(secondLesson().disabled).toBe(false);
   });
 
-  it.each(["free", "sequential"] as const)("keeps audio optional for %s reading completion without a required gate", async (mode) => {
+  it.each(["free", "sequential"] as const)("requires completed audio for %s lesson completion without restricting navigation", async (mode) => {
     await render(course(mode), true);
     expect(snapshot!.visitedLessonIds).toContain("first");
     expect(snapshot!.interactedContentIds).not.toContain("lesson-audio:listened");
+    expect(snapshot!.lessonScrollProgress.first).toBe(50);
     expect(secondLesson().disabled).toBe(false);
+    expect(container.querySelector('[aria-label="Course completion"]')?.getAttribute("aria-valuenow")).toBe("0");
+    act(() => container.querySelector("audio")!.dispatchEvent(new Event("ended")));
+    await settle();
+    expect(snapshot!.visitedLessonIds).toContain("first");
+    expect(snapshot!.lessonScrollProgress.first).toBe(100);
+    expect(secondLesson().disabled).toBe(false);
+    expect(container.querySelector('[aria-label="Course completion"]')?.getAttribute("aria-valuenow")).toBe("50");
+  });
+
+  it("recalculates legacy reading-only 100% when required audio is still unfinished", async () => {
+    snapshot = {
+      visitedLessonIds: ["first"],
+      lessonScrollProgress: { first: 100 },
+      revealedDividerIds: [],
+      completedDividerIds: [],
+      selectedLessonId: "first",
+    };
+    await render(course("free"), true);
+    expect(snapshot!.lessonScrollProgress.first).toBe(50);
+    expect(container.querySelector('[aria-label="Course completion"]')?.getAttribute("aria-valuenow")).toBe("0");
   });
 
   it.each([false, true])("requires audio above a completion gate, including free navigation (standalone=%s)", async (standalone) => {

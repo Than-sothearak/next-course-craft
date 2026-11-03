@@ -40,7 +40,6 @@ export function PeelSettingsEditor({ block, courseId, onChange, renderContentEdi
     <fieldset className="space-y-3"><legend className="mb-2 text-sm font-semibold">Interaction</legend>
       <label className="block space-y-1 text-xs text-slate-600">Trigger<Select aria-label="Peel trigger" value={block.data.trigger} onChange={(event) => update({ trigger: event.target.value as PeelSettings["trigger"] })}><option value="both">Drag and click / tap</option><option value="drag">Drag (keyboard supported)</option><option value="click">Click / tap</option></Select></label>
       {toggle("showInstructions", "Show interaction instructions")}
-      <label className="flex items-center gap-2 text-xs text-slate-600"><Checkbox aria-label="Peel required for progress" checked={block.requiredForProgress !== false} onChange={(event) => onChange({ ...block, requiredForProgress: event.target.checked })} />Required for lesson progress</label>
     </fieldset>
   </div>;
 }

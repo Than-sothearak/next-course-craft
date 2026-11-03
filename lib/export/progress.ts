@@ -60,7 +60,9 @@ export function getInteractiveBlockProgressIds(block: ContentBlock, lessonBlocks
     case "audioInstruction":
       return block.data.src ? [`${block.id}:listened`] : [];
     case "video":
-      return [`${block.id}:watched`];
+      return block.data.mimeType || /\.(mp4|webm|ogg)(?:$|[?#])/i.test(block.data.src)
+        ? [`${block.id}:watched`]
+        : [];
     default:
       return [];
   }
@@ -113,8 +115,8 @@ export function getRestrictedLessonProgress(
   ).length;
   const activityProgress = (completedActivityCount / activityIds.length) * 100;
 
-  // In restricted mode, reading and required activities each account for half
-  // of the lesson ring. Floor the result so only full completion reaches 100.
+  // Reading and required activities each account for half of lesson progress.
+  // Floor the result so only full completion reaches 100.
   return Math.floor((readingProgress + activityProgress) / 2);
 }
 
@@ -224,4 +226,3 @@ export function getLessonReadingProgress(metrics: {
   const progress = ((revealedContinueCount + segmentProgress) / (totalContinueCount + 1)) * 100;
   return Math.min(99, Math.floor(progress));
 }
-
