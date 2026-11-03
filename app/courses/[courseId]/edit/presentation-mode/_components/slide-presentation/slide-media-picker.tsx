@@ -2,27 +2,30 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { MediaLibraryDialog, type MediaLibraryAsset } from "@/app/courses/[courseId]/edit/_components/media-library-dialog";
 import { audioBlockSchema, type ContentBlock } from "@/lib/schemas/block";
 
 type SlideMediaKind = "image" | "video" | "audio" | "attachment";
 type SlideMediaBlock = Extract<ContentBlock, { type: "image" | "gallery" | "labeledGraphic" | "video" | "audio" | "attachment" }>;
 
-function mediaKind(block: ContentBlock): SlideMediaKind | null {
+export function slideMediaKind(block: ContentBlock): SlideMediaKind | null {
   if (block.type === "image" || block.type === "gallery" || block.type === "labeledGraphic") return "image";
   if (block.type === "video" || block.type === "audio" || block.type === "attachment") return block.type;
   return null;
 }
 
-export function SlideMediaPicker({ block, courseId, onChange }: {
+export function SlideMediaPicker({ block, courseId, onChange, embedded = false, onClose }: {
   block: ContentBlock;
   courseId: string;
   onChange: (block: ContentBlock) => void;
+  embedded?: boolean;
+  onClose?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const kind = mediaKind(block);
+  const kind = slideMediaKind(block);
   if (!kind) return null;
   const mediaBlock = block as SlideMediaBlock;
 
@@ -48,15 +51,17 @@ export function SlideMediaPicker({ block, courseId, onChange }: {
 
   const label = kind === "attachment" ? "Choose or upload file" : `Choose or upload ${kind}`;
   return (
-    <div className="space-y-2 rounded-lg border border-indigo-100 bg-indigo-50/50 p-3">
-      <p className="text-xs font-semibold text-slate-700">Slide media</p>
+    <div className={embedded ? "flex min-h-0 flex-1 flex-col gap-2" : "space-y-2 rounded-lg border border-indigo-100 bg-indigo-50/50 p-3"}>
+      {!embedded && <p className="text-xs font-semibold text-slate-700">Slide media</p>}
+      {embedded && mediaBlock.type === "gallery" ? <label className="flex shrink-0 items-center gap-2 text-sm">Replace image<Select aria-label="Gallery image to replace" value={galleryIndex ?? 0} onChange={(event) => setGalleryIndex(Number(event.target.value))}>{mediaBlock.data.images.map((image, index) => <option key={index} value={index}>Image {index + 1}{image.alt ? `: ${image.alt}` : ""}</option>)}</Select></label> : !embedded && <>
       {mediaBlock.type === "gallery" ? <>
         {mediaBlock.data.images.map((image, index) => <Button key={`${mediaBlock.id}-${index}`} type="button" variant="outline" size="sm" onClick={() => { setGalleryIndex(index); setOpen(true); }} className="w-full justify-start">Replace image {index + 1}</Button>)}
         {mediaBlock.data.images.length < 8 && <Button type="button" variant="outline" size="sm" onClick={() => { setGalleryIndex(mediaBlock.data.images.length); setOpen(true); }} className="w-full justify-start">Add gallery image</Button>}
       </> : <Button type="button" variant="outline" size="sm" onClick={() => { setGalleryIndex(null); setOpen(true); }} className="w-full justify-start">{label}</Button>}
       {(mediaBlock.type === "audio" || mediaBlock.type === "attachment") && mediaBlock.data.fileName && <p className="break-all text-xs text-slate-500">Selected: {mediaBlock.data.fileName}</p>}
+      </>}
       {error && <p role="alert" className="text-xs text-rose-700">{error}</p>}
-      <MediaLibraryDialog courseId={courseId} kind={kind} open={open} onClose={() => setOpen(false)} onSelect={choose} />
+      <MediaLibraryDialog courseId={courseId} kind={kind} embedded={embedded} open={embedded || open} onClose={() => { setOpen(false); onClose?.(); }} onSelect={choose} />
     </div>
   );
 }

@@ -5,13 +5,13 @@ import { ChevronDown, ChevronsDownUp, ChevronsUpDown, type LucideIcon } from "lu
 import { Button } from "@/components/ui/button";
 
 const SectionsContext = createContext<{
-  expanded: boolean;
+  expanded: boolean | undefined;
   overrides: Record<string, boolean>;
   toggle: (id: string, open: boolean) => void;
 } | null>(null);
 
 export function SlideInspectorSections({ label, children }: { label: string; children: ReactNode }) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState<boolean>();
   const [overrides, setOverrides] = useState<Record<string, boolean>>({});
   const setAll = (open: boolean) => { setExpanded(open); setOverrides({}); };
   return <SectionsContext.Provider value={{ expanded, overrides, toggle: (id, open) => setOverrides((current) => ({ ...current, [id]: open })) }}>
@@ -26,17 +26,18 @@ export function SlideInspectorSections({ label, children }: { label: string; chi
   </SectionsContext.Provider>;
 }
 
-export function SlideInspectorSection({ title, icon: Icon, children, actions, label }: {
+export function SlideInspectorSection({ title, icon: Icon, children, actions, label, defaultOpen = true }: {
   title: string;
   icon: LucideIcon;
   children: ReactNode;
   actions?: ReactNode;
   label?: string;
+  defaultOpen?: boolean;
 }) {
   const id = useId();
   const sections = useContext(SectionsContext);
-  const [localOpen, setLocalOpen] = useState(true);
-  const open = sections ? sections.overrides[id] ?? sections.expanded : localOpen;
+  const [localOpen, setLocalOpen] = useState(defaultOpen);
+  const open = sections ? sections.overrides[id] ?? sections.expanded ?? defaultOpen : localOpen;
   return <section data-inspector-section aria-label={label ?? title} className="min-w-0 rounded-lg border border-slate-200 bg-white">
     <div className="flex items-center gap-1 px-2">
       <Button variant="ghost" className="min-h-10 min-w-0 flex-1 justify-start gap-2 rounded-none px-1 text-xs font-semibold text-slate-700 hover:bg-transparent" aria-label={`Toggle ${title} settings`} aria-expanded={open} aria-controls={`${id}-content`} onClick={() => sections ? sections.toggle(id, !open) : setLocalOpen(!open)}>

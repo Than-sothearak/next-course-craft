@@ -39,7 +39,11 @@ describe("presentation layer reordering", () => {
   const handle = (id: string) => container.querySelector<HTMLButtonElement>(`[data-slide-layer="${id}"] [aria-label^="Reorder"]`)!;
   const clickLabel = (label: string) => act(async () => container.querySelector<HTMLButtonElement>(`[aria-label="${label}"]`)!.click());
   const key = (code: string, target: EventTarget = document) => act(async () => { target.dispatchEvent(new KeyboardEvent("keydown", { key: code === "Space" ? " " : code, code, bubbles: true, cancelable: true })); await vi.advanceTimersByTimeAsync(50); });
-  const render = () => act(async () => root.render(<EditorClient initialData={data} authorName="Author" />));
+  const render = async () => {
+    await act(async () => root.render(<EditorClient initialData={data} authorName="Author" />));
+    expect(container.querySelector('[aria-label="Toggle Objects & layers settings"]')?.getAttribute("aria-expanded")).toBe("false");
+    await clickLabel("Toggle Objects & layers settings");
+  };
 
   it("reorders on keyboard drop, keeps the selected object, and saves one undoable change for preview and standalone learners", async () => {
     await render();

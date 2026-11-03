@@ -39,12 +39,14 @@ export function MediaLibraryDialog({
   open,
   onClose,
   onSelect,
+  embedded = false,
 }: {
   courseId: string;
   kind: MediaKind;
   open: boolean;
   onClose: () => void;
   onSelect: (asset: MediaLibraryAsset) => void;
+  embedded?: boolean;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [assets, setAssets] = useState<MediaLibraryAsset[] | null>(null);
@@ -210,18 +212,19 @@ export function MediaLibraryDialog({
 
   return (
     <div
-      className="dialog-backdrop-in fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/45 p-3 sm:p-6"
+      className={embedded ? "flex min-h-0 flex-1 flex-col" : "dialog-backdrop-in fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/45 p-3 sm:p-6"}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
     >
       <section
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="media-library-title"
-        className="dialog-panel-in flex max-h-[min(760px,calc(100dvh-24px))] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl sm:max-h-[min(760px,calc(100dvh-48px))]"
+        role={embedded ? undefined : "dialog"}
+        aria-modal={embedded ? undefined : true}
+        aria-label={embedded ? "Media library" : undefined}
+        aria-labelledby={embedded ? undefined : "media-library-title"}
+        className={embedded ? "flex min-h-0 flex-1 flex-col overflow-hidden bg-white" : "dialog-panel-in flex max-h-[min(760px,calc(100dvh-24px))] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl sm:max-h-[min(760px,calc(100dvh-48px))]"}
       >
-        <header className="flex shrink-0 items-center justify-between border-b border-slate-100 px-5 py-4 sm:px-6">
+        {!embedded && <header className="flex shrink-0 items-center justify-between border-b border-slate-100 px-5 py-4 sm:px-6">
           <div>
             <h2
               id="media-library-title"
@@ -242,7 +245,7 @@ export function MediaLibraryDialog({
           >
             <X size={18} />
           </Button>
-        </header>
+        </header>}
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-5 sm:p-6">
           <input
             ref={fileInputRef}
@@ -395,11 +398,11 @@ export function MediaLibraryDialog({
             </div>
           )}
         </div>
-        <footer className="flex shrink-0 justify-end border-t border-slate-100 px-5 py-3 sm:px-6">
+        {!embedded && <footer className="flex shrink-0 justify-end border-t border-slate-100 px-5 py-3 sm:px-6">
           <Button type="button" variant="ghost" onClick={onClose}>
             Close
           </Button>
-        </footer>
+        </footer>}
       </section>
     </div>
   );

@@ -19,6 +19,7 @@ describe("presentation inspector tabs", () => {
   let fetchMock: ReturnType<typeof vi.fn>;
   beforeEach(() => {
     vi.useFakeTimers();
+    Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value: function (this: HTMLDialogElement) { this.open = true; } });
     vi.stubGlobal("matchMedia", () => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn(), addListener: vi.fn(), removeListener: vi.fn() }));
     vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => setTimeout(() => callback(0), 16));
     vi.stubGlobal("cancelAnimationFrame", (id: number) => clearTimeout(id));
@@ -26,7 +27,7 @@ describe("presentation inspector tabs", () => {
     vi.stubGlobal("fetch", fetchMock);
     container = document.createElement("div"); document.body.append(container); root = createRoot(container);
   });
-  afterEach(() => { act(() => root.unmount()); container.remove(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
+  afterEach(() => { act(() => root.unmount()); container.remove(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); delete (HTMLDialogElement.prototype as unknown as Record<string, unknown>).showModal; });
   const tab = (label: string) => [...container.querySelectorAll<HTMLButtonElement>('[role="tab"]')].find((button) => button.textContent === label)!;
   const panel = (label: string) => document.getElementById(tab(label).getAttribute("aria-controls")!) as HTMLDivElement;
   const clickTab = (label: string) => act(async () => tab(label).click());
@@ -174,14 +175,26 @@ describe("presentation inspector tabs", () => {
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Select knowledgeCheck object from layers"]')!.click()); expect(toggle().checked).toBe(false);
   });
 
-  it("starts all tabs expanded and retains individual or grouped changes without saving", async () => {
+  it("starts background/layout and layers collapsed and retains individual or grouped changes without saving", async () => {
     await act(async () => root.render(<EditorClient initialData={makeData()} authorName="Author" />));
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Select heading object from layers"]')!.click());
     const collapse = (label: string) => act(async () => container.querySelector<HTMLButtonElement>(`[aria-label="${label}"]`)!.click());
     const sections = (label: string) => [...panel(label).querySelectorAll<HTMLElement>('[data-inspector-section-content]')];
     const position = container.querySelector<HTMLButtonElement>('[aria-label="Toggle Position & size settings"]')!;
     expect(position.getAttribute("aria-expanded")).toBe("true");
-    expect(sections("Object block").every((section) => !section.hidden)).toBe(true);
+    const defaultCollapsed = ["Slide background & layout", "Slide object layers"];
+    const collapsedSections = () => sections("Object block").filter((section) => section.hidden).map((section) => section.closest("[data-inspector-section]")?.getAttribute("aria-label"));
+    expect(collapsedSections()).toEqual(defaultCollapsed);
+    for (const title of ["Slide background & layout", "Objects & layers"]) {
+      const button = container.querySelector<HTMLButtonElement>(`[aria-label="Toggle ${title} settings"]`)!;
+      expect(button.getAttribute("aria-expanded")).toBe("false");
+      expect(document.getElementById(button.getAttribute("aria-controls")!)?.hidden).toBe(true);
+      await collapse(`Toggle ${title} settings`);
+      expect(button.getAttribute("aria-expanded")).toBe("true");
+      expect(document.getElementById(button.getAttribute("aria-controls")!)?.hidden).toBe(false);
+    }
+    await clickTab("Master slide"); await clickTab("Object block");
+    expect(collapsedSections()).toEqual([]);
     expect(sections("Master slide").every((section) => !section.hidden)).toBe(true);
     expect(sections("Cover page").every((section) => !section.hidden)).toBe(true);
     expect(position.querySelector('svg[aria-hidden="true"]')).not.toBeNull();
@@ -206,7 +219,9 @@ describe("presentation inspector tabs", () => {
     expect(container.querySelector<HTMLInputElement>('[aria-label="Width (px)"]')?.value).toBe("748.8");
     await act(async () => vi.advanceTimersByTimeAsync(1000)); expect(fetchMock).not.toHaveBeenCalled();
     await act(async () => root.render(<EditorClient key="reset-inspector" initialData={makeData()} authorName="Author" />));
-    expect([...container.querySelectorAll<HTMLElement>('[data-inspector-section-content]')].every((section) => !section.hidden)).toBe(true);
+    expect(collapsedSections()).toEqual(defaultCollapsed);
+    expect(sections("Master slide").every((section) => !section.hidden)).toBe(true);
+    expect(sections("Cover page").every((section) => !section.hidden)).toBe(true);
   });
 
   it("keeps text formatting and every selected object's controls inside its settings card", async () => {
@@ -220,9 +235,14 @@ describe("presentation inspector tabs", () => {
     expect(card.querySelector('[aria-label="Duplicate object"]')).not.toBeNull();
     expect(card.querySelector('[aria-label="Delete object"]')).not.toBeNull();
     expect(card.querySelector('[aria-label="Slide object layers"]')).toBeNull();
+    const sectionOrder = (element: Element) => [...element.querySelectorAll('[data-inspector-section]')].map((section) => section.getAttribute("aria-label"));
+    expect(sectionOrder(card)[0]).toBe("Text content");
+    expect(sectionOrder(card).at(-1)).toBe("Navigation & progress");
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Select image object from layers"]')!.click());
     expect(container.querySelector('[data-slide-object-settings="heading"]')).toBeNull();
     const imageCard = container.querySelector('[data-slide-object-settings="image"]')!;
+    expect(sectionOrder(imageCard).slice(0, 3)).toEqual(["Content & interaction", "Media source", "Position & size"]);
+    expect(sectionOrder(imageCard).at(-1)).toBe("Navigation & progress");
     for (const label of ["Position & size", "Media source", "Crop", "Appearance", "Navigation & progress", "Content & interaction"]) {
       expect(imageCard.querySelector(`[data-inspector-section][aria-label="${label}"]`)).not.toBeNull();
     }
@@ -258,6 +278,27 @@ describe("presentation inspector tabs", () => {
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Preview object animation"]')!.click());
     await act(async () => vi.advanceTimersByTimeAsync(1000)); expect(fetchMock.mock.calls.length).toBe(count);
     await choose("none"); expect(container.querySelector<HTMLButtonElement>('[aria-label="Preview object animation"]')!.disabled).toBe(true);
+  });
+
+  it("selects a canvas image, replaces its media, and supports undo, saving, and reload", async () => {
+    const showModal = vi.spyOn(HTMLDialogElement.prototype, "showModal").mockImplementation(function (this: HTMLDialogElement) { this.open = true; });
+    const asset = { id: "asset", originalName: "New.png", contentType: "image/png", size: 100, fileUrl: "/new.png", createdAt: "2026-01-01" };
+    fetchMock.mockImplementation(async (url: string) => ({ ok: true, status: 200, json: async () => url.endsWith("/assets") ? { assets: [asset] } : { revision: 2 } }));
+    const image = { id: "image", version: 1, type: "image", data: { src: "/old.png", alt: "Keep alt" }, slideFrame: { x: 10, y: 10, width: 40, height: 30, z: 0 } };
+    await act(async () => root.render(<EditorClient initialData={makeData([{ ...first, blocks: [image] }])} authorName="Author" />));
+    expect(container.querySelector('[aria-label="Replace media"]')).toBeNull();
+    await act(async () => container.querySelector('[data-slide-canvas] [data-slide-object-id="image"]')!.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, button: 0 })));
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Replace media"]')!.click());
+    expect(showModal).toHaveBeenCalledOnce();
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Use New.png"]')!.click());
+    const source = () => container.querySelector<HTMLImageElement>('[data-slide-canvas] [data-slide-object-id="image"] img')!.getAttribute("src");
+    expect(source()).toBe("/new.png");
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Undo"]')!.click()); expect(source()).toBe("/old.png");
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Redo"]')!.click()); expect(source()).toBe("/new.png");
+    const snapshot = await saved();
+    expect(snapshot.lessons[0].blocks[0]).toMatchObject({ slideFrame: image.slideFrame, data: { src: "/new.png", alt: "Keep alt" } });
+    await act(async () => root.render(<EditorClient key="replaced-media" initialData={{ ...snapshot, courseId: "slides" }} authorName="Author" />));
+    expect(source()).toBe("/new.png");
   });
 
   it("adds a cover from its tab and preserves existing slide objects", async () => {

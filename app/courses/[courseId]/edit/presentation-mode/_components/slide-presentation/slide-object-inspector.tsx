@@ -160,6 +160,7 @@ export function SlideObjectInspector({
             title="Objects & layers"
             label="Slide object layers"
             icon={Layers}
+            defaultOpen={false}
           >
             <SlideObjectLayers
               blocks={blocks}

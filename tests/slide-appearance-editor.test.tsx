@@ -31,6 +31,8 @@ describe("slide-specific background and layout authoring", () => {
   const save = async () => { await act(async () => vi.advanceTimersByTimeAsync(1000)); return editorSnapshotSchema.parse(JSON.parse(fetchMock.mock.calls.findLast(([, init]) => init?.method === "PUT")![1].body)); };
   it("edits one slide, preserves content, supports undo/reload, and renders the same blank image slide in preview", async () => {
     await act(async () => root.render(<EditorClient initialData={initial()} authorName="Author" />));
+    expect(container.querySelector('[aria-label="Toggle Slide background & layout settings"]')?.getAttribute("aria-expanded")).toBe("false");
+    await click("Toggle Slide background & layout settings");
     const select = container.querySelector<HTMLSelectElement>('[aria-label="Slide background style"]')!;
     await act(async () => { select.value = "image"; select.dispatchEvent(new Event("change", { bubbles: true })); });
     await act(async () => textButton("Choose or upload slide background image").click());

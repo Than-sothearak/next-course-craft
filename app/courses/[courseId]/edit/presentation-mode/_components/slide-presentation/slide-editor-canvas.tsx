@@ -9,12 +9,13 @@ import { defaultSlideSize, type SlideSize } from "@/lib/editor/slide-design";
 
 const zoomLevels = [25, 50, 75, 100, 125, 150, 175, 200];
 
-export function SlideEditorCanvas({ label, zoom, onZoomChange, size = defaultSlideSize, toolbar, fillAvailable = false, children }: {
+export function SlideEditorCanvas({ label, zoom, onZoomChange, size = defaultSlideSize, toolbar, overlay, fillAvailable = false, children }: {
   label: ReactNode;
   zoom?: number;
   size?: SlideSize;
   onZoomChange: (zoom: number | undefined) => void;
   toolbar?: ReactNode;
+  overlay?: ReactNode;
   fillAvailable?: boolean;
   children: ReactNode;
 }) {
@@ -37,7 +38,7 @@ export function SlideEditorCanvas({ label, zoom, onZoomChange, size = defaultSli
         </div>
       </div>
     </div>
-    <SlideStage size={size} fillWidth zoom={zoom} onScaleChange={setScale} style={{ aspectRatio: `${size.width} / ${size.height}` }} className={fillAvailable ? "h-full min-h-0 w-full flex-1 bg-slate-100" : "max-h-[760px] min-h-[340px] w-full bg-slate-100"} canvasClassName="rounded-none border border-slate-300">
+    <SlideStage size={size} fillWidth zoom={zoom} onScaleChange={setScale} overlay={overlay} style={{ aspectRatio: `${size.width} / ${size.height}` }} className={fillAvailable ? "h-full min-h-0 w-full flex-1 bg-slate-100" : "max-h-[760px] min-h-[340px] w-full bg-slate-100"} canvasClassName="rounded-none border border-slate-300">
       {children}
     </SlideStage>
   </section>;

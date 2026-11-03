@@ -21,7 +21,7 @@ export function SlideAppearanceSettings({ value, onChange, master, courseId }: {
   const [imageOpen, setImageOpen] = useState(false);
   const appearance = value ?? defaultSlideAppearance, background = appearance.background;
   const change = (update: Partial<SlideAppearance>) => onChange({ ...appearance, ...update });
-  return <SlideInspectorSection title="Slide background & layout" icon={ImageIcon}>
+  return <SlideInspectorSection title="Slide background & layout" icon={ImageIcon} defaultOpen={false}>
     <div className="space-y-3" aria-label="Current slide appearance">
       <p className="text-xs text-slate-500">Applies only to this slide. Objects remain editable over the background.</p>
       <label className="flex items-center gap-2 text-xs text-slate-600"><Checkbox aria-label="Blank slide" checked={appearance.hideHeader && appearance.hideFooter} onChange={(event) => change({ hideHeader: event.target.checked, hideFooter: event.target.checked })} />Blank slide (hide header and footer)</label>

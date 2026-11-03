@@ -14,7 +14,7 @@ import { CodeExampleControls } from "@/app/courses/[courseId]/edit/_components/(
 import { SlideInspectorSection } from "./slide-inspector-section";
 import { objectIcons, objectLabels } from "./slide-object-labels";
 import { isSlideTextBlock } from "./slide-text-object-editor";
-import { SlideMediaPicker } from "./slide-media-picker";
+import { SlideMediaPicker, slideMediaKind } from "./slide-media-picker";
 import { SlideMediaOverlayControls } from "./slide-media-overlay-controls";
 import { SlideMediaCropControls } from "./slide-media-crop-controls";
 import { SlideObjectSizeControls } from "./slide-object-size-controls";
@@ -53,11 +53,12 @@ export function SlideObjectSettings({ selected, blocks, courseId, sections, less
   const selectedLabel = objectLabels[selected.type] ?? selected.type;
   return <section data-slide-object-settings={selected.id} aria-label={`${selectedLabel} object settings`} className="min-w-0 rounded-lg border border-slate-200 bg-white"><div className="flex items-center justify-between border-b border-slate-100 px-3 py-2"><h2 className="flex items-center gap-2 text-xs font-semibold capitalize"><SelectedIcon size={15} aria-hidden="true" className="text-indigo-600" />{selectedLabel}</h2><div className="flex gap-1"><Button type="button" variant="ghost" size="icon" className="size-7" aria-label="Duplicate object" title="Duplicate object" onClick={() => onDuplicate(selected.id)}><Copy size={14} aria-hidden="true" /></Button><Button type="button" variant="ghost" size="icon" className="size-7 text-rose-600" aria-label="Delete object" title="Delete object" onClick={() => { onDelete(selected.id); }}><Trash2 size={14} aria-hidden="true" /></Button></div></div>
             <div className="space-y-2 p-2">
-            {isSlideTextBlock(selected) && <SlideInspectorSection title="Text format" label="Slide text formatting" icon={Type}>
-              {activeTextEditor ? <>
-                <TextFormattingToolbar editor={activeTextEditor} textAlign={selected.slideTextLayout?.horizontal} onTextAlignChange={(horizontal) => onBlockChange({ ...selected, slideTextLayout: { ...resolveSlideTextLayout(selected.slideTextLayout), horizontal } })} />
-                {selected.type === "richText" && <CodeExampleControls editor={activeTextEditor} />}
-              </> : <p className="text-sm text-slate-500">Click text on the slide to type or select text to format it.</p>}
+            <SlideInspectorSection title={isSlideTextBlock(selected) ? "Text content" : "Content & interaction"} icon={SlidersHorizontal}>
+              {isSlideTextBlock(selected) ? <div className="space-y-3"><p className="text-xs text-slate-500">Edit text directly on the slide. Drag the move handle to reposition the object.</p>{onReplaceTemplate && <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => onReplaceTemplate(selected)}>Change block style</Button>}</div> : <ContentBlockEditor key={selected.id} block={selected} courseId={courseId} sections={sections} lessons={lessons} lessonBlocks={blocks} onChange={onBlockChange} onReplaceTemplate={onReplaceTemplate ? () => onReplaceTemplate(selected) : undefined} inlineSettings />}
+            </SlideInspectorSection>
+            {slideMediaKind(selected) && <SlideInspectorSection title="Media source" icon={ImageIcon}>
+              <SlideMediaPicker key={`media-${selected.id}`} block={selected} courseId={courseId} onChange={onBlockChange} />
+              <SlideMediaOverlayControls block={selected} onChange={onBlockChange} />
             </SlideInspectorSection>}
             <SlideInspectorSection title="Position & size" icon={Maximize}>
             <SlideAudioSizeControls block={selected} index={blocks.indexOf(selected)} total={blocks.length} area={area} onChange={onBlockChange} />
@@ -66,9 +67,11 @@ export function SlideObjectSettings({ selected, blocks, courseId, sections, less
             <SlideMediaSizeControls block={selected} index={blocks.indexOf(selected)} total={blocks.length} area={area} onChange={onBlockChange} />
             <SlideObjectAlignmentControls block={selected} index={blocks.indexOf(selected)} total={blocks.length} area={area} headerBottom={headerBottom} footerTop={footerTop} onChange={onBlockChange} />
             </SlideInspectorSection>
-            {(["image", "video", "audio", "gallery", "attachment", "labeledGraphic"] as string[]).includes(selected.type) && <SlideInspectorSection title="Media source" icon={ImageIcon}>
-              <SlideMediaPicker key={`media-${selected.id}`} block={selected} courseId={courseId} onChange={onBlockChange} />
-              <SlideMediaOverlayControls block={selected} onChange={onBlockChange} />
+            {isSlideTextBlock(selected) && <SlideInspectorSection title="Text format" label="Slide text formatting" icon={Type}>
+              {activeTextEditor ? <>
+                <TextFormattingToolbar editor={activeTextEditor} textAlign={selected.slideTextLayout?.horizontal} onTextAlignChange={(horizontal) => onBlockChange({ ...selected, slideTextLayout: { ...resolveSlideTextLayout(selected.slideTextLayout), horizontal } })} />
+                {selected.type === "richText" && <CodeExampleControls editor={activeTextEditor} />}
+              </> : <p className="text-sm text-slate-500">Click text on the slide to type or select text to format it.</p>}
             </SlideInspectorSection>}
             {isSlideMediaObject(selected) && (selected.type === "image" || isSlideVideoFile(selected)) && <SlideInspectorSection title="Crop" icon={Crop}>
               <SlideMediaCropControls key={`crop-${selected.id}-${selected.data.src}`} block={selected} index={blocks.indexOf(selected)} total={blocks.length} area={area} onChange={onBlockChange} />
@@ -79,12 +82,9 @@ export function SlideObjectSettings({ selected, blocks, courseId, sections, less
             <SlideObjectBackgroundControls block={selected} onChange={onBlockChange} />
             <SlideObjectBorderControls block={selected} onChange={onBlockChange} onApplyBorderRadiusToAll={onApplyBorderRadiusToAll} />
             </SlideInspectorSection>
+            <SlideInspectorSection title="Animation" icon={Sparkles}><SlideObjectAnimationControls block={selected} onChange={onBlockChange} /></SlideInspectorSection>
             <SlideInspectorSection title="Navigation & progress" icon={ListChecks}>
               <SlideProgressControls block={selected} onChange={onBlockChange} />
-            </SlideInspectorSection>
-            <SlideInspectorSection title="Animation" icon={Sparkles}><SlideObjectAnimationControls block={selected} onChange={onBlockChange} /></SlideInspectorSection>
-            <SlideInspectorSection title={isSlideTextBlock(selected) ? "Text content" : "Content & interaction"} icon={SlidersHorizontal}>
-              {isSlideTextBlock(selected) ? <div className="space-y-3"><p className="text-xs text-slate-500">Edit text directly on the slide. Drag the move handle to reposition the object.</p>{onReplaceTemplate && <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => onReplaceTemplate(selected)}>Change block style</Button>}</div> : <ContentBlockEditor key={selected.id} block={selected} courseId={courseId} sections={sections} lessons={lessons} lessonBlocks={blocks} onChange={onBlockChange} onReplaceTemplate={onReplaceTemplate ? () => onReplaceTemplate(selected) : undefined} inlineSettings />}
             </SlideInspectorSection>
             </div>
           </section>;

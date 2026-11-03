@@ -31,6 +31,30 @@ describe("interaction button presentation authoring", () => {
   async function saved() { await act(async () => vi.advanceTimersByTimeAsync(1000)); return editorSnapshotSchema.parse(JSON.parse(fetchMock.mock.calls.findLast(([, init]) => init?.method === "PUT")![1].body)); }
   async function start() { await act(async () => root.render(<EditorClient initialData={data} authorName="Author" />)); await clickText("Interaction button"); }
 
+  it("replaces popup media locally, discards Cancel, and saves only after Apply", async () => {
+    const block = { id: "trigger", type: "interactionButton", version: 1, data: { popup: { blocks: [{ id: "picture", type: "image", version: 1, data: { src: "/old.png", alt: "Original" } }] } } };
+    const initial = { ...data, ...editorSnapshotSchema.parse({ ...data, lessons: [{ ...data.lessons[0], blocks: [block] }] }) };
+    await act(async () => root.render(<EditorClient initialData={initial} authorName="Author" />));
+    await clickLabel("Select interactionButton object from layers");
+    const source = () => popup().querySelector<HTMLImageElement>('[data-popup-editor-canvas] [data-slide-object-id="picture"] img')!.getAttribute("src");
+    await clickText("Edit popup mini slide (1 objects)");
+    await clickLabel("Replace media");
+    expect(popup().querySelectorAll("dialog[open]")).toHaveLength(1);
+    await clickLabel("Use Diagram.png");
+    expect(source()).toBe(assets[0].fileUrl);
+    await act(async () => vi.advanceTimersByTimeAsync(1000));
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === "PUT")).toBe(false);
+    await clickText("Cancel", popup());
+    await clickText("Edit popup mini slide (1 objects)");
+    expect(source()).toBe("/old.png");
+    await clickLabel("Replace media"); await clickLabel("Use Diagram.png");
+    await clickText("Apply popup", popup());
+    const snapshot = await saved();
+    expect(snapshot.lessons[0].blocks[0]).toMatchObject({ data: { popup: { blocks: [{ id: "picture", data: { src: assets[0].fileUrl, alt: "Original" } }] } } });
+    await clickLabel("Undo"); await clickText("Edit popup mini slide (1 objects)");
+    expect(source()).toBe("/old.png");
+  });
+
   it("adds and configures a button, supports undo, and saves and restores settings", async () => {
     await start();
     expect(container.querySelector('[data-slide-canvas] [aria-label="Learn more"]')).not.toBeNull();

@@ -25,6 +25,7 @@ import type { SlideAppearance } from "@/lib/editor/slide-design";
 import { SlideObjectInspector } from "./slide-object-inspector";
 import { useSlideSelection } from "./use-slide-selection";
 import { SlideSelectionOverlay } from "./slide-selection-overlay";
+import { SlideCanvasMediaReplace } from "./slide-canvas-media-replace";
 
 export function SlideObjectWorkspace({
   initialSelectedId,
@@ -251,6 +252,7 @@ export function SlideObjectWorkspace({
           size={size}
           zoom={zoom}
           onZoomChange={onZoomChange}
+          overlay={<SlideCanvasMediaReplace block={selection.editable ? selected : null} courseId={courseId} onChange={changeBlock} />}
           toolbar={
             <SlideSnapControls
               enabled={snapEnabled}

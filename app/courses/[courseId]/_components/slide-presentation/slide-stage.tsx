@@ -8,6 +8,7 @@ const STAGE_GUTTER = 24;
 
 type SlideStageProps = {
   children: ReactNode;
+  overlay?: ReactNode;
   className?: string;
   style?: CSSProperties;
   size?: SlideSize;
@@ -22,7 +23,7 @@ type SlideStageProps = {
 
 /** Fit the authored slide dimensions inside the workspace without changing its ratio. */
 export const SlideStage = forwardRef<HTMLDivElement, SlideStageProps>(function SlideStage(
-  { children, className, style, size = defaultSlideSize, frameClassName, canvasClassName, canvasProps, fillViewport = false, fillWidth = false, zoom, onScaleChange },
+  { children, overlay, className, style, size = defaultSlideSize, frameClassName, canvasClassName, canvasProps, fillViewport = false, fillWidth = false, zoom, onScaleChange },
   canvasRef,
 ) {
   const stageRef = useRef<HTMLDivElement>(null);
@@ -66,6 +67,7 @@ export const SlideStage = forwardRef<HTMLDivElement, SlideStageProps>(function S
         >
           {children}
         </div>
+        {overlay}
       </div>
     </div>
   );

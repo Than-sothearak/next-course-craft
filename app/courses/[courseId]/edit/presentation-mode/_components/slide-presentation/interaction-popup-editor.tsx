@@ -28,6 +28,7 @@ import { SlideSnapControls } from "./slide-snap-controls";
 import { useSlideSelection } from "./use-slide-selection";
 import { SlideSelectionOverlay } from "./slide-selection-overlay";
 import { SlideSelectionControls } from "./slide-selection-controls";
+import { SlideCanvasMediaReplace } from "./slide-canvas-media-replace";
 
 type Popup = Extract<ContentBlock, { type: "interactionButton" }>["data"]["popup"];
 export type PopupTargets = { sections: { id: string; title: string; order: number }[]; lessons: { id: string; title: string; sectionId: string; order: number; lessonType?: "content" | "quiz" }[] };
@@ -98,7 +99,7 @@ export function InteractionPopupEditor({ popup, courseId, sections, lessons, onA
       <div className="min-w-0 space-y-3">
         <section className="overflow-hidden border border-slate-200 bg-slate-100">
         <div data-slide-editor-toolbar role="group" aria-label="Popup canvas toolbar" className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-3 py-2 text-xs text-slate-600"><span className="font-medium">Popup canvas</span><SlideSnapControls enabled={snapEnabled} onChange={setSnapEnabled} compact /></div>
-        <SlideStage size={draft} fillWidth className="h-[min(52dvh,460px)] w-full bg-slate-100" canvasProps={{ "data-popup-editor-canvas": true }}>
+        <SlideStage size={draft} fillWidth className="h-[min(52dvh,460px)] w-full bg-slate-100" canvasProps={{ "data-popup-editor-canvas": true }} overlay={<SlideCanvasMediaReplace block={selection.editable ? selected : null} courseId={courseId} onChange={change} />}>
           <div data-slide-objects className="relative h-full w-full" style={{ ...backgroundPaint(draft.backgroundColor), color: solidColor(draft.textColor) }}>{selection.renderBlocks.map((item, index) => !selection.hiddenIds.has(item.id) && <SlideObject key={item.id} block={item} lessonBlocks={draft.blocks} index={index} total={draft.blocks.length} master={master} area={draft} snapEnabled={snapEnabled} selected={selection.selectedIds.includes(item.id)} readOnly={selection.lockedIds.has(item.id)} suspendAutoFit={selection.transforming} suppressTransforms={selection.selectedIds.length > 1 || Boolean(item.slideGroupId && selection.memberGroupId !== item.slideGroupId)} onPointerSelect={(event) => selection.objectPointerDown(item.id, event)} onEnterMember={() => selection.enterMember(item.id)} onSelect={() => selection.selectObject(item.id)} onFrame={(slideFrame) => change({ ...item, slideFrame })} onChange={change} onEditorFocus={(editor) => { setSelectedId(item.id); setFocused({ id: item.id, editor }); }} onSnapGuides={setSnapGuides} />)}{selected && <SlideObjectSnapGuides guides={snapGuides} />}<SlideSelectionOverlay selection={selection} /></div>
         </SlideStage>
         </section>
