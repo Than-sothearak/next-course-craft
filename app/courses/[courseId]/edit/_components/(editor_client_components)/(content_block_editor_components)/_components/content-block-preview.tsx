@@ -127,6 +127,8 @@ export function ContentBlockPreview({ block, onChange, presentation = false }: {
     )
   ) : block.type === "flipCard" ? (
     <InteractiveFlipCard
+      presentation={presentation}
+      presentationLayout={block.data.presentationLayout}
       blockId={block.id}
       cards={block.data.cards}
       cardsPerRow={block.data.cardsPerRow}

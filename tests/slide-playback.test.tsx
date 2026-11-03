@@ -3,6 +3,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SlideMediaPlayer } from "@/app/courses/[courseId]/_components/slide-presentation/slide-media-player";
+import { SlidePlaybackControls } from "@/app/courses/[courseId]/edit/presentation-mode/_components/slide-presentation/slide-playback-controls";
 import { SlidePlaybackContext } from "@/app/courses/[courseId]/_components/slide-presentation/slide-playback-context";
 import { CoursePreview } from "@/app/courses/[courseId]/preview/course-preview";
 import { audioBlockSchema, blockSchema, videoBlockSchema } from "@/lib/schemas/block";
@@ -48,7 +49,31 @@ describe("presentation media playback", () => {
     expect(blockSchema.parse({ ...video, slidePlayback: {} })).toMatchObject({ slidePlayback: { autoPlay: false, showControls: true } });
     expect(blockSchema.safeParse({ ...video, slidePlayback: { autoPlay: "yes" } }).success).toBe(false);
     expect(blockSchema.safeParse({ ...audio, slidePlayback: { showFileName: "false" } }).success).toBe(false);
+    expect(videoBlockSchema.safeParse({ ...video, slidePlayback: { loop: "yes" } }).success).toBe(false);
+    expect(audioBlockSchema.parse({ ...audio, slidePlayback: { loop: true, muted: true } })).toMatchObject({ slidePlayback: { loop: true, muted: true } });
     expect(parseScorm12Snapshot(snapshot).lessons[0].blocks).toMatchObject([video, audio]);
+  });
+
+  it.each([video, audio])( "offers persistent loop and mute controls by default ($type)", async (block) => {
+    const onChange = vi.fn();
+    await act(async () => root.render(<SlidePlaybackControls block={block} onChange={onChange} />));
+    const loop = container.querySelector<HTMLInputElement>('[aria-label="Loop media"]')!;
+    const mute = container.querySelector<HTMLInputElement>('[aria-label="Mute media"]')!;
+    expect(loop.checked).toBe(false); expect(mute.checked).toBe(false);
+    await act(async () => loop.click());
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ slidePlayback: expect.objectContaining({ loop: true }) }));
+    await act(async () => mute.click());
+    expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ slidePlayback: expect.objectContaining({ muted: true }) }));
+  });
+
+  it.each([video, audio])("uses saved loop and mute settings for $type", async (block) => {
+    const defaults = blockSchema.parse({ ...block, slidePlayback: { autoPlay: false, showControls: true } });
+    await render(defaults as typeof video | typeof audio);
+    expect(media().loop).toBe(false); expect(media().muted).toBe(false);
+    const enabled = blockSchema.parse({ ...block, slidePlayback: { loop: true, muted: true } });
+    await render(enabled as typeof video | typeof audio);
+    expect(media().loop).toBe(true); expect(media().muted).toBe(true);
+    expect(parseScorm12Snapshot({ ...snapshot, lessons: [{ ...snapshot.lessons[0], blocks: [enabled] }] }).lessons[0].blocks[0]).toMatchObject({ slidePlayback: { loop: true, muted: true } });
   });
 
   it("updates video overlay color and opacity without interrupting playback", async () => {

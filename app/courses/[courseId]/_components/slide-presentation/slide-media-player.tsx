@@ -29,7 +29,9 @@ export function SlideMediaPlayer({ block, onDimensions, onEnded, decorative = fa
   const [touchControls, setTouchControls] = useState(false);
   const [time, setTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [muted, setMuted] = useState(false);
+  const configuredMuted = block.slidePlayback?.muted ?? false;
+  const [muteOverride, setMuteOverride] = useState<{ configured: boolean; value: boolean } | null>(null);
+  const muted = muteOverride?.configured === configuredMuted ? muteOverride.value : configuredMuted;
   const [captionsEnabled, setCaptionsEnabled] = useState(false);
   const [caption, setCaption] = useState("");
   const crop = block.type === "video" ? resolveSlideCrop(block) : undefined;
@@ -37,6 +39,7 @@ export function SlideMediaPlayer({ block, onDimensions, onEnded, decorative = fa
   const cropped = Boolean(crop);
   const captionSource = block.type === "video" ? block.data.captions : undefined;
   const autoPlay = block.slidePlayback?.autoPlay ?? false;
+  const loop = block.slidePlayback?.loop ?? false;
   const controlsEnabled = block.slidePlayback?.showControls ?? true;
   const controlsVisible = block.type === "audio" || hovered || keyboardFocused || touchControls;
   const controls = controlsEnabled && controlsVisible;
@@ -95,8 +98,8 @@ export function SlideMediaPlayer({ block, onDimensions, onEnded, decorative = fa
   }
   const common = {
     "data-slide-media-player": decorative ? undefined : block.id,
-    controls: !crop && controls, autoPlay: active && autoPlay && Boolean(block.data.src), preload: decorative ? "none" as const : "metadata" as const,
-    muted: decorative ? true : undefined,
+    controls: !crop && controls, autoPlay: active && autoPlay && Boolean(block.data.src), loop, preload: decorative ? "none" as const : "metadata" as const,
+    muted: decorative || muted,
     src: block.data.src || undefined, onEnded: end, onLoadedMetadata: metadata,
     onPlay: () => setPlaying(true), onPause: () => setPlaying(false),
     onTimeUpdate: () => { if (crop && mediaRef.current) setTime(mediaRef.current.currentTime); },
@@ -129,7 +132,7 @@ export function SlideMediaPlayer({ block, onDimensions, onEnded, decorative = fa
     {crop && controls && <div data-cropped-video-controls className="absolute inset-x-2 bottom-2 flex min-w-0 items-center gap-1 rounded-md bg-slate-950/85 p-1 text-white">
       <Button variant="ghost" size="icon" className="size-7 shrink-0 text-white hover:bg-white/20 hover:text-white" aria-label={playing ? "Pause video" : "Play video"} onClick={togglePlayback}>{playing ? <Pause size={14} /> : <Play size={14} />}</Button>
       <Input type="range" aria-label="Video playback position" min={0} max={duration || 1} step={0.1} value={Math.min(time, duration)} disabled={!duration || !active} onChange={(event) => { if (mediaRef.current) mediaRef.current.currentTime = event.target.valueAsNumber; setTime(event.target.valueAsNumber); }} className="h-5 min-w-0 flex-1 border-0 bg-transparent p-0 accent-indigo-400 shadow-none" />
-      <Button variant="ghost" size="icon" className="size-7 shrink-0 text-white hover:bg-white/20 hover:text-white" aria-label={muted ? "Unmute video" : "Mute video"} onClick={() => { if (mediaRef.current) { mediaRef.current.muted = !mediaRef.current.muted; setMuted(mediaRef.current.muted); } }}>{muted ? <VolumeX size={14} /> : <Volume2 size={14} />}</Button>
+      <Button variant="ghost" size="icon" className="size-7 shrink-0 text-white hover:bg-white/20 hover:text-white" aria-label={muted ? "Unmute video" : "Mute video"} onClick={() => { if (mediaRef.current) { mediaRef.current.muted = !mediaRef.current.muted; setMuteOverride({ configured: configuredMuted, value: mediaRef.current.muted }); } }}>{muted ? <VolumeX size={14} /> : <Volume2 size={14} />}</Button>
       {block.type === "video" && block.data.captions && <Button variant="ghost" size="icon" className="size-7 shrink-0 text-white hover:bg-white/20 hover:text-white" aria-label={captionsEnabled ? "Hide video captions" : "Show video captions"} aria-pressed={captionsEnabled} onClick={() => setCaptionsEnabled(!captionsEnabled)}><Captions size={14} /></Button>}
     </div>}
     {!controlsEnabled && controlsVisible && <Button type="button" variant="outline" size="icon" aria-label={`${playing ? "Pause" : "Play"} ${block.type}`} title={`${playing ? "Pause" : "Play"} ${block.type}`} onClick={togglePlayback} style={audioSize ? { width: audioSize.button, height: audioSize.button } : undefined} className={block.type === "video" ? "absolute bottom-3 left-3 border-0 bg-transparent text-white shadow-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)] hover:bg-transparent" : "bg-white text-slate-900"}>

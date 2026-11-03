@@ -60,6 +60,7 @@ export function SlideObjectSettings({ selected, blocks, courseId, sections, less
               <SlideMediaPicker key={`media-${selected.id}`} block={selected} courseId={courseId} onChange={onBlockChange} />
               <SlideMediaOverlayControls block={selected} onChange={onBlockChange} />
             </SlideInspectorSection>}
+            {(selected.type === "video" || selected.type === "audio") && <SlideInspectorSection title="Playback" icon={Video}><SlidePlaybackControls block={selected} onChange={onBlockChange} /></SlideInspectorSection>}
             <SlideInspectorSection title="Position & size" icon={Maximize}>
             <SlideAudioSizeControls block={selected} index={blocks.indexOf(selected)} total={blocks.length} area={area} onChange={onBlockChange} />
             <SlideObjectSizeControls block={selected} index={blocks.indexOf(selected)} total={blocks.length} area={area} onChange={onBlockChange} />
@@ -76,7 +77,6 @@ export function SlideObjectSettings({ selected, blocks, courseId, sections, less
             {isSlideMediaObject(selected) && (selected.type === "image" || isSlideVideoFile(selected)) && <SlideInspectorSection title="Crop" icon={Crop}>
               <SlideMediaCropControls key={`crop-${selected.id}-${selected.data.src}`} block={selected} index={blocks.indexOf(selected)} total={blocks.length} area={area} onChange={onBlockChange} />
             </SlideInspectorSection>}
-            {(selected.type === "video" || selected.type === "audio") && <SlideInspectorSection title="Playback" icon={Video}><SlidePlaybackControls block={selected} onChange={onBlockChange} /></SlideInspectorSection>}
             {isSlideTextBlock(selected) && <SlideInspectorSection title="Text box layout" icon={AlignLeft}><SlideTextLayoutControls block={selected} onChange={onBlockChange} /></SlideInspectorSection>}
             <SlideInspectorSection title="Appearance" icon={Paintbrush}>
             <SlideObjectBackgroundControls block={selected} onChange={onBlockChange} />

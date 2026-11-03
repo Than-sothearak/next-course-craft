@@ -91,6 +91,8 @@ export const slideObjectArea = resolveSlideObjectArea();
 
 export const slidePlaybackSchema = z.object({
   autoPlay: z.boolean().default(false),
+  loop: z.boolean().optional(),
+  muted: z.boolean().optional(),
   showControls: z.boolean().default(true),
   showFileName: z.boolean().optional(),
   audioSize: z.enum(["small", "medium", "large"]).optional(),
@@ -309,7 +311,15 @@ export function hasLegacySlideFooterColors(footer?: SlideFooter): boolean {
 }
 
 export function resolveSlideFooter(master: SlideMaster): SlideFooter & { backgroundColor: string; textColor: string; borderColor: string } {
-  const footer = slideFooterSchema.parse(master.footer ?? {});
+  const footerInput: Partial<SlideFooter> = master.footer ?? {};
+  // Standalone HTML exports replace owned image URLs with object URLs before
+  // rendering. Accept those runtime-only sources here without widening the
+  // schema used to validate persisted footer settings.
+  const parsedInput = footerInput.logos?.length
+    ? { ...footerInput, logos: footerInput.logos.map((logo) => ({ ...logo, src: logo.src.startsWith("blob:") ? "data:image/png;base64,AA==" : logo.src })) }
+    : footerInput;
+  const parsedFooter = slideFooterSchema.parse(parsedInput);
+  const footer = footerInput.logos?.length ? { ...parsedFooter, logos: footerInput.logos } : parsedFooter;
   const legacyDefaults = hasLegacySlideFooterColors(footer);
   return {
     ...footer,

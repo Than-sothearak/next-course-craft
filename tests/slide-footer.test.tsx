@@ -40,6 +40,13 @@ describe("presentation footers", () => {
     expect(older).not.toHaveProperty("logoPaddingX"); expect(older).not.toHaveProperty("logoPaddingY");
   });
 
+  it("renders export object URLs without allowing them in persisted footer settings", () => {
+    const master = slideMasterSchema.parse({ footer: { content: "logos", logos } });
+    const runtimeMaster = { ...master, footer: { ...master.footer!, logos: [{ ...logos[0], src: "blob:file-export-logo" }] } };
+    expect(slideFooterSchema.safeParse(runtimeMaster.footer).success).toBe(false);
+    expect(resolveSlideFooter(runtimeMaster).logos).toEqual([{ ...logos[0], src: "blob:file-export-logo" }]);
+  });
+
   it("validates logo counts, unique IDs, owned image URL forms, and footer styles", () => {
     const many = Array.from({ length: 12 }, (_, index) => ({ ...logos[0], id: `logo-${index}` }));
     expect(slideFooterSchema.parse({ logos: many }).logos).toHaveLength(12);

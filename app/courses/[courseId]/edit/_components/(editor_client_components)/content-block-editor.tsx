@@ -275,7 +275,7 @@ export function ContentBlockEditor({
     {block.type === "audio" && <AudioBlockSettings setMediaLibraryTarget={setMediaLibraryTarget} block={block} />}
     {block.type === "attachment" && <AttachmentBlockSettings setMediaLibraryTarget={setMediaLibraryTarget} block={block} />}
     {block.type === "divider" && <DividerBlockSettings block={block} onChange={onChange} />}
-    {block.type === "flipCard" && <FlipCardBlockSettings block={block} onChange={onChange} updateFlipCard={updateFlipCard} updateFlipCardFace={updateFlipCardFace} setMediaLibraryTarget={setMediaLibraryTarget} />}
+    {block.type === "flipCard" && <FlipCardBlockSettings presentation={inlineSettings} block={block} onChange={onChange} updateFlipCard={updateFlipCard} updateFlipCardFace={updateFlipCardFace} setMediaLibraryTarget={setMediaLibraryTarget} />}
     {block.type === "accordion" && <AccordionBlockSettings block={block} onChange={onChange} />}
     {block.type === "labeledGraphic" && <LabeledGraphicBlockSettings block={block} onChange={onChange} setMediaLibraryTarget={setMediaLibraryTarget} presentation={inlineSettings} />}
     {block.type === "processSteps" && <ProcessStepsBlockSettings block={block} onChange={onChange} />}
@@ -291,7 +291,7 @@ export function ContentBlockEditor({
   return (
     <div className="group relative">
       {!inlineSettings && settingsButton()}
-      <div className="block w-full rounded-md text-left">{preview}</div>
+      {(!inlineSettings || block.type !== "flipCard") && <div className="block w-full rounded-md text-left">{preview}</div>}
       {inlineSettings && <div className="mt-3 space-y-3">{settingsContent}</div>}
       {!inlineSettings && editing && (
         <DraggableSettingsPanel

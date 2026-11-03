@@ -191,6 +191,7 @@ export function SlideObjectWorkspace({
         <SlideObject
           key={block.id}
           block={block}
+          courseId={courseId}
           index={index}
           total={blocks.length}
           master={master}

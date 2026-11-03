@@ -224,6 +224,7 @@ export function PreviewBlock({
         presentation={slideLayout}
         blockId={block.id}
         cards={block.data.cards}
+        presentationLayout={block.data.presentationLayout}
         cardsPerRow={block.data.cardsPerRow}
         cardStyle={block.data.cardStyle}
         cardBackgroundColor={block.data.cardBackgroundColor}
@@ -327,7 +328,7 @@ export function PreviewBlock({
     return <SlideTextBox block={block}>{content}</SlideTextBox>;
   }
 
-  if (slideLayout && block.type === "labeledGraphic" && block.data.interactionMode !== "spotTarget") {
+  if (slideLayout && (block.type === "flipCard" || (block.type === "labeledGraphic" && block.data.interactionMode !== "spotTarget"))) {
     return <div className="h-full w-full">{content}</div>;
   }
 

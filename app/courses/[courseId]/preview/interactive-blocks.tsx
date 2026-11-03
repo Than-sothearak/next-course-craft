@@ -18,6 +18,9 @@ import { InteractiveScene } from "@/components/interactive-scene";
 import { fitGraphicImage, projectGraphicPoint, unprojectGraphicPoint, type GraphicImageFit } from "@/lib/editor/graphic-layout";
 import { backgroundPaint, parseGradient, solidColor, textPaint } from "@/lib/color";
 
+import { PresentationFlipCardGrid, presentationCardStyle } from "@/components/flip-cards/presentation-flip-card-grid";
+import { defaultFlipCardLayout, type FlipCardLayout } from "@/lib/editor/flip-cards";
+
 type FlipCard = Extract<ContentBlock, { type: "flipCard" }>['data']['cards'][number];
 type FlipCardStyle = Extract<ContentBlock, { type: "flipCard" }>['data']['cardStyle'];
 type AccordionItem = Extract<ContentBlock, { type: "accordion" }>['data']['items'][number];
@@ -78,9 +81,11 @@ export function InteractiveFlipCard({
   interactedCardIds = new Set(),
   onCardReveal,
   presentation = false,
+  presentationLayout,
 }: {
   blockId: string;
   cards: FlipCard[];
+  presentationLayout?: FlipCardLayout;
   cardsPerRow?: number;
   cardStyle?: FlipCardStyle;
   cardBackgroundColor?: string;
@@ -92,25 +97,15 @@ export function InteractiveFlipCard({
   const visibleColumnCount = Math.min(cardsPerRow, cards.length);
   const gridColumns = flipCardColumnsClass(visibleColumnCount, presentation);
 
-  return (
-    <div className="@container/flip-cards mx-auto w-full min-w-0">
-      <div className={cards.length > 1 ? `grid min-w-0 grid-cols-1 ${presentation ? "gap-2" : "gap-3 @min-[36rem]/flip-cards:gap-4"} ${gridColumns}` : "w-full min-w-0"}>
-        {cards.map((card, index) => (
-          <InteractiveFlipCardItem
-            key={card.id}
-            card={card}
-            cardNumber={index + 1}
-            presentation={presentation}
-            cardStyle={cardStyle}
-            cardBackgroundColor={cardBackgroundColor}
-            cardTextColor={cardTextColor}
-            initiallyRevealed={interactedCardIds.has(getFlipCardProgressId(blockId, card.id))}
-            onReveal={() => onCardReveal?.(getFlipCardProgressId(blockId, card.id))}
-          />
-        ))}
-      </div>
-    </div>
-  );
+  const items = cards.map((card, index) => <InteractiveFlipCardItem
+    key={card.id} card={card} cardNumber={index + 1} presentation={presentation}
+    layout={presentation ? presentationLayout ?? defaultFlipCardLayout : undefined}
+    cardStyle={cardStyle} cardBackgroundColor={card.backgroundColor ?? cardBackgroundColor} cardTextColor={card.textColor ?? cardTextColor}
+    initiallyRevealed={interactedCardIds.has(getFlipCardProgressId(blockId, card.id))}
+    onReveal={() => onCardReveal?.(getFlipCardProgressId(blockId, card.id))}
+  />);
+  if (presentation) return <PresentationFlipCardGrid count={cards.length} columns={cardsPerRow} layout={presentationLayout}>{items}</PresentationFlipCardGrid>;
+  return <div className="@container/flip-cards mx-auto w-full min-w-0"><div className={cards.length > 1 ? `grid min-w-0 grid-cols-1 gap-3 @min-[36rem]/flip-cards:gap-4 ${gridColumns}` : "w-full min-w-0"}>{items}</div></div>;
 }
 
 function FlipCardFace({ card, side, presentation, textColor }: { card: FlipCard; side: "front" | "back"; presentation: boolean; textColor: string }) {
@@ -118,15 +113,15 @@ function FlipCardFace({ card, side, presentation, textColor }: { card: FlipCard;
   const face = side === "front" ? card.front : card.back;
   return (
     <>
-      <span style={textPaint(textColor)} className={`min-w-0 max-w-full whitespace-pre-wrap [overflow-wrap:anywhere] font-semibold uppercase tracking-[0.14em] opacity-65 ${presentation ? "mb-2 text-[10px]" : "mb-3 text-xs"}`}>{label || (side === "front" ? "Question" : "Answer")}</span>
+      <span style={textPaint(textColor)} className={`shrink-0 min-w-0 max-w-full whitespace-pre-wrap [overflow-wrap:anywhere] font-semibold uppercase tracking-[0.14em] opacity-65 ${presentation ? "mb-2 text-[10px]" : "mb-3 text-xs"}`}>{label || (side === "front" ? "Question" : "Answer")}</span>
       {face.type === "image" ? (
-        <img src={face.src} alt={face.alt} className={`h-auto w-auto max-w-full rounded-lg object-contain ${presentation ? "max-h-28" : "max-h-56"}`} />
+        <img src={face.src} alt={face.alt} className={`h-auto w-auto max-w-full rounded-lg object-contain ${presentation ? "min-h-0 flex-1 max-h-full" : "max-h-56"}`} />
       ) : (
-        <span style={textPaint(textColor)} className={`min-w-0 max-w-full whitespace-pre-wrap break-words [overflow-wrap:anywhere] ${presentation ? side === "front" ? "text-sm font-semibold @min-[30rem]/flip-cards:text-base" : "text-xs @min-[30rem]/flip-cards:text-sm" : side === "front" ? "text-lg font-semibold @min-[36rem]/flip-cards:text-xl" : "text-base @min-[36rem]/flip-cards:text-lg"}`}>
+        <span style={textPaint(textColor)} className={`min-w-0 w-full max-w-full whitespace-pre-wrap break-words ${presentation ? "min-h-0 flex-1 overflow-y-auto content-center" : ""} [overflow-wrap:anywhere] ${presentation ? side === "front" ? "text-sm font-semibold @min-[30rem]/flip-cards:text-base" : "text-xs @min-[30rem]/flip-cards:text-sm" : side === "front" ? "text-lg font-semibold @min-[36rem]/flip-cards:text-xl" : "text-base @min-[36rem]/flip-cards:text-lg"}`}>
           {face.text || (side === "front" ? "Add a prompt for your learner." : "Add the answer or explanation here.")}
         </span>
       )}
-      <span style={textPaint(textColor)} className={`font-medium opacity-70 ${presentation ? "mt-2 text-[10px]" : "mt-4 text-xs @min-[36rem]/flip-cards:mt-5"}`}>
+      <span style={textPaint(textColor)} className={`shrink-0 font-medium opacity-70 ${presentation ? "mt-2 text-[10px]" : "mt-4 text-xs @min-[36rem]/flip-cards:mt-5"}`}>
         {side === "front" ? "Click to flip" : "Click to flip back"}
       </span>
     </>
@@ -142,6 +137,7 @@ function InteractiveFlipCardItem({
   initiallyRevealed,
   onReveal,
   presentation,
+  layout,
 }: {
   card: FlipCard;
   cardNumber: number;
@@ -149,6 +145,7 @@ function InteractiveFlipCardItem({
   cardBackgroundColor: string;
   cardTextColor: string;
   initiallyRevealed: boolean;
+  layout?: FlipCardLayout;
   onReveal: () => void;
   presentation: boolean;
 }) {
@@ -168,21 +165,21 @@ function InteractiveFlipCardItem({
       aria-pressed={flipped}
       data-slide-animation-item
       onClick={flip}
-      className={`cursor-pointer group w-full min-w-0 ${flipCardStyleClasses[cardStyle]} text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-4`}
-      style={{ perspective: "1000px" }}
+      className={`cursor-pointer group w-full min-w-0 ${presentation ? "h-full min-h-0 overflow-hidden" : ""} ${flipCardStyleClasses[cardStyle]} text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-4`}
+      style={{ perspective: "1000px", borderRadius: layout?.borderRadius }}
     >
-      <span className={`grid w-full min-w-0 transition-transform duration-700 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none ${presentation ? "min-h-28" : "min-h-52"}`} style={{ transform: flipped ? "rotateY(180deg)" : undefined, transformStyle: "preserve-3d" }}>
+      <span className={`grid w-full min-w-0 transition-transform duration-700 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none ${presentation ? "h-full min-h-0" : "min-h-52"}`} style={{ transform: flipped ? "rotateY(180deg)" : undefined, transformStyle: "preserve-3d" }}>
         <span
           aria-hidden={flipped}
-          className={`col-start-1 row-start-1 flex min-w-0 flex-col items-center justify-center border text-center transition-colors ${presentation ? "min-h-28 p-3" : "min-h-48 p-4 @min-[36rem]/flip-cards:min-h-52 @min-[36rem]/flip-cards:p-6"} ${flipCardStyleClasses[cardStyle]}`}
-          style={{ ...flipCardSurfaceStyle(cardStyle, cardBackgroundColor, cardTextColor), backfaceVisibility: "hidden" }}
+          className={`col-start-1 row-start-1 flex min-w-0 flex-col items-center justify-center border text-center transition-colors ${presentation ? "h-full min-h-0 overflow-hidden" : "min-h-48 p-4 @min-[36rem]/flip-cards:min-h-52 @min-[36rem]/flip-cards:p-6"} ${flipCardStyleClasses[cardStyle]}`}
+          style={{ ...(layout ? presentationCardStyle({ cards: [card], cardsPerRow: 1, cardStyle, cardBackgroundColor, cardTextColor, presentationLayout: layout }, card) : flipCardSurfaceStyle(cardStyle, cardBackgroundColor, cardTextColor)), backfaceVisibility: "hidden" }}
         >
           <FlipCardFace card={card} side="front" presentation={presentation} textColor={cardTextColor} />
         </span>
         <span
           aria-hidden={!flipped}
-          className={`col-start-1 row-start-1 flex min-w-0 flex-col items-center justify-center border text-center ${presentation ? "min-h-28 p-3" : "min-h-48 p-4 @min-[36rem]/flip-cards:min-h-52 @min-[36rem]/flip-cards:p-6"} ${flipCardStyleClasses[cardStyle]}`}
-          style={{ ...flipCardSurfaceStyle(cardStyle, cardBackgroundColor, cardTextColor), backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
+          className={`col-start-1 row-start-1 flex min-w-0 flex-col items-center justify-center border text-center ${presentation ? "h-full min-h-0 overflow-hidden" : "min-h-48 p-4 @min-[36rem]/flip-cards:min-h-52 @min-[36rem]/flip-cards:p-6"} ${flipCardStyleClasses[cardStyle]}`}
+          style={{ ...(layout ? presentationCardStyle({ cards: [card], cardsPerRow: 1, cardStyle, cardBackgroundColor, cardTextColor, presentationLayout: layout }, card) : flipCardSurfaceStyle(cardStyle, cardBackgroundColor, cardTextColor)), backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
         >
           <FlipCardFace card={card} side="back" presentation={presentation} textColor={cardTextColor} />
         </span>

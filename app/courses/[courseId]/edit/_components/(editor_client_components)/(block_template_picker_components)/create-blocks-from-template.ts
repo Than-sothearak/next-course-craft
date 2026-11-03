@@ -12,6 +12,7 @@ import {
 import type { BlockTemplate } from "./block-template-data";
 import { resolveSlideTextLayout } from "@/lib/editor/slide-design";
 import { defaultSlideAudioSize } from "@/lib/editor/slide-audio";
+import { defaultFlipCardLayout } from "@/lib/editor/flip-cards";
 
 /** Slide insertion defaults stay separate from the normal lesson templates. */
 export function createSlideBlocksFromTemplate(template: BlockTemplate, id: string, courseTargets?: Parameters<typeof createBlocksFromTemplate>[2]): ContentBlock[] {
@@ -22,6 +23,7 @@ export function createSlideBlocksFromTemplate(template: BlockTemplate, id: strin
     if (block.type === "heading" || block.type === "richText") return { ...block, blockPadding: 0, slideBorderRadius: 0, slideTextLayout: { ...resolveSlideTextLayout(), paddingX: 0, paddingY: 0, fitToText: true } };
     if (block.type === "statement") return { ...block, slideTextLayout: { ...resolveSlideTextLayout(block.slideTextLayout), fitToText: true } };
     if (block.type === "audio") return { ...block, blockPadding: 0, slidePlayback: { autoPlay: false, showControls: true, ...block.slidePlayback, showFileName: false, audioSize: defaultSlideAudioSize } };
+    if (block.type === "flipCard") return { ...block, blockPadding: 0, data: { ...block.data, presentationLayout: { ...defaultFlipCardLayout }, cards: Array.from({ length: 3 }, (_, index) => ({ ...structuredClone(block.data.cards[0]), id: createClientId(), ...(index ? { front: { type: "text" as const, text: `Question ${index + 1}` }, back: { type: "text" as const, text: `Answer ${index + 1}` } } : {}) })) } };
     return block;
   });
 }

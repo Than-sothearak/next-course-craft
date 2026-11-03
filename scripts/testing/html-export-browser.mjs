@@ -15,7 +15,7 @@ try {
   const imageData = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==";
   const image = `/api/assets/${imageId}/file`;
   const gradient = "linear-gradient(135deg, #2563eb 0%, #f97316 100%)";
-  const data = { courseId: "html-reproduction", ...editorSnapshotSchema.parse({ title: "Presentation export", description: "Test", revision: 1, courseLayout: "slides", slideMaster: { objectLayout: "canvas", background: { type: "image", imageSrc: image, overlayColor: "#0066cc", overlayOpacity: 20 } }, navigationMode: "free", sections: [{ id: "section", title: "Learn", order: 0 }], lessons: ["first", "second"].map((id, order) => ({ id, sectionId: "section", title: `Visible ${id} slide`, order, blocks: [
+  const data = { courseId: "html-reproduction", ...editorSnapshotSchema.parse({ title: "Presentation export", description: "Test", revision: 1, courseLayout: "slides", slideMaster: { objectLayout: "canvas", background: { type: "image", imageSrc: image, overlayColor: "#0066cc", overlayOpacity: 20 }, footerText: "Partner logo", footer: { content: "both", logos: [{ id: "brand-logo", src: image, alt: "Partner brand" }] } }, navigationMode: "free", sections: [{ id: "section", title: "Learn", order: 0 }], lessons: ["first", "second"].map((id, order) => ({ id, sectionId: "section", title: `Visible ${id} slide`, order, blocks: [
     { id: `heading-${id}`, type: "heading", version: 1, data: { text: `The ${id} course slide is visible`, level: 1 } },
     { id: `equation-${id}`, type: "richText", version: 1, slideFrame: { x: 8, y: 32, width: 38, height: 20, z: 1 }, data: { html: '<p><span data-font-family="battambang" style="font-family:Battambang, Arial, Helvetica, sans-serif">Math <sup>2</sup></span> <span data-type="inline-math" data-latex="E=mc^2"></span></p><div data-type="block-math" data-latex="\\frac{a}{b}"></div>' } },
     { id: `audio-${id}`, type: "audio", version: 1, slidePlayback: { audioSize: "small" }, slideFrame: { x: 10, y: 55, width: 24, height: 36 / 540 * 100, z: 1 }, data: { src: "", fileName: "Compact narration" } },
@@ -34,7 +34,8 @@ try {
   browser = await chromium.launch({ headless: true });
   for (const saved of [null, "deleted-slide", "second"]) {
     const page = await browser.newPage({ viewport: { width: 1100, height: 800 } });
-    const errors = [], network = []; page.on("pageerror", (error) => errors.push(error.message));
+    const errors = [], network = [], browserLog = []; page.on("pageerror", (error) => errors.push(error.stack ?? error.message));
+    page.on("console", (message) => { if (message.type() === "error") browserLog.push(message.text()); });
     page.on("request", (request) => { if (/^https?:/.test(request.url())) network.push(request.url()); });
     await page.addInitScript((saved) => {
       localStorage.clear();
@@ -42,7 +43,9 @@ try {
     }, saved);
     await page.goto(pathToFileURL(file).href);
     const expectedId = saved === "second" ? "second" : "first";
-    await page.waitForFunction((expectedId) => document.querySelector(`article#preview-content-${expectedId}`)?.getAttribute("aria-hidden") === "false", expectedId);
+    try { await page.waitForFunction((expectedId) => document.querySelector(`article#preview-content-${expectedId}`)?.getAttribute("aria-hidden") === "false", expectedId, { timeout: 5000 }); }
+    catch { throw new Error(`Export did not render the active slide. page errors=${JSON.stringify(errors)} console=${JSON.stringify(browserLog)} html=${(await page.locator("#export-root").innerHTML()).slice(0, 1000)}`); }
+    assert.equal(await page.locator('[data-slide-footer] img[alt="Partner brand"]').count(), 2, "The exported master footer logo renders on both slides");
     await page.waitForFunction(() => document.body.innerHTML.includes("blob:"));
     assert.equal(await page.locator("#export-root").evaluate((element) => element.innerHTML.includes("coursecraft-media:")), false, "Shared media references resolve to local Blob URLs before learner rendering");
     const canvas = page.locator('[data-slide-active="true"]'); await canvas.waitFor();

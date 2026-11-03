@@ -47,7 +47,7 @@ export function SlideThumbnail({ slide, index, total = 1, master, courseTitle }:
               {slide.blocks.map((block, blockIndex) => {
                 const frame = resolveCanvasSlideFrame(block, blockIndex, slide.blocks.length, master, Boolean(slide.slideCover));
                 return <div key={block.id} data-slide-object-frame data-slide-thumbnail-object-id={block.id} className="absolute overflow-hidden rounded-md" style={{ ...slideFrameStyle(frame), ...slideObjectSurfaceStyle(block, master?.backgroundColor, master?.textColor) }}>
-                  <SlideObjectContent media={isSlideMediaObject(block)}><ThumbnailBlock block={{ ...block, id: `thumbnail-${slide.id}-${block.id}` }} /></SlideObjectContent>
+                  <SlideObjectContent media={isSlideMediaObject(block) || block.type === "flipCard"}><ThumbnailBlock block={{ ...block, id: `thumbnail-${slide.id}-${block.id}` }} /></SlideObjectContent>
                 </div>;
               })}
             </div>);

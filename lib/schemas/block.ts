@@ -287,6 +287,17 @@ export const flipCardItemSchema = z.object({
   front: flipCardFaceSchema,
   backLabel: z.string().max(80),
   back: flipCardFaceSchema,
+  backgroundColor: colorValueSchema.optional(),
+  textColor: colorValueSchema.optional(),
+});
+export const flipCardPresentationLayoutSchema = z.object({
+  mode: z.enum(["auto", "custom"]).default("auto"),
+  padding: z.number().int().min(0).max(80).default(12),
+  cardPadding: z.number().int().min(0).max(80).default(16),
+  columnGap: z.number().int().min(0).max(80).default(12),
+  rowGap: z.number().int().min(0).max(80).default(12),
+  borderRadius: z.number().int().min(0).max(80).default(16),
+  textAlign: z.enum(["left", "center", "right"]).default("center"),
 });
 const flipCardCollectionDataSchema = z
   .object({
@@ -295,6 +306,7 @@ const flipCardCollectionDataSchema = z
     cardStyle: z.enum(["classic", "soft", "outlined", "elevated"]).default("classic"),
     cardBackgroundColor: colorValueSchema.default("#ffffff"),
     cardTextColor: colorValueSchema.default("#0f172a"),
+    presentationLayout: flipCardPresentationLayoutSchema.optional(),
   })
   .superRefine((data, context) => {
     const ids = new Set<string>();
@@ -331,6 +343,7 @@ export const flipCardBlockSchema = z.object({
         cardStyle: data.cardStyle,
         cardBackgroundColor: data.cardBackgroundColor,
         cardTextColor: data.cardTextColor,
+        presentationLayout: undefined,
         cards: [
           {
             id: "card-1",

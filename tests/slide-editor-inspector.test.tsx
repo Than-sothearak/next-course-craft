@@ -226,7 +226,8 @@ describe("presentation inspector tabs", () => {
 
   it("keeps text formatting and every selected object's controls inside its settings card", async () => {
     const image = { id: "image", version: 1, type: "image", data: { src: "/diagram.png", alt: "Diagram" } };
-    await act(async () => root.render(<EditorClient initialData={makeData([{ ...first, blocks: [heading, image] }])} authorName="Author" />));
+    const video = { id: "video", version: 1, type: "video", data: { src: "/clip.webm", mimeType: "video/webm" } };
+    await act(async () => root.render(<EditorClient initialData={makeData([{ ...first, blocks: [heading, image, video] }])} authorName="Author" />));
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Select heading object from layers"]')!.click());
     const card = container.querySelector('[data-slide-object-settings="heading"]')!;
     for (const label of ["Slide text formatting", "Position & size", "Text box layout", "Appearance", "Navigation & progress", "Text content"]) {
@@ -246,6 +247,9 @@ describe("presentation inspector tabs", () => {
     for (const label of ["Position & size", "Media source", "Crop", "Appearance", "Navigation & progress", "Content & interaction"]) {
       expect(imageCard.querySelector(`[data-inspector-section][aria-label="${label}"]`)).not.toBeNull();
     }
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Select video object from layers"]')!.click());
+    const videoCard = container.querySelector('[data-slide-object-settings="video"]')!;
+    expect(sectionOrder(videoCard).slice(0, 4)).toEqual(["Content & interaction", "Media source", "Playback", "Position & size"]);
     await act(async () => vi.advanceTimersByTimeAsync(1000)); expect(fetchMock).not.toHaveBeenCalled();
   });
 
