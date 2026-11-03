@@ -1,6 +1,6 @@
-/** Real canvas editing, responsive card geometry, media, and learner flip checks. */
+/** Canvas flipping, sidebar editing, responsive geometry, media, and learner reveal checks. */
 import { createServer } from "vite";
-import { chromium } from "@playwright/test";
+import { chromium, expect } from "@playwright/test";
 import assert from "node:assert/strict";
 import { mkdirSync } from "node:fs";
 
@@ -34,6 +34,10 @@ try {
   await page.evaluate(() => document.fonts.ready);
   const original = await page.evaluate(() => window.__block);
   const originalIds = original.data.cards.map((card) => card.id);
+  const details = index => page.locator('[data-flip-card-settings] details').nth(index);
+  async function openCard(index) {
+    if (await details(index).getAttribute('open') === null) await details(index).locator('summary').click();
+  }
   async function fit() {
     await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
     const result = await page.locator('[data-slide-flip-card-editor]').evaluate((element) => {
@@ -46,34 +50,39 @@ try {
   }
   for (const zoom of [.5, 1.5, 1]) {
     await page.getByRole('button', { name: `Zoom ${zoom}`, exact: true }).click(); await fit();
-    const field = page.getByLabel('Canvas card 2 front text', { exact: true });
+    const editor = page.locator('[data-slide-flip-card-editor]');
+    assert.equal(await editor.locator('input, textarea, [contenteditable="true"]').count(), 0);
+    const authored = await page.evaluate(() => JSON.stringify(window.__block));
+    await editor.getByRole('button', { name: 'Flip card 2 to reveal the back', exact: true }).click();
+    await editor.getByRole('button', { name: 'Show the front of card 2', exact: true }).click();
+    assert.equal(await page.evaluate(() => JSON.stringify(window.__block)), authored);
+    assert.equal(await page.evaluate(() => window.__revealed.length), 0, 'Editor flips must never record learner progress');
+    await openCard(1);
+    const field = page.getByLabel('Card 2 front text', { exact: true });
     await field.fill(`Question at zoom ${zoom}`);
     await page.waitForFunction((text) => window.__block.data.cards[1].front.text === text, `Question at zoom ${zoom}`);
     assert.deepEqual(await page.evaluate(() => window.__block.slideFrame), original.slideFrame);
-    const action = await page.getByRole('button', { name: 'Duplicate selected card', exact: true }).boundingBox();
-    const card = await page.locator('[data-flip-card-id]').nth(1).boundingBox();
-    assert.ok(Math.abs(action.y - (card.y + card.height)) < 120 || action.y < card.y, JSON.stringify({ zoom, action, card }));
   }
   const beforeStylePicker = await page.evaluate(() => JSON.stringify(window.__block));
   await page.getByRole('button', { name: 'Change block style', exact: true }).click();
   const styleDialog = page.getByRole('dialog', { name: 'Change block template', exact: true });
   await styleDialog.waitFor({ state: 'visible' });
-  const cardToolbar = page.locator('[role="toolbar"][aria-label="Selected flip card actions"]');
-  await cardToolbar.waitFor({ state: 'hidden' });
-  assert.equal(await cardToolbar.evaluate((toolbar) => toolbar.hidden && getComputedStyle(toolbar).display === 'none'), true, 'Card actions must be hidden while the block style picker is open');
+  assert.equal(await page.locator('[role="toolbar"][aria-label="Selected flip card actions"]').count(), 0);
   await page.getByRole('button', { name: 'Close block picker', exact: true }).click();
   await styleDialog.waitFor({ state: 'detached' });
   assert.equal(await page.evaluate(() => JSON.stringify(window.__block)), beforeStylePicker);
-  await page.getByRole('toolbar', { name: 'Selected flip card actions', exact: true }).waitFor({ state: 'visible' });
-  await page.getByRole('button', { name: 'Edit card back', exact: true }).click();
-  await page.getByLabel('Canvas card 2 back text', { exact: true }).fill('Back edited directly');
-  await page.getByRole('button', { name: 'Duplicate selected card', exact: true }).click();
+  await openCard(1);
+  await page.getByLabel('Card 2 back text', { exact: true }).fill('Back edited in sidebar');
+  await page.getByRole('button', { name: 'Duplicate flip card 2', exact: true }).click();
   await page.waitForFunction(() => window.__block.data.cards.length === 4);
   const copied = await page.evaluate(() => window.__block.data.cards[2]);
-  assert.ok(!originalIds.includes(copied.id)); assert.equal(copied.back.text, 'Back edited directly');
-  await page.getByRole('button', { name: 'Move selected card right', exact: true }).click();
+  assert.ok(!originalIds.includes(copied.id)); assert.equal(copied.back.text, 'Back edited in sidebar');
+  await openCard(2);
+  await page.getByRole('button', { name: 'Move flip card 3 right', exact: true }).click();
   assert.equal(await page.evaluate(() => window.__block.data.cards[3].id), copied.id);
-  await page.getByRole('button', { name: 'Replace selected card image', exact: true }).click();
+  await openCard(3);
+  await page.getByLabel('Card 4 front content type', { exact: true }).selectOption('image');
+  await details(3).getByRole('button', { name: 'Choose from media library', exact: true }).click();
   await page.getByRole('button', { name: 'Use Card.png', exact: true }).click();
   await page.waitForFunction(() => window.__block.data.cards[3].front.type === 'image');
   await page.getByLabel('Flip card grid mode').selectOption('custom'); await page.getByLabel('Cards per row', { exact: true }).selectOption('2');
@@ -84,12 +93,12 @@ try {
   await page.keyboard.press('Space');
   await page.waitForFunction((id) => window.__block.data.cards[1].id === id, originalIds[0]);
   await page.getByLabel('Card background color hex code', { exact: true }).fill('#112233');
-  const secondDetails = page.locator('[data-flip-card-settings] details').nth(1);
-  if (await secondDetails.getAttribute('open') === null) await secondDetails.locator('summary').click();
+  await openCard(1);
   await page.getByLabel('Card 2 background color hex code', { exact: true }).fill('#ff8800');
-  assert.equal(await page.locator('[data-flip-card-id]').nth(1).evaluate((card) => getComputedStyle(card).backgroundColor), 'rgb(255, 136, 0)');
+  const secondFace = page.locator('[data-flip-card-id]').nth(1).locator(':scope > span > span').first();
+  await expect(secondFace).toHaveCSS('background-color', 'rgb(255, 136, 0)');
   await page.getByRole('button', { name: 'Use master colors for card 2', exact: true }).click();
-  assert.equal(await page.locator('[data-flip-card-id]').nth(1).evaluate((card) => getComputedStyle(card).backgroundColor), 'rgb(17, 34, 51)');
+  await expect(secondFace).toHaveCSS('background-color', 'rgb(17, 34, 51)');
   for (const details of await page.locator('[data-flip-card-settings] details').all()) if (await details.getAttribute('open') !== null) await details.locator('summary').click();
   const firstHandle = page.getByRole('button', { name: 'Reorder flip card 1', exact: true }), secondHandle = page.getByRole('button', { name: 'Reorder flip card 2', exact: true });
   await firstHandle.scrollIntoViewIfNeeded();
@@ -107,13 +116,14 @@ try {
   assert.equal(learner.columns, '2'); assert.ok(learner.height > 300);
   mkdirSync('test-results', { recursive: true }); await page.screenshot({ path: 'test-results/slide-flip-cards-learner.png' });
   await page.getByRole('button', { name: 'Editor', exact: true }).click();
-  await page.getByLabel('Canvas card 2 front text', { exact: true }).fill('A long explanation. '.repeat(80));
-  const textField = page.getByLabel('Canvas card 2 front text', { exact: true });
+  await openCard(1);
+  await page.getByLabel('Card 2 front text', { exact: true }).fill('A long explanation. '.repeat(80));
+  const textField = page.locator('[data-slide-flip-card-editor] [data-flip-card-id]').nth(1).locator('span.overflow-y-auto').first();
   assert.ok(await textField.evaluate((element) => element.scrollHeight > element.clientHeight));
   await fit(); await page.screenshot({ path: 'test-results/slide-flip-cards-editor.png' });
   await page.evaluate(() => window.__setBlock((block) => ({ ...block, slideFrame: { ...block.slideFrame, width: 24, height: 26 }, data: { ...block.data, presentationLayout: { ...block.data.presentationLayout, mode: 'auto' }, cards: Array.from({ length: 12 }, (_, index) => ({ ...block.data.cards[0], id: 'dense-' + index })) } })));
   await page.waitForFunction(() => window.__block.data.cards.length === 12); await fit();
   mkdirSync('test-results', { recursive: true }); await page.screenshot({ path: 'test-results/slide-flip-cards.png' });
   assert.deepEqual(errors, []);
-  console.log('Flip-card browser checks passed: direct front/back editing, stable object geometry at 50/100/150% zoom, nearby toolbar, duplication, ordering, owned media, master and individual colors, responsive grids, dense fitting, and learner reveal.');
+  console.log('Flip-card browser checks passed: canvas flipping, sidebar front/back editing, stable geometry at 50/100/150% zoom, duplication, ordering, owned media, colors, responsive grids, dense fitting, and learner reveal.');
 } finally { await browser?.close(); await vite.close(); }

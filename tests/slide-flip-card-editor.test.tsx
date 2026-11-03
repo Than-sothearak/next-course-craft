@@ -32,27 +32,17 @@ describe("flip-card canvas authoring", () => {
   const select = (label: string, value: string) => act(async () => { const field = container.querySelector<HTMLSelectElement>(`[aria-label="${label}"]`)!; field.value = value; field.dispatchEvent(new Event("change", { bubbles: true })); });
   async function start() { await act(async () => root.render(<EditorClient initialData={initial()} authorName="Author" />)); await clickText("Flip cards"); }
   const cards = () => [...container.querySelectorAll<HTMLElement>('[data-slide-flip-card-editor] [data-flip-card-id]')];
-  const choose = (index: number) => act(async () => cards()[index].dispatchEvent(new MouseEvent("pointerdown", { bubbles: true, button: 0 })));
+  const frontFace = (index: number) => cards()[index].querySelector<HTMLElement>(":scope > span > span")!;
   async function saved() { await act(async () => vi.advanceTimersByTimeAsync(1000)); const request = fetchMock.mock.calls.findLast(([, init]) => init?.method === "PUT"); expect(request).toBeDefined(); return editorSnapshotSchema.parse(JSON.parse(request![1].body)); }
 
-  it("edits both faces, duplicates independently, reorders, and saves with undo and reload", async () => {
+  it("shows clickable learner-style cards without inline canvas editing", async () => {
     await start(); expect(cards()).toHaveLength(3);
-    const ids = cards().map((card) => card.dataset.flipCardId);
-    await choose(1);
-    await input("Canvas card 2 front text", "New question");
-    await click("Edit card back"); await input("Canvas card 2 back text", "New answer");
-    await click("Duplicate selected card"); expect(cards()).toHaveLength(4);
-    expect(cards()[2].dataset.flipCardId).not.toBe(ids[1]);
-    await click("Move selected card right");
-    const snapshot = await saved(), block = snapshot.lessons[0].blocks[0];
-    if (block.type !== "flipCard") throw new Error("Wrong block");
-    expect(block.data.cards[1]).toMatchObject({ id: ids[1], front: { text: "New question" }, back: { text: "New answer" } });
-    expect(block.data.cards[3]).toMatchObject({ front: { text: "New question" }, back: { text: "New answer" } });
-    await click("Undo"); expect(cards()[2].dataset.flipCardId).toBe(block.data.cards[3].id);
-    await click("Redo"); expect(cards()[3].dataset.flipCardId).toBe(block.data.cards[3].id);
-    await act(async () => root.render(<EditorClient key="reload" initialData={{ ...snapshot, courseId: "slides" }} authorName="Author" />));
-    expect(cards()).toHaveLength(4);
-    expect(container.querySelector<HTMLTextAreaElement>('[aria-label="Canvas card 2 front text"]')?.value).toBe("New question");
+    expect(container.querySelector('[aria-label="Canvas card 1 front text"]')).toBeNull();
+    expect(container.querySelector('[aria-label="Selected flip card actions"]')).toBeNull();
+    await click("Flip card 1 to reveal the back");
+    expect(container.querySelector('[aria-label="Show the front of card 1"]')).not.toBeNull();
+    await click("Show the front of card 1");
+    expect(container.querySelector('[aria-label="Flip card 1 to reveal the back"]')).not.toBeNull();
   });
 
   it("inherits master colors, retains per-card overrides, resets them, and saves grid controls", async () => {
@@ -60,8 +50,8 @@ describe("flip-card canvas authoring", () => {
     await input("Card background color hex code", "#112233");
     await input("Card 2 background color hex code", "#ff8800");
     await input("Card background color hex code", "#223344");
-    expect(cards()[0].style.backgroundColor).toBe("rgb(34, 51, 68)"); expect(cards()[1].style.backgroundColor).toBe("rgb(255, 136, 0)");
-    await click("Use master colors for card 2"); expect(cards()[1].style.backgroundColor).toBe("rgb(34, 51, 68)");
+    expect(frontFace(0).style.backgroundColor).toBe("rgb(34, 51, 68)"); expect(frontFace(1).style.backgroundColor).toBe("rgb(255, 136, 0)");
+    await click("Use master colors for card 2"); expect(frontFace(1).style.backgroundColor).toBe("rgb(34, 51, 68)");
     await select("Flip card grid mode", "custom"); await select("Cards per row", "2");
     await input("Flip card object padding", "24"); await input("Flip card card padding", "20");
     await input("Flip card column gap", "18"); await input("Flip card row gap", "14");
@@ -75,29 +65,20 @@ describe("flip-card canvas authoring", () => {
     }
   });
 
-  it("replaces one face from course media and previews without changing authored cards", async () => {
-    await start(); await choose(0); await click("Edit card back"); await click("Replace selected card image");
-    await click("Use Card.png");
-    expect(container.querySelector('[aria-label="Replace card 1 back image"] img')?.getAttribute("src")).toBe("/api/assets/aaaaaaaaaaaaaaaaaaaaaaaa/file");
-    await click("Preview flip cards");
-    expect(container.querySelector('[aria-label="Flip card 1 to reveal the back"]')).not.toBeNull();
-    await click("Flip card 1 to reveal the back"); await clickText("Back to editing");
-    const snapshot = await saved();
-    expect(snapshot.lessons[0].blocks[0]).toMatchObject({ data: { cards: expect.arrayContaining([expect.objectContaining({ back: expect.objectContaining({ type: "image", src: "/api/assets/aaaaaaaaaaaaaaaaaaaaaaaa/file" }) })]) } });
-  });
-
-  it("keeps popup card edits local until Apply and discards Cancel", async () => {
+  it("lets popup flip cards behave like previews without canvas text fields", async () => {
     await act(async () => root.render(<EditorClient initialData={initial()} authorName="Author" />));
     await clickText("Interaction button"); await clickText("Edit popup mini slide (1 objects)");
     const popup = () => container.querySelector<HTMLDialogElement>('dialog[open]')!;
     await clickText("Flip cards", popup());
-    expect(cards()).toHaveLength(3); await choose(0); await input("Canvas card 1 front text", "Popup question");
+    expect(cards()).toHaveLength(3); expect(container.querySelector('[aria-label="Canvas card 1 front text"]')).toBeNull();
+    await click("Flip card 1 to reveal the back");
+    expect(popup().querySelector('[aria-label="Show the front of card 1"]')).not.toBeNull();
     await clickText("Cancel", popup());
     expect(container.textContent).toContain("Edit popup mini slide (1 objects)");
     await clickText("Edit popup mini slide (1 objects)"); await clickText("Flip cards", popup());
-    await choose(0); await input("Canvas card 1 front text", "Applied question"); await clickText("Apply popup", popup());
+    await click("Flip card 1 to reveal the back"); await clickText("Apply popup", popup());
     const snapshot = await saved();
-    expect(snapshot.lessons[0].blocks[0]).toMatchObject({ data: { popup: { blocks: [{ type: "richText" }, { type: "flipCard", data: { cards: expect.arrayContaining([expect.objectContaining({ front: { type: "text", text: "Applied question" } })]) } }] } } });
+    expect(snapshot.lessons[0].blocks[0]).toMatchObject({ data: { popup: { blocks: [{ type: "richText" }, { type: "flipCard" }] } } });
   });
 
   it("preserves learner reveal identity when a card is reordered or duplicated", async () => {
@@ -108,36 +89,6 @@ describe("flip-card canvas authoring", () => {
     await act(async () => root.render(<InteractiveFlipCard blockId="block" cards={[{ ...cards[0], id: "copy" }, cards[0]]} presentation onCardReveal={reveal} />));
     expect(container.querySelector('[aria-label="Show the front of card 2"]')).not.toBeNull();
     await click("Flip card 1 to reveal the back"); expect(reveal).toHaveBeenLastCalledWith("block:copy");
-  });
-
-  it("hides card actions while the block style or image picker is open and restores them on close", async () => {
-    await start(); await choose(0); await saved(); fetchMock.mockClear();
-    const toolbar = () => document.querySelector<HTMLElement>('[aria-label="Selected flip card actions"]')!;
-    expect(toolbar().hidden).toBe(false);
-    await clickText("Change block style");
-    expect(container.querySelector('[role="dialog"][aria-modal="true"]')).not.toBeNull();
-    expect(toolbar().hidden).toBe(true);
-    await click("Close block picker"); expect(toolbar().hidden).toBe(false);
-    await act(async () => vi.advanceTimersByTimeAsync(1000)); expect(fetchMock).not.toHaveBeenCalled();
-    await click("Replace selected card image"); expect(toolbar().hidden).toBe(true);
-    await click("Close dialog"); expect(toolbar().hidden).toBe(false);
-    expect(cards()).toHaveLength(3);
-  });
-
-  it("keeps popup card actions available in their own dialog but hides them for a nested style picker", async () => {
-    await act(async () => root.render(<EditorClient initialData={initial()} authorName="Author" />));
-    await clickText("Interaction button"); await clickText("Edit popup mini slide (1 objects)");
-    const popup = container.querySelector<HTMLDialogElement>('dialog[open]')!;
-    await clickText("Flip cards", popup); await choose(0);
-    const toolbar = () => popup.querySelector<HTMLElement>('[aria-label="Selected flip card actions"]')!;
-    expect(toolbar().hidden).toBe(false);
-    await clickText("Change block style", popup);
-    const stylePicker = popup.querySelector<HTMLDialogElement>('dialog[open]')!;
-    expect(stylePicker).not.toBeNull();
-    expect(toolbar().hidden).toBe(true);
-    await act(async () => stylePicker.querySelector<HTMLButtonElement>('[aria-label="Close dialog"]')!.click());
-    expect(toolbar().hidden).toBe(false);
-    expect(popup.open).toBe(true); expect(cards()).toHaveLength(3);
   });
 
   it("previews keyboard reordering, commits on drop, and cancels without saving", async () => {

@@ -163,6 +163,7 @@ function InteractiveFlipCardItem({
       type="button"
       aria-label={flipped ? `Show the front of card ${cardNumber}` : `Flip card ${cardNumber} to reveal the back`}
       aria-pressed={flipped}
+      data-flip-card-id={card.id}
       data-slide-animation-item
       onClick={flip}
       className={`cursor-pointer group w-full min-w-0 ${presentation ? "h-full min-h-0 overflow-hidden" : ""} ${flipCardStyleClasses[cardStyle]} text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-4`}
