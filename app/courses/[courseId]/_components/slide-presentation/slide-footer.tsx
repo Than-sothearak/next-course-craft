@@ -5,6 +5,7 @@ import { backgroundPaint, borderPaint, solidColor, textPaint } from "@/lib/color
 import { resolveNavigationButtons } from "@/lib/editor/slide-navigation-design";
 import { courseThemeFontFamilies } from "@/lib/editor/theme";
 import { SlideNavigationDesignProvider } from "./slide-navigation-controls";
+import { SlideColorOverlay } from "./slide-color-overlay";
 
 export function SlideFooter({ master = defaultSlideMaster, number, total, controls, decorative = false }: {
   master?: SlideMaster;
@@ -29,8 +30,12 @@ export function SlideFooter({ master = defaultSlideMaster, number, total, contro
   const numberWidth = master.showSlideNumber ? Math.ceil(`${number} / ${total}`.length * fontSize * 0.65) : 0;
   const brandMinimum = logos.length || (showText && master.footerText) ? Math.min(96, innerWidth * 0.18) : 0;
   const availableWidth = Math.max(24, innerWidth - numberWidth - contentGap * (master.showSlideNumber ? 2 : 1) - brandMinimum);
-  return <footer data-slide-footer={decorative ? undefined : true} data-slide-thumbnail-footer={decorative || undefined} className="absolute inset-x-0 bottom-0 flex w-full items-center" style={{ height, fontSize, fontFamily: footer.fontFamily ? courseThemeFontFamilies[footer.fontFamily] : undefined, fontWeight: footer.fontWeight, fontStyle: footer.fontStyle, gap: contentGap, ...backgroundPaint(footer.backgroundColor), color: solidColor(footer.textColor), ...borderPaint(footer.borderColor), borderTopColor: solidColor(footer.borderColor), borderTopStyle: "solid", borderTopWidth: border, paddingInline: footer.paddingX ?? 20, paddingBlock: paddingY }}>
-    <div className="flex h-full min-h-0 min-w-0 flex-1 items-center" style={{ gap: contentGap }}>
+  return <footer data-slide-footer={decorative ? undefined : true} data-slide-thumbnail-footer={decorative || undefined} data-slide-footer-background={footer.background} className="absolute inset-x-0 bottom-0 flex w-full items-center" style={{ height, fontSize, fontFamily: footer.fontFamily ? courseThemeFontFamilies[footer.fontFamily] : undefined, fontWeight: footer.fontWeight, fontStyle: footer.fontStyle, gap: contentGap, ...(footer.background === "transparent" ? { backgroundColor: "transparent" } : backgroundPaint(footer.backgroundColor)), color: solidColor(footer.textColor), ...borderPaint(footer.borderColor), borderTopColor: solidColor(footer.borderColor), borderTopStyle: "solid", borderTopWidth: border, paddingInline: footer.paddingX ?? 20, paddingBlock: paddingY }}>
+    {footer.background === "image" && footer.imageSrc && <div aria-hidden="true" data-slide-footer-image className="pointer-events-none absolute inset-0 overflow-hidden">
+      <img src={footer.imageSrc} alt="" className="absolute inset-0 h-full w-full object-cover" style={{ objectPosition: footer.imagePosition }} />
+      <SlideColorOverlay color={footer.overlayColor ?? footer.backgroundColor} opacity={footer.overlayOpacity} />
+    </div>}
+    <div className="relative flex h-full min-h-0 min-w-0 flex-1 items-center" style={{ gap: contentGap }}>
       {showText && master.footerText && <p style={{ ...textPaint(footer.textColor), lineHeight: 1.3, WebkitLineClamp: textLines }} className={`line-clamp-2 max-h-full w-fit min-w-0 flex-initial break-words ${logos.length ? "max-w-[50%]" : "max-w-full"}`}>{master.footerText}</p>}
       {logos.length > 0 && <div aria-label={decorative ? undefined : "Footer logos"} className="grid h-full min-h-0 min-w-0 flex-1" style={{ gridTemplateRows: `repeat(${rows.length}, minmax(0, 1fr))`, rowGap: footer.logoGapY ?? 4 }}>
         {rows.map((row, index) => <div key={index} data-slide-footer-logo-row={decorative ? undefined : true} className="flex h-full min-h-0 min-w-0 w-full" style={{ gap: gapX, justifyContent, alignItems }}>
@@ -38,7 +43,7 @@ export function SlideFooter({ master = defaultSlideMaster, number, total, contro
         </div>)}
       </div>}
     </div>
-    {master.showSlideNumber && <span aria-label={decorative ? undefined : "Slide number"} className="shrink-0 text-center tabular-nums" style={{ ...textPaint(footer.textColor), width: numberWidth }}>{number} / {total}</span>}
-    <SlideNavigationDesignProvider settings={resolveNavigationButtons(master.navigationButtons, master.accentColor)} availableWidth={availableWidth} availableHeight={height - border - paddingY * 2} canvasWidth={size.width} rightInset={footer.paddingX} tipMaxHeight={Math.max(120, size.height - height - 24)}>{controls}</SlideNavigationDesignProvider>
+    {master.showSlideNumber && <span aria-label={decorative ? undefined : "Slide number"} className="relative shrink-0 text-center tabular-nums" style={{ ...textPaint(footer.textColor), width: numberWidth }}>{number} / {total}</span>}
+    {controls && <div className="relative shrink-0"><SlideNavigationDesignProvider settings={resolveNavigationButtons(master.navigationButtons, master.accentColor)} availableWidth={availableWidth} availableHeight={height - border - paddingY * 2} canvasWidth={size.width} rightInset={footer.paddingX} tipMaxHeight={Math.max(120, size.height - height - 24)}>{controls}</SlideNavigationDesignProvider></div>}
   </footer>;
 }

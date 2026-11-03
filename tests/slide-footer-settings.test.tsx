@@ -4,6 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EditorClient } from "@/app/courses/[courseId]/edit/_components/editor-client";
 import { editorSnapshotSchema } from "@/lib/editor/schemas";
+import { CoursePreview } from "@/app/courses/[courseId]/preview/course-preview";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), back: vi.fn(), forward: vi.fn() }) }));
 vi.mock("@/app/dashboard/_components/dashboard-navbar", () => ({ DashboardNavbar: ({ primaryAction }: { primaryAction: ReactNode }) => <header>{primaryAction}</header> }));
@@ -23,6 +24,7 @@ describe("master slide footer settings", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.stubGlobal("matchMedia", () => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
+    vi.stubGlobal("IntersectionObserver", class { observe() {} unobserve() {} disconnect() {} });
     fetchMock = vi.fn(async (url: string) => ({ ok: true, status: 200, json: async () => url.endsWith("/assets") ? { assets } : { revision: 2 } }));
     vi.stubGlobal("fetch", fetchMock);
     container = document.createElement("div"); document.body.append(container); root = createRoot(container);
@@ -42,6 +44,34 @@ describe("master slide footer settings", () => {
     expect(call).toBeDefined();
     return editorSnapshotSchema.parse(JSON.parse(call![1].body));
   }
+
+  it("edits transparent/color/image footer backgrounds with undo, save, reload, and learner parity", async () => {
+    await act(async () => root.render(<EditorClient initialData={initialData} authorName="Author" />));
+    await clickText("Master slide");
+    const footer = () => container.querySelector<HTMLElement>('[data-slide-canvas] [data-slide-footer]')!;
+    await changeSelect("Footer background style", "transparent"); expect(footer().style.backgroundColor).toBe("transparent");
+    await input("Footer background color", "#123456");
+    expect(footer().getAttribute("data-slide-footer-background")).toBe("color");
+    expect(footer().style.backgroundColor).toBe("rgb(18, 52, 86)");
+    await changeSelect("Footer background style", "image"); await clickText("Choose or upload footer background image");
+    await act(async () => button("Use Brand One.png").click());
+    expect(footer().querySelector('[data-slide-footer-image] img')?.getAttribute("src")).toBe(assets[0].fileUrl);
+    expect(container.querySelectorAll('[aria-label="Footer logo list"]')).toHaveLength(0);
+    await changeSelect("Footer image position", "bottom"); await input("Footer image overlay", "45"); await input("Footer image overlay color hex code", "#ff8800");
+    expect(footer().querySelector<HTMLImageElement>("[data-slide-footer-image] img")?.style.objectPosition).toBe("bottom");
+    expect(footer().querySelector<HTMLElement>("[data-slide-color-overlay]")?.style.opacity).toBe("0.45");
+    await clickText("Remove footer background image"); expect(footer().querySelector("[data-slide-footer-image]")).toBeNull();
+    await act(async () => button("Undo").click());
+    const snapshot = await saved();
+    expect(snapshot.slideMaster?.footer).toMatchObject({ background: "image", imageSrc: assets[0].fileUrl, backgroundColor: "#123456", overlayColor: "#ff8800", overlayOpacity: 45, imagePosition: "bottom", logos: [] });
+    await act(async () => root.render(<EditorClient key="footer-background-reload" initialData={{ ...snapshot, courseId: "slides" }} authorName="Author" />));
+    expect(footer().querySelector("[data-slide-footer-image] img")?.getAttribute("src")).toBe(assets[0].fileUrl);
+    for (const standalone of [false, true]) {
+      await act(async () => root.render(<CoursePreview key={String(standalone)} initialData={{ ...snapshot, courseId: "slides" }} authorName="Author" initialLessonId="first" standalone={standalone} persistLocalProgress={false} />));
+      expect(footer().querySelector("[data-slide-footer-image] img")?.getAttribute("src")).toBe(assets[0].fileUrl);
+      expect(footer().querySelector<HTMLElement>("[data-slide-color-overlay]")?.style.backgroundColor).toBe("rgb(255, 136, 0)");
+    }
+  });
 
   it("follows master colors after footer edits and preserves only chosen overrides", async () => {
     await act(async () => root.render(<EditorClient initialData={initialData} authorName="Author" />));

@@ -211,6 +211,11 @@ export function resolveSlideNavigationVisibility(appearance?: SlideAppearance) {
 }
 
 export const slideFooterSchema = z.object({
+  background: z.enum(["transparent", "color", "image"]).default("color"),
+  imageSrc: slideImageSourceSchema.default(""),
+  imagePosition: z.enum(["center", "top", "bottom"]).default("center"),
+  overlayOpacity: z.number().int().min(0).max(90).default(20),
+  overlayColor: colorValueSchema.optional(),
   height: z.number().int().min(48).max(160).default(48),
   fontSize: z.number().int().min(10).max(24).default(12),
   fontFamily: z.enum(courseThemeFontFamilyIds).optional(),
@@ -251,6 +256,10 @@ export const slideHeaderSchema = z.object({
   imagePosition: z.enum(["center", "top", "bottom"]).default("center"),
   overlayOpacity: z.number().int().min(0).max(90).default(20),
   overlayColor: colorValueSchema.optional(),
+  borderTop: z.boolean().default(true),
+  borderBottom: z.boolean().default(false),
+  borderColor: colorValueSchema.optional(),
+  borderWidth: z.number().int().min(1).max(16).default(8),
 });
 export type SlideHeader = z.infer<typeof slideHeaderSchema>;
 
@@ -295,9 +304,10 @@ export function hasLegacySlideHeaderBackground(header?: SlideHeader): boolean {
   return Boolean(header && header.background === "transparent" && header.backgroundCustomized !== true && header.backgroundColor === "#ffffff");
 }
 
-export function resolveSlideHeader(master: SlideMaster): SlideHeader & { backgroundColor: string } {
-  const header = slideHeaderSchema.parse(master.header ?? {});
-  return { ...header, backgroundColor: hasLegacySlideHeaderBackground(header) ? master.backgroundColor : header.backgroundColor ?? master.backgroundColor };
+export function resolveSlideHeader(master: SlideMaster): SlideHeader & { backgroundColor: string; borderColor: string } {
+  const runtimeSource = master.header?.imageSrc?.startsWith("blob:") ? master.header.imageSrc : undefined;
+  const header = slideHeaderSchema.parse(runtimeSource ? { ...master.header, imageSrc: "" } : master.header ?? {});
+  return { ...header, imageSrc: runtimeSource ?? header.imageSrc, backgroundColor: hasLegacySlideHeaderBackground(header) ? master.backgroundColor : header.backgroundColor ?? master.backgroundColor, borderColor: header.borderColor ?? master.accentColor };
 }
 
 export function resolveSlideHeaderTypography(master: SlideMaster = defaultSlideMaster, style?: SlideHeaderStyle): SlideHeaderStyle {
@@ -315,11 +325,14 @@ export function resolveSlideFooter(master: SlideMaster): SlideFooter & { backgro
   // Standalone HTML exports replace owned image URLs with object URLs before
   // rendering. Accept those runtime-only sources here without widening the
   // schema used to validate persisted footer settings.
-  const parsedInput = footerInput.logos?.length
-    ? { ...footerInput, logos: footerInput.logos.map((logo) => ({ ...logo, src: logo.src.startsWith("blob:") ? "data:image/png;base64,AA==" : logo.src })) }
-    : footerInput;
+  const runtimeSource = footerInput.imageSrc?.startsWith("blob:") ? footerInput.imageSrc : undefined;
+  const parsedInput = {
+    ...footerInput,
+    imageSrc: runtimeSource ? "" : footerInput.imageSrc,
+    logos: footerInput.logos?.map((logo) => ({ ...logo, src: logo.src.startsWith("blob:") ? "data:image/png;base64,AA==" : logo.src })),
+  };
   const parsedFooter = slideFooterSchema.parse(parsedInput);
-  const footer = footerInput.logos?.length ? { ...parsedFooter, logos: footerInput.logos } : parsedFooter;
+  const footer = { ...parsedFooter, imageSrc: runtimeSource ?? parsedFooter.imageSrc, logos: footerInput.logos?.length ? footerInput.logos : parsedFooter.logos };
   const legacyDefaults = hasLegacySlideFooterColors(footer);
   return {
     ...footer,

@@ -62,18 +62,21 @@ describe("slide presentation template", () => {
     expect(first.y).toBe(second.y);
   });
 
-  it("moves legacy object coordinates onto the full canvas without shifting their visible position", () => {
+  it.each([
+    ["current default", undefined, 384, 492],
+    ["legacy 64px footer", { height: 64 }, 368, 476],
+  ] as const)("moves legacy object coordinates onto the full canvas without shifting their visible position (%s)", (_label, footer, contentHeight, coverHeight) => {
     const block = blockSchema.parse({ id: "heading", version: 1, type: "heading", data: { text: "Overlap", level: 1 }, slideFrame: { x: 12, y: 20, width: 60, height: 40, z: 3 } });
-    const legacy = slideMasterSchema.parse({});
+    const legacy = slideMasterSchema.parse({ footer });
     const frame = resolveCanvasSlideFrame(block, 0, 1, legacy);
-    expect(frame.y * 540 / 100).toBeCloseTo(108 + 20 / 100 * 368);
-    expect(frame.height * 540 / 100).toBeCloseTo(40 / 100 * 368);
+    expect(frame.y * 540 / 100).toBeCloseTo(108 + 20 / 100 * contentHeight);
+    expect(frame.height * 540 / 100).toBeCloseTo(40 / 100 * contentHeight);
     const [lesson] = normalizeSlideLessonFrames([{ blocks: [block] }], legacy);
     const canvas = slideMasterSchema.parse({ objectLayout: "canvas" });
     expect(resolveCanvasSlideFrame(lesson.blocks[0], 0, 1, canvas)).toEqual(frame);
     expect(resolveCanvasSlideFrame({ ...block, slideFrame: { ...block.slideFrame!, y: 0 } }, 0, 1, canvas).y).toBe(0);
     expect(resolveCanvasSlideFrame({ ...block, slideFrame: { ...block.slideFrame!, y: 90, height: 10 } }, 0, 1, canvas).y).toBe(90);
-    expect(resolveCanvasSlideFrame(block, 0, 1, legacy, true).y).toBeCloseTo(20 / 100 * 476 / 540 * 100);
+    expect(resolveCanvasSlideFrame(block, 0, 1, legacy, true).y).toBeCloseTo(20 / 100 * coverHeight / 540 * 100);
   });
 
   it("renders authored objects at the header and footer edges in learner preview", () => {

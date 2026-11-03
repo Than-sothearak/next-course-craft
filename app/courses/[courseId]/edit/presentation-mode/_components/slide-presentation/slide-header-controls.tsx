@@ -54,8 +54,20 @@ export function SlideHeaderControls({ master, courseId, onChange }: { master: Sl
         <Button variant="ghost" size="sm" className="text-rose-600" onClick={() => update({ imageSrc: "", background: "transparent" })}><Trash2 size={14} aria-hidden="true" />Remove header image</Button>
       </>}
     </>}
+    <fieldset className="space-y-2">
+      <legend className="text-xs font-medium text-slate-600">Header borders</legend>
+      <div className="flex flex-wrap gap-3 text-xs text-slate-600">
+        <label className="flex items-center gap-2"><Checkbox aria-label="Header top border" checked={header.borderTop} onChange={event => update({ borderTop: event.target.checked })} />Top border</label>
+        <label className="flex items-center gap-2"><Checkbox aria-label="Header bottom border" checked={header.borderBottom} onChange={event => update({ borderBottom: event.target.checked })} />Bottom border</label>
+      </div>
+      {(header.borderTop || header.borderBottom) && <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1 text-xs text-slate-600">Border color<ColorPicker aria-label="Header border color" value={header.borderColor} onChange={borderColor => update({ borderColor })} /></div>
+        <label className="space-y-1 text-xs text-slate-600">Border width (px)<SlideNumberSettingInput aria-label="Header border width" min={1} max={16} value={header.borderWidth} onValueChange={borderWidth => update({ borderWidth })} /></label>
+      </div>}
+      {master.header?.borderColor && <Button type="button" variant="ghost" size="sm" onClick={() => update({ borderColor: undefined })}>Use theme header border</Button>}
+    </fieldset>
     <div aria-label="Header style preview" className="relative flex h-20 items-center overflow-hidden rounded-md border border-slate-200" style={backgroundPaint(master.backgroundColor)}>
-      <SlideHeaderBackground master={master} /><span className="relative px-4" style={{ ...textPaint(header.textColor ?? master.textColor), fontFamily: header.fontFamily ? courseThemeFontFamilies[header.fontFamily] : undefined, fontSize: Math.min(header.fontSize, 32), fontWeight: header.fontWeight, fontStyle: header.fontStyle }}>Slide title</span>
+      <SlideHeaderBackground master={master} height="100%" /><span className="relative px-4" style={{ ...textPaint(header.textColor ?? master.textColor), fontFamily: header.fontFamily ? courseThemeFontFamilies[header.fontFamily] : undefined, fontSize: Math.min(header.fontSize, 32), fontWeight: header.fontWeight, fontStyle: header.fontStyle }}>Slide title</span>
     </div>
     <MediaLibraryDialog courseId={courseId} kind="image" open={imageOpen} onClose={() => setImageOpen(false)} onSelect={(asset) => { update({ background: "image", imageSrc: asset.fileUrl }); setImageOpen(false); }} />
   </div>;

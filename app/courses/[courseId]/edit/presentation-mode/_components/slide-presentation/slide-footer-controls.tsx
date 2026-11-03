@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
-import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ImagePlus, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,7 @@ import { MediaLibraryDialog } from "@/app/courses/[courseId]/edit/_components/me
 import { ColorPicker } from "@/components/ui/color-picker";
 import { courseThemeFontFamilyIds } from "@/lib/editor/theme";
 import { SlideNumberSettingInput } from "./slide-number-setting-input";
+import { SlideColorOverlay } from "@/app/courses/[courseId]/_components/slide-presentation/slide-color-overlay";
 
 export function SlideFooterControls({ master, courseId, onChange }: {
   master: SlideMaster;
@@ -21,7 +22,7 @@ export function SlideFooterControls({ master, courseId, onChange }: {
 }) {
   const footer = resolveSlideFooter(master);
   const legacyColors = hasLegacySlideFooterColors(master.footer);
-  const [picker, setPicker] = useState<{ id?: string } | null>(null);
+  const [picker, setPicker] = useState<{ type: "logo"; id?: string } | { type: "background" } | null>(null);
   const update = (change: Partial<SlideFooter>) => {
     const source = legacyColors ? { ...master.footer, backgroundColor: undefined, textColor: undefined, borderColor: undefined } : master.footer;
     const colorsCustomized = (change.backgroundColor || change.textColor || change.borderColor) ? true : source?.colorsCustomized;
@@ -50,7 +51,7 @@ export function SlideFooterControls({ master, courseId, onChange }: {
       {footer.logos.map((logo, index) => <div key={logo.id} className="space-y-2 rounded-lg border border-slate-200 p-2">
         <div className="flex items-center gap-2">
           <span className="relative h-10 w-16 shrink-0 overflow-hidden rounded border bg-slate-50"><Image src={logo.src} alt={logo.alt} fill unoptimized sizes="64px" className="object-contain p-1" /></span>
-          <Button type="button" variant="outline" size="sm" aria-label={`Replace footer logo ${index + 1}`} onClick={() => setPicker({ id: logo.id })}>Replace</Button>
+          <Button type="button" variant="outline" size="sm" aria-label={`Replace footer logo ${index + 1}`} onClick={() => setPicker({ type: "logo", id: logo.id })}>Replace</Button>
           <div className="ml-auto flex gap-1">
             <Button type="button" variant="ghost" size="icon" className="size-7" aria-label={`Move footer logo ${index + 1} earlier`} disabled={index === 0} onClick={() => moveLogo(index, -1)}><ArrowUp size={14} /></Button>
             <Button type="button" variant="ghost" size="icon" className="size-7" aria-label={`Move footer logo ${index + 1} later`} disabled={index === footer.logos.length - 1} onClick={() => moveLogo(index, 1)}><ArrowDown size={14} /></Button>
@@ -59,7 +60,7 @@ export function SlideFooterControls({ master, courseId, onChange }: {
         </div>
         <Input aria-label={`Footer logo ${index + 1} description`} placeholder="Logo description" maxLength={160} value={logo.alt} onChange={(event) => update({ logos: footer.logos.map((item) => item.id === logo.id ? { ...item, alt: event.target.value } : item) })} />
       </div>)}
-      <Button type="button" variant="outline" size="sm" className="w-full" disabled={footer.logos.length >= 12} onClick={() => setPicker({})}><Plus size={14} />Add footer logo</Button>
+      <Button type="button" variant="outline" size="sm" className="w-full" disabled={footer.logos.length >= 12} onClick={() => setPicker({ type: "logo" })}><Plus size={14} />Add footer logo</Button>
       <p className="text-[11px] text-slate-500">Choose or upload up to 12 logos. Each image keeps its original proportions and scales down to fit the footer.</p>
       <div className="grid grid-cols-2 gap-2" aria-label="Footer logo layout">
         {(["logoGapX", "logoGapY"] as const).map((field) => <label key={field} className="text-xs text-slate-600">{field === "logoGapX" ? "Horizontal gap (px)" : "Vertical gap (px)"}<SlideNumberSettingInput aria-label={field === "logoGapX" ? "Footer logo horizontal gap" : "Footer logo vertical gap"} min={0} max={field === "logoGapX" ? 32 : 12} value={footer[field] ?? (field === "logoGapX" ? 8 : 4)} className="mt-1 h-9" onValueChange={(value) => update({ [field]: value })} /></label>)}
@@ -74,13 +75,28 @@ export function SlideFooterControls({ master, courseId, onChange }: {
       </div>
       <p className="text-[11px] text-slate-500">Space inside the footer around text, logos, slide numbers, and navigation.</p>
     </fieldset>
+    <label className="block space-y-1 text-xs text-slate-600">Background<Select aria-label="Footer background style" value={footer.background} onChange={event => update({ background: event.target.value as SlideFooter["background"] })}>
+      <option value="transparent">Transparent</option><option value="color">Color</option><option value="image">Image</option>
+    </Select></label>
     <div className="grid grid-cols-2 gap-2">
-      {(["backgroundColor", "textColor"] as const).map((field) => <div key={field} className="space-y-1 text-xs text-slate-600">{field === "backgroundColor" ? "Footer background" : "Footer text color"}<ColorPicker aria-label={field === "backgroundColor" ? "Footer background color" : "Footer text color"} value={footer[field]} onChange={(color) => update({ [field]: color })} /></div>)}
+      {(["backgroundColor", "textColor"] as const).map((field) => <div key={field} className="space-y-1 text-xs text-slate-600">{field === "backgroundColor" ? "Footer background" : "Footer text color"}<ColorPicker aria-label={field === "backgroundColor" ? "Footer background color" : "Footer text color"} value={footer[field]} onChange={(color) => update({ [field]: color, ...(field === "backgroundColor" && footer.background === "transparent" ? { background: "color" } : {}) })} /></div>)}
     </div>
     {!legacyColors && (master.footer?.backgroundColor || master.footer?.textColor) && <div className="flex flex-wrap gap-1">
       {master.footer?.backgroundColor && <Button type="button" variant="ghost" size="sm" onClick={() => update({ backgroundColor: undefined })}>Use theme background</Button>}
       {master.footer?.textColor && <Button type="button" variant="ghost" size="sm" onClick={() => update({ textColor: undefined })}>Use theme text</Button>}
     </div>}
+    {footer.background === "image" && <>
+      <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => setPicker({ type: "background" })}><ImagePlus size={14} aria-hidden="true" />{footer.imageSrc ? "Replace footer background image" : "Choose or upload footer background image"}</Button>
+      {footer.imageSrc && <>
+        <div className="relative h-16 overflow-hidden rounded-md border border-slate-200"><Image src={footer.imageSrc} alt="Footer background preview" fill unoptimized sizes="380px" className="object-cover" style={{ objectPosition: footer.imagePosition }} /><SlideColorOverlay color={footer.overlayColor ?? footer.backgroundColor} opacity={footer.overlayOpacity} /></div>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="space-y-1 text-xs text-slate-600">Image position<Select aria-label="Footer image position" value={footer.imagePosition} onChange={event => update({ imagePosition: event.target.value as SlideFooter["imagePosition"] })}><option value="center">Center</option><option value="top">Top</option><option value="bottom">Bottom</option></Select></label>
+          <label className="space-y-1 text-xs text-slate-600">Overlay (%)<SlideNumberSettingInput aria-label="Footer image overlay" min={0} max={90} value={footer.overlayOpacity} onValueChange={overlayOpacity => update({ overlayOpacity })} /></label>
+        </div>
+        <div className="space-y-1 text-xs text-slate-600">Overlay color<ColorPicker aria-label="Footer image overlay color" value={footer.overlayColor ?? footer.backgroundColor} onChange={overlayColor => update({ overlayColor })} /></div>
+        <Button type="button" variant="ghost" size="sm" className="text-rose-600" onClick={() => update({ imageSrc: "", background: "transparent" })}><Trash2 size={14} aria-hidden="true" />Remove footer background image</Button>
+      </>}
+    </>}
     <label className="flex items-center gap-2 text-xs text-slate-600"><Checkbox aria-label="Footer top border" checked={footer.borderTop} onChange={(event) => update({ borderTop: event.target.checked })} />Top border</label>
     {footer.borderTop && <div className="grid grid-cols-2 gap-2">
       <div className="space-y-1 text-xs text-slate-600">Border color<ColorPicker aria-label="Footer border color" value={footer.borderColor} onChange={(color) => update({ borderColor: color })} /></div>
@@ -89,7 +105,8 @@ export function SlideFooterControls({ master, courseId, onChange }: {
     {footer.borderTop && !legacyColors && master.footer?.borderColor && <Button type="button" variant="ghost" size="sm" onClick={() => update({ borderColor: undefined })}>Use theme accent border</Button>}
     <label className="flex items-center gap-2 text-xs text-slate-600"><Checkbox aria-label="Show slide numbers" checked={master.showSlideNumber} onChange={(event) => onChange({ ...master, showSlideNumber: event.target.checked })} />Show slide numbers</label>
     <MediaLibraryDialog courseId={courseId} kind="image" open={picker !== null} onClose={() => setPicker(null)} onSelect={(asset) => {
-      const previous = footer.logos.find((logo) => logo.id === picker?.id);
+      if (picker?.type === "background") { update({ background: "image", imageSrc: asset.fileUrl }); setPicker(null); return; }
+      const previous = footer.logos.find((logo) => logo.id === (picker?.type === "logo" ? picker.id : undefined));
       const logo = { id: previous?.id ?? createClientId(), src: asset.fileUrl, alt: (previous?.alt || asset.originalName).slice(0, 160) };
       update({ logos: previous ? footer.logos.map((item) => item.id === previous.id ? logo : item) : [...footer.logos, logo].slice(0, 12) });
       setPicker(null);

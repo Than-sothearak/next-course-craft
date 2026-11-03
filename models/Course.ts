@@ -360,6 +360,10 @@ const CourseSchema = new Schema(
                   default: undefined,
                 },
                 backgroundCustomized: { type: Boolean, default: undefined },
+                borderTop: { type: Boolean, default: true },
+                borderBottom: { type: Boolean, default: false },
+                borderColor: { type: String, validate: (value: string) => colorValueSchema.safeParse(value).success, default: undefined },
+                borderWidth: { type: Number, min: 1, max: 16, default: 8, validate: Number.isInteger },
                 textColor: {
                   type: String,
                   validate: (value: string) =>
@@ -413,6 +417,11 @@ const CourseSchema = new Schema(
           footer: {
             type: new Schema(
               {
+                background: { type: String, enum: ["transparent", "color", "image"], default: "color" },
+                imageSrc: { type: String, match: /^(?:|\/api\/assets\/[a-f\d]{24}\/file)$/i, default: "" },
+                imagePosition: { type: String, enum: ["center", "top", "bottom"], default: "center" },
+                overlayOpacity: { type: Number, min: 0, max: 90, default: 20, validate: Number.isInteger },
+                overlayColor: { type: String, validate: (value: string) => colorValueSchema.safeParse(value).success, default: undefined },
                 height: {
                   type: Number,
                   min: 48,

@@ -170,11 +170,12 @@ describe("course card actions", () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
     });
 
-    expect(container.querySelector('[role="dialog"][aria-labelledby="media-library-title"]')).not.toBeNull();
+    const library = [...container.querySelectorAll<HTMLElement>('[role="dialog"]')].find(dialog => document.getElementById(dialog.getAttribute("aria-labelledby") ?? "")?.textContent === "Media library");
+    expect(library).toBeDefined();
     expect(container.querySelector('input[type="file"][accept*="image/png"]')).not.toBeNull();
     expect(details.dataset.state).toBe("closed");
     act(() => container.querySelector<HTMLButtonElement>('[aria-label="Close media library"]')!.click());
-    expect(container.querySelector('[aria-labelledby="media-library-title"]')).toBeNull();
+    expect(library!.isConnected).toBe(false);
     expect(document.querySelector('[data-card-popover][data-state="open"]')).not.toBeNull();
   });
 

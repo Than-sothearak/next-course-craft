@@ -56,15 +56,14 @@ describe("canvas media replacement", () => {
   it.each([
     ["image", "Photo.png", "/new.png"], ["video", "Clip.mp4", "/new.mp4"], ["audio", "Voice.mp3", assets[2].fileUrl],
     ["attachment", "Notes.pdf", assets[3].fileUrl], ["labeledGraphic", "Photo.png", "/new.png"],
-  ])("replaces %s through one canvas-sized dialog and preserves object placement", async (type, filename, src) => {
+  ])("replaces %s through one dialog and preserves object placement", async (type, filename, src) => {
     const block = sample(type);
     await render(block);
     expect(container.querySelector("dialog")).toBeNull();
     expect(fetch).not.toHaveBeenCalled();
     await click("Replace media");
     const dialog = container.querySelector<HTMLDialogElement>("dialog[open]")!;
-    expect(dialog.style.left).toBe("100px"); expect(dialog.style.top).toBe("120px");
-    expect(dialog.style.width).toBe("720px"); expect(dialog.style.height).toBe("405px");
+    expect(dialog).not.toBeNull();
     expect(container.querySelectorAll('[role="dialog"]')).toHaveLength(0);
     expect(fetch).toHaveBeenCalledWith("/api/courses/course/assets", { cache: "no-store" });
     await click(`Use ${filename}`);
@@ -108,13 +107,13 @@ describe("canvas media replacement", () => {
     expect(button.style.visibility).toBe("hidden");
   });
 
-  it("tracks the visible canvas while zooming or scrolling, and cancels without editing", async () => {
+  it("keeps replacement open while zooming or scrolling, and cancels without editing", async () => {
     await render(sample("image")); await click("Replace media");
+    const dialog = container.querySelector<HTMLDialogElement>("dialog[open]")!;
     canvasRect = new DOMRect(-100, 20, 1440, 810);
     await act(async () => window.dispatchEvent(new Event("scroll")));
-    const dialog = container.querySelector<HTMLDialogElement>("dialog[open]")!;
-    expect(dialog.style.left).toBe("80px"); expect(dialog.style.top).toBe("100px");
-    expect(dialog.style.width).toBe("760px"); expect(dialog.style.height).toBe("450px");
+    expect(container.querySelector("dialog[open]")).toBe(dialog);
+    expect(dialog.querySelector('[aria-label="Use Photo.png"]')).not.toBeNull();
     await act(async () => dialog.dispatchEvent(new Event("cancel", { bubbles: true, cancelable: true })));
     expect(container.querySelector("dialog")).toBeNull(); expect(changed).not.toHaveBeenCalled();
     await click("Replace media"); await click("Close dialog");

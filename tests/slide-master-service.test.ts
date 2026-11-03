@@ -44,7 +44,7 @@ describe("master background image ownership", () => {
 
   it("checks header image ownership and deduplicates images shared with other master settings", async () => {
     const src = "/api/assets/123456789012345678901234/file";
-    const value = slideMasterSchema.parse({ header: { background: "image", imageSrc: src }, background: { type: "image", imageSrc: src } });
+    const value = slideMasterSchema.parse({ header: { background: "image", imageSrc: src }, background: { type: "image", imageSrc: src }, footer: { background: "image", imageSrc: src } });
     await assertSlideMasterAsset("owner", "course", value);
     expect(findOne).toHaveBeenCalledTimes(1);
     expect(findOne).toHaveBeenCalledWith({ _id: "123456789012345678901234", ownerId: "owner", courseId: "course", status: "ready", mimeType: /^image\// });
@@ -54,6 +54,17 @@ describe("master background image ownership", () => {
 
   it.each(["./media/header.png", "data:image/png;base64,YQ=="])("rejects offline header image sources on author saves (%s)", async (imageSrc) => {
     await expect(assertSlideMasterAsset("owner", "course", slideMasterSchema.parse({ header: { background: "image", imageSrc } }))).rejects.toThrow("header background image");
+    expect(findOne).not.toHaveBeenCalled();
+  });
+
+  it("rejects missing or foreign footer background images", async () => {
+    lean.mockResolvedValue(null);
+    const value = slideMasterSchema.parse({ footer: { background: "image", imageSrc: "/api/assets/123456789012345678901234/file" } });
+    await expect(assertSlideMasterAsset("owner", "course", value)).rejects.toThrow("footer background image");
+  });
+
+  it.each(["./media/footer.png", "data:image/png;base64,YQ=="])("rejects offline footer background sources on author saves (%s)", async imageSrc => {
+    await expect(assertSlideMasterAsset("owner", "course", slideMasterSchema.parse({ footer: { background: "image", imageSrc } }))).rejects.toThrow("footer background image");
     expect(findOne).not.toHaveBeenCalled();
   });
 

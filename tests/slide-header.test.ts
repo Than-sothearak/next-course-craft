@@ -35,6 +35,36 @@ describe("presentation headers", () => {
     expect(defaultSlideMaster.header).toBeUndefined();
     expect(resolveSlideHeader(defaultSlideMaster)).toMatchObject({ background: "transparent", imageSrc: "" });
     expect(resolveSlideHeader(defaultSlideMaster).textColor).toBeUndefined();
+    expect(resolveSlideHeader(defaultSlideMaster)).toMatchObject({ borderTop: true, borderBottom: false, borderWidth: 8, borderColor: defaultSlideMaster.accentColor });
+  });
+
+  it("validates and persists independently enabled header borders", () => {
+    const master = slideMasterSchema.parse({ header: { borderTop: false, borderBottom: true, borderWidth: 6, borderColor: "#ef4444" } });
+    const document = new Course({ ownerId: assetId, title: "Slides", slideMaster: master });
+    expect(document.validateSync()).toBeUndefined();
+    expect(slideMasterSchema.parse(document.toObject().slideMaster).header).toEqual(master.header);
+    for (const invalid of [{ borderWidth: 0 }, { borderWidth: 17 }, { borderWidth: 1.5 }, { borderColor: "red" }, { borderBottom: {} }]) {
+      expect(slideHeaderSchema.safeParse(invalid).success).toBe(false);
+      expect(new Course({ ownerId: assetId, title: "Slides", slideMaster: { header: invalid } }).validateSync()).toBeDefined();
+    }
+  });
+
+  it("renders configured borders in thumbnails, preview, and standalone slides", () => {
+    const snapshot = editorSnapshotSchema.parse({ ...course, slideMaster: { header: { borderTop: false, borderBottom: true, borderWidth: 6, borderColor: "linear-gradient(90deg, #ef4444 0%, #3b82f6 100%)" } } });
+    const views = [renderToStaticMarkup(createElement(SlideThumbnail, { slide: snapshot.lessons[0], index: 0, master: snapshot.slideMaster }))];
+    for (const standalone of [false, true]) views.push(renderToStaticMarkup(createElement(CoursePreview, { initialData: { ...snapshot, courseId: "slides" }, authorName: "", initialLessonId: "first", standalone })));
+    for (const markup of views) {
+      expect(markup).not.toContain('data-slide-header-border="top"');
+      expect(markup.match(/data-slide-header-border="bottom"[^>]*>/)?.[0]).toContain("height:6px");
+      expect(markup.match(/data-slide-header-border="bottom"[^>]*>/)?.[0]).toContain("linear-gradient");
+    }
+  });
+
+  it("renders runtime export image URLs without allowing them in saved header settings", () => {
+    const master = slideMasterSchema.parse({ header: { background: "image", imageSrc } });
+    const runtime = { ...master, header: { ...master.header!, imageSrc: "blob:header-export" } };
+    expect(slideHeaderSchema.safeParse(runtime.header).success).toBe(false);
+    expect(renderToStaticMarkup(createElement(SlideSurface, { master: runtime, title: "Header", number: 1, total: 1 }))).toContain('src="blob:header-export"');
   });
 
   it("validates header styles and retains them in the existing Course document", () => {

@@ -15,7 +15,7 @@ const AssetSchema = new Schema({
   checksum: { type: String, default: null },
   metadata: { type: Schema.Types.Mixed, default: {} },
 }, { timestamps: true });
-AssetSchema.index({ ownerId: 1, courseId: 1, status: 1, createdAt: -1 });
+AssetSchema.index({ ownerId: 1, courseId: 1, status: 1, createdAt: -1, _id: -1 });
 AssetSchema.index({ storageProvider: 1, storageKey: 1 });
 export type AssetDocument = InferSchemaType<typeof AssetSchema>;
 export const Asset = (models.Asset as Model<AssetDocument> | undefined) ?? model<AssetDocument>("Asset", AssetSchema);

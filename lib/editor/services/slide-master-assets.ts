@@ -6,6 +6,7 @@ export async function assertSlideMasterAsset(ownerId: string, courseId: string, 
   const background = master?.background;
   const images = [
     ...(master?.header?.imageSrc ? [{ src: master.header.imageSrc, message: "Choose a header background image from this course's media library." }] : []),
+    ...(master?.footer?.imageSrc ? [{ src: master.footer.imageSrc, message: "Choose a footer background image from this course's media library." }] : []),
     ...(background?.type === "image" && background.imageSrc ? [{ src: background.imageSrc, message: "Choose a master background image from this course's media library." }] : []),
     ...(master?.footer?.logos ?? []).map((logo) => ({ src: logo.src, message: "Choose footer logos from this course's media library." })),
   ];

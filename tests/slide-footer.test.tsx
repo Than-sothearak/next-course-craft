@@ -6,6 +6,8 @@ import { editorSnapshotSchema } from "@/lib/editor/schemas";
 import { courseAssetIds, remapCourseAssetUrls } from "@/lib/media/asset-references";
 import { Course } from "@/models/Course";
 import { CoursePreview } from "@/app/courses/[courseId]/preview/course-preview";
+import { SlideThumbnail } from "@/app/courses/[courseId]/_components/slide-presentation/slide-thumbnail";
+import { parseScorm12Snapshot } from "@/lib/scorm12/snapshot";
 
 const assetId = "123456789012345678901234";
 const logos = [{ id: "brand", src: `/api/assets/${assetId}/file`, alt: "Brand logo" }];
@@ -17,6 +19,52 @@ const data = {
 };
 
 describe("presentation footers", () => {
+  it("validates and persists footer background modes, image placement, and overlay colors", () => {
+    const master = slideMasterSchema.parse({ footer: { background: "image", imageSrc: logos[0].src, imagePosition: "bottom", overlayOpacity: 45, overlayColor: "#ff8800" } });
+    const document = new Course({ ownerId: assetId, title: "Presentation", slideMaster: master });
+    expect(document.validateSync()).toBeUndefined();
+    expect(slideMasterSchema.parse(document.toObject().slideMaster).footer).toEqual(master.footer);
+    expect(resolveSlideFooter(slideMasterSchema.parse({})).background).toBe("color");
+    for (const invalid of [{ background: "invalid" }, { imagePosition: "left" }, { imageSrc: "https://example.com/footer.png" }, { overlayOpacity: 91 }, { overlayOpacity: 1.5 }, { overlayColor: "red" }]) {
+      expect(slideFooterSchema.safeParse(invalid).success).toBe(false);
+      expect(new Course({ ownerId: assetId, title: "Presentation", slideMaster: { footer: invalid } }).validateSync()).toBeDefined();
+    }
+  });
+
+  it("renders a transparent background without fading footer text or navigation", () => {
+    const snapshot = editorSnapshotSchema.parse({ ...data, slideMaster: { footerText: "Visible branding", footer: { background: "transparent" } } });
+    for (const standalone of [false, true]) {
+      const markup = renderToStaticMarkup(createElement(CoursePreview, { initialData: { ...snapshot, courseId: data.courseId }, authorName: "Author", initialLessonId: "first", standalone }));
+      const footerMarkup = markup.match(/<footer\b[^>]*data-slide-footer[\s\S]*?<\/footer>/)?.[0];
+      expect(footerMarkup).toContain('data-slide-footer-background="transparent"');
+      expect(footerMarkup).toContain("background-color:transparent");
+      expect(footerMarkup).toContain("Visible branding"); expect(footerMarkup).toContain('aria-label="Slide navigation"');
+      expect(footerMarkup).not.toContain("opacity:0");
+    }
+  });
+
+  it.each(["./media/footer.png", "data:image/png;base64,YQ=="])("packages footer background images for thumbnails, covers and offline slides (%s)", source => {
+    const snapshot = editorSnapshotSchema.parse({ ...data, slideMaster: { footer: { background: "image", imageSrc: logos[0].src, imagePosition: "bottom", overlayColor: "#ff8800", overlayOpacity: 45 } } });
+    expect([...courseAssetIds(snapshot)]).toEqual([assetId]);
+    const packaged = parseScorm12Snapshot(remapCourseAssetUrls(snapshot, new Map([[assetId, source]])));
+    const views = [renderToStaticMarkup(createElement(SlideThumbnail, { slide: packaged.lessons[0], index: 0, master: packaged.slideMaster }))];
+    for (const standalone of [false, true]) views.push(renderToStaticMarkup(createElement(CoursePreview, { initialData: { ...packaged, courseId: data.courseId }, authorName: "Author", initialLessonId: "first", standalone })));
+    const cover = editorSnapshotSchema.parse({ ...packaged, lessons: [{ ...packaged.lessons[0], slideCover: { template: "imageCover" } }, packaged.lessons[1]] });
+    views.push(renderToStaticMarkup(createElement(CoursePreview, { initialData: { ...cover, courseId: data.courseId }, authorName: "Author", initialLessonId: "first", standalone: true })));
+    for (const markup of views) {
+      expect(markup).toContain('data-slide-footer-background="image"'); expect(markup).toContain(`src="${source}"`);
+      expect(markup).toContain("object-position:bottom"); expect(markup).toContain("opacity:0.45"); expect(markup).toContain("background-color:#ff8800");
+      expect(markup).not.toContain("/api/assets/");
+    }
+  });
+
+  it("accepts footer background object URLs only at the export rendering boundary", () => {
+    const master = slideMasterSchema.parse({ footer: { background: "image", imageSrc: logos[0].src } });
+    const runtime = { ...master, footer: { ...master.footer!, imageSrc: "blob:footer-export" } };
+    expect(slideFooterSchema.safeParse(runtime.footer).success).toBe(false);
+    expect(resolveSlideFooter(runtime).imageSrc).toBe("blob:footer-export");
+  });
+
   it("inherits current master colors after changing noncolor footer settings and presets", () => {
     const master = slideMasterSchema.parse({ backgroundColor: "#0f172a", textColor: "#f8fafc", accentColor: "#a5b4fc", footer: { fontSize: 18 } });
     expect(resolveSlideFooter(master)).toMatchObject({ backgroundColor: "#0f172a", textColor: "#f8fafc", borderColor: "#a5b4fc" });

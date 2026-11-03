@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectToDatabase } from "@/lib/db/mongodb";
 import { dashboardErrorResponse, readJson, requireOwnerId } from "@/lib/dashboard/http";
 import { objectIdSchema } from "@/lib/dashboard/schemas";
-import { mediaUploadInputSchema } from "@/lib/media/schemas";
+import { mediaLibraryCursorSchema, mediaUploadInputSchema } from "@/lib/media/schemas";
 import { assertCourseOwner, listCourseMedia } from "@/lib/media/services/course-assets";
 import { beginMediaUpload } from "@/lib/media/services/uploads";
 import { DashboardError } from "@/lib/dashboard/rules";
@@ -15,13 +15,15 @@ async function getCourseId(context: Context) {
   return courseId;
 }
 
-export async function GET(_request: NextRequest, context: Context) {
+export async function GET(request: NextRequest, context: Context) {
   try {
     const userId = await requireOwnerId();
     await connectToDatabase();
     const courseId = await getCourseId(context);
     const ownerId = await assertCourseOwner(userId, courseId);
-    return NextResponse.json({ assets: await listCourseMedia(ownerId, courseId) });
+    const cursor = mediaLibraryCursorSchema.optional().safeParse(request.nextUrl.searchParams.get("cursor") ?? undefined);
+    if (!cursor.success) throw new DashboardError("Invalid media cursor.", 400);
+    return NextResponse.json(await listCourseMedia(ownerId, courseId, cursor.data));
   } catch (error) {
     return dashboardErrorResponse(error);
   }

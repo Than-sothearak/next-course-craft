@@ -20,7 +20,6 @@ function CanvasMediaReplace({ block, courseId, onChange }: { block: ContentBlock
   const frameRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
-  const [bounds, setBounds] = useState<{ left: number; top: number; width: number; height: number }>();
   const [buttonPosition, setButtonPosition] = useState<{ left: number; top: number; maxWidth: number; visible: boolean }>();
   useLayoutEffect(() => {
     const frame = frameRef.current;
@@ -38,7 +37,6 @@ function CanvasMediaReplace({ block, courseId, onChange }: { block: ContentBlock
         setButtonPosition((current) => current ? { ...current, visible: false } : undefined);
         return;
       }
-      setBounds({ left, top, width: right - left, height: bottom - top });
       const objectRect = object.getBoundingClientRect();
       const buttonRect = buttonRef.current?.getBoundingClientRect();
       const maxWidth = Math.max(0, right - left - 16);
@@ -68,7 +66,7 @@ function CanvasMediaReplace({ block, courseId, onChange }: { block: ContentBlock
 
   return <div ref={frameRef} data-slide-canvas-media-tools className="pointer-events-none absolute inset-0 z-20" onPointerDown={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
     <Button ref={buttonRef} type="button" size="sm" variant="outline" aria-label="Replace media" aria-haspopup="dialog" aria-expanded={open} className="pointer-events-auto fixed bg-white shadow-md" style={{ left: buttonPosition?.left, top: buttonPosition?.top, maxWidth: buttonPosition?.maxWidth, visibility: buttonPosition?.visible ? "visible" : "hidden" }} onClick={() => setOpen(true)}><ImagePlus size={15} aria-hidden="true" />Replace media</Button>
-    {open && <Dialog open title="Replace media" onClose={() => setOpen(false)} className="pointer-events-auto overflow-hidden" contentClassName="flex h-full min-h-0 flex-col p-3 sm:p-4" style={bounds ? { ...bounds, margin: 0, right: "auto", bottom: "auto", maxWidth: "none", maxHeight: "none" } : undefined}>
+    {open && <Dialog open title="Replace media" onClose={() => setOpen(false)} className="pointer-events-auto h-[min(800px,calc(100dvh-24px))] max-h-[calc(100dvh-24px)] w-[calc(100vw-24px)] max-w-5xl overflow-hidden sm:h-[min(800px,calc(100dvh-48px))] sm:max-h-[calc(100dvh-48px)] sm:w-[calc(100vw-48px)]" contentClassName="flex h-full min-h-0 flex-col p-3 sm:p-4">
       <SlideMediaPicker block={block} courseId={courseId} onChange={onChange} embedded onClose={() => setOpen(false)} />
     </Dialog>}
   </div>;

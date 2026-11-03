@@ -30,6 +30,34 @@ describe("master slide header settings", () => {
   const input = (label: string, value: string) => act(async () => { const element = container.querySelector<HTMLInputElement>(`[aria-label="${label}"]`)!; Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(element, value); element.dispatchEvent(new Event("input", { bubbles: true })); });
   const background = () => container.querySelector<HTMLElement>('[data-slide-canvas] [data-slide-header-background]')!;
 
+  it("edits header top/bottom borders, preserves width and color, and restores them after saving", async () => {
+    await act(async () => root.render(<EditorClient initialData={initialData} authorName="Author" />));
+    await click("Master slide");
+    const toggle = (label: string) => act(async () => container.querySelector<HTMLInputElement>(`[aria-label="${label}"]`)!.click());
+    expect(background().querySelector<HTMLElement>('[data-slide-header-border="top"]')?.style.height).toBe("8px");
+    await toggle("Header bottom border"); await toggle("Header top border");
+    await input("Header border width", "6"); await input("Header border color hex code", "#ff8800");
+    expect(background().querySelector('[data-slide-header-border="top"]')).toBeNull();
+    expect(background().querySelector<HTMLElement>('[data-slide-header-border="bottom"]')?.style.height).toBe("6px");
+    expect(background().querySelector<HTMLElement>('[data-slide-header-border="bottom"]')?.style.backgroundColor).toBe("rgb(255, 136, 0)");
+    await toggle("Header bottom border"); expect(background().querySelector("[data-slide-header-border]")).toBeNull();
+    await toggle("Header bottom border");
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Undo"]')!.click());
+    expect(background().querySelector("[data-slide-header-border]")).toBeNull();
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Redo"]')!.click());
+    await act(async () => vi.advanceTimersByTimeAsync(1000));
+    const request = fetchMock.mock.calls.findLast(([, init]) => init?.method === "PUT")!;
+    const snapshot = editorSnapshotSchema.parse(JSON.parse(request[1].body));
+    expect(snapshot.slideMaster?.header).toMatchObject({ borderTop: false, borderBottom: true, borderWidth: 6, borderColor: "#ff8800" });
+    await act(async () => root.render(<EditorClient key="border-reload" initialData={{ ...snapshot, courseId: "slides" }} authorName="Author" />));
+    expect(background().querySelector<HTMLElement>('[data-slide-header-border="bottom"]')?.style.height).toBe("6px");
+    for (const standalone of [false, true]) {
+      await act(async () => root.render(<CoursePreview key={String(standalone)} initialData={{ ...snapshot, courseId: "slides" }} authorName="Author" initialLessonId="first" standalone={standalone} persistLocalProgress={false} />));
+      expect(background().querySelector<HTMLElement>('[data-slide-header-border="bottom"]')?.style.backgroundColor).toBe("rgb(255, 136, 0)");
+      expect(background().querySelector('[data-slide-header-border="top"]')).toBeNull();
+    }
+  });
+
   it("switches between selected header and object settings without changing their content", async () => {
     const data = { ...initialData, lessons: [{ ...initialData.lessons[0], blocks: [{ id: "heading", version: 1 as const, type: "heading" as const, data: { text: "Body heading", level: 2 as const } }] }] };
     await act(async () => root.render(<EditorClient initialData={{ ...editorSnapshotSchema.parse(data), courseId: "slides" }} authorName="Author" />));

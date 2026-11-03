@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+export const mediaLibraryCursorSchema = z.string().max(80).regex(/^[^~]+~[a-f0-9]{24}$/i)
+  .transform(value => { const [createdAt, id] = value.split("~"); return { createdAt, id }; })
+  .pipe(z.object({ createdAt: z.iso.datetime(), id: z.string().regex(/^[a-f0-9]{24}$/i) }));
+export type MediaLibraryCursor = z.output<typeof mediaLibraryCursorSchema>;
+
 export const mediaMimeTypeSchema = z.enum([
   "image/avif",
   "image/gif",
