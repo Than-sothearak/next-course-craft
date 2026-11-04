@@ -230,7 +230,8 @@ export function LessonBlocksPreview({
         }
         return place(block, index,
           <LessonBlockEntrance
-            key={`${block.id}-${animate ? "active" : "inactive"}`}
+            // Keep the native video and its verified playback ranges across visits.
+            key={slideLayout && block.type === "video" ? block.id : `${block.id}-${animate ? "active" : "inactive"}`}
             blockId={block.id}
             fillHeight={slideLayout}
             animate={animate && !slideLayout}

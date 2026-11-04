@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, type Ref, type SyntheticEvent } from "react";
+import { useEffect, useEffectEvent, useRef, useState, type Ref, type SyntheticEvent } from "react";
 import { Captions, Music2, Pause, Play, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { ContentBlock } from "@/lib/schemas/block";
 import { slideMediaRestartEvent } from "@/lib/editor/slide-playback";
-import { useSlidePlaybackActive } from "./slide-playback-context";
+import { useSlidePlaybackActive, useSlideProgressReady } from "./slide-playback-context";
 import { croppedMediaStyle, cropViewportStyle, resolveSlideCrop } from "@/lib/editor/slide-crop";
 import { resolveSlideMedia } from "@/lib/editor/slide-objects";
 import { defaultSlideAudioSize, slideAudioSizes } from "@/lib/editor/slide-audio";
@@ -27,11 +27,18 @@ export function SlideMediaPlayer({ block, onDimensions, onDurationChange, onEnde
   onProgress?: (progress: PlaybackProgress) => void;
 }) {
   const slideActive = useSlidePlaybackActive();
-  const active = slideActive && !decorative;
+  const progressReady = useSlideProgressReady();
+  const active = slideActive && !decorative && (block.type !== "video" || progressReady);
   const { events: playback } = useRequiredMediaPlayback(block.data.src, requireFullPlayback, onEnded, active, { enabled: trackProgress && !decorative, completed, initial: initialProgress, onProgress });
   const mediaRef = useRef<HTMLMediaElement>(null);
   const trackRef = useRef<HTMLTrackElement>(null);
   const pointerFocus = useRef(false);
+  const videoVisit = useRef({ source: block.data.src, entered: false, active: false, left: false, resetOnMetadata: false });
+  const readVideoSettings = useEffectEvent(() => ({ completed, revisitBehavior: block.slidePlayback?.revisitBehavior ?? "restart" }));
+  const reportCachedDuration = useEffectEvent((media: HTMLMediaElement) => {
+    // Metadata can arrive before hydration attaches React's media listeners.
+    if (media.readyState >= 1) reportDuration(media);
+  });
   const [playing, setPlaying] = useState(false);
   const [hovered, setHovered] = useState(false);
   const [keyboardFocused, setKeyboardFocused] = useState(false);
@@ -69,6 +76,7 @@ export function SlideMediaPlayer({ block, onDimensions, onDurationChange, onEnde
     if (decorative) return;
     const media = mediaRef.current;
     if (!media) return;
+    reportCachedDuration(media);
     let cancelled = false;
     const play = () => {
       const promise = media.play();
@@ -76,18 +84,36 @@ export function SlideMediaPlayer({ block, onDimensions, onDurationChange, onEnde
     };
     const restart = () => {
       if (!active) return;
+      videoVisit.current.resetOnMetadata = block.type === "video" && media.readyState === 0;
       media.currentTime = 0;
       play();
     };
     media.addEventListener(slideMediaRestartEvent, restart);
-    if (active && autoPlay && block.data.src) play();
+    let allowAutoplay = true;
+    if (block.type === "video") {
+      if (videoVisit.current.source !== block.data.src) videoVisit.current = { source: block.data.src, entered: false, active: false, left: false, resetOnMetadata: false };
+      const visit = videoVisit.current;
+      const settings = readVideoSettings();
+      if (active && !visit.active) {
+        if (visit.entered && settings.revisitBehavior === "restart") {
+          // Rewind only the playhead; the progress guard keeps verified viewing.
+          visit.resetOnMetadata = media.readyState === 0;
+          media.currentTime = 0;
+        }
+        visit.entered = true;
+      }
+      if (!active && visit.entered) visit.left = true;
+      visit.active = active;
+      allowAutoplay = !visit.left && !settings.completed;
+    }
+    if (active && autoPlay && allowAutoplay && block.data.src) play();
     if (!active && !media.paused) media.pause();
     return () => {
       cancelled = true;
       media.removeEventListener(slideMediaRestartEvent, restart);
       if (!media.paused) media.pause();
     };
-  }, [active, autoPlay, block.data.src, decorative]);
+  }, [active, autoPlay, block.data.src, block.type, decorative]);
 
   function togglePlayback() {
     const media = mediaRef.current;
@@ -98,6 +124,11 @@ export function SlideMediaPlayer({ block, onDimensions, onDurationChange, onEnde
   function metadata(event: SyntheticEvent<HTMLMediaElement>) {
     playback.onLoadedMetadata(event);
     const media = event.currentTarget;
+    if (active && block.type === "video" && videoVisit.current.resetOnMetadata) {
+      videoVisit.current.resetOnMetadata = false;
+      media.currentTime = 0;
+    }
+    if (crop) setTime(media.currentTime);
     if (crop) setDuration(Number.isFinite(media.duration) ? media.duration : 0);
     reportDuration(media);
     if (media instanceof HTMLVideoElement && media.videoWidth && media.videoHeight) onDimensions?.({ width: media.videoWidth, height: media.videoHeight });
@@ -118,15 +149,14 @@ export function SlideMediaPlayer({ block, onDimensions, onDurationChange, onEnde
   }
   const common = {
     "data-slide-media-player": decorative ? undefined : block.id,
-    controls: !crop && controls, autoPlay: active && autoPlay && Boolean(block.data.src), loop: loop && !requireFullPlayback, preload: decorative ? "none" as const : "metadata" as const,
+    controls: !crop && controls, autoPlay: block.type !== "video" && active && autoPlay && Boolean(block.data.src), loop: loop && !requireFullPlayback, preload: decorative ? "none" as const : "metadata" as const,
     muted: decorative || muted,
     src: block.data.src || undefined, onEnded: end, onLoadedMetadata: metadata,
     onSeeking: playback.onSeeking, onSeeked: playback.onSeeked,
     onPlay: () => setPlaying(true), onPause: () => setPlaying(false),
     onTimeUpdate: (event: SyntheticEvent<HTMLMediaElement>) => { playback.onTimeUpdate(event); if (crop) setTime(event.currentTarget.currentTime); },
-    onDurationChange: () => {
-      const media = mediaRef.current;
-      if (!media) return;
+    onDurationChange: (event: SyntheticEvent<HTMLMediaElement>) => {
+      const media = event.currentTarget;
       if (crop) setDuration(Number.isFinite(media.duration) ? media.duration : 0);
       reportDuration(media);
     },

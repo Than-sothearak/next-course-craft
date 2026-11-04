@@ -94,6 +94,7 @@ export const slidePlaybackSchema = z.object({
   loop: z.boolean().optional(),
   muted: z.boolean().optional(),
   showControls: z.boolean().default(true),
+  revisitBehavior: z.enum(["restart", "continue"]).optional(),
   showFileName: z.boolean().optional(),
   audioSize: z.enum(["small", "medium", "large"]).optional(),
   fitHeight: z.boolean().optional(),

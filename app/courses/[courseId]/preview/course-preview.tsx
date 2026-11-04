@@ -5,6 +5,7 @@ import { Menu, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { defaultCourseNavigationMode } from "@/lib/editor/navigation";
 import { MediaProgressProvider, useMediaProgress } from "@/components/media-progress-context";
+import { SlideProgressReadyContext } from "@/app/courses/[courseId]/_components/slide-presentation/slide-playback-context";
 import {
   canNavigateToLesson,
   getInitiallyViewedInteractionIds,
@@ -385,7 +386,9 @@ function CoursePreviewContent({
           onBack={onBack}
           onEdit={onEdit ? editCurrentContent : undefined}
         >
-          <LessonReaderPreview {...lessonReaderProps} />
+          <SlideProgressReadyContext value={progressState.progressReady}>
+            <LessonReaderPreview {...lessonReaderProps} />
+          </SlideProgressReadyContext>
         </SlidePresentationPreview>
       </main>
     );

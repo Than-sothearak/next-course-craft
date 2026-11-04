@@ -537,6 +537,7 @@ export function useCoursePreviewProgress({
 
 
   return {
+    progressReady: progressLoadedCourseId === courseId,
     lessonBodyScrollRefs,
     visitedLessonIds,
     setVisitedLessonIds,

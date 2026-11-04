@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { finishMediaPlayback } from "./helpers/media-playback";
+import { finishMediaPlayback, setMediaPlayback } from "./helpers/media-playback";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -11,6 +11,7 @@ import { audioBlockSchema, blockSchema, videoBlockSchema } from "@/lib/schemas/b
 import { editorSnapshotSchema } from "@/lib/editor/schemas";
 import { parseScorm12Snapshot } from "@/lib/scorm12/snapshot";
 import { slideMediaRestartEvent } from "@/lib/editor/slide-playback";
+import { mediaProgressSource } from "@/lib/export/media-playback";
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 const video = videoBlockSchema.parse({ id: "video", version: 1, type: "video", slidePlayback: { autoPlay: true, showControls: false }, data: { src: "/clip.webm", mimeType: "video/webm" } });
@@ -73,8 +74,119 @@ describe("presentation media playback", () => {
     expect(blockSchema.safeParse({ ...video, slidePlayback: { autoPlay: "yes" } }).success).toBe(false);
     expect(blockSchema.safeParse({ ...audio, slidePlayback: { showFileName: "false" } }).success).toBe(false);
     expect(videoBlockSchema.safeParse({ ...video, slidePlayback: { loop: "yes" } }).success).toBe(false);
+    expect(videoBlockSchema.safeParse({ ...video, slidePlayback: { revisitBehavior: "replay" } }).success).toBe(false);
+    const continuing = videoBlockSchema.parse({ ...video, slidePlayback: { revisitBehavior: "continue" } });
+    expect(editorSnapshotSchema.parse({ ...snapshot, lessons: [{ ...snapshot.lessons[0], blocks: [continuing] }] }).lessons[0].blocks[0]).toMatchObject({ slidePlayback: { revisitBehavior: "continue" } });
+    expect(parseScorm12Snapshot({ ...snapshot, lessons: [{ ...snapshot.lessons[0], blocks: [continuing] }] }).lessons[0].blocks[0]).toMatchObject({ slidePlayback: { revisitBehavior: "continue" } });
     expect(audioBlockSchema.parse({ ...audio, slidePlayback: { loop: true, muted: true } })).toMatchObject({ slidePlayback: { loop: true, muted: true } });
     expect(parseScorm12Snapshot(snapshot).lessons[0].blocks).toMatchObject([video, audio]);
+  });
+
+  it("offers Restart by default and saves the video's Continue option", async () => {
+    const onChange = vi.fn();
+    await act(async () => root.render(<SlidePlaybackControls block={video} onChange={onChange} />));
+    const select = container.querySelector<HTMLSelectElement>('[aria-label="Video behavior when returning to slide"]')!;
+    expect(select.value).toBe("restart");
+    await act(async () => { select.value = "continue"; select.dispatchEvent(new Event("change", { bubbles: true })); });
+    expect(onChange).toHaveBeenLastCalledWith({ ...video, slidePlayback: { ...video.slidePlayback, revisitBehavior: "continue" } });
+    await act(async () => root.render(<SlidePlaybackControls block={onChange.mock.lastCall![0]} onChange={onChange} />));
+    expect(container.querySelector<HTMLSelectElement>("select")!.value).toBe("continue");
+    await act(async () => root.render(<SlidePlaybackControls block={audio} onChange={onChange} />));
+    expect(container.querySelector("select")).toBeNull();
+  });
+
+  it.each([undefined, "restart", "continue"] as const)("keeps revisited videos paused with behavior %s, including after ending", async (revisitBehavior) => {
+    const block = videoBlockSchema.parse({ ...video, slidePlayback: { ...video.slidePlayback, revisitBehavior } });
+    await render(block);
+    const player = media();
+    expect(player.autoplay).toBe(false); // The effect controls first-visit autoplay.
+    setMediaPlayback(player, [[0, 7.35]], 7.35);
+    await render(block, false);
+    expect(player.paused).toBe(true);
+    await render(block, true);
+    expect(media()).toBe(player);
+    expect(player.currentTime).toBe(revisitBehavior === "continue" ? 7.35 : 0);
+    expect(player.paused).toBe(true);
+    expect(play).toHaveBeenCalledTimes(1);
+    await act(async () => finishMediaPlayback(player));
+    await render(block, false); await render(block, true);
+    expect(player.currentTime).toBe(revisitBehavior === "continue" ? 10 : 0);
+    expect(player.paused).toBe(true);
+    expect(play).toHaveBeenCalledTimes(1);
+    await act(async () => player.dispatchEvent(new Event(slideMediaRestartEvent)));
+    expect(player.currentTime).toBe(0);
+    expect(player.paused).toBe(false);
+    expect(play).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(["restart", "continue"] as const)("preserves exact video state, verified progress and completion through real slide navigation (%s)", async (revisitBehavior) => {
+    const save = vi.fn();
+    const data = { ...snapshot, courseId: `revisit-${revisitBehavior}`, lessons: [
+      { ...snapshot.lessons[0], blocks: [videoBlockSchema.parse({ ...video, slidePlayback: { ...video.slidePlayback, revisitBehavior } })] },
+      { ...snapshot.lessons[1], blocks: [] },
+    ] };
+    const control = (name: string) => container.querySelector<HTMLButtonElement>(`[data-slide-active="true"] [aria-label="${name}"]`)!;
+    await act(async () => root.render(<CoursePreview initialData={data} authorName="" standalone persistLocalProgress={false} progressAdapter={{ load: () => null, save }} />));
+    await act(async () => vi.advanceTimersByTimeAsync(50));
+    const player = media();
+    setMediaPlayback(player, [[0, 4.7]], 4.7);
+    await act(async () => player.dispatchEvent(new Event("timeupdate")));
+    const partial = save.mock.lastCall![1].mediaProgress["video:watched"];
+    expect(partial.seconds).toBe(4);
+    await act(async () => control("Next").click());
+    expect(player.paused).toBe(true);
+    await act(async () => control("Previous").click());
+    expect(media()).toBe(player);
+    expect(player.currentTime).toBe(revisitBehavior === "continue" ? 4.7 : 0);
+    expect(player.paused).toBe(true);
+    expect(play).toHaveBeenCalledTimes(1);
+    expect(save.mock.lastCall![1].mediaProgress["video:watched"]).toEqual(partial);
+    player.currentTime = 9;
+    await act(async () => player.dispatchEvent(new Event("seeking")));
+    expect(player.currentTime).toBe(4.7);
+    await act(async () => player.dispatchEvent(new Event("ended")));
+    expect(save.mock.lastCall![1].interactedContentIds).not.toContain("video:watched");
+    await act(async () => finishMediaPlayback(player));
+    await act(async () => control("Next").click());
+    await act(async () => control("Previous").click());
+    expect(player.currentTime).toBe(revisitBehavior === "continue" ? 10 : 0);
+    expect(player.paused).toBe(true);
+    expect(play).toHaveBeenCalledTimes(1);
+    expect(save.mock.lastCall![1].interactedContentIds).toContain("video:watched");
+  });
+
+  it("restores completed video progress before deciding whether to autoplay", async () => {
+    const save = vi.fn();
+    await act(async () => root.render(<CoursePreview initialData={{ ...snapshot, courseId: "completed-video" }} authorName="" standalone progressAdapter={{ load: () => ({ visitedLessonIds: [], lessonScrollProgress: {}, selectedLessonId: "second", revealedDividerIds: [], completedDividerIds: [], interactedContentIds: ["other-video:watched"] }), save }} />));
+    expect(play).toHaveBeenCalledTimes(1); // The first slide's audio keeps its existing behavior.
+    await act(async () => vi.advanceTimersByTimeAsync(50));
+    expect(container.querySelector('#preview-content-second')?.getAttribute("aria-hidden")).toBe("false");
+    expect(container.querySelector<HTMLMediaElement>('#preview-content-second video')!.paused).toBe(true);
+    expect(play).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps initial checkpoint resume but rewinds a revisit whose metadata arrives late", async () => {
+    const block = videoBlockSchema.parse({ ...video, slidePlayback: { autoPlay: false } });
+    const initialProgress = { source: mediaProgressSource(block.data.src), seconds: 4, duration: 10 };
+    const onProgress = vi.fn();
+    const renderTracked = (key: string, active = true) => act(async () => root.render(
+      <SlidePlaybackContext value={active}><SlideMediaPlayer key={key} block={block} trackProgress requireFullPlayback initialProgress={initialProgress} onProgress={onProgress} /></SlidePlaybackContext>,
+    ));
+    await renderTracked("initial");
+    setMediaPlayback(media(), [], 0);
+    await act(async () => media().dispatchEvent(new Event("loadedmetadata")));
+    expect(media().currentTime).toBe(4);
+    await renderTracked("delayed");
+    await renderTracked("delayed", false); await renderTracked("delayed", true);
+    setMediaPlayback(media(), [], 0);
+    await act(async () => media().dispatchEvent(new Event("loadedmetadata")));
+    expect(media().currentTime).toBe(0);
+    expect(media().paused).toBe(true);
+    expect(onProgress).toHaveBeenLastCalledWith(initialProgress);
+    media().currentTime = 9;
+    await act(async () => media().dispatchEvent(new Event("seeking")));
+    expect(media().currentTime).toBe(4);
+    expect(play).not.toHaveBeenCalled();
   });
 
   it.each([video, audio])( "offers persistent loop and mute controls by default ($type)", async (block) => {
@@ -277,6 +389,35 @@ describe("presentation media playback", () => {
     expect(save.mock.calls.at(-1)![1].interactedContentIds).toEqual(expect.arrayContaining(["video:watched", "audio:listened"]));
   });
 
+  it("shows cached video durations in the menu before playback, including unvisited and cropped videos", async () => {
+    vi.spyOn(HTMLMediaElement.prototype, "readyState", "get").mockReturnValue(1);
+    vi.spyOn(HTMLMediaElement.prototype, "duration", "get").mockImplementation(function (this: HTMLMediaElement) {
+      return this.dataset.slideMediaPlayer === "video" ? 70 : 40;
+    });
+    const data = { ...snapshot, courseId: "cached-video-durations", lessons: snapshot.lessons.map((lesson, index) => ({
+      ...lesson, blocks: [videoBlockSchema.parse({
+        ...video, id: index === 0 ? "video" : "other-video", slidePlayback: { autoPlay: false },
+        ...(index === 1 ? { slideCrop: { source: video.data.src, x: 25, y: 0, width: 50, height: 100 }, slideMedia: { source: video.data.src, width: 1600, height: 900 } } : {}),
+      })],
+    })) };
+    await act(async () => root.render(<CoursePreview initialData={data} authorName="" standalone progressAdapter={{ load: () => null, save: vi.fn() }} />));
+    await act(async () => vi.advanceTimersByTimeAsync(50));
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Open slide menu"]')!.click());
+    const assertDurations = () => {
+      expect(container.querySelector('[aria-label="Total media duration: 1:50"]')).not.toBeNull();
+      expect(container.textContent).toContain("Slide 1 · 1:10 min");
+      expect(container.textContent).toContain("Slide 2 · 0:40 min");
+    };
+    assertDurations();
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Close slide menu"]')!.click());
+    await act(async () => container.querySelector<HTMLButtonElement>('[data-slide-active="true"] [aria-label="Next"]')!.click());
+    await act(async () => container.querySelector<HTMLButtonElement>('[data-slide-active="true"] [aria-label="Previous"]')!.click());
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Open slide menu"]')!.click());
+    assertDurations();
+    expect(play).not.toHaveBeenCalled();
+    expect([...container.querySelectorAll<HTMLMediaElement>("video")].every((player) => player.paused)).toBe(true);
+  });
+
   it("shows known per-slide media durations and the total in the presentation menu", async () => {
     await act(async () => root.render(<CoursePreview initialData={{ ...snapshot, courseId: "media-duration-menu" }} initialLessonId="first" authorName="Author" standalone progressAdapter={{ load: () => null, save: vi.fn() }} />));
     await act(async () => vi.advanceTimersByTimeAsync(50));
@@ -305,8 +446,8 @@ describe("presentation media playback", () => {
     }
 
     expect(container.querySelector('[aria-label="Total media duration: 2:10"]')).not.toBeNull();
-    expect(container.textContent).toContain("Slide · 1:30");
-    expect(container.textContent).toContain("Slide · 0:40");
+    expect(container.textContent).toContain("Slide 1 · 1:30 min");
+    expect(container.textContent).toContain("Slide 2 · 0:40 min");
 
     const audioPlayer = container.querySelector<HTMLMediaElement>(
       '[data-slide-media-player="audio"]',
