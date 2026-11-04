@@ -1,6 +1,7 @@
 import { createElement } from "react";
 import { createRoot } from "react-dom/client";
 import "../../app/globals.css";
+import { registerMediaProgressSource } from "../../lib/export/media-playback";
 import { createScorm2004ProgressAdapter, createScormProgressAdapter } from "./scorm-runtime";
 import {
   CoursePreview,
@@ -32,7 +33,9 @@ void (async () => {
   const mediaSources = new Map<string, string>();
   for (const [id, dataUri] of Object.entries(window.COURSE_EXPORT_MEDIA ?? {})) {
     const blob = await fetch(dataUri).then((response) => response.blob());
-    mediaSources.set(id, URL.createObjectURL(blob));
+    const src = URL.createObjectURL(blob);
+    mediaSources.set(id, src);
+    registerMediaProgressSource(src, id);
   }
   function resolveMedia(value: unknown): unknown {
     if (typeof value === "string") return value.replace(/coursecraft-media:([\da-f]{24})/gi, (match, id: string) => mediaSources.get(id.toLowerCase()) ?? match);

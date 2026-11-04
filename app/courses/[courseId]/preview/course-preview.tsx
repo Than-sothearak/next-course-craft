@@ -11,7 +11,9 @@ import {
 import { Menu, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { defaultCourseNavigationMode } from "@/lib/editor/navigation";
-import { getCourseProgress } from "@/lib/editor/preview";
+import { getCourseProgress } from "@/lib/export/progress";
+import { MediaProgressProvider, useMediaProgress } from "@/components/media-progress-context";
+import { mediaProgressSource, validMediaProgress } from "@/lib/export/media-playback";
 import {
   getSlideMediaBlockIds,
   sumKnownMediaDurations,
@@ -24,6 +26,7 @@ import {
   getPendingInteractiveProgressIds,
   getPendingRequiredContinueDividerIds,
   getRestrictedLessonProgress,
+  getPresentationLessonProgress,
   getLessonReadingProgress,
   hasReachedContentEnd,
   type LearnerProgressAdapter,
@@ -62,17 +65,7 @@ function authorInitials(name: string) {
   );
 }
 
-export function CoursePreview({
-  initialData,
-  authorName,
-  initialLessonId,
-  standalone = false,
-  onEdit,
-  progressAdapter,
-  persistLocalProgress = true,
-  canPublish = true,
-  onBack,
-}: {
+type CoursePreviewProps = {
   initialData: PreviewData;
   authorName: string;
   initialLessonId?: string;
@@ -82,7 +75,24 @@ export function CoursePreview({
   persistLocalProgress?: boolean;
   canPublish?: boolean;
   onBack?: () => void;
-}) {
+};
+
+export function CoursePreview(props: CoursePreviewProps) {
+  return <MediaProgressProvider key={props.initialData.courseId}><CoursePreviewContent {...props} /></MediaProgressProvider>;
+}
+
+function CoursePreviewContent({
+  initialData,
+  authorName,
+  initialLessonId,
+  standalone = false,
+  onEdit,
+  progressAdapter,
+  persistLocalProgress = true,
+  canPublish = true,
+  onBack,
+}: CoursePreviewProps) {
+  const { mediaProgress, restoreMediaProgress } = useMediaProgress();
   const slideCourse = initialData.courseLayout === "slides";
   const firstSlideId = slideCourse
     ? ([...initialData.sections]
@@ -199,6 +209,7 @@ export function CoursePreview({
   const progress = getCourseProgress(
     completedLessonIds,
     lessons.map((lesson) => lesson.id),
+    slideCourse ? lessonScrollProgress : {},
   );
   const completedLessonCount = completedLessonIds.size;
   const slideMediaDurations = useMemo(
@@ -289,14 +300,21 @@ export function CoursePreview({
               }
             : parsed;
         }
+        const restoredMediaProgress = validMediaProgress(snapshot?.mediaProgress);
+        if (slideCourse) restoreMediaProgress(restoredMediaProgress);
         const restoredInteractedContentIds = new Set([
           ...(snapshot?.interactedContentIds ?? []),
           ...(snapshot?.interactedFlipCardIds ?? []),
         ]);
+        for (const lesson of lessons) for (const block of lesson.blocks) {
+          if (block.type !== "audio" && block.type !== "video") continue;
+          const id = `${block.id}:${block.type === "video" ? "watched" : "listened"}`;
+          if (restoredMediaProgress[id] && restoredMediaProgress[id].source !== mediaProgressSource(block.data.src)) restoredInteractedContentIds.delete(id);
+        }
         const restoredProgressLesson =
           lessons.find((lesson) => lesson.id === initialLessonId) ??
           lessons.find((lesson) => lesson.id === snapshot?.selectedLessonId);
-        if (restoredProgressLesson && restoredProgressLesson.lessonType !== "quiz") {
+        if (!slideCourse && restoredProgressLesson && restoredProgressLesson.lessonType !== "quiz") {
           getInitiallyViewedInteractionIds(restoredProgressLesson.blocks).forEach(
             (id) => restoredInteractedContentIds.add(id),
           );
@@ -306,19 +324,23 @@ export function CoursePreview({
         };
         for (const lesson of lessons) {
           if (
-            lesson.lessonType === "quiz" ||
-            (restoredLessonScrollProgress[lesson.id] ?? 0) < 100
+            lesson.lessonType === "quiz"
           ) continue;
+          const actionProgress = slideCourse ? getPresentationLessonProgress(lesson.blocks, restoredInteractedContentIds, restoredMediaProgress, new Set(snapshot?.revealedDividerIds ?? [])) : null;
+          if (actionProgress !== null) {
+            restoredLessonScrollProgress[lesson.id] = actionProgress;
+            continue;
+          }
           const pendingActivities = getPendingInteractiveProgressIds(
             lesson.blocks,
             restoredInteractedContentIds,
           );
           if (pendingActivities.length) {
-            restoredLessonScrollProgress[lesson.id] = getRestrictedLessonProgress(
+            restoredLessonScrollProgress[lesson.id] = Math.min(restoredLessonScrollProgress[lesson.id] ?? 0, getRestrictedLessonProgress(
               100,
               lesson.blocks,
               restoredInteractedContentIds,
-            );
+            ));
           }
         }
         setVisitedLessonIds((current) =>
@@ -355,7 +377,7 @@ export function CoursePreview({
         );
         const progressLesson = selectedPreviewLesson ?? resumedLesson;
         if (
-          progressLesson &&
+          !slideCourse && progressLesson &&
           progressLesson.id !== restoredProgressLesson?.id &&
           progressLesson.lessonType !== "quiz"
         ) {
@@ -396,6 +418,7 @@ export function CoursePreview({
     lessons,
     persistLocalProgress,
     progressAdapter,
+    restoreMediaProgress,
     slideCourse,
   ]);
 
@@ -413,6 +436,7 @@ export function CoursePreview({
             flipCardProgressIds.has(id),
           ),
           interactedContentIds: [...interactedContentIds],
+          ...(Object.keys(mediaProgress).length ? { mediaProgress } : {}),
           selectedLessonId,
           quizScores,
           passedQuizIds: [...passedQuizIds],
@@ -434,6 +458,7 @@ export function CoursePreview({
             flipCardProgressIds.has(id),
           ),
           interactedContentIds: [...interactedContentIds],
+          ...(Object.keys(mediaProgress).length ? { mediaProgress } : {}),
           selectedLessonId,
           quizScores,
           passedQuizIds: [...passedQuizIds],
@@ -456,6 +481,7 @@ export function CoursePreview({
     completedDividerIds,
     interactedContentIds,
     flipCardProgressIds,
+    mediaProgress,
     selectedLessonId,
   ]);
 
@@ -494,7 +520,8 @@ export function CoursePreview({
       const revealedContinueCount = continueDividers.filter((block) =>
         revealedDividerIds.has(block.id),
       ).length;
-      const reachedEnd = hasReachedContentEnd(element);
+      const actionProgress = slideCourse ? getPresentationLessonProgress(lesson.blocks, interactedContentIds, mediaProgress, revealedDividerIds) : null;
+      const reachedEnd = actionProgress !== null || hasReachedContentEnd(element);
       const pendingRequiredActivities = getPendingInteractiveProgressIds(
         lesson.blocks,
         interactedContentIds,
@@ -508,13 +535,13 @@ export function CoursePreview({
         revealedContinueCount,
         totalContinueCount: continueDividers.length,
       });
-      const trackedProgress = getRestrictedLessonProgress(
+      const trackedProgress = actionProgress ?? getRestrictedLessonProgress(
         readingProgress,
         lesson.blocks,
         interactedContentIds,
       );
       setLessonScrollProgress((previous) =>
-        (previous[lesson.id] ?? 0) >= trackedProgress
+        (actionProgress === null ? (previous[lesson.id] ?? 0) >= trackedProgress : previous[lesson.id] === trackedProgress)
           ? previous
           : { ...previous, [lesson.id]: trackedProgress },
       );
@@ -559,6 +586,8 @@ export function CoursePreview({
     [
       completedDividerIds,
       interactedContentIds,
+      mediaProgress,
+      slideCourse,
       navigationMode,
       passedQuizIds,
       revealedDividerIds,
@@ -635,7 +664,7 @@ export function CoursePreview({
         return next;
       });
     }
-    if (lesson && lesson.lessonType !== "quiz") {
+    if (!slideCourse && lesson && lesson.lessonType !== "quiz") {
       const initiallyViewedIds = getInitiallyViewedInteractionIds(
         lesson.blocks,
       );

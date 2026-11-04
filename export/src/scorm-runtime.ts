@@ -7,6 +7,7 @@ import {
   getInteractiveBlockProgressIds,
 } from "../../lib/export/progress";
 import type { ContentBlock } from "../../lib/schemas/block";
+import { validMediaProgress } from "../../lib/export/media-playback";
 
 type Scorm12Api = {
   LMSInitialize(parameter: ""): string | boolean;
@@ -67,6 +68,7 @@ type PackedState = {
   q?: string;
   l: number;
   m?: 1;
+  t?: Array<[number, string, number, number]>;
 };
 
 const SUSPEND_DATA_LIMIT = 4000;
@@ -420,6 +422,10 @@ function createProgressAdapter(
       }
     });
 
+    const mediaEntries = Object.entries(validMediaProgress(snapshot.mediaProgress)).flatMap(([id, progress]) => {
+      const index = interactionIndex.get(id);
+      return index === undefined ? [] : [[index, progress.source, progress.seconds, progress.duration] as [number, string, number, number]];
+    });
     const fullState: PackedState = {
       k: versionKey,
       v: encodeBits(host, lessons.length, visitedIndexes),
@@ -433,6 +439,7 @@ function createProgressAdapter(
         : {}),
       q: toBase64(host, quizScoreBytes),
       l: selectedIndex,
+      ...(mediaEntries.length ? { t: mediaEntries } : {}),
     };
     let serialized = JSON.stringify(fullState);
     if (serialized.length <= SUSPEND_DATA_LIMIT) return serialized;
@@ -487,6 +494,11 @@ function createProgressAdapter(
         : {}),
       m: 1,
     };
+    serialized = JSON.stringify(compactState);
+    if (serialized.length <= SUSPEND_DATA_LIMIT) return serialized;
+
+    // Partial media checkpoints are expendable; completion/gate state has priority.
+    delete compactState.t;
     serialized = JSON.stringify(compactState);
     if (serialized.length <= SUSPEND_DATA_LIMIT) return serialized;
 
@@ -584,6 +596,13 @@ function createProgressAdapter(
               : completed
                 ? interactionIds
                 : interactedFlipCardIds;
+            const mediaProgress = validMediaProgress(Object.fromEntries(
+              Array.isArray(state.t) ? state.t.flatMap((entry) => {
+                if (!Array.isArray(entry) || entry.length !== 4 || !Number.isInteger(entry[0])) return [];
+                const id = interactionIds[entry[0]];
+                return id ? [[id, { source: entry[1], seconds: entry[2], duration: entry[3] }]] : [];
+              }) : [],
+            ));
             return {
               visitedLessonIds,
               lessonScrollProgress,
@@ -604,6 +623,7 @@ function createProgressAdapter(
               selectedLessonId: lessonIds[selectedIndex] ?? null,
               ...(flipCards.length ? { interactedFlipCardIds } : {}),
               ...(state.i !== undefined ? { interactedContentIds } : {}),
+              ...(Object.keys(mediaProgress).length ? { mediaProgress } : {}),
               ...(quizLessons.length ? { quizScores, passedQuizIds } : {}),
             };
           }

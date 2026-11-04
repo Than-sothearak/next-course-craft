@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CoursePreview } from "@/app/courses/[courseId]/preview/course-preview";
 import { editorSnapshotSchema } from "@/lib/editor/schemas";
 import type { LearnerProgressSnapshot } from "@/lib/export/progress";
+import { finishMediaPlayback } from "./helpers/media-playback";
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
@@ -59,7 +60,7 @@ describe("presentation requirements in learner navigation", () => {
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Open slide menu"]')!.click());
     expect(container.querySelector<HTMLButtonElement>('[aria-label^="Next slide. Locked"]')?.disabled).toBe(true);
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Close slide menu"]')!.click());
-    await act(async () => container.querySelector("video")!.dispatchEvent(new Event("ended"))); await settle();
+    await act(async () => finishMediaPlayback(container.querySelector("video")!)); await settle();
     expect(snapshot().interactedContentIds).toContain("video:watched"); expect(next().disabled).toBe(true);
     await act(async () => container.querySelector<HTMLInputElement>('input[type="radio"]')!.click());
     await act(async () => [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent?.trim() === "Check answer")!.click()); await settle();

@@ -11,16 +11,24 @@ import { croppedMediaStyle, cropViewportStyle, resolveSlideCrop } from "@/lib/ed
 import { resolveSlideMedia } from "@/lib/editor/slide-objects";
 import { defaultSlideAudioSize, slideAudioSizes } from "@/lib/editor/slide-audio";
 import { SlideColorOverlay } from "./slide-color-overlay";
+import { useRequiredMediaPlayback } from "@/components/use-required-media-playback";
+import type { MediaPlaybackProgress as PlaybackProgress } from "@/lib/export/media-playback";
 
-export function SlideMediaPlayer({ block, onDimensions, onDurationChange, onEnded, decorative = false }: {
+export function SlideMediaPlayer({ block, onDimensions, onDurationChange, onEnded, decorative = false, requireFullPlayback = false, trackProgress = false, completed = false, initialProgress, onProgress }: {
   block: Extract<ContentBlock, { type: "video" | "audio" }>;
   onDimensions?: (dimensions: { width: number; height: number }) => void;
   onDurationChange?: (duration: number | null) => void;
   onEnded?: () => void;
   decorative?: boolean;
+  requireFullPlayback?: boolean;
+  trackProgress?: boolean;
+  completed?: boolean;
+  initialProgress?: PlaybackProgress;
+  onProgress?: (progress: PlaybackProgress) => void;
 }) {
   const slideActive = useSlidePlaybackActive();
   const active = slideActive && !decorative;
+  const { events: playback } = useRequiredMediaPlayback(block.data.src, requireFullPlayback, onEnded, active, { enabled: trackProgress && !decorative, completed, initial: initialProgress, onProgress });
   const mediaRef = useRef<HTMLMediaElement>(null);
   const trackRef = useRef<HTMLTrackElement>(null);
   const pointerFocus = useRef(false);
@@ -88,6 +96,7 @@ export function SlideMediaPlayer({ block, onDimensions, onDurationChange, onEnde
     else void media.play()?.catch(() => setPlaying(false));
   }
   function metadata(event: SyntheticEvent<HTMLMediaElement>) {
+    playback.onLoadedMetadata(event);
     const media = event.currentTarget;
     if (crop) setDuration(Number.isFinite(media.duration) ? media.duration : 0);
     reportDuration(media);
@@ -100,18 +109,21 @@ export function SlideMediaPlayer({ block, onDimensions, onDurationChange, onEnde
         : null,
     );
   }
-  function end() {
+  function end(event: SyntheticEvent<HTMLMediaElement>) {
     if (!active) return;
     setPlaying(false);
-    onEnded?.();
+    const completed = playback.onEnded(event);
+    // The first pass needs an ended event; subsequent passes keep the authored loop.
+    if (completed && requireFullPlayback && loop) void event.currentTarget.play()?.catch(() => setPlaying(false));
   }
   const common = {
     "data-slide-media-player": decorative ? undefined : block.id,
-    controls: !crop && controls, autoPlay: active && autoPlay && Boolean(block.data.src), loop, preload: decorative ? "none" as const : "metadata" as const,
+    controls: !crop && controls, autoPlay: active && autoPlay && Boolean(block.data.src), loop: loop && !requireFullPlayback, preload: decorative ? "none" as const : "metadata" as const,
     muted: decorative || muted,
     src: block.data.src || undefined, onEnded: end, onLoadedMetadata: metadata,
+    onSeeking: playback.onSeeking, onSeeked: playback.onSeeked,
     onPlay: () => setPlaying(true), onPause: () => setPlaying(false),
-    onTimeUpdate: () => { if (crop && mediaRef.current) setTime(mediaRef.current.currentTime); },
+    onTimeUpdate: (event: SyntheticEvent<HTMLMediaElement>) => { playback.onTimeUpdate(event); if (crop) setTime(event.currentTarget.currentTime); },
     onDurationChange: () => {
       const media = mediaRef.current;
       if (!media) return;
@@ -145,7 +157,7 @@ export function SlideMediaPlayer({ block, onDimensions, onDurationChange, onEnde
     {crop && captionsEnabled && caption && <p data-cropped-video-caption className={`pointer-events-none absolute inset-x-3 whitespace-pre-line text-center text-sm text-white ${controls ? "bottom-12" : "bottom-3"}`}><span className="bg-black/80 px-1">{caption}</span></p>}
     {crop && controls && <div data-cropped-video-controls className="absolute inset-x-2 bottom-2 flex min-w-0 items-center gap-1 rounded-md bg-slate-950/85 p-1 text-white">
       <Button variant="ghost" size="icon" className="size-7 shrink-0 text-white hover:bg-white/20 hover:text-white" aria-label={playing ? "Pause video" : "Play video"} onClick={togglePlayback}>{playing ? <Pause size={14} /> : <Play size={14} />}</Button>
-      <Input type="range" aria-label="Video playback position" min={0} max={duration || 1} step={0.1} value={Math.min(time, duration)} disabled={!duration || !active} onChange={(event) => { if (mediaRef.current) mediaRef.current.currentTime = event.target.valueAsNumber; setTime(event.target.valueAsNumber); }} className="h-5 min-w-0 flex-1 border-0 bg-transparent p-0 accent-indigo-400 shadow-none" />
+      <Input type="range" aria-label="Video playback position" min={0} max={duration || 1} step={0.1} value={Math.min(time, duration)} disabled={!duration || !active} onChange={(event) => { const media = mediaRef.current; if (!media) return; media.currentTime = event.target.valueAsNumber; playback.onSeeking({ currentTarget: media }); setTime(media.currentTime); }} className="h-5 min-w-0 flex-1 border-0 bg-transparent p-0 accent-indigo-400 shadow-none" />
       <Button variant="ghost" size="icon" className="size-7 shrink-0 text-white hover:bg-white/20 hover:text-white" aria-label={muted ? "Unmute video" : "Mute video"} onClick={() => { if (mediaRef.current) { mediaRef.current.muted = !mediaRef.current.muted; setMuteOverride({ configured: configuredMuted, value: mediaRef.current.muted }); } }}>{muted ? <VolumeX size={14} /> : <Volume2 size={14} />}</Button>
       {block.type === "video" && block.data.captions && <Button variant="ghost" size="icon" className="size-7 shrink-0 text-white hover:bg-white/20 hover:text-white" aria-label={captionsEnabled ? "Hide video captions" : "Show video captions"} aria-pressed={captionsEnabled} onClick={() => setCaptionsEnabled(!captionsEnabled)}><Captions size={14} /></Button>}
     </div>}

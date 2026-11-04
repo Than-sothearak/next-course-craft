@@ -10,8 +10,8 @@ import { solidColor } from "@/lib/color";
 
 type Steps = Extract<ContentBlock, { type: "processSteps" }>["data"]["steps"];
 
-export function InteractiveProcessSteps({ blockId, steps, style = "cards", accentColor, showNumbers = true, onStepInteract }: {
-  blockId: string; steps: Steps; style?: ProcessStepsStyle; accentColor?: string; showNumbers?: boolean; onStepInteract?: (stepId: string) => void;
+export function InteractiveProcessSteps({ blockId, steps, style = "cards", accentColor, showNumbers = true, onStepInteract, presentation = false }: {
+  blockId: string; steps: Steps; style?: ProcessStepsStyle; accentColor?: string; showNumbers?: boolean; onStepInteract?: (stepId: string) => void; presentation?: boolean;
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const currentIndex = Math.min(activeIndex, steps.length - 1);
@@ -19,6 +19,7 @@ export function InteractiveProcessSteps({ blockId, steps, style = "cards", accen
   if (!activeStep) return null;
   const selectStep = (index: number) => {
     const next = Math.max(0, Math.min(index, steps.length - 1));
+    if (presentation) onStepInteract?.(activeStep.id);
     setActiveIndex(next);
     onStepInteract?.(steps[next].id);
   };

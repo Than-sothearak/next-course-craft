@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { finishMediaPlayback, setMediaPlayback } from "./helpers/media-playback";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -59,6 +60,19 @@ beforeEach(() => {
 afterEach(() => { act(() => root.unmount()); container.remove(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 describe("audio learner completion", () => {
+  it("keeps standard-mode reading and media completion progress unchanged during partial playback", async () => {
+    await render(course(), true);
+    const player = container.querySelector("audio")!;
+    setMediaPlayback(player, [[0, 20]], 20, 40);
+    act(() => player.dispatchEvent(new Event("timeupdate")));
+    await settle();
+    expect(snapshot!.lessonScrollProgress.first).toBe(50);
+    expect(snapshot!.mediaProgress).toBeUndefined();
+    expect(container.querySelector('[aria-label="Course completion"]')?.getAttribute("aria-valuenow")).toBe("0");
+    expect(container.querySelector("[data-media-progress]")).toBeNull();
+    expect(secondLesson().disabled).toBe(true);
+  });
+
   it.each([false, true])("unlocks restricted progression only after playback ends and restores completion (standalone=%s)", async (standalone) => {
     const data = course();
     await render(data, standalone);
@@ -70,7 +84,12 @@ describe("audio learner completion", () => {
     await settle();
     expect(snapshot!.interactedContentIds).not.toContain("lesson-audio:listened");
     expect(secondLesson().disabled).toBe(true);
+    setMediaPlayback(player, [[0, 2], [9, 10]], 10);
     act(() => player.dispatchEvent(new Event("ended")));
+    await settle();
+    expect(snapshot!.interactedContentIds).not.toContain("lesson-audio:listened");
+    expect(secondLesson().disabled).toBe(true);
+    act(() => finishMediaPlayback(player));
     await settle();
     expect(snapshot!.interactedContentIds).toContain("lesson-audio:listened");
     expect(snapshot!.visitedLessonIds).toContain("first");
@@ -91,7 +110,7 @@ describe("audio learner completion", () => {
     expect(snapshot!.lessonScrollProgress.first).toBe(50);
     expect(secondLesson().disabled).toBe(false);
     expect(container.querySelector('[aria-label="Course completion"]')?.getAttribute("aria-valuenow")).toBe("0");
-    act(() => container.querySelector("audio")!.dispatchEvent(new Event("ended")));
+    act(() => finishMediaPlayback(container.querySelector("audio")!));
     await settle();
     expect(snapshot!.visitedLessonIds).toContain("first");
     expect(snapshot!.lessonScrollProgress.first).toBe(100);
@@ -115,7 +134,7 @@ describe("audio learner completion", () => {
   it.each([false, true])("requires audio above a completion gate, including free navigation (standalone=%s)", async (standalone) => {
     await render(course("free", true), standalone);
     expect(continueButton().disabled).toBe(true);
-    act(() => container.querySelector("audio")!.dispatchEvent(new Event("ended")));
+    act(() => finishMediaPlayback(container.querySelector("audio")!));
     await settle();
     expect(continueButton().disabled).toBe(false);
     act(() => continueButton().click());

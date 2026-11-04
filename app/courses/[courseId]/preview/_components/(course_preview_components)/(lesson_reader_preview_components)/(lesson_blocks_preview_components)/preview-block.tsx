@@ -5,6 +5,9 @@ import type { ReactNode } from "react";
 import { CirclePlay } from "lucide-react";
 import { PreviewImage } from "../../../../preview-image";
 import { AudioPlayer } from "@/components/audio-player";
+import { useRequiredMediaPlayback } from "@/components/use-required-media-playback";
+import { useMediaProgress } from "@/components/media-progress-context";
+import type { MediaPlaybackProgress as PlaybackProgress } from "@/lib/export/media-playback";
 import { FileAttachmentLink } from "@/components/file-attachment-link";
 import { CourseLinkBlock } from "@/components/course-link-block";
 import { InteractiveAccordion, InteractiveFlipCard, InteractiveKnowledgeCheck, InteractiveLabeledGraphic, InteractiveProcessSteps, InteractiveSurvey } from "../../../../interactive-blocks";
@@ -62,6 +65,13 @@ export function PreviewBlock({
   authoring?: boolean;
   decorative?: boolean;
 }) {
+  const mediaProgressId = `${block.id}:${block.type === "video" ? "watched" : "listened"}`;
+  const { mediaProgress, reportMediaProgress } = useMediaProgress();
+  const completed = interactedContentIds?.has(mediaProgressId) ?? false;
+  const trackProgress = slideLayout && !authoring && !decorative && (block.type === "video" || block.type === "audio");
+  const requireFullPlayback = !authoring && !decorative && block.requiredForProgress !== false && !completed;
+  const tracking = { trackProgress, completed, initialProgress: mediaProgress[mediaProgressId], onProgress: (progress: PlaybackProgress) => reportMediaProgress(mediaProgressId, progress) };
+  const { events: videoPlayback } = useRequiredMediaPlayback(block.type === "video" ? block.data.src : "", requireFullPlayback, () => onInteractiveProgress?.(mediaProgressId), !authoring && !decorative, { enabled: trackProgress && block.type === "video", completed, initial: tracking.initialProgress, onProgress: tracking.onProgress });
   const widthClass = blockWidthClass(block);
   const style = blockSurfaceStyle(block, slideLayout);
   if (block.type === "hangingRopeCards") {
@@ -105,11 +115,11 @@ export function PreviewBlock({
   }
 
   if (slideLayout && isSlideMediaObject(block)) {
-    return <SlideMediaObject block={block} onDurationChange={onMediaDurationChange} onVideoEnded={() => onInteractiveProgress?.(`${block.id}:watched`)} />;
+    return <SlideMediaObject block={block} {...tracking} requireFullPlayback={requireFullPlayback} onDurationChange={onMediaDurationChange} onVideoEnded={() => onInteractiveProgress?.(`${block.id}:watched`)} />;
   }
 
   if (slideLayout && block.type === "gallery") return <SlideGallery images={block.data.images} />;
-  if (slideLayout && block.type === "audio") return <SlideMediaPlayer key={block.data.src} block={block} decorative={decorative} onDurationChange={onMediaDurationChange} onEnded={() => onInteractiveProgress?.(`${block.id}:listened`)} />;
+  if (slideLayout && block.type === "audio") return <SlideMediaPlayer key={block.data.src} block={block} {...tracking} requireFullPlayback={requireFullPlayback} decorative={decorative} onDurationChange={onMediaDurationChange} onEnded={() => onInteractiveProgress?.(`${block.id}:listened`)} />;
 
   let content: ReactNode;
   if (block.type === "heading") {
@@ -134,7 +144,7 @@ export function PreviewBlock({
       />
     );
   } else if (block.type === "audio") {
-    content = <AudioPlayer src={block.data.src} fileName={block.data.fileName} onEnded={() => onInteractiveProgress?.(`${block.id}:listened`)} />;
+    content = <AudioPlayer src={block.data.src} fileName={block.data.fileName} {...tracking} requireFullPlayback={requireFullPlayback} onEnded={() => onInteractiveProgress?.(`${block.id}:listened`)} />;
   } else if (block.type === "attachment") {
     content = <FileAttachmentLink href={block.data.src} fileName={block.data.fileName} size={block.data.size} />;
   } else if (block.type === "link") {
@@ -195,7 +205,7 @@ export function PreviewBlock({
         controls
         className="aspect-video w-full rounded-xl bg-black"
         src={block.data.src}
-        onEnded={() => onInteractiveProgress?.(`${block.id}:watched`)}
+        {...videoPlayback}
       >
         {block.data.captions && (
           <track
@@ -290,6 +300,7 @@ export function PreviewBlock({
     content = (
       <InteractiveProcessSteps
         blockId={block.id}
+        presentation={slideLayout}
         steps={block.data.steps}
         style={block.data.style}
         accentColor={block.data.accentColor}

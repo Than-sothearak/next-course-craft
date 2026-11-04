@@ -166,8 +166,10 @@ function InteractiveFlipCardItem({
       data-flip-card-id={card.id}
       data-slide-animation-item
       onClick={flip}
-      className={`cursor-pointer group w-full min-w-0 ${presentation ? "h-full min-h-0 overflow-hidden" : ""} ${flipCardStyleClasses[cardStyle]} text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-4`}
-      style={{ perspective: "1000px", borderRadius: layout?.borderRadius }}
+      className={`cursor-pointer group w-full min-w-0 ${presentation ? "h-full min-h-0" : ""} ${flipCardStyleClasses[cardStyle]} text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-4`}
+      // Orthographic rotation keeps slide faces inside their tightly fitted cells.
+      // Clip content on the faces themselves, never on the rotating card's button.
+      style={{ perspective: presentation ? undefined : "1000px", borderRadius: layout?.borderRadius }}
     >
       <span className={`grid w-full min-w-0 transition-transform duration-700 ease-[cubic-bezier(0.2,0.8,0.2,1)] motion-reduce:transition-none ${presentation ? "h-full min-h-0" : "min-h-52"}`} style={{ transform: flipped ? "rotateY(180deg)" : undefined, transformStyle: "preserve-3d" }}>
         <span

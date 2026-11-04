@@ -1,6 +1,7 @@
 import type { ContentBlock } from "@/lib/schemas/block";
 import type { CourseNavigationMode } from "@/lib/editor/navigation";
 import { isInteractionTarget } from "@/lib/editor/interaction-button";
+import { mediaProgressPercent, mediaProgressSource, type MediaProgress } from "./media-playback";
 
 export type LearnerProgressSnapshot = {
   visitedLessonIds: string[];
@@ -12,6 +13,7 @@ export type LearnerProgressSnapshot = {
   selectedLessonId: string | null;
   quizScores?: Record<string, number>;
   passedQuizIds?: string[];
+  mediaProgress?: MediaProgress;
 };
 
 export function getFlipCardProgressId(blockId: string, cardId: string) {
@@ -110,14 +112,31 @@ export function getRestrictedLessonProgress(
   );
   if (activityIds.length === 0) return readingProgress;
 
-  const completedActivityCount = activityIds.filter((id) =>
-    interactedContentIds.has(id),
-  ).length;
+  const completedActivityCount = activityIds.filter((id) => interactedContentIds.has(id)).length;
   const activityProgress = (completedActivityCount / activityIds.length) * 100;
 
-  // Reading and required activities each account for half of lesson progress.
-  // Floor the result so only full completion reaches 100.
+  // Standard lessons combine reading with completed activities.
   return Math.floor((readingProgress + activityProgress) / 2);
+}
+
+/** Presentation slides earn progress through actions, with no reading credit. */
+export function getPresentationLessonProgress(
+  blocks: readonly ContentBlock[],
+  interactedContentIds: ReadonlySet<string>,
+  mediaProgress: MediaProgress = {},
+  revealedDividerIds: ReadonlySet<string> = new Set(),
+): number | null {
+  const activityIds = blocks.filter((block) => block.requiredForProgress !== false).flatMap((block) => getInteractiveBlockProgressIds(block, blocks));
+  const continueIds = blocks.filter((block) => block.requiredForProgress !== false && block.type === "divider" && block.data.style === "continue").map((block) => block.id);
+  if (!activityIds.length && !continueIds.length) return null;
+  const completedActivityCount = activityIds.reduce((total, id) => {
+    if (interactedContentIds.has(id)) return total + 1;
+    const block = blocks.find((item) => (item.type === "audio" && `${item.id}:listened` === id) || (item.type === "video" && `${item.id}:watched` === id));
+    const partial = mediaProgress[id];
+    return total + (block && (block.type === "audio" || block.type === "video") && partial?.source === mediaProgressSource(block.data.src) ? mediaProgressPercent(partial) / 100 : 0);
+  }, 0);
+  const completedContinueCount = continueIds.filter((id) => revealedDividerIds.has(id)).length;
+  return Math.floor((completedActivityCount + completedContinueCount) / (activityIds.length + continueIds.length) * 100 + 1e-9);
 }
 
 export function getPendingRequiredContinueDividerIds(
@@ -183,11 +202,16 @@ export type LearnerProgressAdapter = {
   ): void;
 };
 
-export function getCourseProgress(visitedLessonIds: ReadonlySet<string>, lessonIds: readonly string[]) {
+export function getCourseProgress(visitedLessonIds: ReadonlySet<string>, lessonIds: readonly string[], partialProgress: Record<string, number> = {}) {
   const currentLessons = new Set(lessonIds);
   if (!currentLessons.size) return 0;
-  const completed = [...visitedLessonIds].filter((id) => currentLessons.has(id)).length;
-  return Math.round(completed / currentLessons.size * 100);
+  const total = [...currentLessons].reduce((sum, id) => {
+    const partial = Number.isFinite(partialProgress[id]) ? partialProgress[id] : 0;
+    return sum + (visitedLessonIds.has(id) ? 100 : Math.min(99, Math.max(0, partial)));
+  }, 0);
+  if (Object.keys(partialProgress).length === 0) return Math.round(total / currentLessons.size);
+  const fullyComplete = [...currentLessons].every((id) => visitedLessonIds.has(id));
+  return Math.min(fullyComplete ? 100 : 99, Math.round(total / currentLessons.size));
 }
 
 export function hasReachedContentEnd({ scrollHeight, clientHeight, scrollTop }: { scrollHeight: number; clientHeight: number; scrollTop: number }) {

@@ -1,4 +1,5 @@
 /** @vitest-environment jsdom */
+import { finishMediaPlayback, setMediaPlayback } from "./helpers/media-playback";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -47,7 +48,12 @@ describe("hidden media controls and restricted progress", () => {
   it.each([false, true])("keeps controls off after unlocking, replay, navigation and restored progress (standalone=%s)", async (standalone) => {
     const render = (key: string, resume: LearnerProgressSnapshot | null = null) => act(async () => root.render(<CoursePreview key={key} initialData={data} authorName="" initialLessonId="first" standalone={standalone} persistLocalProgress={false} progressAdapter={{ load: () => resume, save }} />));
     await render("initial"); await settle(); expect(control("Next").disabled).toBe(true); await assertHidden();
-    for (const player of players()) await act(async () => player.dispatchEvent(new Event("ended")));
+    for (const player of players()) {
+      setMediaPlayback(player, [[0, 2], [9, 10]], 10);
+      await act(async () => player.dispatchEvent(new Event("ended")));
+    }
+    await settle(); expect(control("Next").disabled).toBe(true);
+    for (const player of players()) await act(async () => finishMediaPlayback(player));
     await settle(); expect(control("Next").disabled).toBe(false); await assertHidden();
     const progress = save.mock.calls.at(-1)![1] as LearnerProgressSnapshot;
     expect(progress.interactedContentIds).toEqual(expect.arrayContaining(["video:watched", "cropped:watched", "audio:listened"]));

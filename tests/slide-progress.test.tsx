@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { finishMediaPlayback } from "./helpers/media-playback";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { describe, expect, it, vi } from "vitest";
@@ -113,7 +114,7 @@ describe("slide reading progress", () => {
     const next = [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent?.trim() === "Next")!;
     expect(next.disabled).toBe(true);
     expect(saved!.interactedContentIds).not.toContain("audio:listened");
-    await act(async () => { container.querySelector("audio")!.dispatchEvent(new Event("ended")); await new Promise((resolve) => setTimeout(resolve, 20)); });
+    await act(async () => { finishMediaPlayback(container.querySelector("audio")!); await new Promise((resolve) => setTimeout(resolve, 20)); });
     expect(saved!.interactedContentIds).toContain("audio:listened");
     expect(next.disabled).toBe(false);
     act(() => root.unmount()); container.remove(); vi.unstubAllGlobals();

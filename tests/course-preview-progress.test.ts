@@ -306,6 +306,7 @@ describe("admin course preview progress", () => {
     });
     expect((save.mock.lastCall![1] as LearnerProgressSnapshot).interactedContentIds).toContain("study-cards:card-1");
     expect((save.mock.lastCall![1] as LearnerProgressSnapshot).interactedContentIds).toContain("study-cards:card-2");
+    await act(async () => { await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve())); });
     expect(continueButton.disabled).toBe(false);
     expect((save.mock.lastCall![1] as LearnerProgressSnapshot).visitedLessonIds).not.toContain(lesson.id);
     scrollHeight = 1500;
@@ -353,6 +354,7 @@ describe("admin course preview progress", () => {
       }
       expect((save.mock.lastCall![1] as LearnerProgressSnapshot).interactedContentIds).toContain("study-cards:card-1");
       expect((save.mock.lastCall![1] as LearnerProgressSnapshot).interactedContentIds).toContain("study-cards:card-2");
+      await act(async () => { await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve())); });
     }
     expect(firstButton.disabled).toBe(false);
     expect(nextSection()).toBeNull();

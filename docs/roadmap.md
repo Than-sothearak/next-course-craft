@@ -2,6 +2,8 @@
 
 Work one phase at a time; stop after the requested phase.
 
+Requested required-media progress fix: required native video/audio blocks must play continuously from the beginning to the natural end before recording completion. Shared browser playback coverage prevents forward seeking from unlocking existing lesson/Continue gates in standard lessons, slides and static HTML/SCORM; rewind and completed review remain available. The requested presentation progress extension puts ten verified duration checkpoints and required action progress in menu circles starting at zero, with source-bound partial resume in browser and LMS storage. It adds no completion indicators to media players and leaves standard-mode reading and completion calculations unchanged. This fixes the existing media/progress slice without expanding other phases.
+
 Requested dashboard mobile responsiveness fix: restore folder-tree/workspace access below the desktop breakpoint through the shared navigation modal, keep long course/folder text and card actions inside responsive grids, wrap navbar/workspace/filter controls, and match loading layouts. Existing ownership, permissions, routing, creation, and course-setting handlers remain in use. This fixes the completed dashboard slice without adding another application or expanding unfinished phases.
 
 1. **Foundation:** Next.js, TypeScript, MongoDB/Mongoose, Auth.js, shared schemas, UI/tooling, tests, and static export build boundary.

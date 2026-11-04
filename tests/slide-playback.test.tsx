@@ -1,4 +1,5 @@
 /** @vitest-environment jsdom */
+import { finishMediaPlayback } from "./helpers/media-playback";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -260,7 +261,7 @@ describe("presentation media playback", () => {
     const first = container.querySelector("#preview-content-first")!;
     const players = [...first.querySelectorAll<HTMLMediaElement>("[data-slide-media-player]")];
     expect(play).toHaveBeenCalledTimes(2);
-    for (const player of players) { player.currentTime = 8; await act(async () => player.dispatchEvent(new Event("ended"))); }
+    for (const player of players) { await act(async () => finishMediaPlayback(player)); }
     await act(async () => vi.advanceTimersByTimeAsync(1000));
     expect(save.mock.calls.at(-1)![1].interactedContentIds).toEqual(expect.arrayContaining(["video:watched", "audio:listened"]));
     expect(players[0].controls).toBe(false);
@@ -303,7 +304,7 @@ describe("presentation media playback", () => {
       await act(async () => player.dispatchEvent(new Event("loadedmetadata")));
     }
 
-    expect(container.textContent).toContain("Total media duration: 2:10");
+    expect(container.querySelector('[aria-label="Total media duration: 2:10"]')).not.toBeNull();
     expect(container.textContent).toContain("Slide · 1:30");
     expect(container.textContent).toContain("Slide · 0:40");
 
@@ -318,7 +319,7 @@ describe("presentation media playback", () => {
       audioPlayer.dispatchEvent(new Event("durationchange")),
     );
     expect(container.textContent).not.toContain("1:30");
-    expect(container.textContent).toContain("Total media duration: 0:40");
+    expect(container.querySelector('[aria-label="Total media duration: 0:40"]')).not.toBeNull();
 
     Object.defineProperty(audioPlayer, "duration", {
       configurable: true,
@@ -327,7 +328,7 @@ describe("presentation media playback", () => {
     await act(async () =>
       audioPlayer.dispatchEvent(new Event("durationchange")),
     );
-    expect(container.textContent).toContain("Total media duration: 2:10");
+    expect(container.querySelector('[aria-label="Total media duration: 2:10"]')).not.toBeNull();
 
     const unavailablePlayer = container.querySelector<HTMLMediaElement>(
       '[data-slide-media-player="other-video"]',
@@ -340,6 +341,6 @@ describe("presentation media playback", () => {
       unavailablePlayer.dispatchEvent(new Event("durationchange")),
     );
     expect(container.textContent).not.toContain("0:40");
-    expect(container.textContent).toContain("Total media duration: 1:30");
+    expect(container.querySelector('[aria-label="Total media duration: 1:30"]')).not.toBeNull();
   });
 });

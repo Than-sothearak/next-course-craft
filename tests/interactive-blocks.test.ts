@@ -139,12 +139,12 @@ describe("interactive flip card", () => {
       backLabel: "Answer", back: { type: "text" as const, text: `Explanation ${index + 1}` },
     }));
     act(() => root.render(createElement(InteractiveFlipCard, { blockId: "presentation-cards", cards, cardsPerRow: 5, presentation: true, onCardReveal })));
-    const grid = container.firstElementChild?.firstElementChild;
-    expect(grid?.className).toContain("@min-[18rem]/flip-cards:grid-cols-2");
-    expect(grid?.className).toContain("@min-[46rem]/flip-cards:grid-cols-5");
+    const grid = container.querySelector<HTMLElement>("[data-flip-card-grid]");
+    expect(grid?.dataset.flipCardColumns).toBe("4");
+    expect(grid?.dataset.flipCardRows).toBe("8");
     const buttons = container.querySelectorAll<HTMLButtonElement>("button[aria-pressed]");
     expect(buttons).toHaveLength(30);
-    expect(buttons[0].firstElementChild?.className).toContain("min-h-28");
+    expect(buttons[0].firstElementChild?.className).toContain("min-h-0");
     expect(buttons[0].firstElementChild?.className).not.toContain("min-h-52");
     act(() => buttons[29].click());
     expect(buttons[29].getAttribute("aria-pressed")).toBe("true");
