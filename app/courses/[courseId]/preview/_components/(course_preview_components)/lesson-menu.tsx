@@ -105,7 +105,7 @@ export function LessonMenu({
     >
       <div className={cn("shrink-0 text-white", slideCourse ? "px-3 py-3" : "px-4 py-5 sm:px-5")} style={{ backgroundColor: "var(--course-primary)" }}>
         <div className="flex items-start justify-between gap-2">
-          <p className={cn("font-semibold leading-tight", slideCourse ? "line-clamp-2 text-sm" : "line-clamp-3 text-lg")}>
+          <p className={cn("font-semibold leading-tight", slideCourse ? "line-clamp-2 text-xs" : "line-clamp-3 text-lg")}>
             {initialData.title}
           </p>
           {mobile && (
@@ -145,7 +145,7 @@ export function LessonMenu({
             aria-label={`Total media duration: ${formatMediaDuration(totalMediaDuration)}`}
             className="mt-1.5 text-[10px] font-medium normal-case tracking-normal text-white/85"
           >
-            Total duration: {formatMediaDuration(totalMediaDuration)}
+            Total duration: {formatMediaDuration(totalMediaDuration)} min
           </p>
         )}
       </div>
@@ -222,7 +222,7 @@ export function LessonMenu({
                 />
               </div>
               <ul id={sectionListId} hidden={isCollapsed} className="divide-y divide-slate-100">
-                {visibleLessons.map((lesson) => {
+                {visibleLessons.map((lesson, index) => {
                   const title = lessonTitle(lesson);
                   const Icon = lessonIcons[lesson.icon ?? "file"];
                   const active = selectedLesson?.id === lesson.id;
@@ -239,7 +239,7 @@ export function LessonMenu({
                         aria-current={active ? "page" : undefined}
                         aria-label={`${title}${lockMessage ? `. Locked. ${lockMessage}` : ""}`}
                         title={lockMessage ?? undefined}
-                        className={cn("cursor-pointer flex w-full items-start text-left", slideCourse ? "min-h-12 gap-2 px-3 py-2" : "min-h-20 gap-2.5 px-4 py-4", locked ? "cursor-not-allowed opacity-50" : !active && "hover:bg-slate-50")}
+                        className={cn("cursor-pointer flex w-full items-start text-left", slideCourse ? "gap-2 px-3 py-2" : "min-h-20 gap-2.5 px-4 py-4", locked ? "cursor-not-allowed opacity-50" : !active && "hover:bg-slate-50")}
                         style={active ? { backgroundColor: "color-mix(in srgb, var(--course-primary) 10%, white)" } : undefined}
                       >
                         <Icon
@@ -248,17 +248,17 @@ export function LessonMenu({
                         />
                         <span className="min-w-0 flex-1">
                           <span
-                            className={cn("block truncate whitespace-nowrap", slideCourse ? "text-xs leading-4" : "text-sm leading-5", active ? "font-semibold" : "font-medium text-slate-800")}
+                            className={cn("block truncate whitespace-nowrap", slideCourse ? "text-[10px] leading-4" : "text-sm leading-5", active ? "font-semibold" : "font-medium text-slate-800")}
                             style={active ? { color: "var(--course-primary)" } : undefined}
                           >
                             {title}
                           </span>
-                          <span className={cn("block text-slate-500", slideCourse ? "mt-0.5 text-[10px] leading-3" : "mt-1 text-[11px]")}>
-                            {lesson.lessonType === "quiz" ? "Quiz" : slideCourse ? "Slide" : "Lesson"}
+                          <span className={cn("block text-slate-500", slideCourse ? "mt-0.5 text-[8px] leading-3" : "mt-1 text-[11px]")}>
+                            {lesson.lessonType === "quiz" ? "Quiz" : slideCourse ? "Slide " + (index + 1) : "Lesson"}
                             {slideCourse && slideMediaDurations[lesson.id] !== undefined && (
                               <span className="font-medium text-slate-700">
                                 {" · "}
-                                {formatMediaDuration(slideMediaDurations[lesson.id])}
+                                {formatMediaDuration(slideMediaDurations[lesson.id])} min
                               </span>
                             )}
                             {locked ? ` · Locked until current ${slideCourse ? "slide" : "lesson"} is complete` : ""}
