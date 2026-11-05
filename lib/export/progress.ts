@@ -102,21 +102,36 @@ export function getPendingInteractiveProgressIds(
     .filter((id) => !interactedContentIds.has(id));
 }
 
+function getCompletedActivityCount(
+  activityIds: readonly string[],
+  blocks: readonly ContentBlock[],
+  interactedContentIds: ReadonlySet<string>,
+  mediaProgress: MediaProgress,
+) {
+  return activityIds.reduce((total, id) => {
+    if (interactedContentIds.has(id)) return total + 1;
+    const block = blocks.find((item) => (item.type === "audio" && `${item.id}:listened` === id) || (item.type === "video" && `${item.id}:watched` === id));
+    const partial = mediaProgress[id];
+    return total + (block && (block.type === "audio" || block.type === "video") && partial?.source === mediaProgressSource(block.data.src) ? mediaProgressPercent(partial) / 100 : 0);
+  }, 0);
+}
+
 export function getRestrictedLessonProgress(
   readingProgress: number,
   blocks: readonly ContentBlock[],
   interactedContentIds: ReadonlySet<string>,
+  mediaProgress: MediaProgress = {},
 ) {
   const activityIds = blocks.filter((block) => block.requiredForProgress !== false).flatMap((block) =>
     getInteractiveBlockProgressIds(block, blocks),
   );
   if (activityIds.length === 0) return readingProgress;
 
-  const completedActivityCount = activityIds.filter((id) => interactedContentIds.has(id)).length;
+  const completedActivityCount = getCompletedActivityCount(activityIds, blocks, interactedContentIds, mediaProgress);
   const activityProgress = (completedActivityCount / activityIds.length) * 100;
 
-  // Standard lessons combine reading with completed activities.
-  return Math.floor((readingProgress + activityProgress) / 2);
+  // Standard lessons combine reading with completed activities and media checkpoints.
+  return Math.floor((readingProgress + activityProgress) / 2 + 1e-9);
 }
 
 /** Presentation slides earn progress through actions, with no reading credit. */
@@ -129,12 +144,7 @@ export function getPresentationLessonProgress(
   const activityIds = blocks.filter((block) => block.requiredForProgress !== false).flatMap((block) => getInteractiveBlockProgressIds(block, blocks));
   const continueIds = blocks.filter((block) => block.requiredForProgress !== false && block.type === "divider" && block.data.style === "continue").map((block) => block.id);
   if (!activityIds.length && !continueIds.length) return null;
-  const completedActivityCount = activityIds.reduce((total, id) => {
-    if (interactedContentIds.has(id)) return total + 1;
-    const block = blocks.find((item) => (item.type === "audio" && `${item.id}:listened` === id) || (item.type === "video" && `${item.id}:watched` === id));
-    const partial = mediaProgress[id];
-    return total + (block && (block.type === "audio" || block.type === "video") && partial?.source === mediaProgressSource(block.data.src) ? mediaProgressPercent(partial) / 100 : 0);
-  }, 0);
+  const completedActivityCount = getCompletedActivityCount(activityIds, blocks, interactedContentIds, mediaProgress);
   const completedContinueCount = continueIds.filter((id) => revealedDividerIds.has(id)).length;
   return Math.floor((completedActivityCount + completedContinueCount) / (activityIds.length + continueIds.length) * 100 + 1e-9);
 }

@@ -218,7 +218,7 @@ export const courseResponseSchema = {
                       maxLabel: { type: "string" },
                       layout: { type: "string", enum: ["accordion", "tabs"] },
                       displayMode: { type: "string", enum: ["all"] },
-                      imageLayout: { type: "string", enum: ["full", "banner", "text-left", "text-right", "text-overlay", "card"] },
+                      imageLayout: { type: "string", enum: ["full", "banner", "text-left", "text-right", "text-overlay", "card", "cover"] },
                       imageTitle: { type: "string" },
                       imageBody: { type: "string" },
                       galleryImages: {

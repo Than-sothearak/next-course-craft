@@ -142,6 +142,43 @@ describe("content block settings access", () => {
     expect(onReplaceTemplate).toHaveBeenCalledOnce();
   });
 
+  it("adds a full-width image cover layout with height, focal-point, and overlay settings", () => {
+    const onChange = vi.fn();
+    act(() => root.render(createElement(ContentBlockEditor, {
+      block: blocks.find((block) => block.type === "image")!,
+      courseId: "course-1",
+      onChange,
+    })));
+    act(() => document.querySelector<HTMLButtonElement>('[aria-label="Open content settings"]')!.click());
+
+    const layout = document.querySelector<HTMLSelectElement>('[aria-label="Image layout"]')!;
+    act(() => {
+      layout.value = "cover";
+      layout.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    const coverBlock = onChange.mock.lastCall?.[0];
+    expect(coverBlock).toMatchObject({ type: "image", width: "full", widthCustom: false, data: { layout: "cover" } });
+    if (!coverBlock || coverBlock.type !== "image") throw new Error("Expected an updated image block");
+
+    act(() => root.render(createElement(ContentBlockEditor, {
+      block: coverBlock,
+      courseId: "course-1",
+      onChange,
+    })));
+    expect(container.querySelector('[data-image-layout="cover"]')).not.toBeNull();
+    expect(container.querySelector('[data-image-layout="cover"] img')?.className).toContain("object-cover");
+    expect(document.querySelector('[aria-label="Image cover height"]')).not.toBeNull();
+    expect(document.querySelector('[aria-label="Image cover focal point"]')).not.toBeNull();
+    expect(document.querySelector('[aria-label="Image cover overlay darkness"]')).not.toBeNull();
+
+    const focalPoint = document.querySelector<HTMLSelectElement>('[aria-label="Image cover focal point"]')!;
+    act(() => {
+      focalPoint.value = "top";
+      focalPoint.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    expect(onChange.mock.lastCall?.[0]).toMatchObject({ data: { layout: "cover", coverPosition: "top" } });
+  });
+
   it("exposes editable front and back copy for a flip card", () => {
     const onChange = vi.fn();
     act(() => root.render(createElement(ContentBlockEditor, {

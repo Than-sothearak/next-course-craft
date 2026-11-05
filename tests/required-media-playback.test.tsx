@@ -4,7 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PreviewBlock } from "@/app/courses/[courseId]/preview/_components/(course_preview_components)/(lesson_reader_preview_components)/(lesson_blocks_preview_components)/preview-block";
 import { SlidePlaybackContext } from "@/app/courses/[courseId]/_components/slide-presentation/slide-playback-context";
-import { blockSchema, type ContentBlock } from "@/lib/schemas/block";
+import { audioBlockSchema, videoBlockSchema, type ContentBlock } from "@/lib/schemas/block";
 import { finishMediaPlayback, setMediaPlayback } from "./helpers/media-playback";
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
@@ -26,9 +26,40 @@ describe("required media in shared preview/export blocks", () => {
   });
   afterEach(() => { act(() => root.unmount()); container.remove(); vi.restoreAllMocks(); });
 
+  it.each(cases)("allows skipping by default and honors the toggle for %s", async (_name, type, slideLayout, cropped) => {
+    const src = "/api/assets/aaaaaaaaaaaaaaaaaaaaaaaa/file";
+    const block = (type === "video" ? videoBlockSchema : audioBlockSchema).parse({ id: "media", type, version: 1, slidePlayback: { loop: true }, data: { src, mimeType: type === "video" ? "video/webm" : "audio/mpeg" },
+      ...(cropped ? { slideCrop: { source: src, x: 25, y: 0, width: 50, height: 100 }, slideMedia: { source: src, width: 1600, height: 900 } } : {}),
+    });
+    const progress = vi.fn();
+    const render = (content = block, extra = {}) => act(async () => root.render(<SlidePlaybackContext value><PreviewBlock block={content} {...extra} device="desktop" orientation="landscape" slideLayout={slideLayout} onInteractiveProgress={progress} /></SlidePlaybackContext>));
+    await render();
+    const player = () => container.querySelector<HTMLMediaElement>(type)!;
+    if (slideLayout) expect(player().loop).toBe(false);
+    for (const allowed of [undefined, true, false]) {
+      await render({ ...block, allowSkipping: allowed });
+      setMediaPlayback(player(), [[0, 2], [9, 10]], 10);
+      act(() => player().dispatchEvent(new Event("seeking")));
+      expect(player().currentTime).toBe(allowed === false ? 2 : 10);
+      progress.mockClear();
+      act(() => player().dispatchEvent(new Event("ended")));
+      expect(progress).toHaveBeenCalledTimes(allowed === false ? 0 : 1);
+    }
+    await render({ ...block, allowSkipping: false, requiredForProgress: false });
+    setMediaPlayback(player(), [[0, 2]], 9);
+    act(() => player().dispatchEvent(new Event("seeking")));
+    expect(player().currentTime).toBe(2);
+    await render({ ...block, allowSkipping: false }, { authoring: true });
+    setMediaPlayback(player(), [], 9);
+    act(() => player().dispatchEvent(new Event("seeking")));
+    expect(player().currentTime).toBe(9);
+    expect(container.querySelector("[data-media-seek-notice]")).toBeNull();
+    expect(container.querySelector("[data-media-player-controls]")).toBeNull();
+  });
+
   it.each(cases)("keeps completion indicators out of the player for %s", async (_name, type, slideLayout, cropped) => {
     const src = "/api/assets/aaaaaaaaaaaaaaaaaaaaaaaa/file";
-    const block = blockSchema.parse({ id: "steps", type, version: 1, data: { src, mimeType: type === "video" ? "video/webm" : "audio/mpeg" },
+    const block = (type === "video" ? videoBlockSchema : audioBlockSchema).parse({ id: "steps", type, version: 1, data: { src, mimeType: type === "video" ? "video/webm" : "audio/mpeg" },
       ...(cropped ? { slideCrop: { source: src, x: 25, y: 0, width: 50, height: 100 }, slideMedia: { source: src, width: 1600, height: 900 } } : {}),
     });
     await act(async () => root.render(<SlidePlaybackContext value><PreviewBlock block={block} device="desktop" orientation="landscape" slideLayout={slideLayout} /></SlidePlaybackContext>));
@@ -47,7 +78,7 @@ describe("required media in shared preview/export blocks", () => {
   it.each(cases)("blocks timeline skipping and verifies completion for %s", async (_name, type, slideLayout, cropped) => {
     const progress = vi.fn();
     const src = type === "video" ? "/clip.webm" : "/api/assets/aaaaaaaaaaaaaaaaaaaaaaaa/file";
-    const block = blockSchema.parse({ id: "media", type, version: 1, slidePlayback: { loop: true }, data: { src, mimeType: type === "video" ? "video/webm" : "audio/mpeg" },
+    const block = (type === "video" ? videoBlockSchema : audioBlockSchema).parse({ id: "media", type, version: 1, allowSkipping: false, slidePlayback: { loop: true }, data: { src, mimeType: type === "video" ? "video/webm" : "audio/mpeg" },
       ...(cropped ? { slideCrop: { source: src, x: 25, y: 0, width: 50, height: 100 }, slideMedia: { source: src, width: 1600, height: 900 } } : {}),
     });
     const render = (content: ContentBlock, completed = false, active = true) => act(async () => root.render(
@@ -98,7 +129,7 @@ describe("required media in shared preview/export blocks", () => {
     act(() => media().dispatchEvent(new Event("seeking")));
     expect(media().currentTime).toBe(0);
 
-    await render({ ...block, requiredForProgress: false });
+    await render({ ...block, requiredForProgress: false, allowSkipping: true });
     setMediaPlayback(media(), [], 8);
     act(() => media().dispatchEvent(new Event("seeking")));
     expect(media().currentTime).toBe(8);

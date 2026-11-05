@@ -1,6 +1,6 @@
 "use client";
 
-import type { ContentBlock } from "@/lib/schemas/block";
+import { imageCoverHeightSchema, imageCoverPositionSchema, type ContentBlock } from "@/lib/schemas/block";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -18,7 +18,7 @@ export function ImageBlockSettings({ block, onChange, setMediaLibraryTarget }: {
             typeof block.data.layout
           >;
           const layoutWidth =
-            layout === "banner" || layout === "text-overlay"
+            layout === "banner" || layout === "text-overlay" || layout === "cover"
               ? "full"
               : layout === "text-left" ||
                 layout === "text-right" ||
@@ -27,7 +27,8 @@ export function ImageBlockSettings({ block, onChange, setMediaLibraryTarget }: {
                 : "small";
           onChange({
             ...block,
-            width: block.widthCustom ? block.width : layoutWidth,
+            width: layout === "cover" ? "full" : block.widthCustom ? block.width : layoutWidth,
+            widthCustom: layout === "cover" ? false : block.widthCustom,
             data: { ...block.data, layout },
           });
         }}
@@ -39,7 +40,64 @@ export function ImageBlockSettings({ block, onChange, setMediaLibraryTarget }: {
         <option value="text-right">Image left, text right</option>
         <option value="text-overlay">Text overlay</option>
         <option value="card">Image feature card</option>
+        <option value="cover">Cover — full-width image</option>
       </Select>
+      {block.data.layout === "cover" && <>
+        <label className="block space-y-1 text-xs font-medium text-slate-600">
+          Cover height
+          <Select
+            aria-label="Image cover height"
+            value={block.data.coverHeight ?? "medium"}
+            onChange={(event) => {
+              const height = imageCoverHeightSchema.safeParse(event.target.value);
+              if (height.success) onChange({ ...block, data: { ...block.data, coverHeight: height.data } });
+            }}
+            className="h-9 w-full"
+          >
+            <option value="short">Short</option>
+            <option value="medium">Medium</option>
+            <option value="tall">Tall</option>
+            <option value="viewport">Screen height</option>
+          </Select>
+        </label>
+        <label className="block space-y-1 text-xs font-medium text-slate-600">
+          Image focal point
+          <Select
+            aria-label="Image cover focal point"
+            value={block.data.coverPosition ?? "center"}
+            onChange={(event) => {
+              const position = imageCoverPositionSchema.safeParse(event.target.value);
+              if (position.success) onChange({ ...block, data: { ...block.data, coverPosition: position.data } });
+            }}
+            className="h-9 w-full"
+          >
+            <option value="center">Center</option>
+            <option value="top">Top</option>
+            <option value="bottom">Bottom</option>
+            <option value="left">Left</option>
+            <option value="right">Right</option>
+          </Select>
+        </label>
+        <label className="block space-y-1 text-xs font-medium text-slate-600">
+          Text overlay darkness
+          <div className="flex items-center gap-3">
+            <Input
+              aria-label="Image cover overlay darkness"
+              type="range"
+              min={0}
+              max={80}
+              step={5}
+              value={block.data.coverOverlayOpacity ?? 35}
+              onChange={(event) => onChange({
+                ...block,
+                data: { ...block.data, coverOverlayOpacity: Number(event.target.value) },
+              })}
+              className="h-5 flex-1 p-0"
+            />
+            <span className="w-10 text-right tabular-nums">{block.data.coverOverlayOpacity ?? 35}%</span>
+          </div>
+        </label>
+      </>}
       <Button
         type="button"
         variant="outline"

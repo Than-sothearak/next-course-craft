@@ -56,6 +56,7 @@ export function SlideMediaPlayer({ block, onDimensions, onDurationChange, onEnde
   const captionSource = block.type === "video" ? block.data.captions : undefined;
   const autoPlay = block.slidePlayback?.autoPlay ?? false;
   const loop = block.slidePlayback?.loop ?? false;
+  const waitForCompletion = !completed && (requireFullPlayback || trackProgress);
   const controlsEnabled = block.slidePlayback?.showControls ?? true;
   const controlsVisible = block.type === "audio" || hovered || keyboardFocused || touchControls;
   const controls = controlsEnabled && controlsVisible;
@@ -145,11 +146,11 @@ export function SlideMediaPlayer({ block, onDimensions, onDurationChange, onEnde
     setPlaying(false);
     const completed = playback.onEnded(event);
     // The first pass needs an ended event; subsequent passes keep the authored loop.
-    if (completed && requireFullPlayback && loop) void event.currentTarget.play()?.catch(() => setPlaying(false));
+    if (completed && waitForCompletion && loop) void event.currentTarget.play()?.catch(() => setPlaying(false));
   }
   const common = {
     "data-slide-media-player": decorative ? undefined : block.id,
-    controls: !crop && controls, autoPlay: block.type !== "video" && active && autoPlay && Boolean(block.data.src), loop: loop && !requireFullPlayback, preload: decorative ? "none" as const : "metadata" as const,
+    controls: !crop && controls, autoPlay: block.type !== "video" && active && autoPlay && Boolean(block.data.src), loop: loop && !waitForCompletion, preload: decorative ? "none" as const : "metadata" as const,
     muted: decorative || muted,
     src: block.data.src || undefined, onEnded: end, onLoadedMetadata: metadata,
     onSeeking: playback.onSeeking, onSeeked: playback.onSeeked,

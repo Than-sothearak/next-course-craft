@@ -26,21 +26,22 @@ try {
   const css = await inlineLocalFontAssets(readFileSync(resolve(assets, names.find((name) => name.endsWith(".css"))), "utf8"), assets);
   browser = await chromium.launch({ headless: true, ...(process.env.PLAYWRIGHT_EXECUTABLE_PATH ? { executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH } : {}) });
   mkdirSync("test-results", { recursive: true });
-  for (const courseLayout of ["standard", "slides"]) {
+  for (const { courseLayout, allowSkipping } of ["standard", "slides"].flatMap((courseLayout) => [undefined, false].map((allowSkipping) => ({ courseLayout, allowSkipping })))) {
     const blocks = ["audio", "video", ...(courseLayout === "slides" ? ["cropped"] : [])].map((id, index) => ({
-      id, type: id === "audio" ? "audio" : "video", version: 1,
+      id, type: id === "audio" ? "audio" : "video", version: 1, allowSkipping,
       data: { src, mimeType: id === "audio" ? "audio/wav" : "video/webm", fileName: "Local playback fixture" },
       slideFrame: { x: 5 + index * 31, y: 20, width: 28, height: 40, z: index },
       ...(id === "cropped" ? { slideMedia: { source: src, width: 1600, height: 900 }, slideCrop: { source: src, x: 25, y: 0, width: 50, height: 100 } } : {}),
     }));
-    const data = { courseId: `required-media-${courseLayout}`, ...editorSnapshotSchema.parse({
+    const variant = allowSkipping === false ? "locked" : "default";
+    const data = { courseId: `required-media-${courseLayout}-${variant}`, ...editorSnapshotSchema.parse({
       title: "Required media", description: "", revision: 1, courseLayout, navigationMode: "restricted",
       sections: [{ id: "section", title: "Section", order: 0 }], lessons: [
         { id: "first", sectionId: "section", title: "Watch and listen", order: 0, blocks },
         { id: "second", sectionId: "section", title: "Next lesson", order: 1, blocks: [] },
       ],
     }) };
-    const file = resolve(`test-results/required-media-${courseLayout}.html`);
+    const file = resolve(`test-results/required-media-${courseLayout}-${variant}.html`);
     writeFileSync(file, `<!doctype html><html><head><meta charset="utf-8"><style>${css}</style></head><body><div id="export-root"></div><script>window.COURSE_EXPORT_MEDIA=${JSON.stringify({ aaaaaaaaaaaaaaaaaaaaaaaa: audioDataUri })};window.COURSE_EXPORT_DATA=${JSON.stringify(data).replaceAll(src, "coursecraft-media:aaaaaaaaaaaaaaaaaaaaaaaa").replaceAll("<", "\\u003c")}</script><script>${js}</script></body></html>`);
     const page = await browser.newPage({ viewport: { width: 1200, height: 900 } });
     page.setDefaultTimeout(10000);
@@ -61,6 +62,28 @@ try {
     assert.equal(await players.count(), blocks.length);
     const progressKey = `coursecraft-progress-v2-${data.courseId}`;
     const completed = () => page.evaluate((key) => JSON.parse(localStorage.getItem(key) || "{}").interactedContentIds ?? [], progressKey);
+    assert.equal(await page.locator('[data-media-seek-notice], [data-media-player-controls]').count(), 0);
+    if (allowSkipping !== false) {
+      for (let index = 0; index < blocks.length; index++) {
+        const media = players.nth(index);
+        await media.evaluate(async (element) => {
+          if (element.readyState < 1) await new Promise((done) => element.addEventListener("loadedmetadata", done, { once: true }));
+          element.currentTime = element.duration - 0.25;
+        });
+        await page.waitForFunction(({ active, index }) => {
+          const element = document.querySelectorAll(`${active} audio, ${active} video`)[index];
+          return element && !element.seeking && element.currentTime > element.duration - 0.4;
+        }, { active, index });
+        assert.equal((await completed()).length, index, "Seeking alone must not record completion");
+        await media.evaluate((element) => element.play());
+        const id = `${blocks[index].id}:${blocks[index].type === "audio" ? "listened" : "watched"}`;
+        await page.waitForFunction(({ key, id }) => JSON.parse(localStorage.getItem(key) || "{}").interactedContentIds?.includes(id), { key: progressKey, id });
+        assert.ok(await media.evaluate((element) => element.played.start(0) > 0), "Default skipping can finish without replaying the beginning");
+      }
+      assert.deepEqual(errors, []); assert.deepEqual(requests, []);
+      await page.close();
+      continue;
+    }
     for (let index = 0; index < blocks.length; index++) {
       const media = players.nth(index);
       await media.evaluate(async (element) => {
@@ -108,5 +131,5 @@ try {
     await page.waitForFunction(({ key, count }) => JSON.parse(localStorage.getItem(key) || "{}").interactedContentIds?.length === count, { key: progressKey, count: blocks.length });
     await page.close();
   }
-  console.log("Offline media checks passed: presentation menu circles start at zero, reflect ten duration checkpoints and actions, partial resume across fresh blob URLs, skip protection, and no indicators inside players or network requests.");
+  console.log("Offline media checks passed: default skipping and explicit seek restriction in Standard/Presentation audio, video and crops; completion after skipped playback; ten checkpoints; partial resume; original players without lock notes or network requests.");
 } finally { await browser?.close(); await vite.close(); }

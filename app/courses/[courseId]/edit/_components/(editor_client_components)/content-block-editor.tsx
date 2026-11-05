@@ -277,7 +277,7 @@ export function ContentBlockEditor({
     {block.type === "image" && <ImageBlockSettings block={block} onChange={onChange} setMediaLibraryTarget={setMediaLibraryTarget} />}
     {block.type === "gallery" && <GalleryBlockSettings block={block} setSelectedGalleryImageIndex={setSelectedGalleryImageIndex} setMediaLibraryTarget={setMediaLibraryTarget} onChange={onChange} />}
     {block.type === "video" && <VideoBlockSettings setMediaLibraryTarget={setMediaLibraryTarget} block={block} onChange={onChange} />}
-    {block.type === "audio" && <AudioBlockSettings setMediaLibraryTarget={setMediaLibraryTarget} block={block} />}
+    {block.type === "audio" && <AudioBlockSettings setMediaLibraryTarget={setMediaLibraryTarget} block={block} onChange={onChange} />}
     {block.type === "attachment" && <AttachmentBlockSettings setMediaLibraryTarget={setMediaLibraryTarget} block={block} />}
     {block.type === "divider" && <DividerBlockSettings block={block} onChange={onChange} />}
     {block.type === "flipCard" && <FlipCardBlockSettings presentation={inlineSettings} block={block} onChange={onChange} updateFlipCard={updateFlipCard} updateFlipCardFace={updateFlipCardFace} setMediaLibraryTarget={setMediaLibraryTarget} />}
@@ -300,7 +300,7 @@ export function ContentBlockEditor({
   return (
     <div className="group relative">
       {!inlineSettings && settingsButton()}
-      {(!inlineSettings || block.type !== "flipCard") && <div className="block w-full rounded-md text-left">{preview}</div>}
+      {(!inlineSettings || (block.type !== "flipCard" && block.type !== "accordion")) && <div className="block w-full rounded-md text-left">{preview}</div>}
       {inlineSettings && <div className="mt-3 space-y-3">{settingsContent}</div>}
       {!inlineSettings && editing && (
         <DraggableSettingsPanel

@@ -3,12 +3,13 @@ import { borderPaint } from "@/lib/color";
 
 import Image from "next/image";
 import { LockKeyhole, Play } from "lucide-react";
-import type { ContentBlock } from "@/lib/schemas/block";
+import { defaultBlockWidthForBlock, type ContentBlock } from "@/lib/schemas/block";
 import { AudioPlayer } from "@/components/audio-player";
 import { FileAttachmentLink } from "@/components/file-attachment-link";
 import { CourseLinkBlock } from "@/components/course-link-block";
 import { InputBlockPreview } from "../../input-block-preview";
-import { InteractiveAccordion, InteractiveFlipCard, InteractiveLabeledGraphic, InteractiveProcessSteps } from "../../../../../preview/interactive-blocks";
+import { InteractiveFlipCard, InteractiveLabeledGraphic, InteractiveProcessSteps } from "../../../../../preview/interactive-blocks";
+import { AccordionBlockEditor } from "../accordion-block-editor";
 import { ImageBlockLayout } from "../../../image-block-layout";
 import { ChartBlockPreview } from "../../../../../preview/chart-block";
 import { PreviewBlock as LearnerBlock } from "../../../../../preview/_components/(course_preview_components)/(lesson_reader_preview_components)/(lesson_blocks_preview_components)/preview-block";
@@ -32,11 +33,16 @@ export function ContentBlockPreview({ block, onChange, presentation = false }: {
       title={block.data.title}
       body={block.data.body}
       caption={block.data.caption}
+      coverHeight={block.data.coverHeight}
+      coverPosition={block.data.coverPosition}
+      coverOverlayOpacity={block.data.coverOverlayOpacity}
+      coverContentWidth={block.widthCustom ? block.width : defaultBlockWidthForBlock(block)}
       editable={
         block.data.layout === "text-left" ||
         block.data.layout === "text-right" ||
         block.data.layout === "text-overlay" ||
-        block.data.layout === "card"
+        block.data.layout === "card" ||
+        block.data.layout === "cover"
       }
       onTitleChange={(title) =>
         onChange({ ...block, data: { ...block.data, title } })
@@ -137,12 +143,7 @@ export function ContentBlockPreview({ block, onChange, presentation = false }: {
       cardTextColor={block.data.cardTextColor}
     />
   ) : block.type === "accordion" ? (
-    <InteractiveAccordion
-      blockId={block.id}
-      layout={block.data.layout}
-      displayMode={block.data.displayMode}
-      items={block.data.items}
-    />
+    <AccordionBlockEditor block={block} onChange={onChange} />
   ) : block.type === "labeledGraphic" ? (
     <InteractiveLabeledGraphic
       key={`${block.id}:${block.data.sceneTheme ?? ""}:${block.data.challengePrompt ?? ""}:${block.data.markers.map((marker) => `${marker.id}-${marker.isTarget ? "target" : "option"}`).join(":")}`}

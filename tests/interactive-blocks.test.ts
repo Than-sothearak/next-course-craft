@@ -278,7 +278,9 @@ describe("interactive reveal blocks", () => {
     act(() => secondSection?.click());
     expect(onItemInteract).toHaveBeenCalledWith("two");
     expect(container.textContent).toContain("Second explanation");
-    expect(container.textContent).not.toContain("First explanation");
+    expect(container.querySelector('[data-accordion-panel][data-state="open"]')?.textContent).not.toContain("First explanation");
+    expect(container.querySelector('[data-accordion-panel][data-state="closing"]')?.getAttribute("aria-hidden")).toBe("true");
+    expect(container.querySelector('[data-accordion-panel][data-state="closing"]')?.hasAttribute("inert")).toBe(true);
 
     act(() => root.render(createElement(InteractiveAccordion, {
       key: "tabs-version",
@@ -292,7 +294,7 @@ describe("interactive reveal blocks", () => {
     act(() => secondTab?.click());
     expect(onItemInteract).toHaveBeenCalledWith("two");
     expect(container.querySelector('[role="tab"][aria-selected="true"]')?.textContent).toBe("Second section");
-    expect(container.querySelector('[role="tabpanel"]')?.textContent).toBe("Second explanation");
+    expect(container.querySelector('[role="tabpanel"][data-state="open"]')?.textContent).toBe("Second explanation");
   });
 
   it("keeps previously opened accordion explanations visible in show-all mode", () => {

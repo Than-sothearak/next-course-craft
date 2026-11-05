@@ -81,7 +81,7 @@ export function BlockFormatMenu({ block, onChange }: { block: ContentBlock; onCh
           setOpen(true);
         }
       }}
-      className="size-8 text-slate-500 hover:bg-indigo-50 hover:text-indigo-700"
+      className="size-8 border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-indigo-50 hover:text-indigo-700"
     >
       <Settings2 size={15} />
     </Button>

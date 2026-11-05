@@ -46,6 +46,14 @@ describe("PDF handout content", () => {
     ]);
   });
 
+  it("keeps literal comparisons in legacy plain accordion titles", () => {
+    const block = blockSchema.parse({ id: "comparisons", type: "accordion", version: 1, data: { items: [
+      { id: "one", title: "Compare x < y > z", body: "A plain explanation" },
+      { id: "two", title: "Formatted title", titleHtml: "<p><strong>Formatted title</strong></p>", body: "Details" },
+    ] } });
+    expect(getHandoutBlockText(block)).toEqual(["Compare x < y > z", "A plain explanation", "Formatted title", "Details"]);
+  });
+
   it("prints hotspot game prompts without revealing the winning target", () => {
     const game = blockSchema.parse({
       id: "field-scout-game",

@@ -1,13 +1,17 @@
 import type { ReactNode } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import type { ImageLayout } from "@/lib/schemas/block";
+import type { ContentBlock, ImageCoverHeight, ImageCoverPosition, ImageLayout } from "@/lib/schemas/block";
 
 export function ImageBlockLayout({
   layout = "full",
   title,
   body,
   caption,
+  coverHeight = "medium",
+  coverPosition = "center",
+  coverOverlayOpacity = 35,
+  coverContentWidth = "full",
   image,
   editable = false,
   onTitleChange,
@@ -17,6 +21,10 @@ export function ImageBlockLayout({
   title?: string;
   body?: string;
   caption?: string;
+  coverHeight?: ImageCoverHeight;
+  coverPosition?: ImageCoverPosition;
+  coverOverlayOpacity?: number;
+  coverContentWidth?: ContentBlock["width"];
   image: ReactNode;
   editable?: boolean;
   onTitleChange?: (value: string) => void;
@@ -87,6 +95,44 @@ export function ImageBlockLayout({
           {caption && <p className="mt-3 text-xs text-slate-500">{caption}</p>}
         </div> : null}
       </article>
+    );
+  }
+
+  if (layout === "cover") {
+    const contentWidthClass = {
+      full: "max-w-[920px]",
+      medium: "max-w-[720px]",
+      small: "max-w-[520px]",
+    }[coverContentWidth];
+    const heightClass = {
+      short: "h-56 sm:h-64",
+      medium: "h-72 sm:h-96",
+      tall: "h-[22rem] sm:h-[32rem]",
+      viewport: "h-[80vh] min-h-80 max-h-[720px]",
+    }[coverHeight];
+    const positionClass = {
+      center: "[&_img]:object-center",
+      top: "[&_img]:object-top",
+      bottom: "[&_img]:object-bottom",
+      left: "[&_img]:object-left",
+      right: "[&_img]:object-right",
+    }[coverPosition];
+    return (
+      <figure data-image-layout="cover" data-cover-height={coverHeight} className="w-full">
+        <div className={`relative isolate w-full overflow-hidden bg-slate-900 ${heightClass}`}>
+          <div className={`absolute inset-0 [&_img]:h-full [&_img]:w-full [&_img]:object-cover [&_button]:absolute [&_button]:inset-0 [&_button]:h-full [&_button]:w-full [&_button]:rounded-none ${positionClass}`}>
+            {image}
+          </div>
+          {coverOverlayOpacity > 0 && <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-slate-950" style={{ opacity: coverOverlayOpacity / 100 }} />}
+          {(title || body || editable) && <div className="pointer-events-none absolute inset-0 z-10 flex flex-col justify-end py-8 text-white sm:py-12">
+            <div data-cover-content-width={coverContentWidth} className={`pointer-events-auto mx-auto w-full ${contentWidthClass} px-4`}>
+              {titleContent("text-2xl font-semibold leading-tight tracking-tight text-white sm:text-4xl")}
+              {bodyContent("text-sm leading-6 text-white/90 sm:text-lg sm:leading-7")}
+            </div>
+          </div>}
+        </div>
+        {caption && <figcaption className="mt-3 text-center text-sm text-slate-500">{caption}</figcaption>}
+      </figure>
     );
   }
 

@@ -139,6 +139,38 @@ describe("inline slide text editing", () => {
     }
   });
 
+  it("formats accordion titles and explanations directly on the canvas and retains them in learner output", async () => {
+    const data = presentation([{ id: "accordion", type: "accordion", version: 1, slideFrame: frame, data: { items: [{ id: "one", title: "First section", body: "First explanation" }, { id: "two", title: "Second section", body: "Second explanation" }] } }]);
+    await act(async () => root.render(<EditorClient initialData={data} authorName="Author" />));
+    const title = canvasEditor("accordion", "Edit accordion section 1 title");
+    const popupButton = (label: string) => document.querySelector<HTMLButtonElement>(`[data-text-selection-popup] [aria-label="${label}"]`)!;
+    act(() => { title.element.focus(); title.editor.commands.setContent("<p>Formatted section</p>"); title.editor.commands.setTextSelection({ from: 1, to: 10 }); });
+    expect(container.querySelector('aside[aria-label="Slide inspector"] [contenteditable="true"]')).toBeNull();
+    expect(container.querySelector('[aria-label="Slide text formatting"]')).toBeNull();
+    await act(async () => popupButton("Bold").click());
+    const body = canvasEditor("accordion", "Edit accordion section 1 explanation");
+    act(() => { body.element.focus(); body.editor.commands.setContent("<p>Explanation on canvas</p>"); body.editor.commands.selectAll(); });
+    await act(async () => popupButton("Italic").click());
+    await act(async () => container.querySelector<HTMLButtonElement>('button[aria-label="Undo"]')!.click());
+    expect(canvasEditor("accordion", "Edit accordion section 1 explanation").element.querySelector("em")).toBeNull();
+    await act(async () => container.querySelector<HTMLButtonElement>('button[aria-label="Redo"]')!.click());
+    expect(canvasEditor("accordion", "Edit accordion section 1 explanation").element.querySelector("em")).not.toBeNull();
+    const snapshot = await savedSnapshot();
+    const block = snapshot.lessons[0].blocks[0];
+    expect(block.slideFrame).toEqual(frame);
+    if (block.type !== "accordion") throw new Error("Expected accordion");
+    expect(block.data.items[0]).toMatchObject({ title: "Formatted section", titleHtml: expect.stringContaining("<strong>Formatted</strong>"), body: "Explanation on canvas", bodyHtml: expect.stringContaining("<em>") });
+    await act(async () => root.render(<EditorClient key="accordion-reload" initialData={{ ...snapshot, courseId: "slides" }} authorName="Author" />));
+    expect(canvasEditor("accordion", "Edit accordion section 1 title").element.querySelector("strong")?.textContent).toBe("Formatted");
+    for (const standalone of [false, true]) {
+      await act(async () => root.render(<CoursePreview key={String(standalone)} initialData={{ ...snapshot, courseId: "slides" }} authorName="Author" initialLessonId="slide" standalone={standalone} persistLocalProgress={false} />));
+      const accordion = container.querySelector('[data-slide-object-id="accordion"]')!;
+      expect(accordion.querySelector("strong")?.textContent).toBe("Formatted");
+      expect(accordion.querySelector("em")?.textContent).toBe("Explanation on canvas");
+      expect(accordion.querySelector('[contenteditable="true"]')).toBeNull();
+    }
+  });
+
   it("selects text without moving its object, then moves it with the dedicated handle", async () => {
     await act(async () => root.render(<EditorClient initialData={presentation([textBlock("richText")])} authorName="Author" />));
     const objects = container.querySelector<HTMLElement>("[data-slide-objects]")!;

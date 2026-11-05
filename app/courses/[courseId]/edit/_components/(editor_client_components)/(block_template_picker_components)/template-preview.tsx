@@ -121,7 +121,7 @@ export function TemplatePreview({ template }: { template: BlockTemplate }) {
   if (kind === "checklist") return <ListTemplatePreview style="check" />;
   if (kind === "dash-list") return <ListTemplatePreview style="dash" />;
   if (kind.startsWith("image"))
-    return <ImageTemplatePreview layout={template.imageLayout ?? "full"} />;
+    return <ImageTemplatePreview layout={template.imageLayout ?? "cover"} />;
   if (kind === "gallery")
     return (
       <div className="grid grid-cols-3 gap-1.5">

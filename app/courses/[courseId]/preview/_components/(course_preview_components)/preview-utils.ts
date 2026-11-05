@@ -36,6 +36,7 @@ export function safeImageSource(value: string) {
 }
 
 export function blockWidthClass(block: ContentBlock) {
+  if (block.type === "image" && block.data.layout === "cover") return "max-w-none";
   const contentWidth = block.widthCustom ? block.width : defaultBlockWidthForBlock(block);
   return contentWidth === "small"
     ? "max-w-[520px]"

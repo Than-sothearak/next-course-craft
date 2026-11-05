@@ -47,7 +47,7 @@ ACTIVE LEARNING BLOCKS
 - processSteps: teaches a real ordered procedure with 2–20 steps. Give each step a title and explanation; do not use it for unrelated facts.
 
 VISUAL AND DATA BLOCKS
-- image: one useful generated illustration. Provide imagePrompt and accessible imageAlt. imageLayout may be full, banner, text-left, text-right, text-overlay, or card; title/body are optional accompanying copy.
+- image: one useful generated illustration. Provide imagePrompt and accessible imageAlt. imageLayout may be full, banner, text-left, text-right, text-overlay, card, or cover; title/body are optional accompanying copy.
 - gallery: presents 1–8 images. Use galleryImages only with image URLs explicitly present in the source; never invent image URLs.
 - video: embeds a playable direct MP4/WebM source. Use videoSrc only when a direct video URL appears in the source, and provide videoMimeType and captions when available. Never invent a URL.
 - audio: authors upload audio files manually after generation. Do not generate audio blocks or invent audio URLs.

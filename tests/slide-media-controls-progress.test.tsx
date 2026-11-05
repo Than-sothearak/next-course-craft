@@ -11,9 +11,9 @@ Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 const source = "/api/assets/aaaaaaaaaaaaaaaaaaaaaaaa/file";
 const data = { courseId: "hidden-controls", ...editorSnapshotSchema.parse({ title: "Media requirements", description: "", revision: 1, courseLayout: "slides", navigationMode: "restricted", sections: [{ id: "section", title: "Slides", order: 0 }], lessons: [
   { id: "first", sectionId: "section", title: "Watch and listen", order: 0, blocks: [
-    { id: "video", version: 1, type: "video", slidePlayback: { autoPlay: false, showControls: false }, data: { src: source, mimeType: "video/webm" } },
-    { id: "cropped", version: 1, type: "video", slidePlayback: { autoPlay: false, showControls: false }, slideCrop: { source, x: 25, y: 0, width: 50, height: 100 }, slideMedia: { source, width: 1600, height: 900 }, data: { src: source, mimeType: "video/webm" } },
-    { id: "audio", version: 1, type: "audio", slidePlayback: { autoPlay: false, showControls: false }, data: { src: "/api/assets/bbbbbbbbbbbbbbbbbbbbbbbb/file", fileName: "Instructions", mimeType: "audio/mpeg" } },
+    { id: "video", version: 1, type: "video", allowSkipping: false, slidePlayback: { autoPlay: false, showControls: false }, data: { src: source, mimeType: "video/webm" } },
+    { id: "cropped", version: 1, type: "video", allowSkipping: false, slidePlayback: { autoPlay: false, showControls: false }, slideCrop: { source, x: 25, y: 0, width: 50, height: 100 }, slideMedia: { source, width: 1600, height: 900 }, data: { src: source, mimeType: "video/webm" } },
+    { id: "audio", version: 1, type: "audio", allowSkipping: false, slidePlayback: { autoPlay: false, showControls: false }, data: { src: "/api/assets/bbbbbbbbbbbbbbbbbbbbbbbb/file", fileName: "Instructions", mimeType: "audio/mpeg" } },
   ] },
   { id: "second", sectionId: "section", title: "Next slide", order: 1, blocks: [] },
 ] }) };

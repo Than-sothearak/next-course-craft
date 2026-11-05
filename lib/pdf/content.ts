@@ -118,7 +118,7 @@ export function getHandoutBlockText(block: ContentBlock): string[] {
         `${card.backLabel}: ${faceText(card.back)}`,
       ]);
     case "accordion":
-      return block.data.items.flatMap((item) => [item.title, htmlToHandoutText(item.body)]).filter(Boolean);
+      return block.data.items.flatMap((item) => [item.titleHtml === undefined ? item.title : htmlToHandoutText(item.titleHtml), htmlToHandoutText(item.bodyHtml ?? item.body)]).filter(Boolean);
     case "labeledGraphic":
       if (block.data.interactionMode === "spotTarget")
         return [

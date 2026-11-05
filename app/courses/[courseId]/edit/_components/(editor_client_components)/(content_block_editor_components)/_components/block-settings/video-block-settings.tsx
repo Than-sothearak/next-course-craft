@@ -3,12 +3,14 @@
 import type { ContentBlock } from "@/lib/schemas/block";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { MediaSkippingControls } from "@/components/media-skipping-controls";
 import type { MediaLibraryTarget } from "../content-block-types";
 import type { Dispatch, SetStateAction } from "react";
 
 export function VideoBlockSettings({ setMediaLibraryTarget, block, onChange }: { setMediaLibraryTarget: Dispatch<SetStateAction<MediaLibraryTarget | null>>; block: Extract<ContentBlock, { type: "video" }>; onChange: (block: ContentBlock) => void }) {
   return (
     <div className="space-y-2">
+      <MediaSkippingControls block={block} onChange={onChange} />
       <Button
         type="button"
         variant="outline"

@@ -5,6 +5,7 @@ import { blockSchema } from "../lib/schemas/block";
 import { blockTemplates } from "../app/courses/[courseId]/edit/_components/(editor_client_components)/(block_template_picker_components)/block-template-data";
 import { createBlocksFromTemplate } from "../app/courses/[courseId]/edit/_components/(editor_client_components)/(block_template_picker_components)/create-blocks-from-template";
 import { TemplatePreview } from "../app/courses/[courseId]/edit/_components/(editor_client_components)/(block_template_picker_components)/template-preview";
+import { ImageTemplatePreview } from "../app/courses/[courseId]/edit/_components/(editor_client_components)/(block_template_picker_components)/(template_preview_components)/image-template-preview";
 import { TextTemplatePreview } from "../app/courses/[courseId]/edit/_components/(editor_client_components)/(block_template_picker_components)/(template_preview_components)/text-template-preview";
 import { codeExamplePresets } from "../lib/editor/code-example";
 
@@ -63,12 +64,32 @@ describe("prebuilt lesson text templates", () => {
 });
 
 describe("new template block spacing", () => {
-  it.each(["image", "video", "gallery"] as const)("creates every %s template at M content width", (type) => {
+  it("keeps image cover and banner thumbnails proportional with a compact image icon", () => {
+    const coverPreview = renderToStaticMarkup(
+      createElement(ImageTemplatePreview, { layout: "cover" }),
+    );
+    const bannerPreview = renderToStaticMarkup(
+      createElement(ImageTemplatePreview, { layout: "banner" }),
+    );
+
+    expect(coverPreview).toContain("aspect-[16/7]");
+    expect(coverPreview).toContain("aspect-square h-[20%]");
+    expect(coverPreview).toContain("size-3");
+    expect(bannerPreview).toContain("aspect-[21/9] w-full");
+    expect(bannerPreview).not.toContain("min-h-24");
+  });
+
+  it.each(["image", "video", "gallery"] as const)("creates every %s template at its expected content width", (type) => {
     const templates = blockTemplates.filter((template) => template.type === type);
     expect(templates.length).toBeGreaterThan(0);
     for (const template of templates) {
       const [block] = createBlocksFromTemplate(template, `width-${template.id}`);
-      expect(block).toMatchObject({ type, width: "medium", widthCustom: false });
+      expect(block).toMatchObject({
+        type,
+        width: type === "image" && template.imageLayout === "cover" ? "full" : "medium",
+        widthCustom: false,
+      });
+      if (type === "image" && template.imageLayout === "cover") expect(block.blockPadding).toBe(0);
     }
   });
 
@@ -77,10 +98,32 @@ describe("new template block spacing", () => {
       const blocks = createBlocksFromTemplate(template, `padding-${template.id}`);
       expect(blocks.length, template.id).toBeGreaterThan(0);
       for (const block of blocks) {
-        if (block.type === "interactionButton" || block.type === "audioInstruction") expect(block.blockPadding).toBe(0);
+        if (block.type === "interactionButton" || block.type === "audioInstruction" || (block.type === "image" && block.data.layout === "cover")) expect(block.blockPadding).toBe(0);
         else expect(block.blockPadding, template.id).toBeGreaterThanOrEqual(40);
       }
     }
+  });
+
+  it("uses a full-width cover as the default image template with a matching cover thumbnail", () => {
+    const template = blockTemplates.find((item) => item.category === "Image");
+    expect(template).toMatchObject({
+      id: "image-single",
+      title: "Full-width image cover",
+      imageLayout: "cover",
+      width: "full",
+      preview: "image-cover",
+    });
+    const [block] = createBlocksFromTemplate(template!, "cover-default");
+    expect(block).toMatchObject({
+      type: "image",
+      width: "full",
+      blockPadding: 0,
+      data: { layout: "cover", title: "A visual introduction", body: "Set the scene for this lesson." },
+    });
+    const preview = renderToStaticMarkup(createElement(TemplatePreview, { template: template! }));
+    expect(preview).toContain("data-template-image-cover");
+    expect(preview).toContain("A visual introduction");
+    expect(preview).toContain("Set the scene for this lesson.");
   });
 });
 
@@ -172,6 +215,7 @@ describe("prebuilt lesson image templates", () => {
 
     expect(imageTemplates.map((template) => template.id)).toEqual([
       "image-single",
+      "image-caption",
       "image-banner",
       "image-text-left",
       "image-text-right",
@@ -185,7 +229,9 @@ describe("prebuilt lesson image templates", () => {
       expect(parsed.type).toBe("image");
       if (parsed.type !== "image") continue;
       expect(parsed.data.layout).toBe(template.imageLayout);
-      expect(parsed).toMatchObject({ width: "medium" });
+      expect(parsed).toMatchObject({
+        width: template.imageLayout === "cover" ? "full" : "medium",
+      });
     }
 
     const splitLayout = createBlocksFromTemplate(

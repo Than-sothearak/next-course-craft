@@ -118,7 +118,9 @@ export function StandardLessonEditor({
                   ? block.width
                   : defaultBlockWidthForBlock(block);
                 const widthClass =
-                  contentWidth === "small"
+                  block.type === "image" && block.data.layout === "cover"
+                    ? "max-w-none"
+                    : contentWidth === "small"
                     ? "max-w-[520px]"
                     : contentWidth === "medium"
                       ? "max-w-[720px]"
@@ -171,7 +173,7 @@ export function StandardLessonEditor({
                           disabled={index === 0}
                           aria-label="Move block up"
                           title="Move block up"
-                          className="size-8"
+                          className="size-8 border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-100 hover:text-slate-900"
                         >
                           <ArrowUp size={14} />
                         </Button>
@@ -182,7 +184,7 @@ export function StandardLessonEditor({
                           disabled={index === lesson.blocks.length - 1}
                           aria-label="Move block down"
                           title="Move block down"
-                          className="size-8"
+                          className="size-8 border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-100 hover:text-slate-900"
                         >
                           <ArrowDown size={14} />
                         </Button>
@@ -195,7 +197,7 @@ export function StandardLessonEditor({
                           size="icon"
                           onClick={() => onDuplicateBlock(block.id)}
                           aria-label="Duplicate block"
-                          className="size-8"
+                          className="size-8 border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-slate-100 hover:text-slate-900"
                         >
                           <Copy size={14} />
                         </Button>
@@ -204,7 +206,7 @@ export function StandardLessonEditor({
                           size="icon"
                           onClick={() => onDeleteBlock(block.id)}
                           aria-label="Delete block"
-                          className="size-8 text-slate-400 hover:text-rose-700"
+                          className="size-8 border border-slate-200 bg-white text-slate-500 shadow-sm hover:bg-rose-50 hover:text-rose-700"
                         >
                           <Trash2 size={15} />
                         </Button>
@@ -219,7 +221,7 @@ export function StandardLessonEditor({
                         }}
                       >
                         <div
-                          className={`mx-auto w-full ${widthClass} px-4 transition-all duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none`}
+                          className={`mx-auto w-full ${widthClass} ${block.type === "image" && block.data.layout === "cover" ? "px-0" : "px-4"} transition-all duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none`}
                         >
                           <div
                             className={

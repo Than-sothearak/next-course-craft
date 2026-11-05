@@ -52,6 +52,9 @@ export function createBlocksFromTemplate(
   const base = {
     ...commonBlock(id, template.type),
     ...(isLineDivider ? { width: "full" as const, blockPadding: 60 } : {}),
+    ...(template.type === "image" && template.imageLayout === "cover"
+      ? { width: "full" as const, blockPadding: 0 }
+      : {}),
     ...(template.type === "divider" && template.dividerStyle === "continue"
       ? { blockPadding: 100 }
       : {}),

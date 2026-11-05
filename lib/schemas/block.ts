@@ -51,8 +51,13 @@ export const imageLayoutSchema = z.enum([
   "text-right",
   "text-overlay",
   "card",
+  "cover",
 ]);
 export type ImageLayout = z.infer<typeof imageLayoutSchema>;
+export const imageCoverHeightSchema = z.enum(["short", "medium", "tall", "viewport"]);
+export const imageCoverPositionSchema = z.enum(["center", "top", "bottom", "left", "right"]);
+export type ImageCoverHeight = z.infer<typeof imageCoverHeightSchema>;
+export type ImageCoverPosition = z.infer<typeof imageCoverPositionSchema>;
 const spacing = z.enum(["none", "small", "medium", "large"]);
 const legacyPaddingPixels = {
   none: 0,
@@ -124,6 +129,9 @@ export const imageBlockSchema = z.object({
     layout: imageLayoutSchema.optional(),
     title: z.string().max(500).optional(),
     body: z.string().max(5_000).optional(),
+    coverHeight: imageCoverHeightSchema.optional(),
+    coverPosition: imageCoverPositionSchema.optional(),
+    coverOverlayOpacity: z.number().int().min(0).max(80).optional(),
   }),
 });
 export const galleryBlockSchema = z.object({
@@ -144,6 +152,7 @@ export const galleryBlockSchema = z.object({
 export const videoBlockSchema = z.object({
   ...blockBase("medium", 40),
   type: z.literal("video"),
+  allowSkipping: z.boolean().optional(),
   slidePlayback: slidePlaybackSchema.optional(),
   data: z.object({
     src: z.string().url().or(z.string().startsWith("/")),
@@ -154,6 +163,7 @@ export const videoBlockSchema = z.object({
 export const audioBlockSchema = z.object({
   ...blockBase("medium", 40),
   type: z.literal("audio"),
+  allowSkipping: z.boolean().optional(),
   slideFrame: slideAudioFrameSchema.optional(),
   slidePlayback: slidePlaybackSchema.optional(),
   data: z.object({
@@ -368,6 +378,8 @@ export const accordionBlockSchema = z.object({
           id: z.string().min(1).max(64),
           title: z.string().max(160),
           body: z.string().max(5_000),
+          titleHtml: z.string().max(20_000).optional(),
+          bodyHtml: z.string().max(100_000).optional(),
         }),
       )
       .min(2)
@@ -652,6 +664,7 @@ export function defaultBlockWidth(
 }
 
 export function defaultBlockWidthForBlock(block: ContentBlock): ContentBlock["width"] {
+  if (block.type === "image" && block.data.layout === "cover") return "full";
   if (block.type === "divider" && block.data.style === "line") return "full";
   return defaultBlockWidth(block.type);
 }

@@ -1,5 +1,6 @@
 /** @vitest-environment jsdom */
 import { act, type ReactNode } from "react";
+import type { Editor } from "@tiptap/core";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EditorClient } from "@/app/courses/[courseId]/edit/_components/editor-client";
@@ -53,6 +54,37 @@ describe("interaction button presentation authoring", () => {
     expect(snapshot.lessons[0].blocks[0]).toMatchObject({ data: { popup: { blocks: [{ id: "picture", data: { src: assets[0].fileUrl, alt: "Original" } }] } } });
     await clickLabel("Undo"); await clickText("Edit popup mini slide (1 objects)");
     expect(source()).toBe("/old.png");
+  });
+
+  it("formats accordion text inside a popup, discards Cancel and saves Apply as one undoable edit", async () => {
+    Object.defineProperty(Range.prototype, "getClientRects", { configurable: true, value: () => [] });
+    Object.defineProperty(Range.prototype, "getBoundingClientRect", { configurable: true, value: () => new DOMRect() });
+    try {
+      const accordion = { id: "accordion", type: "accordion", version: 1, data: { items: [{ id: "one", title: "First section", body: "Original explanation" }, { id: "two", title: "Second section", body: "Other explanation" }] } };
+      const initial = { ...data, ...editorSnapshotSchema.parse({ ...data, lessons: [{ ...data.lessons[0], blocks: [{ id: "trigger", type: "interactionButton", version: 1, data: { popup: { blocks: [accordion] } } }] }] }) };
+      await act(async () => root.render(<EditorClient initialData={initial} authorName="Author" />));
+      await clickLabel("Select interactionButton object from layers");
+      const body = () => popup().querySelector<HTMLElement & { editor: Editor }>('[data-popup-editor-canvas] [contenteditable="true"][aria-label="Edit accordion section 1 explanation"]')!;
+      await clickText("Edit popup mini slide (1 objects)");
+      act(() => { body().focus(); body().editor.commands.setContent("<p>Discard this edit</p>"); });
+      await clickText("Cancel", popup());
+      await clickText("Edit popup mini slide (1 objects)");
+      expect(body().textContent).toBe("Original explanation");
+      act(() => { body().focus(); body().editor.commands.setContent("<p>Popup explanation</p>"); body().editor.commands.selectAll(); });
+      expect(popup().querySelector('[data-scaled-canvas] [data-text-selection-popup]')).toBeNull();
+      await act(async () => popup().querySelector<HTMLButtonElement>('[data-text-selection-popup] [aria-label="Bold"]')!.click());
+      expect(fetchMock.mock.calls.some(([, init]) => init?.method === "PUT")).toBe(false);
+      await clickText("Apply popup", popup());
+      const snapshot = await saved();
+      expect(snapshot.lessons[0].blocks[0]).toMatchObject({ data: { popup: { blocks: [{ data: { items: [{ body: "Popup explanation", bodyHtml: expect.stringContaining("<strong>Popup explanation</strong>") }, { body: "Other explanation" }] } }] } } });
+      await clickLabel("Undo");
+      await clickText("Edit popup mini slide (1 objects)");
+      expect(body().textContent).toBe("Original explanation");
+      expect(body().querySelector("strong")).toBeNull();
+    } finally {
+      delete (Range.prototype as unknown as Record<string, unknown>).getClientRects;
+      delete (Range.prototype as unknown as Record<string, unknown>).getBoundingClientRect;
+    }
   });
 
   it("adds and configures a button, supports undo, and saves and restores settings", async () => {

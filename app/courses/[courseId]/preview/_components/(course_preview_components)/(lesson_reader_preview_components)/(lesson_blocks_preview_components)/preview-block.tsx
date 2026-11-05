@@ -11,7 +11,7 @@ import type { MediaPlaybackProgress as PlaybackProgress } from "@/lib/export/med
 import { FileAttachmentLink } from "@/components/file-attachment-link";
 import { CourseLinkBlock } from "@/components/course-link-block";
 import { InteractiveAccordion, InteractiveFlipCard, InteractiveKnowledgeCheck, InteractiveLabeledGraphic, InteractiveProcessSteps, InteractiveSurvey } from "../../../../interactive-blocks";
-import type { ContentBlock } from "@/lib/schemas/block";
+import { defaultBlockWidthForBlock, type ContentBlock } from "@/lib/schemas/block";
 import { isSlideMediaObject } from "@/lib/editor/slide-objects";
 import { SlideMediaObject } from "@/app/courses/[courseId]/_components/slide-presentation/slide-media-object";
 import { SlideGallery } from "@/app/courses/[courseId]/_components/slide-presentation/slide-gallery";
@@ -68,8 +68,8 @@ export function PreviewBlock({
   const mediaProgressId = `${block.id}:${block.type === "video" ? "watched" : "listened"}`;
   const { mediaProgress, reportMediaProgress } = useMediaProgress();
   const completed = interactedContentIds?.has(mediaProgressId) ?? false;
-  const trackProgress = slideLayout && !authoring && !decorative && (block.type === "video" || block.type === "audio");
-  const requireFullPlayback = !authoring && !decorative && block.requiredForProgress !== false && !completed;
+  const trackProgress = !authoring && !decorative && (block.type === "video" || block.type === "audio");
+  const requireFullPlayback = !authoring && !decorative && !completed && (block.type === "video" || block.type === "audio") && block.allowSkipping === false;
   const tracking = { trackProgress, completed, initialProgress: mediaProgress[mediaProgressId], onProgress: (progress: PlaybackProgress) => reportMediaProgress(mediaProgressId, progress) };
   const { events: videoPlayback } = useRequiredMediaPlayback(block.type === "video" ? block.data.src : "", requireFullPlayback, () => onInteractiveProgress?.(mediaProgressId), !authoring && !decorative, { enabled: trackProgress && block.type === "video", completed, initial: tracking.initialProgress, onProgress: tracking.onProgress });
   const widthClass = blockWidthClass(block);
@@ -173,6 +173,10 @@ export function PreviewBlock({
         title={block.data.title}
         body={block.data.body}
         caption={block.data.caption}
+        coverHeight={block.data.coverHeight}
+        coverPosition={block.data.coverPosition}
+        coverOverlayOpacity={block.data.coverOverlayOpacity}
+        coverContentWidth={block.widthCustom ? block.width : defaultBlockWidthForBlock(block)}
         image={<PreviewImage src={block.data.src} alt={block.data.alt} className={imageClassName} caption={block.data.caption} />}
       />
     );
@@ -342,6 +346,10 @@ export function PreviewBlock({
 
   if (slideLayout && (block.type === "flipCard" || (block.type === "labeledGraphic" && block.data.interactionMode !== "spotTarget"))) {
     return <div className="h-full w-full">{content}</div>;
+  }
+
+  if (!slideLayout && block.type === "image" && block.data.layout === "cover") {
+    return <div className="w-full" style={{ ...style, paddingTop: 0, paddingBottom: 0 }}>{content}</div>;
   }
 
   return (

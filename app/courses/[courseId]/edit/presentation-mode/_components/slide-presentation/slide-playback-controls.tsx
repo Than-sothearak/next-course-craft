@@ -2,12 +2,14 @@
 
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select } from "@/components/ui/select";
+import { MediaSkippingControls } from "@/components/media-skipping-controls";
 import type { ContentBlock } from "@/lib/schemas/block";
 
 export function SlidePlaybackControls({ block, onChange }: { block: ContentBlock; onChange: (block: ContentBlock) => void }) {
   if (block.type !== "video" && block.type !== "audio") return null;
   const settings = block.slidePlayback ?? { autoPlay: false, loop: false, muted: false, showControls: true };
   return <section aria-label="Presentation media playback settings" className="grid grid-cols-2 gap-2">
+    <div className="col-span-2"><MediaSkippingControls block={block} onChange={onChange} /></div>
     <label className="flex items-start gap-2 rounded-md border border-slate-200 p-2 text-xs text-slate-600"><Checkbox aria-label="Autoplay media" checked={settings.autoPlay} onChange={(event) => onChange({ ...block, slidePlayback: { ...settings, autoPlay: event.target.checked } })} />Autoplay on open</label>
     <label className="flex items-start gap-2 rounded-md border border-slate-200 p-2 text-xs text-slate-600"><Checkbox aria-label="Loop media" checked={settings.loop ?? false} onChange={(event) => onChange({ ...block, slidePlayback: { ...settings, loop: event.target.checked } })} />Loop playback</label>
     <label className="flex items-start gap-2 rounded-md border border-slate-200 p-2 text-xs text-slate-600"><Checkbox aria-label="Mute media" checked={settings.muted ?? false} onChange={(event) => onChange({ ...block, slidePlayback: { ...settings, muted: event.target.checked } })} />Mute playback</label>

@@ -41,6 +41,7 @@ describe("presentation menu action progress", () => {
     vi.spyOn(HTMLMediaElement.prototype, "play").mockResolvedValue();
     vi.spyOn(HTMLMediaElement.prototype, "pause").mockImplementation(() => {});
     Object.defineProperty(HTMLElement.prototype, "scrollTo", { configurable: true, value: vi.fn() });
+    vi.spyOn(window, "scrollTo").mockImplementation(() => {});
     container = document.createElement("div"); document.body.append(container); root = createRoot(container);
   });
   afterEach(() => { act(() => root.unmount()); container.remove(); delete (HTMLElement.prototype as unknown as Record<string, unknown>).scrollTo; vi.unstubAllGlobals(); vi.restoreAllMocks(); vi.useRealTimers(); });

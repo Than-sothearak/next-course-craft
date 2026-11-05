@@ -38,7 +38,7 @@ export function useRequiredMediaPlayback(src: string, required: boolean, onEnded
         update(event.currentTarget);
       },
       onEnded: (event: SyntheticEvent<HTMLMediaElement>) => {
-        if (!active || ((required || tracking.enabled) && !tracking.completed && !guard.finish(event.currentTarget))) return false;
+        if (!active || (required && !tracking.completed && !guard.finish(event.currentTarget))) return false;
         onEnded?.();
         return true;
       },

@@ -183,7 +183,7 @@ export function useCoursePreviewProgress({
             : parsed;
         }
         const restoredMediaProgress = validMediaProgress(snapshot?.mediaProgress);
-        if (slideCourse) restoreMediaProgress(restoredMediaProgress);
+        restoreMediaProgress(restoredMediaProgress);
         const restoredInteractedContentIds = new Set([
           ...(snapshot?.interactedContentIds ?? []),
           ...(snapshot?.interactedFlipCardIds ?? []),
@@ -222,6 +222,7 @@ export function useCoursePreviewProgress({
               100,
               lesson.blocks,
               restoredInteractedContentIds,
+              restoredMediaProgress,
             ));
           }
         }
@@ -422,6 +423,7 @@ export function useCoursePreviewProgress({
         readingProgress,
         lesson.blocks,
         interactedContentIds,
+        mediaProgress,
       );
       setLessonScrollProgress((previous) =>
         (actionProgress === null ? (previous[lesson.id] ?? 0) >= trackedProgress : previous[lesson.id] === trackedProgress)

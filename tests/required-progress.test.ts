@@ -3,6 +3,7 @@ import { blockSchema } from "@/lib/schemas/block";
 import { editorSnapshotSchema } from "@/lib/editor/schemas";
 import { parseScorm12Snapshot } from "@/lib/scorm12/snapshot";
 import { getInitiallyViewedInteractionIds, getInteractiveBlockProgressIds, getPendingFlipCardIds, getPendingInteractiveProgressIds, getPendingRequiredContinueDividerIds, getRestrictedLessonProgress } from "@/lib/export/progress";
+import { mediaProgressSource } from "@/lib/export/media-playback";
 
 const fixtures = [
   { type: "flipCard", data: { cards: [{ id: "card", frontLabel: "Question", backLabel: "Answer", front: { type: "text", text: "Front" }, back: { type: "text", text: "Back" } }] } },
@@ -16,6 +17,24 @@ const fixtures = [
 ];
 
 describe("optional progress activities", () => {
+  it.each(["audio", "video"])("combines Standard reading with ten verified %s checkpoints without completing the activity", (type) => {
+    const src = "/api/assets/aaaaaaaaaaaaaaaaaaaaaaaa/file";
+    const block = blockSchema.parse({ id: "media", type, version: 1, data: { src, mimeType: type === "video" ? "video/mp4" : "audio/mpeg" } });
+    const id = getInteractiveBlockProgressIds(block)[0];
+    for (let step = 0; step <= 10; step++) {
+      const mediaProgress = { [id]: { source: mediaProgressSource(src), seconds: step * 4, duration: 40 } };
+      expect(getRestrictedLessonProgress(100, [block], new Set(), mediaProgress)).toBe(50 + Math.min(step * 5, 45));
+      expect(getRestrictedLessonProgress(60, [block], new Set(), mediaProgress)).toBe(30 + Math.min(step * 5, 45));
+      expect(getPendingInteractiveProgressIds([block], new Set())).toEqual([id]);
+    }
+    const checkpoint = { [id]: { source: mediaProgressSource(src), seconds: 36, duration: 40 } };
+    expect(getRestrictedLessonProgress(100, [block], new Set([id]), checkpoint)).toBe(100);
+    expect(getRestrictedLessonProgress(100, [block], new Set(), { [id]: { ...checkpoint[id], source: "bbbbbbbbbbbbbbbbbbbbbbbb" } })).toBe(50);
+    expect(getRestrictedLessonProgress(100, [{ ...block, requiredForProgress: false }], new Set(), checkpoint)).toBe(100);
+    const action = blockSchema.parse({ ...fixtures[4], id: "action", version: 1 });
+    expect(getRestrictedLessonProgress(100, [block, action], new Set(["action:answer"]), checkpoint)).toBe(97);
+  });
+
   it.each(fixtures)("excludes optional $type activities from gates while retaining their interaction IDs", (fixture) => {
     const required = blockSchema.parse({ ...fixture, id: "activity", version: 1 });
     const optional = { ...required, requiredForProgress: false };

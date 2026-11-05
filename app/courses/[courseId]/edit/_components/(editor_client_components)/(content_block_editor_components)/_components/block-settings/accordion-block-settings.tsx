@@ -64,7 +64,7 @@ export function AccordionBlockSettings({ block, onChange }: { block: Extract<Con
             maxLength={160}
             onChange={(event) => onChange({
               ...block,
-              data: { ...block.data, items: block.data.items.map((entry) => entry.id === item.id ? { ...entry, title: event.target.value } : entry) },
+              data: { ...block.data, items: block.data.items.map((entry) => entry.id === item.id ? { ...entry, title: event.target.value, titleHtml: undefined } : entry) },
             })}
             placeholder="Section title"
             className="h-9"
@@ -75,7 +75,7 @@ export function AccordionBlockSettings({ block, onChange }: { block: Extract<Con
             maxLength={5000}
             onChange={(event) => onChange({
               ...block,
-              data: { ...block.data, items: block.data.items.map((entry) => entry.id === item.id ? { ...entry, body: event.target.value } : entry) },
+              data: { ...block.data, items: block.data.items.map((entry) => entry.id === item.id ? { ...entry, body: event.target.value, bodyHtml: undefined } : entry) },
             })}
             placeholder="Explanation"
             className="min-h-16 resize-y"

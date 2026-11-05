@@ -2,9 +2,9 @@
 
 import { useEffect } from "react";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
-import { TextFormattingToolbar, textEditorExtensions } from "@/app/courses/[courseId]/edit/_components/(editor_client_components)/(text_editing_components)/text-formatting-toolbar";
-import { useTextSelectionToolbar } from "@/app/courses/[courseId]/edit/_components/(editor_client_components)/(text_editing_components)/use-text-selection-toolbar";
+import { textEditorExtensions } from "@/app/courses/[courseId]/edit/_components/(editor_client_components)/(text_editing_components)/text-formatting-toolbar";
 import { EquationDialog } from "@/app/courses/[courseId]/edit/_components/(editor_client_components)/(text_editing_components)/equation-dialog";
+import { SelectionTextFormattingPopup } from "@/app/courses/[courseId]/edit/_components/(editor_client_components)/(text_editing_components)/selection-text-formatting-popup";
 
 function titleContent(title: string, html?: string) {
   return html ?? `<h1>${title.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")}</h1>`;
@@ -27,14 +27,12 @@ export function LessonTitleEditor({ title, html, onChange, onValidityChange, com
   compact?: boolean;
   allowEmpty?: boolean;
 }) {
-  const { isTextSelected, onSelectionUpdate, rootRef } = useTextSelectionToolbar();
   const editor = useEditor({
     extensions: textEditorExtensions,
     content: titleContent(title, html),
     immediatelyRender: false,
     shouldRerenderOnTransaction: true,
     editorProps: { attributes: { role: "textbox", "aria-label": "Lesson title", "aria-multiline": "true" } },
-    onSelectionUpdate,
     onTransaction: ({ editor: activeEditor }) => onValidityChange(!titleError(activeEditor, allowEmpty)),
     onUpdate: ({ editor: activeEditor }) => {
       const nextTitle = activeEditor.getText().trim();
@@ -52,10 +50,10 @@ export function LessonTitleEditor({ title, html, onChange, onValidityChange, com
 
   const error = titleError(editor, allowEmpty);
 
-  return <div ref={rootRef} className={`relative mx-auto w-full max-w-[720px] px-4 ${compact ? "py-5" : "py-10"}`}>
+  return <div className={`relative mx-auto w-full max-w-[720px] px-4 ${compact ? "py-5" : "py-10"}`}>
     <EquationDialog editor={editor} />
     <EditorContent editor={editor} className="min-h-12 cursor-text break-words rounded-md [&_.tiptap]:min-h-12 [&_.tiptap]:outline-none [&_h1]:text-3xl sm:[&_h1]:text-4xl [&_h1]:font-semibold [&_h1]:tracking-tight [&_h2]:text-2xl sm:[&_h2]:text-3xl [&_h2]:font-semibold [&_h3]:text-xl sm:[&_h3]:text-2xl [&_h3]:font-semibold [&_p]:text-base [&_p]:font-normal" />
     {error && <p role="alert" className="mt-2 text-xs text-rose-700">{error}</p>}
-    {isTextSelected && <div className="mt-3 rounded-xl border border-slate-200 bg-white p-2.5 text-slate-700 shadow-sm"><TextFormattingToolbar editor={editor} allowLists={false} /></div>}
+    <SelectionTextFormattingPopup editor={editor} allowLists={false} />
   </div>;
 }

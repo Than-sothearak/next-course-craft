@@ -24,7 +24,7 @@ try {
   const { inlineLocalFontAssets } = await vite.ssrLoadModule("/lib/export/inline-font-assets.ts");
   const css = await inlineLocalFontAssets(readFileSync(resolve(assets, names.find((name) => name.endsWith(".css"))), "utf8"), assets);
   const video = (id, revisitBehavior, cropped = false) => ({
-    id, type: "video", version: 1, data: { src: source, mimeType: "video/webm" },
+    id, type: "video", version: 1, allowSkipping: false, data: { src: source, mimeType: "video/webm" },
     slidePlayback: { autoPlay: true, muted: true, showControls: true, ...(revisitBehavior ? { revisitBehavior } : {}) },
     slideFrame: { x: 20, y: 20, width: 60, height: 50, z: 0 },
     ...(cropped ? { slideMedia: { source, width: 1600, height: 900 }, slideCrop: { source, x: 25, y: 0, width: 50, height: 100 } } : {}),

@@ -14,7 +14,7 @@ import { slideMediaRestartEvent } from "@/lib/editor/slide-playback";
 import { mediaProgressSource } from "@/lib/export/media-playback";
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
-const video = videoBlockSchema.parse({ id: "video", version: 1, type: "video", slidePlayback: { autoPlay: true, showControls: false }, data: { src: "/clip.webm", mimeType: "video/webm" } });
+const video = videoBlockSchema.parse({ id: "video", version: 1, type: "video", allowSkipping: false, slidePlayback: { autoPlay: true, showControls: false }, data: { src: "/clip.webm", mimeType: "video/webm" } });
 const audio = audioBlockSchema.parse({ id: "audio", version: 1, type: "audio", slidePlayback: { autoPlay: true, showControls: false }, data: { src: "/api/assets/123456789012345678901234/file", fileName: "Narration", mimeType: "audio/webm" } });
 const snapshot = editorSnapshotSchema.parse({ title: "Presentation", description: "", revision: 1, courseLayout: "slides", navigationMode: "free", sections: [{ id: "section", title: "Slides", order: 0 }], lessons: [
   { id: "first", sectionId: "section", title: "Media", order: 0, blocks: [video, audio] },
