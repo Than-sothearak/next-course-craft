@@ -33,7 +33,7 @@ export function SlideMediaPlayer({ block, onDimensions, onDurationChange, onEnde
   const mediaRef = useRef<HTMLMediaElement>(null);
   const trackRef = useRef<HTMLTrackElement>(null);
   const pointerFocus = useRef(false);
-  const videoVisit = useRef({ source: block.data.src, entered: false, active: false, left: false, resetOnMetadata: false });
+  const videoVisit = useRef({ source: block.data.src, entered: false, active: false, left: false, resumeOnReturn: false, resetOnMetadata: false });
   const readVideoSettings = useEffectEvent(() => ({ completed, revisitBehavior: block.slidePlayback?.revisitBehavior ?? "restart" }));
   const reportCachedDuration = useEffectEvent((media: HTMLMediaElement) => {
     // Metadata can arrive before hydration attaches React's media listeners.
@@ -91,8 +91,9 @@ export function SlideMediaPlayer({ block, onDimensions, onDurationChange, onEnde
     };
     media.addEventListener(slideMediaRestartEvent, restart);
     let allowAutoplay = true;
+    let resumeOnReturn = false;
     if (block.type === "video") {
-      if (videoVisit.current.source !== block.data.src) videoVisit.current = { source: block.data.src, entered: false, active: false, left: false, resetOnMetadata: false };
+      if (videoVisit.current.source !== block.data.src) videoVisit.current = { source: block.data.src, entered: false, active: false, left: false, resumeOnReturn: false, resetOnMetadata: false };
       const visit = videoVisit.current;
       const settings = readVideoSettings();
       if (active && !visit.active) {
@@ -101,17 +102,22 @@ export function SlideMediaPlayer({ block, onDimensions, onDurationChange, onEnde
           visit.resetOnMetadata = media.readyState === 0;
           media.currentTime = 0;
         }
+        resumeOnReturn = visit.resumeOnReturn;
+        visit.resumeOnReturn = false;
         visit.entered = true;
       }
       if (!active && visit.entered) visit.left = true;
       visit.active = active;
       allowAutoplay = !visit.left && !settings.completed;
     }
-    if (active && autoPlay && allowAutoplay && block.data.src) play();
+    if (active && block.data.src && ((autoPlay && allowAutoplay) || resumeOnReturn)) play();
     if (!active && !media.paused) media.pause();
     return () => {
       cancelled = true;
       media.removeEventListener(slideMediaRestartEvent, restart);
+      if (block.type === "video" && active && !media.paused && !readVideoSettings().completed) {
+        videoVisit.current.resumeOnReturn = true;
+      }
       if (!media.paused) media.pause();
     };
   }, [active, autoPlay, block.data.src, block.type, decorative]);

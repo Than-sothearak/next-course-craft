@@ -95,7 +95,7 @@ describe("presentation media playback", () => {
     expect(container.querySelector("select")).toBeNull();
   });
 
-  it.each([undefined, "restart", "continue"] as const)("keeps revisited videos paused with behavior %s, including after ending", async (revisitBehavior) => {
+  it.each([undefined, "restart", "continue"] as const)("resumes a video on return when it was playing before leaving (%s)", async (revisitBehavior) => {
     const block = videoBlockSchema.parse({ ...video, slidePlayback: { ...video.slidePlayback, revisitBehavior } });
     await render(block);
     const player = media();
@@ -106,20 +106,36 @@ describe("presentation media playback", () => {
     await render(block, true);
     expect(media()).toBe(player);
     expect(player.currentTime).toBe(revisitBehavior === "continue" ? 7.35 : 0);
-    expect(player.paused).toBe(true);
-    expect(play).toHaveBeenCalledTimes(1);
+    expect(player.paused).toBe(false);
+    expect(play).toHaveBeenCalledTimes(2);
     await act(async () => finishMediaPlayback(player));
+    await act(async () => player.pause());
     await render(block, false); await render(block, true);
     expect(player.currentTime).toBe(revisitBehavior === "continue" ? 10 : 0);
     expect(player.paused).toBe(true);
-    expect(play).toHaveBeenCalledTimes(1);
+    expect(play).toHaveBeenCalledTimes(2);
     await act(async () => player.dispatchEvent(new Event(slideMediaRestartEvent)));
     expect(player.currentTime).toBe(0);
+    expect(player.paused).toBe(false);
+    expect(play).toHaveBeenCalledTimes(3);
+  });
+
+  it("resumes a manually started video when returning to its slide", async () => {
+    const block = videoBlockSchema.parse({ ...video, slidePlayback: { autoPlay: false } });
+    await render(block);
+    const player = media();
+    expect(play).not.toHaveBeenCalled();
+
+    await act(async () => player.play());
+    await render(block, false);
+    expect(player.paused).toBe(true);
+
+    await render(block, true);
     expect(player.paused).toBe(false);
     expect(play).toHaveBeenCalledTimes(2);
   });
 
-  it.each(["restart", "continue"] as const)("preserves exact video state, verified progress and completion through real slide navigation (%s)", async (revisitBehavior) => {
+  it.each(["restart", "continue"] as const)("resumes previously playing videos through real slide navigation (%s)", async (revisitBehavior) => {
     const save = vi.fn();
     const data = { ...snapshot, courseId: `revisit-${revisitBehavior}`, lessons: [
       { ...snapshot.lessons[0], blocks: [videoBlockSchema.parse({ ...video, slidePlayback: { ...video.slidePlayback, revisitBehavior } })] },
@@ -138,8 +154,8 @@ describe("presentation media playback", () => {
     await act(async () => control("Previous").click());
     expect(media()).toBe(player);
     expect(player.currentTime).toBe(revisitBehavior === "continue" ? 4.7 : 0);
-    expect(player.paused).toBe(true);
-    expect(play).toHaveBeenCalledTimes(1);
+    expect(player.paused).toBe(false);
+    expect(play).toHaveBeenCalledTimes(2);
     expect(save.mock.lastCall![1].mediaProgress["video:watched"]).toEqual(partial);
     player.currentTime = 9;
     await act(async () => player.dispatchEvent(new Event("seeking")));
@@ -151,7 +167,7 @@ describe("presentation media playback", () => {
     await act(async () => control("Previous").click());
     expect(player.currentTime).toBe(revisitBehavior === "continue" ? 10 : 0);
     expect(player.paused).toBe(true);
-    expect(play).toHaveBeenCalledTimes(1);
+    expect(play).toHaveBeenCalledTimes(2);
     expect(save.mock.lastCall![1].interactedContentIds).toContain("video:watched");
   });
 
