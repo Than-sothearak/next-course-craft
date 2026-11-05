@@ -43,6 +43,22 @@ describe("publish format menu", () => {
     ]);
   });
 
+  it("supports an accessible icon-only trigger for compact editor toolbars", () => {
+    act(() => {
+      root.render(createElement(PublishMenu, {
+        courseId: "course-1",
+        title: "Sample course",
+        compact: true,
+      }));
+    });
+
+    const trigger = container.querySelector<HTMLButtonElement>("button");
+    expect(trigger?.getAttribute("aria-label")).toBe("Publish course");
+    expect(trigger?.title).toBe("Publish course");
+    expect(trigger?.textContent).toBe("");
+    expect(trigger?.className).toContain("size-8");
+  });
+
   it("receives streamed export progress and the final binary file", async () => {
     const filename = "My Presentation មេរៀន-scorm-1.2.zip";
     const header = new TextEncoder().encode(`${JSON.stringify({ type: "progress", stage: "Packaging", value: 70 })}\n${JSON.stringify({ type: "file", filename, size: 3 })}\n`);

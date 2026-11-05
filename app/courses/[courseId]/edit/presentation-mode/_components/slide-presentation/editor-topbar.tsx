@@ -73,19 +73,9 @@ export function EditorTopbar({
       className={`sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur ${isPresentationWorkspace ? "shrink-0" : ""}`}
     >
       <div
-        className={
-          slideCourse
-            ? "flex min-h-16 flex-wrap items-center justify-between gap-x-4 gap-y-2 px-3 py-2 sm:px-5"
-            : "flex min-h-[68px] flex-wrap items-center justify-between gap-4 px-4 py-2 sm:px-6 sm:py-0"
-        }
+        className="flex min-h-16 flex-wrap items-center justify-between gap-x-4 gap-y-2 px-3 py-2 sm:px-5"
       >
-        <div
-          className={
-            slideCourse
-              ? "flex min-w-0 flex-1 basis-40 items-center gap-2"
-              : "flex min-w-0 items-center gap-3"
-          }
-        >
+      <div className="flex min-w-0 flex-1 basis-40 items-center gap-2">
           {hasActiveLesson && !focusedLessonId ? (
             <button
               type="button"
@@ -93,6 +83,7 @@ export function EditorTopbar({
               aria-label={
                 slideCourse ? "Presentation settings" : "Back to course outline"
               }
+              title={slideCourse ? "Presentation settings" : "Back to course outline"}
               className="cursor-pointer grid size-9 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900"
             >
               <ArrowLeft size={18} />
@@ -126,47 +117,43 @@ export function EditorTopbar({
         </div>
 
         <div
-          aria-label={slideCourse ? "Presentation editor actions" : undefined}
-          className={
-            slideCourse
-              ? "flex max-w-full shrink-0 items-center gap-1"
-              : "flex max-w-full flex-wrap items-center gap-1 sm:gap-2"
-          }
+          role="group"
+          aria-label={slideCourse ? "Presentation editor actions" : "Standard editor actions"}
+          className="flex max-w-full shrink-0 items-center gap-1"
         >
           {saveStatus}
           {canManageBlocks && (
             <Button
               type="button"
-              variant={blockManagerOpen ? "secondary" : slideCourse ? "ghost" : "outline"}
+              variant={blockManagerOpen ? "secondary" : "ghost"}
               size="sm"
               aria-label="Manage blocks"
               aria-expanded={blockManagerOpen}
               aria-controls="lesson-block-manager"
               onClick={onToggleBlockManager}
-              className={slideCourse ? "size-8 min-h-0 rounded-md p-0 text-slate-600" : "h-9 px-2 sm:px-3"}
+              title="Manage blocks"
+              className="size-8 min-h-0 rounded-md p-0 text-slate-600"
             >
               <List size={16} aria-hidden="true" />
-              <span className={slideCourse ? "sr-only" : "hidden sm:inline"}>
-                Manage blocks
-              </span>
+              <span className="sr-only">Manage blocks</span>
             </Button>
           )}
           <CourseThemeSettings
             courseId={courseId}
             courseTitle={courseTitle}
             theme={theme}
-            compact={slideCourse}
+            compact
             onChange={onThemeChange}
           />
           <CourseNavigationSettings
             navigationMode={navigationMode}
-            compact={slideCourse}
+            compact
             onChange={onNavigationModeChange}
           />
           <div
             role="group"
             aria-label="Edit history"
-            className={slideCourse ? "mx-1 flex items-center border-x border-slate-200 px-1" : "flex items-center"}
+            className="mx-1 flex items-center border-x border-slate-200 px-1"
           >
             <Button
               variant="ghost"
@@ -175,7 +162,7 @@ export function EditorTopbar({
               onClick={onUndo}
               aria-label="Undo"
               title="Undo"
-              className={slideCourse ? "size-8 rounded-md text-slate-500" : undefined}
+              className="size-8 rounded-md text-slate-500"
             >
               <Undo2 size={16} />
             </Button>
@@ -186,22 +173,22 @@ export function EditorTopbar({
               onClick={onRedo}
               aria-label="Redo"
               title="Redo"
-              className={slideCourse ? "size-8 rounded-md text-slate-500" : undefined}
+              className="size-8 rounded-md text-slate-500"
             >
               <Redo2 size={16} />
             </Button>
           </div>
           <Button
             type="button"
-            variant={slideCourse ? "default" : "outline"}
+            variant="default"
             size="sm"
             aria-label="Preview"
             title={slideCourse ? "Preview presentation" : "Preview course"}
-            className={slideCourse ? "size-8 min-h-0 rounded-md p-0 shadow-none" : undefined}
+            className="size-8 min-h-0 rounded-md p-0 shadow-none"
             onClick={onPreview}
           >
             <Eye size={16} aria-hidden="true" />
-            <span className={slideCourse ? "sr-only" : undefined}>Preview</span>
+            <span className="sr-only">Preview</span>
           </Button>
         </div>
       </div>

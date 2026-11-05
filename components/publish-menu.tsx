@@ -76,6 +76,7 @@ export function PublishMenu({
   disabledReason,
   className,
   openUpward = false,
+  compact = false,
   onPublished,
 }: {
   courseId: string;
@@ -84,6 +85,7 @@ export function PublishMenu({
   disabledReason?: string;
   className?: string;
   openUpward?: boolean;
+  compact?: boolean;
   onPublished?: () => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -152,18 +154,19 @@ export function PublishMenu({
     <div ref={menuRef} className="relative">
       <Button
         type="button"
-        variant="outline"
-        size="sm"
+        variant={compact ? "ghost" : "outline"}
+        size={compact ? "icon" : "sm"}
         disabled={disabled || publishing !== null}
         title={disabled ? disabledReason : "Publish course"}
+        aria-label="Publish course"
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => { setError(null); setProgress(null); setOpen((current) => !current); }}
-        className={className}
+        className={compact ? `size-8 min-h-0 rounded-md border-0 bg-transparent p-0 text-slate-600 shadow-none hover:bg-slate-100 hover:text-slate-900 ${className ?? ""}` : className}
       >
         {publishing ? <LoaderCircle size={14} className="animate-spin" /> : <Download size={14} />}
-        {publishing ? "Exporting…" : "Publish"}
-        {!publishing && <ChevronDown size={14} />}
+        {!compact && (publishing ? "Exporting…" : "Publish")}
+        {!compact && !publishing && <ChevronDown size={14} />}
       </Button>
       {open && (
         <div role="menu" aria-label="Publish format" className={`absolute right-0 z-[70] w-52 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl ${openUpward ? "bottom-full mb-2" : "top-full mt-2"}`}>

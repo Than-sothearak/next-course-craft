@@ -86,16 +86,52 @@ export function CourseOverviewToolbar({
         </>
       }
       primaryAction={
-        <div className="flex items-center gap-2">
+        <div role="group" aria-label="Course editor actions" className="flex items-center gap-1">
           {saveStatus}
-          {slideCourse && (
-            <>
+          {canGenerate && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label="Generate content"
+              title="Generate content"
+              className="size-8 rounded-md text-slate-600"
+              onClick={onGenerate}
+            >
+              <Sparkles size={16} />
+            </Button>
+          )}
+          <CourseThemeSettings
+            courseId={courseId}
+            courseTitle={title}
+            theme={theme}
+            compact
+            onChange={onThemeChange}
+          />
+          <CourseNavigationSettings
+            navigationMode={navigationMode}
+            compact
+            onChange={onNavigationModeChange}
+          />
+          {canPublish && (
+            <PublishMenu
+              courseId={courseId}
+              title={title}
+              disabled={Boolean(publishDisabledReason)}
+              disabledReason={publishDisabledReason}
+              compact
+            />
+          )}
+          {!slideCourse && (
+            <div role="group" aria-label="Edit history" className="mx-1 flex items-center border-x border-slate-200 px-1">
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
                 aria-label="Undo"
+                title="Undo"
                 disabled={!canUndo}
+                className="size-8 rounded-md text-slate-500"
                 onClick={onUndo}
               >
                 <Undo2 size={16} />
@@ -105,48 +141,17 @@ export function CourseOverviewToolbar({
                 variant="ghost"
                 size="icon"
                 aria-label="Redo"
+                title="Redo"
                 disabled={!canRedo}
+                className="size-8 rounded-md text-slate-500"
                 onClick={onRedo}
               >
                 <Redo2 size={16} />
               </Button>
-            </>
+            </div>
           )}
-          {canGenerate && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              aria-label="Generate content"
-              title="Generate content"
-              onClick={onGenerate}
-            >
-              <Sparkles size={15} />
-              <span className="hidden sm:inline">Generate content</span>
-              <span className="sm:hidden">Generate</span>
-            </Button>
-          )}
-          <CourseThemeSettings
-            courseId={courseId}
-            courseTitle={title}
-            theme={theme}
-            onChange={onThemeChange}
-          />
-          <CourseNavigationSettings
-            navigationMode={navigationMode}
-            onChange={onNavigationModeChange}
-          />
-          {canPublish && (
-            <PublishMenu
-              courseId={courseId}
-              title={title}
-              disabled={Boolean(publishDisabledReason)}
-              disabledReason={publishDisabledReason}
-            />
-          )}
-          <Button type="button" variant="outline" size="sm" onClick={onPreview}>
-            <Eye size={15} />
-            Preview
+          <Button type="button" variant="default" size="icon" aria-label="Preview" title="Preview course" className="size-8 min-h-0 rounded-md p-0 shadow-none" onClick={onPreview}>
+            <Eye size={16} aria-hidden="true" />
           </Button>
         </div>
       }

@@ -165,10 +165,12 @@ export function SlidePresentationPreview({
           {onEdit && (
             <Button
               type="button"
-              variant="outline"
+              variant="default"
               size="sm"
+              aria-label="Edit"
+              title="Edit"
               onClick={onEdit}
-              className="h-8"
+              className="ml-1 h-8 px-3 text-xs"
             >
               Edit
             </Button>

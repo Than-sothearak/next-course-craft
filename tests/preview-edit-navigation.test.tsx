@@ -60,6 +60,25 @@ describe("preview links to the exact editor block", () => {
     expect(container.querySelector('[data-lesson-block-id] button')).toBeNull();
   });
 
+  it("matches the Standard preview navbar Edit button style for presentations", async () => {
+    const presentationData: PreviewData = {
+      ...initialData,
+      courseLayout: "slides",
+    };
+    await act(async () => root.render(createElement(CoursePreviewRoute, {
+      canEdit: true,
+      initialData: presentationData,
+      authorName: "Author",
+      initialLessonId: "lesson-2",
+    })));
+
+    const edit = container.querySelector<HTMLButtonElement>('header button[aria-label="Edit"]');
+    expect(edit).not.toBeNull();
+    expect(edit?.title).toBe("Edit");
+    expect(edit?.className).toContain("ml-1 h-8 px-3 text-xs");
+    expect(edit?.textContent?.trim()).toBe("Edit");
+  });
+
   it("routes toolbar Edit to the lesson and block currently in view", async () => {
     await act(async () => root.render(createElement(CoursePreviewRoute, { canEdit: true, initialData, authorName: "Author", initialLessonId: "lesson-2" })));
     const article = container.querySelector("#preview-content-lesson-2")!;
