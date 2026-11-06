@@ -262,6 +262,8 @@ describe("content block dimensions", () => {
     { type: "image", data: { src: "/image.png", alt: "" } },
     { type: "video", data: { src: "/video.mp4" } },
     { type: "gallery", data: { images: [{ src: "/image.png", alt: "" }] } },
+    { type: "statement", data: { style: "key", title: "Key idea", body: "Supporting text" } },
+    { type: "richText", data: { html: "<blockquote><p>Quote</p><p>— Attribution</p></blockquote>" } },
   ])("defaults $type content to M in authoring and the learner while preserving custom widths", (value) => {
     const block = blockSchema.parse({ id: `${value.type}-a`, version: 1, ...value });
     expect(block).toMatchObject({ width: "medium", widthCustom: false, blockPadding: 40 });

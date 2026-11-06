@@ -1,4 +1,5 @@
 "use client";
+import { galleryImageFitClass } from "@/lib/editor/gallery";
 import { borderPaint } from "@/lib/color";
 
 import type { ReactNode } from "react";
@@ -15,6 +16,7 @@ import { defaultBlockWidthForBlock, type ContentBlock } from "@/lib/schemas/bloc
 import { isSlideMediaObject } from "@/lib/editor/slide-objects";
 import { SlideMediaObject } from "@/app/courses/[courseId]/_components/slide-presentation/slide-media-object";
 import { SlideGallery } from "@/app/courses/[courseId]/_components/slide-presentation/slide-gallery";
+import { GalleryCarousel } from "@/components/gallery-carousel";
 import { BalloonArcher } from "@/components/balloon-archer";
 import { PeelToReveal } from "@/components/physics-interaction/peel-to-reveal";
 import { HangingRopeCards } from "@/components/physics-interaction/hanging-rope-cards";
@@ -103,7 +105,7 @@ export function PreviewBlock({
               style={{
                 borderTopWidth: `${block.data.lineWeight ?? 1}px`,
                 borderTopStyle: block.data.lineStyle ?? "solid",
-                ...borderPaint(block.data.lineColor ?? "#cbd5e1"),
+                ...borderPaint(block.data.lineColor ?? "var(--course-primary, #2f5f9f)"),
               }}
             />
           ) : (
@@ -118,7 +120,11 @@ export function PreviewBlock({
     return <SlideMediaObject block={block} {...tracking} requireFullPlayback={requireFullPlayback} onDurationChange={onMediaDurationChange} onVideoEnded={() => onInteractiveProgress?.(`${block.id}:watched`)} />;
   }
 
-  if (slideLayout && block.type === "gallery") return <SlideGallery images={block.data.images} />;
+  if (block.type === "gallery" && block.data.layout === "carousel") {
+    const gallery = <GalleryCarousel key={block.id} data={block.data} presentation={slideLayout} decorative={decorative} />;
+    return slideLayout ? gallery : <div className="w-full" style={style}><div className={`mx-auto w-full ${widthClass} px-4`}>{gallery}</div></div>;
+  }
+  if (slideLayout && block.type === "gallery") return <SlideGallery images={block.data.images} imageFit={block.data.imageFit} />;
   if (slideLayout && block.type === "audio") return <SlideMediaPlayer key={block.data.src} block={block} {...tracking} requireFullPlayback={requireFullPlayback} decorative={decorative} onDurationChange={onMediaDurationChange} onEnded={() => onInteractiveProgress?.(`${block.id}:listened`)} />;
 
   let content: ReactNode;
@@ -195,7 +201,7 @@ export function PreviewBlock({
           <div key={`${block.id}-${index}`} data-slide-animation-item className="min-w-0"><PreviewImage
             src={image.src}
             alt={image.alt}
-            className="aspect-[4/3] w-full rounded-lg object-cover"
+            className={`aspect-[4/3] w-full rounded-lg ${galleryImageFitClass(image.fit ?? block.data.imageFit ?? "cover")}`}
           /></div>
         ))}
       </div>

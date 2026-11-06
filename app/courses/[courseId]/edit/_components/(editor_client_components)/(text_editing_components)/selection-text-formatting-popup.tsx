@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import type { Editor } from "@tiptap/core";
+import type { Transaction } from "@tiptap/pm/state";
 import { TextFormattingToolbar } from "./text-formatting-toolbar";
+import { TextFormattingPopupContext } from "./text-formatting-popup-context";
 
 type Anchor = { left: number; right: number; top: number; bottom: number };
 type Viewport = { left: number; right: number; top: number; bottom: number; width: number; height: number };
@@ -72,6 +74,7 @@ function samePlacement(a: Placement | null, b: Placement) {
 export function SelectionTextFormattingPopup({ editor, allowLists = true }: { editor: Editor | null; allowLists?: boolean }) {
   const [placement, setPlacement] = useState<Placement | null>(null);
   const popupRef = useRef<HTMLDivElement>(null);
+  const popupId = useId();
 
   useLayoutEffect(() => {
     const popup = popupRef.current;
@@ -86,7 +89,14 @@ export function SelectionTextFormattingPopup({ editor, allowLists = true }: { ed
     let dismissed = false;
     let selecting = false;
     let visible = false;
+    let disposed = false;
+    let usingToolbar = false;
     const source = activeEditor.view.dom;
+
+    function owns(target: Node | null) {
+      return Boolean(target && (popupRef.current?.contains(target)
+        || (target instanceof Element && target.closest("[data-popover-owner]")?.getAttribute("data-popover-owner") === popupId)));
+    }
 
     function close() {
       visible = false;
@@ -100,7 +110,7 @@ export function SelectionTextFormattingPopup({ editor, allowLists = true }: { ed
         || selecting
         || activeEditor.state.selection.empty
         || source.closest("[inert], [aria-hidden='true']")
-        || (!activeEditor.isFocused && !popupRef.current?.contains(document.activeElement))) {
+        || (!usingToolbar && !activeEditor.isFocused && !owns(document.activeElement))) {
         close();
         return;
       }
@@ -148,11 +158,26 @@ export function SelectionTextFormattingPopup({ editor, allowLists = true }: { ed
     }
 
     function blur({ event }: { event: FocusEvent }) {
-      if (!(event.relatedTarget instanceof Node) || !popupRef.current?.contains(event.relatedTarget)) close();
+      if (event.relatedTarget instanceof Node) {
+        usingToolbar = owns(event.relatedTarget);
+      }
+      // Trusted pointer events can run microtasks between blur and focus. Keep
+      // ownership from pointerdown/relatedTarget while a native control opens.
+      queueMicrotask(() => {
+        if (!disposed) update();
+      });
+    }
+
+    function transaction({ transaction }: { transaction: Transaction }) {
+      // Tiptap dispatches its blur transaction before the new control has focus.
+      // The blur handler above checks ownership after that transfer completes.
+      if (!transaction.getMeta("blur")) update();
     }
 
     function pointerDown(event: PointerEvent) {
-      if (!(event.target instanceof Node) || popupRef.current?.contains(event.target)) return;
+      if (!(event.target instanceof Node)) return;
+      usingToolbar = owns(event.target);
+      if (usingToolbar) return;
       if (source.contains(event.target)) {
         selecting = true;
         dismissed = false;
@@ -170,7 +195,8 @@ export function SelectionTextFormattingPopup({ editor, allowLists = true }: { ed
     }
 
     function focusIn(event: FocusEvent) {
-      if (event.target instanceof Node && !source.contains(event.target) && !popupRef.current?.contains(event.target)) {
+      if (event.target instanceof Node) usingToolbar = owns(event.target);
+      if (event.target instanceof Node && !source.contains(event.target) && !owns(event.target)) {
         dismissed = true;
         close();
       }
@@ -178,9 +204,12 @@ export function SelectionTextFormattingPopup({ editor, allowLists = true }: { ed
 
     function escape(event: KeyboardEvent) {
       if (event.key !== "Escape" || !visible) return;
+      // Let the color panel handle its own Escape before closing this toolbar.
+      if (Array.from(document.querySelectorAll('[data-popover-owner][data-state="open"]')).some((panel) => panel.getAttribute("data-popover-owner") === popupId)) return;
       event.preventDefault();
       event.stopPropagation();
       dismissed = true;
+      usingToolbar = false;
       close();
       if (!activeEditor.isDestroyed) activeEditor.commands.focus();
     }
@@ -192,7 +221,7 @@ export function SelectionTextFormattingPopup({ editor, allowLists = true }: { ed
     activeEditor.on("selectionUpdate", selected);
     activeEditor.on("focus", update);
     activeEditor.on("blur", blur);
-    activeEditor.on("transaction", update);
+    activeEditor.on("transaction", transaction);
     document.addEventListener("pointerdown", pointerDown, true);
     document.addEventListener("pointerup", pointerUp, true);
     document.addEventListener("pointercancel", pointerUp, true);
@@ -207,12 +236,13 @@ export function SelectionTextFormattingPopup({ editor, allowLists = true }: { ed
     const observer = panel ? new MutationObserver(update) : null;
     if (panel) observer?.observe(panel, { attributes: true, attributeFilter: ["inert", "aria-hidden"] });
     return () => {
+      disposed = true;
       cancelAnimationFrame(frame);
       observer?.disconnect();
       activeEditor.off("selectionUpdate", selected);
       activeEditor.off("focus", update);
       activeEditor.off("blur", blur);
-      activeEditor.off("transaction", update);
+      activeEditor.off("transaction", transaction);
       document.removeEventListener("pointerdown", pointerDown, true);
       document.removeEventListener("pointerup", pointerUp, true);
       document.removeEventListener("pointercancel", pointerUp, true);
@@ -223,7 +253,7 @@ export function SelectionTextFormattingPopup({ editor, allowLists = true }: { ed
       window.visualViewport?.removeEventListener("resize", reposition);
       window.visualViewport?.removeEventListener("scroll", reposition);
     };
-  }, [editor]);
+  }, [editor, popupId]);
 
   if (!editor || editor.isDestroyed || !placement) return null;
   return createPortal(<div
@@ -238,6 +268,8 @@ export function SelectionTextFormattingPopup({ editor, allowLists = true }: { ed
     onKeyDown={(event) => event.stopPropagation()}
   >
     <div className="mb-2 px-1 text-xs font-medium text-slate-500">Edit text format</div>
-    <TextFormattingToolbar editor={editor} allowLists={allowLists} />
+    <TextFormattingPopupContext value={popupId}>
+      <TextFormattingToolbar editor={editor} allowLists={allowLists} />
+    </TextFormattingPopupContext>
   </div>, placement.target);
 }

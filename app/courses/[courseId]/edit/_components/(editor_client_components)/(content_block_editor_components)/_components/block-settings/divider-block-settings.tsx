@@ -1,5 +1,8 @@
 "use client";
 import { ColorPicker } from "@/components/ui/color-picker";
+import { Checkbox } from "@/components/ui/checkbox";
+import { defaultCourseTheme } from "@/lib/editor/theme";
+import { normalizeHexColor } from "@/lib/editor/text-format";
 
 import type { ContentBlock } from "@/lib/schemas/block";
 import { Input } from "@/components/ui/input";
@@ -54,11 +57,13 @@ export function DividerBlockSettings({ block, onChange }: { block: Extract<Conte
               ))}
             </Select>
           </label>
-          <label className="block text-xs font-medium text-slate-600">
-            Line color
-            <ColorPicker
+          <label className="flex items-center gap-2 text-xs text-slate-600">
+            <Checkbox aria-label="Use custom divider line color" checked={Boolean(block.data.lineColor)} onChange={(event) => onChange({ ...block, data: { ...block.data, lineColor: event.target.checked ? normalizeHexColor(getComputedStyle(event.currentTarget).getPropertyValue("--course-primary")) ?? defaultCourseTheme.primaryColor : undefined } })} />
+            Custom line color
+          </label>
+          {block.data.lineColor ? <ColorPicker
               aria-label="Divider line color"
-              value={block.data.lineColor ?? "#cbd5e1"}
+              value={block.data.lineColor}
               onChange={(color) =>
                 onChange({
                   ...block,
@@ -66,8 +71,7 @@ export function DividerBlockSettings({ block, onChange }: { block: Extract<Conte
                 })
               }
               className="mt-1"
-            />
-          </label>
+            /> : <p className="text-xs text-slate-500">Uses the course theme color.</p>}
           <label className="block text-xs font-medium text-slate-600">
             Line style
             <Select

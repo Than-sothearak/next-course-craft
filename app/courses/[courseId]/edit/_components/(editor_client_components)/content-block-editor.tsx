@@ -115,6 +115,7 @@ export function ContentBlockEditor({
       onChange({
         ...block,
         data: {
+          ...block.data,
           images: block.data.images.map((image, index) =>
             index === selectedGalleryImageIndex
               ? { ...image, src: asset.fileUrl }

@@ -1,6 +1,9 @@
 "use client";
 
 import { ColorPicker } from "@/components/ui/color-picker";
+import { Checkbox } from "@/components/ui/checkbox";
+import { defaultCourseTheme } from "@/lib/editor/theme";
+import { normalizeHexColor } from "@/lib/editor/text-format";
 
 import { Plus, Trash2 } from "lucide-react";
 import type { ContentBlock } from "@/lib/schemas/block";
@@ -55,14 +58,19 @@ export function ChartBlockSettings({ block, onChange }: { block: Extract<Content
         <option value="donut">Donut</option>
         <option value="stacked">Stacked</option>
       </Select>
-      <ColorPicker aria-label="Chart color picker" hexLabel="Chart color hex code" value={block.data.color} onChange={(color) => onChange({ ...block, data: { ...block.data, color } })} />
+      <label className="flex items-center gap-2 text-xs text-slate-600">
+        <Checkbox aria-label="Use custom chart color" checked={Boolean(block.data.color)} onChange={(event) => onChange({ ...block, data: { ...block.data, color: event.target.checked ? normalizeHexColor(getComputedStyle(event.currentTarget).getPropertyValue("--course-primary")) ?? defaultCourseTheme.primaryColor : undefined } })} />
+        Custom chart color
+      </label>
+      {block.data.color ? <ColorPicker aria-label="Chart color picker" hexLabel="Chart color hex code" value={block.data.color} onChange={(color) => onChange({ ...block, data: { ...block.data, color } })} /> : <p className="text-xs text-slate-500">Uses the course theme color.</p>}
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2 text-xs font-medium text-slate-500">
           <span>Chart data</span>
           <span>{block.data.fields.length}/20</span>
         </div>
         {block.data.fields.map((field, index) => (
-          <div key={field.id} className="flex items-center gap-2">
+          <div key={field.id} className="space-y-2 rounded-lg border border-slate-200 p-2">
+            <div className="flex items-center gap-2">
             <Input
               aria-label={`Chart field ${index + 1} label`}
               value={field.label}
@@ -110,6 +118,15 @@ export function ChartBlockSettings({ block, onChange }: { block: Extract<Content
             >
               <Trash2 size={14} />
             </Button>
+            </div>
+            <label className="flex items-center gap-2 text-xs text-slate-600">
+              <Checkbox aria-label={`Use custom chart field ${index + 1} color`} checked={Boolean(field.color)} onChange={(event) => {
+                const color = event.target.checked ? block.data.color ?? normalizeHexColor(getComputedStyle(event.currentTarget).getPropertyValue("--course-primary")) ?? defaultCourseTheme.primaryColor : undefined;
+                onChange({ ...block, data: { ...block.data, fields: block.data.fields.map((item) => item.id === field.id ? { ...item, color } : item) } });
+              }} />
+              Custom field color
+            </label>
+            {field.color && <ColorPicker aria-label={`Chart field ${index + 1} color picker`} hexLabel={`Chart field ${index + 1} color hex code`} value={field.color} onChange={(color) => onChange({ ...block, data: { ...block.data, fields: block.data.fields.map((item) => item.id === field.id ? { ...item, color } : item) } })} />}
           </div>
         ))}
         <Button

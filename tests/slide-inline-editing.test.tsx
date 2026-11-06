@@ -110,9 +110,8 @@ describe("inline slide text editing", () => {
     await act(async () => formatButton("Bold").click());
     const fontSize = container.querySelector<HTMLSelectElement>('[aria-label="Slide text formatting"] [aria-label="Font size preset"]')!;
     await act(async () => { fontSize.value = "32px"; fontSize.dispatchEvent(new Event("change", { bubbles: true })); });
-    const colorPicker = container.querySelector('[aria-label="Slide text formatting"] [aria-label="Text color"]')!.closest("details")!;
-    colorPicker.open = true;
-    await act(async () => formatButton("Text color #2563eb").click());
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Slide text formatting"] [aria-label="Text color"]')!.click());
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="Text color #2563eb"]')!.click());
     const snapshot = await savedSnapshot();
     const block = snapshot.lessons[0].blocks[0];
     if (block.type !== "heading" && block.type !== "richText") throw new Error("Expected text object");
@@ -203,8 +202,8 @@ describe("inline slide text editing", () => {
     await act(async () => root.render(<EditorClient initialData={presentation([textBlock("heading")])} authorName="Author" />));
     const { element, editor } = canvasEditor("heading");
     act(() => { element.focus(); editor.commands.setTextSelection({ from: 1, to: 9 }); });
-    const palette = container.querySelector('[aria-label="Slide text formatting"] [aria-label="Text color"]')!.closest("details")!;
-    palette.open = true;
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Slide text formatting"] [aria-label="Text color"]')!.click());
+    const palette = document.querySelector('[role="dialog"][data-card-popover][data-state="open"]')!;
     await act(async () => [...palette.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === "Color wheel")!.click());
     await act(async () => palette.querySelector<HTMLButtonElement>('[aria-label="Choose text color gradient"]')!.click());
     await act(async () => [...palette.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === "Apply color")!.click());

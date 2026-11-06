@@ -2,6 +2,8 @@
 
 Work one phase at a time; stop after the requested phase.
 
+Requested gallery template extension: a horizontally scrolling, snapping image carousel with Previous/Next controls, clickable images, keyboard navigation, and gallery-wide or per-image Fill/Contain/Cover fit. Existing galleries keep their grid layout. The extension uses existing authoring, popup, media, save/undo, preview and static HTML/SCORM paths within the core blocks and requested presentation template scope.
+
 Requested accordion refinement: smooth expansion/collapse and tab transitions with reduced-motion support, direct title/body editing and a formatting popup on text selection in Standard, Presentation and popup authoring. Rich fields retain the existing plain-text fallback, section IDs, completion gates, validation, undo/redo, autosave, preview, static HTML/SCORM and PDF handouts. This extends the existing interactive block without another application or expanding other phases.
 
 Requested media skipping toggle: video/audio offers Allow skipping in Standard and Presentation settings, enabled by default for new and existing blocks. Authors can turn it off to require continuous playback before forward seeking unlocks, independently of Required for progress. The original players remain without lock notes or custom controls. Validation, undo/redo, saving, duplication, preview and static HTML/SCORM use the existing media slice.

@@ -97,7 +97,8 @@ describe("content block settings access", () => {
     expect(settingsPanel.style.transform).toBe("");
     expect(settingsPanel.style.zIndex).toBe("9999");
     expect(document.querySelector('[aria-label="Divider line weight"]')).not.toBeNull();
-    expect(document.querySelector('[aria-label="Divider line color"]')).not.toBeNull();
+    expect(document.querySelector('[aria-label="Use custom divider line color"]')).not.toBeNull();
+    expect(document.querySelector('[aria-label="Divider line color"]')).toBeNull();
     expect(document.querySelector('[aria-label="Divider line style"]')).not.toBeNull();
 
     const weight = document.querySelector<HTMLSelectElement>('[aria-label="Divider line weight"]')!;
@@ -399,5 +400,42 @@ describe("content block settings access", () => {
       colorCodeInput.dispatchEvent(new Event("change", { bubbles: true }));
     });
     expect(onChange.mock.lastCall?.[0].data.color).toBe("#285f90");
+  });
+
+  it("restores theme inheritance after customizing a divider line", () => {
+    let block: ContentBlock = { ...blockDefaults, id: "divider", type: "divider", data: { style: "line", label: "", completionType: "none" } };
+    const render = () => root.render(createElement(ContentBlockEditor, { block, courseId: "course", inlineSettings: true, onChange: (next) => { block = next; render(); } }));
+    act(render);
+    act(() => document.querySelector<HTMLInputElement>('[aria-label="Use custom divider line color"]')!.click());
+    const input = document.querySelector<HTMLInputElement>('[aria-label="Divider line color hex code"]')!;
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "#cc3344");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    expect(block).toMatchObject({ data: { lineColor: "#cc3344" } });
+    act(() => document.querySelector<HTMLInputElement>('[aria-label="Use custom divider line color"]')!.click());
+    expect(block).toMatchObject({ data: { lineColor: undefined } });
+    expect(document.querySelector("hr")?.style.borderColor).toBe("var(--course-primary, #2f5f9f)");
+  });
+
+  it("sets and resets an individual chart field color without changing sibling colors or values", () => {
+    let chart = blocks.find((block) => block.type === "chart")!;
+    if (chart.type !== "chart") throw new Error("Expected chart");
+    chart = { ...chart, data: { ...chart.data, color: undefined, fields: [{ id: "one", label: "First", value: 10 }, { id: "two", label: "Second", value: 20, color: "#abcdef" }] } };
+    const render = () => root.render(createElement(ContentBlockEditor, { block: chart, courseId: "course", inlineSettings: true, onChange: (next) => { if (next.type !== "chart") throw new Error("Expected chart"); chart = next; render(); } }));
+    act(render);
+    act(() => document.querySelector<HTMLInputElement>('[aria-label="Use custom chart field 1 color"]')!.click());
+    const input = document.querySelector<HTMLInputElement>('[aria-label="Chart field 1 color hex code"]')!;
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "#cc3344");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    expect(chart).toMatchObject({ data: { fields: [{ id: "one", value: 10, color: "#cc3344" }, { id: "two", value: 20, color: "#abcdef" }] } });
+    act(() => document.querySelector<HTMLInputElement>('[aria-label="Use custom chart field 1 color"]')!.click());
+    expect(chart).toMatchObject({ data: { color: undefined, fields: [{ id: "one", value: 10, color: undefined }, { id: "two", value: 20, color: "#abcdef" }] } });
+    act(() => document.querySelector<HTMLInputElement>('[aria-label="Use custom chart color"]')!.click());
+    expect(document.querySelector('[aria-label="Chart color picker"]')).not.toBeNull();
+    act(() => document.querySelector<HTMLInputElement>('[aria-label="Use custom chart color"]')!.click());
+    expect(chart).toMatchObject({ data: { color: undefined, fields: [{ color: undefined }, { color: "#abcdef" }] } });
   });
 });

@@ -40,7 +40,11 @@ describe("presentation object gradients", () => {
     await act(async () => root.render(<EditorClient initialData={initialData} authorName="Author" />));
     const controls = [["labeledGraphic", "Graphic marker color"], ["flipCard", "Card background color"], ["chart", "Chart color picker"], ["divider", "Divider line color"], ["processSteps", "Process step accent color"]];
     for (const [type, label] of controls) {
-      await act(async () => button(`Select ${type} object from layers`).click()); await gradient("Object background color"); await gradient(label);
+      await act(async () => button(`Select ${type} object from layers`).click()); await gradient("Object background color");
+      if (type === "chart" || type === "divider") {
+        await act(async () => container.querySelector<HTMLInputElement>(`[aria-label="Use custom ${type === "chart" ? "chart" : "divider line"} color"]`)!.click());
+      }
+      await gradient(label);
     }
     await act(async () => button("Undo").click()); await act(async () => button("Redo").click());
     await act(async () => vi.advanceTimersByTimeAsync(1000));

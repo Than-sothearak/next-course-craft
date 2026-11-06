@@ -1,4 +1,5 @@
 "use client";
+import { galleryImageFitClass } from "@/lib/editor/gallery";
 import { borderPaint } from "@/lib/color";
 
 import Image from "next/image";
@@ -12,12 +13,14 @@ import { InteractiveFlipCard, InteractiveLabeledGraphic, InteractiveProcessSteps
 import { AccordionBlockEditor } from "../accordion-block-editor";
 import { ImageBlockLayout } from "../../../image-block-layout";
 import { ChartBlockPreview } from "../../../../../preview/chart-block";
+import { GalleryCarousel } from "@/components/gallery-carousel";
 import { PreviewBlock as LearnerBlock } from "../../../../../preview/_components/(course_preview_components)/(lesson_reader_preview_components)/(lesson_blocks_preview_components)/preview-block";
 import { BalloonArcher } from "@/components/balloon-archer";
 
 type PreviewBlock = Exclude<ContentBlock, { type: "heading" | "richText" | "statement" | "lessonMap" }>;
 
 export function ContentBlockPreview({ block, onChange, presentation = false }: { block: PreviewBlock; onChange: (block: ContentBlock) => void; presentation?: boolean }) {
+  if (block.type === "gallery" && block.data.layout === "carousel") return <GalleryCarousel key={block.id} data={block.data} presentation={presentation} />;
   if (block.type === "balloonArcher") return <BalloonArcher blockId={block.id} data={block.data} presentation={presentation} authoring editing onPositionChange={(id, point) => onChange({ ...block, data: { ...block.data, balloons: block.data.balloons.map((balloon) => balloon.id === id ? { ...balloon, ...point } : balloon) } })} />;
   return (block.type === "interactionButton" || block.type === "audioInstruction" || block.type === "peelToReveal" || block.type === "hangingRopeCards") ? <LearnerBlock block={block} device="desktop" orientation="landscape" slideLayout={presentation} authoring /> : block.type === "link" ? (
     <CourseLinkBlock data={block.data} interactive={false} />
@@ -80,7 +83,7 @@ export function ContentBlockPreview({ block, onChange, presentation = false }: {
             width={480}
             height={360}
             unoptimized
-            className="aspect-[4/3] w-full object-cover"
+            className={`aspect-[4/3] w-full ${galleryImageFitClass(image.fit ?? block.data.imageFit ?? "cover")}`}
           />
         </figure>
       ))}
@@ -113,7 +116,7 @@ export function ContentBlockPreview({ block, onChange, presentation = false }: {
         style={{
           borderTopWidth: `${block.data.lineWeight ?? 1}px`,
           borderTopStyle: block.data.lineStyle ?? "solid",
-          ...borderPaint(block.data.lineColor ?? "#cbd5e1"),
+          ...borderPaint(block.data.lineColor ?? "var(--course-primary, #2f5f9f)"),
         }}
       />
     ) : block.data.style === "space" ? (

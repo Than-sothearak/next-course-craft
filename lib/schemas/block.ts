@@ -138,11 +138,14 @@ export const galleryBlockSchema = z.object({
   ...blockBase("medium", 40),
   type: z.literal("gallery"),
   data: z.object({
+    layout: z.enum(["grid", "carousel"]).optional(),
+    imageFit: z.enum(["contain", "cover", "fill"]).optional(),
     images: z
       .array(
         z.object({
           src: z.string().url().or(z.string().startsWith("/")),
           alt: z.string().max(500),
+          fit: z.enum(["contain", "cover", "fill"]).optional(),
         }),
       )
       .min(1)
@@ -507,13 +510,14 @@ export const chartBlockSchema = z.object({
     chartType: chartTypeSchema,
     title: z.string().max(500),
     description: z.string().max(2_000).default(""),
-    color: colorValueSchema.default("#4f46e5"),
+    color: colorValueSchema.optional(),
     fields: z
       .array(
         z.object({
           id: z.string().min(1).max(64),
           label: z.string().max(120),
           value: z.number().finite().min(0).max(1_000_000_000_000),
+          color: colorValueSchema.optional(),
         }),
       )
       .min(1)
@@ -521,7 +525,7 @@ export const chartBlockSchema = z.object({
   }),
 });
 export const statementBlockSchema = z.object({
-  ...blockBase("small", 40),
+  ...blockBase("medium", 40),
   type: z.literal("statement"),
   data: z.object({
     style: statementStyleSchema,
@@ -639,7 +643,6 @@ export const blockSchema: z.ZodType<ContentBlock> = z.preprocess((value, context
     data: {
       ...data,
       lineWeight: data.lineWeight ?? 1,
-      lineColor: data.lineColor ?? "#cbd5e1",
       lineStyle: data.lineStyle ?? "solid",
     },
   };
@@ -656,7 +659,7 @@ export function normalizeStoredFlipCardBlock(
 export function defaultBlockWidth(
   type: ContentBlock["type"],
 ): ContentBlock["width"] {
-  if (type === "heading" || type === "richText" || type === "peelToReveal") return "medium";
+  if (type === "heading" || type === "richText" || type === "statement" || type === "peelToReveal") return "medium";
   if (type === "image" || type === "video" || type === "audio" || type === "gallery") return "medium";
   if (type === "flipCard" || type === "labeledGraphic" || type === "lessonMap" || type === "balloonArcher" || type === "hangingRopeCards") return "full";
   if (type === "accordion" || type === "processSteps" || type === "chart") return "medium";

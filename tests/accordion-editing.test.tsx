@@ -108,4 +108,57 @@ describe("direct accordion text formatting", () => {
     expect(popup.style.top).toBe("332px");
     expect(Number.parseFloat(popup.style.maxHeight)).toBeLessThanOrEqual(window.innerHeight - 16);
   });
+
+  it("keeps the popup and selected range when focusing font controls and typing a custom size", async () => {
+    function Authoring() {
+      const [block, setBlock] = useState<ContentBlock>(initial("accordion"));
+      saved = block;
+      return <ContentBlockEditor block={block} courseId="course" onChange={setBlock} />;
+    }
+    await act(async () => root.render(<Authoring />));
+    const title = editor("title");
+    act(() => { title.focus(); title.editor.commands.setTextSelection({ from: 1, to: 6 }); });
+    const control = <T extends HTMLElement,>(label: string) => document.querySelector<T>(`[data-text-selection-popup] [aria-label="${label}"]`)!;
+    const family = control<HTMLSelectElement>("Font family");
+    // Real clicks may flush microtasks after blur, before the control receives
+    // focus. Programmatic focus() alone does not exercise that event ordering.
+    await act(async () => {
+      family.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+      title.blur();
+    });
+    expect(family.isConnected).toBe(true);
+    await act(async () => family.focus());
+    expect(document.activeElement).toBe(family);
+    expect(family.isConnected).toBe(true);
+    act(() => { family.value = "battambang"; family.dispatchEvent(new Event("change", { bubbles: true })); });
+    expect(document.activeElement).toBe(family);
+    expect(title.querySelector('[data-font-family="battambang"]')?.textContent).toBe("First");
+
+    const size = control<HTMLInputElement>("Custom font size in pixels");
+    await act(async () => size.focus());
+    expect(size.isConnected).toBe(true);
+    for (const value of ["", "3", "32"]) {
+      await act(async () => {
+        Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(size, value);
+        size.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+      expect(document.activeElement).toBe(size);
+      expect(size.isConnected).toBe(true);
+    }
+    expect(title.querySelector('[style*="font-size: 32px"]')?.textContent).toBe("First");
+    expect(title.editor.state.selection).toMatchObject({ from: 1, to: 6 });
+    expect(accordionBlockSchema.parse(saved).data.items[0].title).toBe("First section");
+
+    const preset = control<HTMLSelectElement>("Font size preset");
+    await act(async () => preset.focus());
+    act(() => { preset.value = "24px"; preset.dispatchEvent(new Event("change", { bubbles: true })); });
+    expect(title.querySelector('[style*="font-size: 24px"]')?.textContent).toBe("First");
+    await act(async () => family.focus());
+    act(() => { family.value = ""; family.dispatchEvent(new Event("change", { bubbles: true })); });
+    expect(title.querySelector('[data-font-family]')).toBeNull();
+    expect(title.querySelector('[style*="font-size: 24px"]')?.textContent).toBe("First");
+    expect(document.querySelector("[data-text-selection-popup]")).not.toBeNull();
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Collapse section 1"]')!.focus());
+    expect(document.querySelector("[data-text-selection-popup]")).toBeNull();
+  });
 });

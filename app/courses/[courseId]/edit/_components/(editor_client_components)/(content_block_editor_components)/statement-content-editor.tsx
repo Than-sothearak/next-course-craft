@@ -30,7 +30,7 @@ export function StatementContentEditor({
       html={block.data.titleHtml}
       text={block.data.title}
       externalToolbar={externalToolbar}
-      inheritColor={slideLayout}
+      inheritColor
       onEditorFocus={onEditorFocus}
       className={classes.title}
       onChange={(titleHtml, title) => onChange({ ...block, data: { ...block.data, titleHtml, title: title.slice(0, 500) } })}
@@ -42,7 +42,7 @@ export function StatementContentEditor({
       html={block.data.bodyHtml}
       text={block.data.body}
       externalToolbar={externalToolbar}
-      inheritColor={slideLayout}
+      inheritColor
       onEditorFocus={onEditorFocus}
       className={classes.body}
       onChange={(bodyHtml, body) => onChange({ ...block, data: { ...block.data, bodyHtml, body: body.slice(0, 5_000) } })}

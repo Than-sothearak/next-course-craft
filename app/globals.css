@@ -258,8 +258,8 @@ video[data-slide-media-player]::-webkit-media-controls-enclosure {
 
 .lesson-rich-text ul,
 .lesson-rich-text ol { margin-block: 1rem; padding-inline-start: 0; list-style: none; }
-.lesson-rich-text blockquote { margin-block: 1rem; border-inline-start: 3px solid #cbd5e1; padding-inline-start: 1rem; color: #334155; }
-.lesson-rich-text blockquote > p + p { color: #64748b; font-size: 0.875em; }
+.lesson-rich-text blockquote { margin-block: 1rem; border-inline-start: 3px solid var(--course-primary, #2f5f9f); padding-inline-start: 1rem; color: inherit; font-size: 28px; }
+.lesson-rich-text blockquote > p + p { color: inherit; font-size: 16px; }
 .lesson-rich-text ol { counter-reset: lesson-list-item; }
 .lesson-rich-text li {
   display: grid;

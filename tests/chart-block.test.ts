@@ -1,12 +1,56 @@
+/** @vitest-environment jsdom */
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { ChartBlockPreview } from "../app/courses/[courseId]/preview/chart-block";
 import { blockSchema, type ContentBlock } from "../lib/schemas/block";
+import { parseScorm12Snapshot } from "../lib/scorm12/snapshot";
 
 const chartTypes = ["bar", "column", "line", "donut", "stacked"] as const;
 
 describe("chart content blocks", () => {
+  it.each([
+    [53, 28, 15],
+    [1, 1, 1],
+    [0, 0, 0],
+    [100, 0, 0],
+    [0, 0, 100],
+    [1, 0, 2],
+    [0.53, 0.28, 0.15],
+    Array.from({ length: 20 }, (_, index) => index + 1),
+  ])("draws normalized, nonrepeating donut segments for %j", (...values) => {
+    const data = { chartType: "donut" as const, title: "Completion rate", description: "", fields: values.map((value, index) => ({ id: String(index), label: `Field ${index + 1}`, value })) };
+    const container = document.createElement("div");
+    container.innerHTML = renderToStaticMarkup(createElement(ChartBlockPreview, { data }));
+    const segments = [...container.querySelectorAll("circle[pathLength]")];
+    expect(segments).toHaveLength(values.length);
+    const total = values.reduce((sum, value) => sum + value, 0);
+    let offset = 0;
+    segments.forEach((segment, index) => {
+      expect(segment.getAttribute("pathLength")).toBe("100");
+      const [length, gap] = segment.getAttribute("stroke-dasharray")!.split(" ").map(Number);
+      expect(length).toBeCloseTo(total ? values[index] / total * 100 : 0);
+      expect(gap).toBe(100);
+      expect(Number(segment.getAttribute("stroke-dashoffset"))).toBeCloseTo(-offset);
+      offset += length;
+    });
+    expect(offset).toBeCloseTo(total ? 100 : 0);
+  });
+
+  it.each(chartTypes)("uses the live theme by default and retains field overrides through export for %s charts", (chartType) => {
+    const block = blockSchema.parse({ id: "chart", version: 1, type: "chart", data: { chartType, title: "Results", fields: [{ id: "a", label: "Theme", value: 50 }, { id: "b", label: "Custom", value: 75, color: "#cc3344" }, { id: "c", label: "Gradient", value: 90, color: "linear-gradient(90deg, #123456 0%, #abcdef 100%)" }] } });
+    if (block.type !== "chart") throw new Error("Expected chart");
+    expect(block.data.color).toBeUndefined();
+    const markup = renderToStaticMarkup(createElement(ChartBlockPreview, { data: block.data }));
+    expect(markup).toContain("var(--course-primary, #2f5f9f)");
+    expect(markup).toContain("#cc3344");
+    expect(markup).toContain("#123456");
+    expect(markup).toContain("#abcdef");
+    const exported = parseScorm12Snapshot({ title: "Charts", description: "", revision: 1, sections: [{ id: "s", title: "Section", order: 0 }], lessons: [{ id: "l", sectionId: "s", title: "Lesson", order: 0, blocks: [JSON.parse(JSON.stringify(block))] }] });
+    expect(exported.lessons[0].blocks[0]).toEqual(block);
+    expect(blockSchema.safeParse({ ...block, data: { ...block.data, fields: [{ id: "x", label: "Invalid", value: 1, color: "red" }] } }).success).toBe(false);
+  });
+
   it("validates persisted chart data and renders every supported chart style", () => {
     for (const chartType of chartTypes) {
       const block = blockSchema.parse({

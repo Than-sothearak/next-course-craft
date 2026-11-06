@@ -122,6 +122,7 @@ export function TemplatePreview({ template }: { template: BlockTemplate }) {
   if (kind === "dash-list") return <ListTemplatePreview style="dash" />;
   if (kind.startsWith("image"))
     return <ImageTemplatePreview layout={template.imageLayout ?? "cover"} />;
+  if (kind === "gallery-carousel") return <div className="space-y-2"><div className="flex h-24 gap-2 overflow-hidden rounded-lg bg-slate-100"><span className="w-full shrink-0 rounded-lg bg-gradient-to-br from-sky-200 to-indigo-400" /><span className="w-full shrink-0 rounded-lg bg-gradient-to-br from-amber-200 to-rose-300" /></div><div className="flex items-center justify-center gap-4 text-xs text-slate-500"><span>‹</span><span>1 / 3</span><span>›</span></div></div>;
   if (kind === "gallery")
     return (
       <div className="grid grid-cols-3 gap-1.5">
@@ -178,7 +179,7 @@ export function TemplatePreview({ template }: { template: BlockTemplate }) {
           style={{
             borderTopWidth: `${template.dividerLineWeight ?? 1}px`,
             borderTopStyle: template.dividerLineStyle ?? "solid",
-            borderTopColor: template.dividerLineColor ?? "#cbd5e1",
+            borderTopColor: template.dividerLineColor ?? "var(--course-primary, #2f5f9f)",
           }}
         />
         <span className="text-[9px] text-slate-400">Section break</span>
@@ -187,7 +188,7 @@ export function TemplatePreview({ template }: { template: BlockTemplate }) {
           style={{
             borderTopWidth: `${template.dividerLineWeight ?? 1}px`,
             borderTopStyle: template.dividerLineStyle ?? "solid",
-            borderTopColor: template.dividerLineColor ?? "#cbd5e1",
+            borderTopColor: template.dividerLineColor ?? "var(--course-primary, #2f5f9f)",
           }}
         />
       </div>

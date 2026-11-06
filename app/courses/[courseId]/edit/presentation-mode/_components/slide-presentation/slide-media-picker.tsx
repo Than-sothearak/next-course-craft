@@ -38,7 +38,7 @@ export function SlideMediaPicker({ block, courseId, onChange, embedded = false, 
       const position = galleryIndex ?? 0;
       if (position >= images.length) images.push({ src: asset.fileUrl, alt: asset.originalName.slice(0, 500) });
       else images[position] = { ...images[position], src: asset.fileUrl };
-      onChange({ ...mediaBlock, data: { images } });
+      onChange({ ...mediaBlock, data: { ...mediaBlock.data, images } });
     } else if (mediaBlock.type === "video") {
       if (asset.contentType !== "video/mp4" && asset.contentType !== "video/webm") { setError("Choose an MP4 or WebM video."); return; }
       onChange({ ...mediaBlock, slideCrop: undefined, data: { ...mediaBlock.data, src: asset.fileUrl, mimeType: asset.contentType } });

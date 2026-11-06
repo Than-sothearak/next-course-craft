@@ -53,10 +53,10 @@ describe("shared authoring schemas", () => {
         label: "Continue",
         completionType: "none",
         lineWeight: 1,
-        lineColor: "#cbd5e1",
         lineStyle: "solid",
       },
     });
+    expect(blockSchema.parse({ id: "theme-divider", version: 1, type: "divider", data: { style: "line" } })).not.toHaveProperty("data.lineColor");
     expect(blockSchema.parse({ id: "b2", version: 1, type: "divider", data: { style: "continue" } })).toMatchObject({
       blockPadding: 100,
       data: { style: "continue", label: "Continue", completionType: "none" },

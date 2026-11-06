@@ -125,7 +125,7 @@ export function useEditorCourseOperations({
   }
 
   function openPreview() {
-    const lessonId = slideCourse ? activeLessonId : null;
+    const lessonId = activeLessonId;
     const query = new URLSearchParams();
     if (lessonId) query.set("lessonId", lessonId);
     const queryString = query.toString();

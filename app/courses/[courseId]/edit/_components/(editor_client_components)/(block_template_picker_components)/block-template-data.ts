@@ -58,6 +58,8 @@ export type BlockTemplate = {
   lessonMap?: Extract<ContentBlock, { type: "lessonMap" }>["data"];
   processSteps?: Extract<ContentBlock, { type: "processSteps" }>["data"];
   chart?: Extract<ContentBlock, { type: "chart" }>["data"];
+  galleryLayout?: "grid" | "carousel";
+  galleryImageFit?: "contain" | "cover" | "fill";
   link?: Extract<ContentBlock, { type: "link" }>['data'];
   interactionButton?: Partial<Extract<ContentBlock, { type: "interactionButton" }>["data"]>;
   imageLayout?: ImageLayout;
@@ -403,6 +405,16 @@ export const blockTemplates: BlockTemplate[] = [
     description: "Start with a three-image gallery.",
     type: "gallery",
     preview: "gallery",
+  },
+  {
+    id: "gallery-carousel",
+    category: "Gallery",
+    title: "Scrolling image gallery",
+    description: "Scroll left or right and snap to images with Previous and Next controls.",
+    type: "gallery",
+    galleryLayout: "carousel",
+    galleryImageFit: "cover",
+    preview: "gallery-carousel",
   },
   {
     id: "media-video",
@@ -799,7 +811,6 @@ export const blockTemplates: BlockTemplate[] = [
       chartType: "bar",
       title: "Course progress",
       description: "Compare learner progress across the course.",
-      color: "#4f46e5",
       fields: [
         { id: "completed", label: "Completed", value: 80 },
         { id: "in-progress", label: "In progress", value: 40 },
@@ -819,7 +830,6 @@ export const blockTemplates: BlockTemplate[] = [
       chartType: "bar",
       title: "Compare the results",
       description: "Compare values across three groups.",
-      color: "#4f46e5",
       fields: [
         { id: "group-a", label: "Group A", value: 80 },
         { id: "group-b", label: "Group B", value: 60 },
@@ -839,7 +849,6 @@ export const blockTemplates: BlockTemplate[] = [
       chartType: "column",
       title: "Quarterly results",
       description: "Compare results across the year.",
-      color: "#4f46e5",
       fields: [
         { id: "q1", label: "Q1", value: 34 },
         { id: "q2", label: "Q2", value: 52 },
@@ -860,7 +869,6 @@ export const blockTemplates: BlockTemplate[] = [
       chartType: "line",
       title: "Weekly engagement",
       description: "Track how engagement changes over time.",
-      color: "#0f766e",
       fields: [
         { id: "week-1", label: "Week 1", value: 18 },
         { id: "week-2", label: "Week 2", value: 30 },
@@ -884,7 +892,6 @@ export const blockTemplates: BlockTemplate[] = [
       chartType: "donut",
       title: "Completion rate",
       description: "Show how much of the course has been completed.",
-      color: "#4f46e5",
       fields: [
         { id: "completed", label: "Completed", value: 72 },
         { id: "remaining", label: "Remaining", value: 28 },
@@ -903,7 +910,6 @@ export const blockTemplates: BlockTemplate[] = [
       chartType: "stacked",
       title: "Response distribution",
       description: "Show how responses contribute to the overall total.",
-      color: "#4f46e5",
       fields: [
         { id: "strong", label: "Strong", value: 6 },
         { id: "good", label: "Good", value: 4 },
@@ -932,7 +938,6 @@ export const blockTemplates: BlockTemplate[] = [
     dividerStyle: "line",
     dividerLineStyle: "dashed",
     dividerLineWeight: 2,
-    dividerLineColor: "#94a3b8",
     preview: "divider",
   },
   {
@@ -944,7 +949,6 @@ export const blockTemplates: BlockTemplate[] = [
     dividerStyle: "line",
     dividerLineStyle: "dotted",
     dividerLineWeight: 2,
-    dividerLineColor: "#64748b",
     preview: "divider",
   },
   {
@@ -956,7 +960,6 @@ export const blockTemplates: BlockTemplate[] = [
     dividerStyle: "line",
     dividerLineStyle: "double",
     dividerLineWeight: 4,
-    dividerLineColor: "#64748b",
     preview: "divider",
   },
   {
@@ -967,7 +970,6 @@ export const blockTemplates: BlockTemplate[] = [
     type: "divider",
     dividerStyle: "line",
     dividerLineWeight: 4,
-    dividerLineColor: "#4f46e5",
     preview: "divider",
   },
   {
@@ -978,7 +980,6 @@ export const blockTemplates: BlockTemplate[] = [
     type: "divider",
     dividerStyle: "line",
     dividerLineWeight: 6,
-    dividerLineColor: "#334155",
     preview: "divider",
   },
   {

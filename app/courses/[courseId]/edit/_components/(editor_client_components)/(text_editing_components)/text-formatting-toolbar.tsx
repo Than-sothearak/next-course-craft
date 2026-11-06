@@ -339,12 +339,12 @@ export function TextFormattingToolbar({ editor, allowLists = true, textAlign, on
 
   return <div className="flex flex-wrap items-center gap-1" role="toolbar" aria-label="Text formatting">
     <Select aria-label="Text style" value={editor.isActive("heading") ? String(activeLevel) : "paragraph"} onChange={(event) => {
-      if (event.target.value === "paragraph") editor.chain().focus().setParagraph().run();
-      else editor.chain().focus().setHeading({ level: Number(event.target.value) as 1 | 2 | 3 }).run();
+      if (event.target.value === "paragraph") editor.chain().setParagraph().run();
+      else editor.chain().setHeading({ level: Number(event.target.value) as 1 | 2 | 3 }).run();
     }} className="h-8 w-[6.5rem] rounded-md border-slate-200 px-2 text-xs shadow-none">
       <option value="paragraph">Paragraph</option><option value="1">Heading 1</option><option value="2">Heading 2</option><option value="3">Heading 3</option>
     </Select>
-    <Select aria-label="Font family" value={editorFormatting?.fontFamily ?? ""} onChange={(event) => formatTextRange(editor, (chain) => chain.setMark("inlineStyle", { fontFamily: normalizeTextFontFamily(event.target.value) }))} className="h-8 w-[9rem] rounded-md border-slate-200 px-2 text-xs shadow-none">
+    <Select aria-label="Font family" value={editorFormatting?.fontFamily ?? ""} onChange={(event) => formatTextRange(editor, (chain) => chain.setMark("inlineStyle", { fontFamily: normalizeTextFontFamily(event.target.value) }), false)} className="h-8 w-[9rem] rounded-md border-slate-200 px-2 text-xs shadow-none">
       <option value="">Slide default</option>
       {courseThemeFontFamilyIds.map((id) => <option key={id} value={id}>{textFontFamilyLabels[id]}</option>)}
     </Select>

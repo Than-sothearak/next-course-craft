@@ -194,6 +194,8 @@ export function createBlocksFromTemplate(
         ...base,
         type: "gallery",
         data: {
+          ...(template.galleryLayout ? { layout: template.galleryLayout } : {}),
+          ...(template.galleryImageFit ? { imageFit: template.galleryImageFit } : {}),
           images: [1, 2, 3].map((number) => ({
             src: `https://placehold.co/480x360?text=Image+${number}`,
             alt: `Gallery image ${number}`,
@@ -220,7 +222,7 @@ export function createBlocksFromTemplate(
         ...(isLineDivider
           ? {
               lineWeight: template.dividerLineWeight ?? 1,
-              lineColor: template.dividerLineColor ?? "#cbd5e1",
+              lineColor: template.dividerLineColor,
               lineStyle: template.dividerLineStyle ?? "solid",
             }
           : {}),

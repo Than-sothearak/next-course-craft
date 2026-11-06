@@ -79,7 +79,7 @@ export function SlideObject({ block, index, total, master, area: customArea, foo
   const area = customArea ?? resolveSlideObjectArea(master);
   const savedFrame = resolveSlideFrame(block, index, total, area);
   const editableText = isSlideTextBlock(block);
-  const editableInteractive = block.type === "accordion" || block.type === "flipCard" || block.type === "labeledGraphic" || block.type === "interactionButton" || block.type === "audioInstruction" || block.type === "balloonArcher" || block.type === "peelToReveal" || block.type === "hangingRopeCards" || block.type === "audio";
+  const editableInteractive = block.type === "accordion" || block.type === "flipCard" || block.type === "labeledGraphic" || block.type === "interactionButton" || block.type === "audioInstruction" || block.type === "balloonArcher" || block.type === "peelToReveal" || block.type === "hangingRopeCards" || block.type === "audio" || (block.type === "gallery" && block.data.layout === "carousel");
   const [draftFrame, setDraftFrame] = useState<SlideFrame | null>(null);
   const draftFrameRef = useRef<SlideFrame | null>(null);
   const frame = draftFrame ?? savedFrame;

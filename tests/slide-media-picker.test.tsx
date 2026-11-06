@@ -17,7 +17,7 @@ const samples = {
   video: blockSchema.parse({ id: "video", version: 1, type: "video", data: { src: "/placeholder" } }),
   audio: blockSchema.parse({ id: "audio", version: 1, type: "audio", data: { src: "" } }),
   attachment: blockSchema.parse({ id: "attachment", version: 1, type: "attachment", data: { src: "", fileName: "", size: 0 } }),
-  gallery: blockSchema.parse({ id: "gallery", version: 1, type: "gallery", data: { images: [{ src: "/placeholder", alt: "" }] } }),
+  gallery: blockSchema.parse({ id: "gallery", version: 1, type: "gallery", data: { layout: "carousel", imageFit: "contain", images: [{ src: "/placeholder", alt: "", fit: "cover" }] } }),
   labeledGraphic: blockSchema.parse({ id: "graphic", version: 1, type: "labeledGraphic", data: { src: "", mapTemplate: "learningRoad", alt: "Diagram", markers: [{ id: "marker", label: "Part", description: "", x: 50, y: 50 }] } }),
 };
 let root: Root;
@@ -72,5 +72,6 @@ describe("slide media picker", () => {
     const data = JSON.parse(container.querySelector("output")!.textContent!);
     expect(data.images).toHaveLength(2);
     expect(data.images[1].src).toBe(uploaded.fileUrl);
+    expect(data).toMatchObject({ layout: "carousel", imageFit: "contain", images: [{ fit: "cover" }, {}] });
   });
 });

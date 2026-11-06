@@ -122,6 +122,31 @@ describe("equation dialog", () => {
     await act(async () => requestEquationDialog(editor, pos));
   }
 
+  it("picks theme colors from the edited text and clears only color with Theme default", async () => {
+    const editor = makeEditor('<p><strong><span style="font-size: 32px">Alpha</span></strong> Beta</p>');
+    editor.view.dom.style.setProperty("--course-primary", "#24734f");
+    editor.view.dom.style.setProperty("--course-accent", "#f2a65a");
+    editor.commands.setTextSelection({ from: 1, to: 6 });
+    await act(async () => root.render(<TextFormattingToolbar editor={editor} />));
+    const openColors = async () => {
+      await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Text color"]')!.click());
+    };
+    await openColors();
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="Text color theme primary"]')!.click());
+    expect(editor.view.dom.querySelector('span[style*="color"]')?.textContent).toBe("Alpha");
+    expect(editor.getAttributes("inlineStyle").color).toBe("#24734f");
+    expect(makeEditor(editor.getHTML()).getHTML()).toBe(editor.getHTML());
+    await openColors();
+    await act(async () => document.querySelector<HTMLButtonElement>('[aria-label="Text color theme accent"]')!.click());
+    expect(editor.getAttributes("inlineStyle").color).toBe("#f2a65a");
+    await openColors();
+    await act(async () => button("Theme default").click());
+    expect(editor.getAttributes("inlineStyle")).toMatchObject({ color: null, fontSize: "32px" });
+    expect(editor.view.dom.querySelector("strong")?.textContent).toBe("Alpha");
+    expect(editor.getText()).toBe("Alpha Beta");
+    expect(editor.state.selection).toMatchObject({ from: 1, to: 6 });
+  });
+
   it("replaces selected text, commits once, supports undo, and discards a cancelled edit", async () => {
     const editor = makeEditor();
     editor.commands.setTextSelection({ from: 1, to: 7 });

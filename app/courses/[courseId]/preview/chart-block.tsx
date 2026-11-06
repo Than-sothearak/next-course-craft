@@ -9,12 +9,25 @@ function formatValue(value: number) {
   return new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(value);
 }
 
-function chartColorStyle(color: string, id: string): CSSProperties {
-  return { "--chart-accent": solidColor(color), "--chart-svg": parseGradient(color) ? `url(#${id})` : color } as CSSProperties;
+const themeChartColor = "var(--course-primary, #2f5f9f)";
+
+function chartColorStyle(color: string | undefined, id: string): CSSProperties {
+  const paint = color ?? themeChartColor;
+  return { "--chart-accent": solidColor(paint), "--chart-svg": parseGradient(paint) ? `url(#${id})` : paint } as CSSProperties;
 }
 
-function chartSegmentStyle(color: string, index: number): CSSProperties {
+function chartSegmentStyle(data: ChartBlockData, field: ChartBlockData["fields"][number], index: number): CSSProperties {
+  if (field.color) return backgroundPaint(field.color);
+  const color = data.color ?? themeChartColor;
   return parseGradient(color) ? { ...backgroundPaint(color), opacity: Math.max(0.3, 1 - index * 0.15) } : { backgroundColor: index === 0 ? "var(--chart-accent)" : `color-mix(in srgb, var(--chart-accent) ${Math.max(30, 100 - index * 15)}%, white)` };
+}
+
+function fieldSvgColor(color: string | undefined, gradientId: string, index: number) {
+  return color ? (parseGradient(color) ? `url(#${gradientId}-${index})` : color) : "var(--chart-svg)";
+}
+
+function ChartGradients({ data, gradientId }: { data: ChartBlockData; gradientId: string }) {
+  return <><SvgGradient id={gradientId} value={data.color ?? themeChartColor} />{data.fields.map((field, index) => field.color && <SvgGradient key={field.id} id={`${gradientId}-${index}`} value={field.color} />)}</>;
 }
 
 function BarChart({ data }: { data: ChartBlockData }) {
@@ -27,7 +40,7 @@ function BarChart({ data }: { data: ChartBlockData }) {
           <span className="h-3 overflow-hidden rounded-full bg-slate-100">
             <span
               className="block h-full rounded-full transition-[width] duration-300"
-              style={{ width: `${(field.value / max) * 100}%`, ...backgroundPaint(data.color) }}
+              style={{ width: `${(field.value / max) * 100}%`, ...backgroundPaint(field.color ?? data.color ?? themeChartColor) }}
             />
           </span>
           <span className="min-w-10 text-right text-sm font-medium tabular-nums text-slate-800">
@@ -53,15 +66,15 @@ function ColumnChart({ data, gradientId }: { data: ChartBlockData; gradientId: s
       className="block h-56 w-full overflow-visible"
       preserveAspectRatio="xMidYMid meet"
     >
-      <SvgGradient id={gradientId} value={data.color} />
+      <ChartGradients data={data} gradientId={gradientId} />
       <path d={`M 0 ${chartHeight} H ${chartWidth}`} stroke="#e2e8f0" strokeWidth="2" />
       {data.fields.map((field, index) => {
-        const height = (field.value / max) * (chartHeight - 12);
+        const height = (field.value / max) * (chartHeight - 32);
         const x = index * step + (step - barWidth) / 2;
         const y = chartHeight - height;
         return (
           <g key={field.id} data-slide-animation-item>
-            <rect x={x} y={y} width={barWidth} height={height} rx="6" fill="var(--chart-svg)" opacity={0.88} />
+            <rect x={x} y={y} width={barWidth} height={height} rx="6" fill={fieldSvgColor(field.color, gradientId, index)} />
             <text x={x + barWidth / 2} y={Math.max(14, y - 8)} textAnchor="middle" className="fill-slate-700 text-[12px]">
               {formatValue(field.value)}
             </text>
@@ -80,11 +93,12 @@ function LineChart({ data, gradientId }: { data: ChartBlockData; gradientId: str
   const chartHeight = 180;
   const chartWidth = 640;
   const padding = 18;
+  const topPadding = 36;
   const points = data.fields.map((field, index) => {
     const x = data.fields.length === 1
       ? chartWidth / 2
       : padding + (index / (data.fields.length - 1)) * (chartWidth - padding * 2);
-    const y = chartHeight - padding - (field.value / max) * (chartHeight - padding * 2);
+    const y = chartHeight - padding - (field.value / max) * (chartHeight - padding - topPadding);
     return { ...field, x, y };
   });
   const pointString = points.map((point) => `${point.x},${point.y}`).join(" ");
@@ -96,13 +110,13 @@ function LineChart({ data, gradientId }: { data: ChartBlockData; gradientId: str
       className="block h-56 w-full overflow-visible"
       preserveAspectRatio="xMidYMid meet"
     >
-      <SvgGradient id={gradientId} value={data.color} />
+      <ChartGradients data={data} gradientId={gradientId} />
       <path d={`M ${padding} 0 V ${chartHeight} H ${chartWidth - padding}`} fill="none" stroke="#e2e8f0" strokeWidth="2" />
       {points.length > 1 && <polyline points={pointString} fill="none" stroke="var(--chart-svg)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />}
       {points.map((point, index) => (
         <g key={point.id} data-slide-animation-item>
-          <circle cx={point.x} cy={point.y} r="6" fill="white" stroke="var(--chart-svg)" strokeWidth="4" />
-          <text x={point.x} y={Math.max(12, point.y - 12)} textAnchor="middle" className="fill-slate-700 text-[12px]">
+          <circle cx={point.x} cy={point.y} r="6" fill="white" stroke={fieldSvgColor(point.color, gradientId, index)} strokeWidth="4" />
+          <text x={point.x} y={point.y - 18} textAnchor="middle" className="fill-slate-700 text-[12px]">
             {formatValue(point.value)}
           </text>
           <text x={point.x} y={chartHeight + 26} textAnchor="middle" className="fill-slate-500 text-[12px]">
@@ -117,17 +131,16 @@ function LineChart({ data, gradientId }: { data: ChartBlockData; gradientId: str
 function DonutChart({ data, gradientId }: { data: ChartBlockData; gradientId: string }) {
   const total = data.fields.reduce((sum, field) => sum + field.value, 0);
   const denominator = total || 1;
-  const circumference = 2 * Math.PI * 62;
   return (
     <div className="flex flex-col items-center gap-6 sm:flex-row sm:justify-center">
       <svg role="img" aria-label={`Donut chart: ${data.fields.map((field) => `${field.label} ${formatValue(field.value)}`).join(", ")}`} viewBox="0 0 160 160" className="size-40 shrink-0 -rotate-90">
-        <SvgGradient id={gradientId} value={data.color} />
+        <ChartGradients data={data} gradientId={gradientId} />
         <circle cx="80" cy="80" r="62" fill="none" stroke="#f1f5f9" strokeWidth="24" />
         {data.fields.map((field, index) => {
-          const length = (field.value / denominator) * circumference;
+          const length = (field.value / denominator) * 100;
           const currentOffset = data.fields
             .slice(0, index)
-            .reduce((sum, item) => sum + (item.value / denominator) * circumference, 0);
+            .reduce((sum, item) => sum + (item.value / denominator) * 100, 0);
           const shade = Math.max(30, 100 - index * 15);
           return (
             <circle
@@ -136,10 +149,13 @@ function DonutChart({ data, gradientId }: { data: ChartBlockData; gradientId: st
               cy="80"
               r="62"
               fill="none"
-              stroke={parseGradient(data.color) ? "var(--chart-svg)" : index === 0 ? "var(--chart-accent)" : `color-mix(in srgb, var(--chart-accent) ${shade}%, white)`}
-              opacity={parseGradient(data.color) ? Math.max(0.3, 1 - index * 0.15) : undefined}
+              stroke={field.color ? fieldSvgColor(field.color, gradientId, index) : parseGradient(data.color) ? "var(--chart-svg)" : index === 0 ? "var(--chart-accent)" : `color-mix(in srgb, var(--chart-accent) ${shade}%, white)`}
+              opacity={!field.color && parseGradient(data.color) ? Math.max(0.3, 1 - index * 0.15) : undefined}
               strokeWidth="24"
-              strokeDasharray={`${length} ${circumference - length}`}
+              // Normalize to the browser's measured path. A full-path gap keeps
+              // the dash from repeating as an extra sliver near the seam.
+              pathLength="100"
+              strokeDasharray={`${length} 100`}
               strokeDashoffset={-currentOffset}
             />
           );
@@ -151,7 +167,7 @@ function DonutChart({ data, gradientId }: { data: ChartBlockData; gradientId: st
             <span
               aria-hidden="true"
               className="size-3 shrink-0 rounded-sm"
-              style={chartSegmentStyle(data.color, index)}
+              style={chartSegmentStyle(data, field, index)}
             />
             <span className="min-w-0 flex-1 text-slate-600">{field.label || "Untitled field"}</span>
             <span className="font-medium tabular-nums text-slate-800">{formatValue(field.value)}{total ? ` · ${Math.round((field.value / total) * 100)}%` : ""}</span>
@@ -175,7 +191,7 @@ function StackedChart({ data }: { data: ChartBlockData }) {
             className="h-full transition-[width] duration-300"
             style={{
               width: `${(field.value / denominator) * 100}%`,
-              ...chartSegmentStyle(data.color, index),
+              ...chartSegmentStyle(data, field, index),
             }}
           />
         ))}
@@ -186,7 +202,7 @@ function StackedChart({ data }: { data: ChartBlockData }) {
             <span
               aria-hidden="true"
               className="size-3 shrink-0 rounded-sm"
-              style={chartSegmentStyle(data.color, index)}
+              style={chartSegmentStyle(data, field, index)}
             />
             <span className="min-w-0 flex-1 truncate text-slate-600">{field.label || "Untitled field"}</span>
             <span className="font-medium tabular-nums text-slate-800">{formatValue(field.value)}</span>

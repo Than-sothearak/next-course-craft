@@ -197,7 +197,7 @@ describe("prebuilt chart templates", () => {
       expect(parsed).toMatchObject({ type: "chart", width: "medium", blockPadding: 40 });
       if (parsed.type !== "chart") throw new Error("Expected a chart block");
       expect(parsed.data.fields.length).toBeGreaterThan(1);
-      expect(parsed.data.color).toMatch(/^#[\da-fA-F]{6}$/);
+      expect(parsed.data.color).toBeUndefined();
       expect(renderToStaticMarkup(createElement(TemplatePreview, { template }))).toContain(parsed.data.title);
     }
 
@@ -366,12 +366,12 @@ describe("prebuilt divider templates", () => {
         style: "line",
         lineStyle: template.dividerLineStyle ?? "solid",
         lineWeight: template.dividerLineWeight ?? 1,
-        lineColor: template.dividerLineColor ?? "#cbd5e1",
+        lineColor: template.dividerLineColor,
       });
 
       const preview = renderToStaticMarkup(createElement(TemplatePreview, { template }));
       expect(preview).toContain(`border-top-style:${template.dividerLineStyle ?? "solid"}`);
-      expect(preview).toContain(`border-top-color:${template.dividerLineColor ?? "#cbd5e1"}`);
+      expect(preview).toContain(`border-top-color:${template.dividerLineColor ?? "var(--course-primary, #2f5f9f)"}`);
     }
   });
 
