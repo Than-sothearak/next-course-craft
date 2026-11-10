@@ -103,7 +103,7 @@ export function SelectionTextFormattingPopup({ editor, allowLists = true }: { ed
       setPlacement(null);
     }
 
-    function update() {
+    function update(reanchor = false) {
       if (activeEditor.isDestroyed
         || !activeEditor.isEditable
         || dismissed
@@ -114,6 +114,10 @@ export function SelectionTextFormattingPopup({ editor, allowLists = true }: { ed
         close();
         return;
       }
+
+      // Formatting can reflow the text and map its selection. Keep the popup's
+      // current viewport position until the author selects another range.
+      if (visible && !reanchor) return;
 
       const viewport = getViewport();
       const coordinates = activeEditor.view.coordsAtPos(activeEditor.state.selection.head);
@@ -152,9 +156,9 @@ export function SelectionTextFormattingPopup({ editor, allowLists = true }: { ed
       setPlacement((current) => samePlacement(current, next) ? current : next);
     }
 
-    function selected() {
+    function selected({ transaction }: { transaction: Transaction }) {
       dismissed = false;
-      update();
+      update(!transaction.docChanged);
     }
 
     function blur({ event }: { event: FocusEvent }) {
@@ -204,7 +208,7 @@ export function SelectionTextFormattingPopup({ editor, allowLists = true }: { ed
 
     function escape(event: KeyboardEvent) {
       if (event.key !== "Escape" || !visible) return;
-      // Let the color panel handle its own Escape before closing this toolbar.
+      // Let an owned color/link panel handle Escape before closing the toolbar.
       if (Array.from(document.querySelectorAll('[data-popover-owner][data-state="open"]')).some((panel) => panel.getAttribute("data-popover-owner") === popupId)) return;
       event.preventDefault();
       event.stopPropagation();
@@ -214,12 +218,16 @@ export function SelectionTextFormattingPopup({ editor, allowLists = true }: { ed
       if (!activeEditor.isDestroyed) activeEditor.commands.focus();
     }
 
-    function reposition() {
-      if (visible) update();
+    function reposition(event: Event) {
+      if (visible) update(event.type === "resize");
+    }
+
+    function refresh() {
+      update();
     }
 
     activeEditor.on("selectionUpdate", selected);
-    activeEditor.on("focus", update);
+    activeEditor.on("focus", refresh);
     activeEditor.on("blur", blur);
     activeEditor.on("transaction", transaction);
     document.addEventListener("pointerdown", pointerDown, true);
@@ -231,16 +239,16 @@ export function SelectionTextFormattingPopup({ editor, allowLists = true }: { ed
     window.addEventListener("resize", reposition);
     window.visualViewport?.addEventListener("resize", reposition);
     window.visualViewport?.addEventListener("scroll", reposition);
-    const frame = requestAnimationFrame(update);
+    const frame = requestAnimationFrame(refresh);
     const panel = source.closest("[data-accordion-panel]");
-    const observer = panel ? new MutationObserver(update) : null;
+    const observer = panel ? new MutationObserver(refresh) : null;
     if (panel) observer?.observe(panel, { attributes: true, attributeFilter: ["inert", "aria-hidden"] });
     return () => {
       disposed = true;
       cancelAnimationFrame(frame);
       observer?.disconnect();
       activeEditor.off("selectionUpdate", selected);
-      activeEditor.off("focus", update);
+      activeEditor.off("focus", refresh);
       activeEditor.off("blur", blur);
       activeEditor.off("transaction", transaction);
       document.removeEventListener("pointerdown", pointerDown, true);

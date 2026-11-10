@@ -27,6 +27,11 @@ try {
   const popup = () => page.locator("[data-text-selection-popup]");
   const field = (scope = page) => scope.locator('[contenteditable="true"][aria-label="Edit accordion section 1 explanation"]');
   async function formatSelectedText(scope = page) {
+    const fixedBounds = await popup().boundingBox();
+    async function assertPinned() {
+      const bounds = await popup().boundingBox();
+      assert.ok(Math.abs(bounds.x - fixedBounds.x) < 1 && Math.abs(bounds.y - fixedBounds.y) < 1, "Formatting should keep the popup in the same viewport position");
+    }
     const selectedText = await scope.locator('[contenteditable="true"][aria-label="Edit accordion section 1 explanation"]').evaluate((node) => {
       const { from, to } = node.editor.state.selection;
       return node.editor.state.doc.textBetween(from, to);
@@ -35,11 +40,13 @@ try {
     await family.click();
     await page.keyboard.press("Enter");
     await family.selectOption("battambang");
+    await assertPinned();
     assert.equal(await field(scope).locator('[data-font-family="battambang"]').textContent(), selectedText);
     const size = popup().getByLabel("Custom font size in pixels", { exact: true });
     await size.click();
     await size.fill("");
     await size.pressSequentially("32");
+    await assertPinned();
     assert.equal(await size.evaluate((node) => node === document.activeElement), true);
     assert.equal(await field(scope).locator('span[style*="32px"]').textContent(), selectedText);
     await family.click();
@@ -74,6 +81,32 @@ try {
     await popup().getByLabel("Text color", { exact: true }).click();
     await colorPanel.getByRole("button", { name: "Theme default", exact: true }).click();
     assert.equal(await field(scope).locator('span[style*="color:"]').count(), 0);
+    await assertPinned();
+    await popup().getByRole("button", { name: "Add link to selected text", exact: true }).click();
+    const linkPanel = page.getByRole("dialog", { name: "Link", exact: true });
+    await linkPanel.waitFor({ state: "visible" });
+    assert.equal(await linkPanel.evaluate(node => Boolean(node.closest("[data-text-selection-popup]"))), false);
+    const linkBounds = await linkPanel.boundingBox(), toolbarBounds = await popup().boundingBox();
+    assert.ok(linkBounds.x + linkBounds.width <= toolbarBounds.x || linkBounds.x >= toolbarBounds.x + toolbarBounds.width, "Link editor should sit beside the formatting popup on desktop");
+    const url = linkPanel.getByLabel("Link URL", { exact: true });
+    await expect(url).toBeFocused();
+    await url.fill("javascript:alert(1)"); await url.press("Enter");
+    await expect(linkPanel.getByRole("alert")).toBeVisible();
+    await url.fill("example.com/guide"); await url.press("Enter");
+    await linkPanel.waitFor({ state: "hidden" });
+    await expect(field(scope).locator('a[href="https://example.com/guide"]')).toHaveText(selectedText);
+    await assertPinned();
+    await popup().getByRole("button", { name: "Edit link", exact: true }).click();
+    await expect(url).toHaveValue("https://example.com/guide");
+    await url.fill("https://example.com/cancelled"); await page.keyboard.press("Escape");
+    await linkPanel.waitFor({ state: "hidden" });
+    await popup().waitFor({ state: "visible" });
+    await expect(field(scope).locator('a[href="https://example.com/guide"]')).toHaveText(selectedText);
+    await popup().getByRole("button", { name: "Edit link", exact: true }).click();
+    await linkPanel.getByRole("button", { name: "Remove link", exact: true }).click();
+    await linkPanel.waitFor({ state: "hidden" });
+    assert.equal(await field(scope).locator("a").count(), 0);
+    await assertPinned();
   }
   async function selectText(element) {
     await element.click();
@@ -136,7 +169,18 @@ try {
   await page.keyboard.press("Escape");
   await narrowColors.waitFor({ state: "hidden" });
   await popup().waitFor({ state: "visible" });
+  const pinnedNarrow = await popup().boundingBox();
+  await popup().getByRole("button", { name: "Add link to selected text", exact: true }).click();
+  const narrowLink = page.getByRole("dialog", { name: "Link", exact: true });
+  await narrowLink.waitFor({ state: "visible" });
+  const narrowLinkBounds = await narrowLink.boundingBox();
+  assert.ok(narrowLinkBounds.x >= 0 && narrowLinkBounds.x + narrowLinkBounds.width <= 360 && narrowLinkBounds.y >= 0 && narrowLinkBounds.y + narrowLinkBounds.height <= 700);
+  await narrowLink.getByLabel("Link URL", { exact: true }).fill("https://example.com/mobile");
+  await narrowLink.getByRole("button", { name: "Cancel", exact: true }).click();
+  await narrowLink.waitFor({ state: "hidden" });
+  const afterNarrow = await popup().boundingBox();
+  assert.equal(afterNarrow.x, pinnedNarrow.x); assert.equal(afterNarrow.y, pinnedNarrow.y);
   await page.keyboard.press("Escape");
   assert.deepEqual(errors, []);
-  console.log("Accordion formatting browser checks passed: real text selection, preserved Bold/font-size/Italic actions, popup bounds at 50/100/150% zoom, modal and fullscreen portals, Escape dismissal and narrow viewport placement.");
+  console.log("Text formatting browser checks passed: stable toolbar position, separate color/link panels, link validation/apply/cancel/remove, selected ranges, 50/100/150% zoom, modal/fullscreen portals, Escape and narrow viewport placement.");
 } finally { await browser?.close(); await vite.close(); }

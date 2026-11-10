@@ -47,7 +47,7 @@ describe("list template style changes", () => {
       await act(async () => {
         container.querySelector<HTMLButtonElement>('[aria-label="Add link to selected text"]')?.click();
       });
-      const input = container.querySelector<HTMLInputElement>('input[placeholder="https://example.com"]');
+      const input = document.querySelector<HTMLInputElement>('[data-card-popover][data-state="open"] input[placeholder="https://example.com"]');
       expect(input).not.toBeNull();
       await act(async () => {
         const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
@@ -55,14 +55,14 @@ describe("list template style changes", () => {
         input?.dispatchEvent(new Event("input", { bubbles: true }));
       });
       await act(async () => {
-        container.querySelector<HTMLButtonElement>('button[type="submit"]')?.click();
+        document.querySelector<HTMLButtonElement>('[data-card-popover][data-state="open"] button[type="submit"]')?.click();
       });
 
-      const document = new DOMParser().parseFromString(editor.getHTML(), "text/html");
-      const link = document.querySelector("a");
+      const parsedDocument = new DOMParser().parseFromString(editor.getHTML(), "text/html");
+      const link = parsedDocument.querySelector("a");
       expect(link?.getAttribute("href")).toBe("https://example.com/guide");
       expect(link?.textContent).toBe("this source");
-      expect(document.body.textContent).toBe("Read this source now.");
+      expect(parsedDocument.body.textContent).toBe("Read this source now.");
     } finally {
       await act(async () => root.unmount());
       container.remove();

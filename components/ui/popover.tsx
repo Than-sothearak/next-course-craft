@@ -6,7 +6,7 @@ import { X } from "lucide-react";
 import { Button } from "./button";
 
 /** A compact, nonmodal panel kept above card badges and inside the viewport. */
-export function Popover({ open, onOpenChange, title, triggerLabel, trigger, children, footer, disabled = false, busy = false, portalTarget, anchorElement, placement = "center", ownerId, layer = 70 }: {
+export function Popover({ open, onOpenChange, title, triggerLabel, trigger, children, footer, disabled = false, busy = false, portalTarget, anchorElement, placement = "center", ownerId, layer = 70, initialFocusSelector, triggerActive = false }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
@@ -21,6 +21,8 @@ export function Popover({ open, onOpenChange, title, triggerLabel, trigger, chil
   placement?: "center" | "side";
   ownerId?: string;
   layer?: number;
+  initialFocusSelector?: string;
+  triggerActive?: boolean;
 }) {
   const id = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -78,8 +80,8 @@ export function Popover({ open, onOpenChange, title, triggerLabel, trigger, chil
 
   const positioned = position !== null;
   useEffect(() => {
-    if (open && present && positioned) panelRef.current?.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
-  }, [open, present, positioned]);
+    if (open && present && positioned) panelRef.current?.querySelector<HTMLElement>(initialFocusSelector ?? "button")?.focus({ preventScroll: true });
+  }, [open, present, positioned, initialFocusSelector]);
 
   function close(restoreFocus = true) {
     if (busy) return;
@@ -109,7 +111,7 @@ export function Popover({ open, onOpenChange, title, triggerLabel, trigger, chil
   }, [open, present, busy, onOpenChange]);
 
   return <>
-    <Button ref={triggerRef} variant="ghost" size="icon" aria-label={triggerLabel} aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? id : undefined} disabled={disabled} onClick={() => open ? close() : onOpenChange(true)} className="size-8 text-slate-400 hover:text-slate-700">{trigger}</Button>
+    <Button ref={triggerRef} variant={triggerActive ? "secondary" : "ghost"} size="icon" aria-label={triggerLabel} aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? id : undefined} disabled={disabled} onClick={() => open ? close() : onOpenChange(true)} className="size-8 text-slate-400 hover:text-slate-700">{trigger}</Button>
     {present && typeof document !== "undefined" && createPortal(
       <section ref={panelRef} id={id} role="dialog" aria-modal="false" aria-labelledby={`${id}-title`} aria-hidden={!open} inert={!open} data-state={open ? "open" : "closed"} data-card-popover data-popover-owner={ownerId} onKeyDown={(event) => {
         if (event.key === "Escape" && !event.defaultPrevented) { event.preventDefault(); event.stopPropagation(); close(); }

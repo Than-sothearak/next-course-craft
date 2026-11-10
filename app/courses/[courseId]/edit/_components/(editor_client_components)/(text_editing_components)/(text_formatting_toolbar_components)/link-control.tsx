@@ -1,12 +1,13 @@
 "use client";
 
-import { useId, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { useContext, useId, useRef, useState, type FormEvent } from "react";
 import type { Editor } from "@tiptap/core";
 import { Link2, Unlink2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { normalizeLinkHref } from "@/lib/editor/link-utils";
-import { ToolbarButton } from "./toolbar-button";
+import { Popover } from "@/components/ui/popover";
+import { TextFormattingPopupContext } from "../text-formatting-popup-context";
 
 type SavedSelection = { from: number; to: number; hadLink: boolean };
 
@@ -17,22 +18,29 @@ export function LinkControl({ editor, active }: { editor: Editor; active: boolea
   const [error, setError] = useState("");
   const [canRemoveLink, setCanRemoveLink] = useState(false);
   const selectionRef = useRef<SavedSelection | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const ownerId = useContext(TextFormattingPopupContext);
+  const [anchorElement, setAnchorElement] = useState<Element | null>(null);
 
-  function openEditor() {
+  function changeOpen(next: boolean) {
+    setOpen(next);
+    if (!next) return;
     const { from, to } = editor.state.selection;
     const hadLink = editor.isActive("link");
     selectionRef.current = { from, to, hadLink };
     setCanRemoveLink(hadLink);
     setUrl(String(editor.getAttributes("link").href ?? ""));
     setError("");
-    setOpen((current) => !current);
+    setAnchorElement(rootRef.current?.closest("[data-text-selection-popup]") ?? null);
   }
 
   function restoreSelection() {
     const saved = selectionRef.current;
     const chain = editor.chain().focus();
-    if (saved && saved.from !== saved.to) chain.setTextSelection({ from: saved.from, to: saved.to });
-    else if (saved?.hadLink) chain.extendMarkRange("link");
+    if (saved) {
+      chain.setTextSelection({ from: saved.from, to: saved.to });
+      if (saved.from === saved.to && saved.hadLink) chain.extendMarkRange("link");
+    }
     return chain;
   }
 
@@ -61,26 +69,16 @@ export function LinkControl({ editor, active }: { editor: Editor; active: boolea
     setOpen(false);
   }
 
-  function handleKeyDown(event: KeyboardEvent<HTMLFormElement>) {
-    if (event.key !== "Escape") return;
-    setOpen(false);
-    editor.chain().focus().run();
-  }
-
+  const portalTarget = editor.view.dom.closest("dialog[open]") ?? document.fullscreenElement ?? document.body;
   return (
-    <div className="relative">
-      <ToolbarButton
-        label={active ? "Edit link" : "Add link to selected text"}
-        active={active}
-        onClick={openEditor}
-      >
-        <Link2 size={16} />
-      </ToolbarButton>
-      {open && (
+    <div ref={rootRef}>
+      <Popover open={open} onOpenChange={changeOpen} title="Link"
+        triggerLabel={active ? "Edit link" : "Add link to selected text"} triggerActive={active} trigger={<Link2 size={16} />}
+        portalTarget={portalTarget} ownerId={ownerId} layer={110} placement="side" anchorElement={anchorElement} initialFocusSelector="input">
         <form
           onSubmit={applyLink}
-          onKeyDown={handleKeyDown}
-          className="absolute left-0 top-full z-50 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-slate-200 bg-white p-3 text-slate-700 shadow-xl"
+          onPointerDown={(event) => event.stopPropagation()}
+          onClick={(event) => event.stopPropagation()}
         >
           <label className="block text-xs font-medium text-slate-600" htmlFor={inputId}>
             Link URL
@@ -88,7 +86,6 @@ export function LinkControl({ editor, active }: { editor: Editor; active: boolea
           <Input
             id={inputId}
             type="text"
-            autoFocus
             value={url}
             onChange={(event) => {
               setUrl(event.target.value);
@@ -121,17 +118,14 @@ export function LinkControl({ editor, active }: { editor: Editor; active: boolea
               variant="ghost"
               size="sm"
               onMouseDown={(event) => event.preventDefault()}
-              onClick={() => {
-                setOpen(false);
-                editor.chain().focus().run();
-              }}
+              onClick={() => setOpen(false)}
               className="cursor-pointer h-8 px-2"
             >
               Cancel
             </Button>
           </div>
         </form>
-      )}
+      </Popover>
     </div>
   );
 }
