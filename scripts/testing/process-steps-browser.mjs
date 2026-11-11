@@ -50,6 +50,21 @@ const vite = await createServer({
 });
 
 let browser;
+async function checkImageZoom(page, scope = page, { keyboard = false, escape = false } = {}) {
+  const trigger = scope.getByRole("button", { name: "View image full screen: Step guide.png", exact: true });
+  const src = await trigger.locator("img").getAttribute("src");
+  if (keyboard) { await trigger.focus(); await trigger.press("Enter"); }
+  else await trigger.click();
+  const zoom = page.getByRole("dialog", { name: "Image preview: Step guide.png", exact: true });
+  await expect(zoom).toBeVisible();
+  await expect(zoom.locator("img")).toHaveAttribute("src", src);
+  const bounds = await zoom.boundingBox(), viewport = page.viewportSize();
+  assert.ok(Math.abs(bounds.width - viewport.width) < 2 && Math.abs(bounds.height - viewport.height) < 2, "Step image zoom must fill the viewport outside scaled canvases");
+  if (escape) await page.keyboard.press("Escape");
+  else await zoom.getByRole("button", { name: "Close image preview", exact: true }).click();
+  await expect(zoom).toBeHidden();
+  await expect(trigger).toBeFocused();
+}
 try {
   await vite.listen();
   browser = await chromium.launch({ headless: true, ...(process.env.PLAYWRIGHT_EXECUTABLE_PATH ? { executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH } : {}) });
@@ -86,12 +101,14 @@ try {
   const library = page.getByRole("dialog", { name: "Media library", exact: true });
   await library.waitFor({ state: "visible" });
   await library.getByRole("button", { name: "Use Step guide.png", exact: true }).click();
-  await expect(page.locator("article img")).toHaveAttribute("src", `/api/assets/${assetId}/file`);
+  await expect(page.locator("[data-process-media-frame] > button img")).toHaveAttribute("src", `/api/assets/${assetId}/file`);
+  await checkImageZoom(page);
+  await checkImageZoom(page, page, { keyboard: true, escape: true });
   await page.getByRole("button", { name: "Add process step 1 file", exact: true }).click();
   await library.getByRole("button", { name: "Use Worksheet.txt", exact: true }).click();
   await expect(page.locator(`article a[href="/api/assets/${fileId}/file"]`)).toBeVisible();
   await page.getByRole("button", { name: "Remove process step 1 file", exact: true }).click();
-  await expect(page.locator("article img")).toBeVisible();
+  await expect(page.locator("[data-process-media-frame] > button img")).toBeVisible();
   await page.getByRole("button", { name: "Add process step 1 file", exact: true }).click();
   await library.getByRole("button", { name: "Use Worksheet.txt", exact: true }).click();
   await page.getByRole("button", { name: "Go to next process step", exact: true }).click();
@@ -116,7 +133,7 @@ try {
   await page.getByRole("button", { name: "Close content settings", exact: true }).click();
   const imageFrame = await page.locator("[data-process-media-frame]").boundingBox();
   assert.ok(Math.abs(imageFrame.width / imageFrame.height - 1.6) < .01);
-  assert.equal(await page.locator("article img").evaluate(node => getComputedStyle(node).objectFit), "cover");
+  assert.equal(await page.locator("[data-process-media-frame] > button img").evaluate(node => getComputedStyle(node).objectFit), "cover");
   await page.getByRole("button", { name: "Go to next process step", exact: true }).click();
   await expect.poll(() => page.locator("article video").evaluate(node => node.videoWidth)).toBe(320);
   const videoFrame = await page.locator("[data-process-media-frame]").boundingBox();
@@ -131,6 +148,10 @@ try {
   assert.equal(await page.evaluate(() => window.__steps.data.accentColor), undefined);
 
   await page.getByRole("button", { name: "Slide", exact: true }).click();
+  await checkImageZoom(page, page, { escape: true });
+  await page.locator("[data-slide-objects]").evaluate(node => node.requestFullscreen());
+  await checkImageZoom(page);
+  await page.evaluate(() => document.exitFullscreen());
   await page.getByRole("button", { name: "Replace process step 1 media", exact: true }).click();
   await library.waitFor({ state: "visible" });
   assert.equal(await library.evaluate((node) => Boolean(node.closest("[data-slide-object-frame]"))), false);
@@ -139,6 +160,8 @@ try {
   await field().fill("Edited on the slide.");
   await page.getByRole("button", { name: "Open popup", exact: true }).click();
   const popup = page.getByRole("dialog", { name: "Step popup", exact: true });
+  await checkImageZoom(page, popup, { escape: true });
+  await expect(popup).toBeVisible();
   await popup.getByRole("button", { name: "Replace process step 1 media", exact: true }).click();
   await library.waitFor({ state: "visible" });
   assert.equal(await library.evaluate((node) => Boolean(node.closest("dialog[open]"))), true);
@@ -158,6 +181,7 @@ try {
   const stepRegion = page.locator('[aria-label="Process steps"]');
   assert.ok(await stepRegion.evaluate((node) => node.scrollWidth <= node.clientWidth + 1), "Step content should fit a narrow viewport");
   await expect(page.getByLabel("Edit process next button label", { exact: true })).toBeVisible();
+  await checkImageZoom(page, page, { keyboard: true });
   assert.deepEqual(errors, []);
 
   // Exercise the compiled learner from local files, including media, with no application APIs.
@@ -186,7 +210,8 @@ try {
     const active = (courseLayout === "slides" ? offline.locator('[data-slide-active="true"]') : offline).locator('[aria-label="Process steps"]');
     await expect(active.locator("article em")).toHaveText("Edited inside a popup.");
     assert.equal(await active.locator("article h3").count(), 0);
-    await expect(active.locator("article img")).toHaveAttribute("src", /^blob:/);
+    await expect(active.locator("[data-process-media-frame] > button img")).toHaveAttribute("src", /^blob:/);
+    await checkImageZoom(offline, active, { escape: true });
     await expect(active.locator("article a[download]")).toHaveAttribute("href", /^blob:/);
     const firstBounds = await active.locator("[data-process-media-frame]").boundingBox();
     assert.ok(Math.abs(firstBounds.width / firstBounds.height - 1.6) < .01);
@@ -198,5 +223,5 @@ try {
     assert.deepEqual(requests, []); assert.deepEqual(offlineErrors, []);
     await offline.close();
   }
-  console.log("Process step browser checks passed: direct editing, formatting/links, optional titles, labels, media library, live theme colors, scaled slides, popup toolbar, narrow viewport, and compiled Standard/Presentation exports without network requests.");
+  console.log("Process step browser checks passed: editing, media/files, image zoom with keyboard/Escape/focus restoration, scaled/fullscreen slides, nested popups, narrow viewport, and compiled Standard/Presentation exports without network requests.");
 } finally { await browser?.close(); await vite.close(); }

@@ -58,7 +58,8 @@ export function PreviewImage({
       <dialog
         ref={dialogRef}
         aria-label={alt ? `Image preview: ${alt}` : "Image preview"}
-        onClose={() => setOpen(false)}
+        onClose={(event) => { event.stopPropagation(); setOpen(false); }}
+        onCancel={(event) => event.stopPropagation()}
         onClick={(event) => {
           if (event.target === event.currentTarget) dialogRef.current?.close();
         }}

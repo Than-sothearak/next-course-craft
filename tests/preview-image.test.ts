@@ -2,8 +2,9 @@
 
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PreviewImage } from "../app/courses/[courseId]/preview/preview-image";
+import { ProcessStepMedia } from "../app/courses/[courseId]/preview/_components/(interactive_blocks_components)/(interactive_process_steps_components)/process-step-media";
 
 describe("lesson preview image", () => {
   let container: HTMLDivElement;
@@ -92,5 +93,33 @@ describe("lesson preview image", () => {
     );
     act(() => close?.click());
     expect(dialog?.open).toBe(false);
+  });
+
+  it.each(["/api/assets/aaaaaaaaaaaaaaaaaaaaaaaa/file", "./media/guide.png", "blob:offline-image"])("zooms a step image from %s while preserving its authored frame", (src) => {
+    const onCancel = vi.fn(), onClose = vi.fn();
+    act(() => root.render(createElement("div", { onCancel, onClose }, createElement(ProcessStepMedia, {
+      media: { src, fileName: "Step guide", mimeType: "image/png", size: 128 },
+      layout: { width: 320, height: 200, fit: "cover", position: "top" },
+    }))));
+    const frame = container.querySelector<HTMLElement>("[data-process-media-frame]")!;
+    expect(frame.style.aspectRatio).toBe("320 / 200");
+    expect(frame.querySelector("button img")?.getAttribute("style")).toContain("object-fit: cover");
+    const trigger = frame.querySelector<HTMLButtonElement>('button[aria-label="View image full screen: Step guide"]')!;
+    act(() => trigger.click());
+    const dialog = frame.querySelector<HTMLDialogElement>("dialog")!;
+    expect(dialog.open).toBe(true);
+    expect(dialog.querySelector("img")?.getAttribute("src")).toBe(src);
+    expect(dialog.querySelector("img")?.className).toContain("object-contain");
+    act(() => dialog.dispatchEvent(new Event("cancel", { bubbles: true, cancelable: true })));
+    expect(onCancel).not.toHaveBeenCalled();
+    act(() => dialog.querySelector<HTMLButtonElement>('[aria-label="Close image preview"]')!.click());
+    expect(dialog.open).toBe(false);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("keeps step image thumbnails noninteractive", () => {
+    act(() => root.render(createElement(ProcessStepMedia, { media: { src: "./media/guide.png", fileName: "Step guide", mimeType: "image/png", size: 128 }, decorative: true })));
+    expect(container.querySelector("img")?.getAttribute("src")).toBe("./media/guide.png");
+    expect(container.querySelector("button, dialog")).toBeNull();
   });
 });

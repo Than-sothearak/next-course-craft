@@ -1,10 +1,12 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element -- Decorative images also ship in static course exports. */
 import { useEffect, useRef } from "react";
 import type { ContentBlock, ProcessMediaLayout } from "@/lib/schemas/block";
 import { defaultProcessMediaLayout, resolveProcessStepAssets } from "@/lib/editor/process-steps";
 import { FileAttachmentLink } from "@/components/file-attachment-link";
 import { useSlidePlaybackActive } from "@/app/courses/[courseId]/_components/slide-presentation/slide-playback-context";
+import { PreviewImage } from "@/app/courses/[courseId]/preview/preview-image";
 
 type Media = NonNullable<Extract<ContentBlock, { type: "processSteps" }>["data"]["steps"][number]["media"]>;
 type Step = Extract<ContentBlock, { type: "processSteps" }>["data"]["steps"][number];
@@ -28,8 +30,9 @@ export function ProcessStepMedia({ media, layout = defaultProcessMediaLayout, pr
   }, [active, media.src]);
   if (media.mimeType.startsWith("image/")) {
     // Course assets are also remapped to static paths and blob URLs by offline exports.
-    // eslint-disable-next-line @next/next/no-img-element
-    return <div data-process-media-frame className="mx-auto max-w-full overflow-hidden rounded-lg bg-slate-100" style={{ width: layout.width, aspectRatio: `${layout.width} / ${layout.height}` }}><img src={media.src} alt={media.fileName} className="h-full w-full" style={{ objectFit: layout.fit, objectPosition: layout.position }} /></div>;
+    return <div data-process-media-frame className="mx-auto max-w-full overflow-hidden rounded-lg bg-slate-100" style={{ width: layout.width, aspectRatio: `${layout.width} / ${layout.height}` }}>{decorative
+      ? <img src={media.src} alt={media.fileName} className="h-full w-full" style={{ objectFit: layout.fit, objectPosition: layout.position }} />
+      : <PreviewImage src={media.src} alt={media.fileName} className="h-full w-full" fitFrame imageFit={layout.fit} imagePosition={layout.position} />}</div>;
   }
   if (media.mimeType.startsWith("video/")) return <div data-process-media-frame className="mx-auto max-w-full overflow-hidden rounded-lg bg-slate-100" style={{ width: layout.width, aspectRatio: `${layout.width} / ${layout.height}` }}><video ref={(node) => { playerRef.current = node; }} key={media.src} src={media.src} controls={!decorative} playsInline preload={decorative ? "none" : "metadata"} aria-label={media.fileName} className="h-full w-full" style={{ objectFit: layout.fit, objectPosition: layout.position }} /></div>;
   if (media.mimeType.startsWith("audio/")) return <audio ref={(node) => { playerRef.current = node; }} key={media.src} src={media.src} controls={!decorative} preload={decorative ? "none" : "metadata"} aria-label={media.fileName} className="w-full" />;
