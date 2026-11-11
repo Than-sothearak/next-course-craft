@@ -20,10 +20,12 @@ export function croppedDimensions<T extends { width: number; height: number }>(m
 export function croppedMediaStyle(crop: CropRect): CSSProperties {
   return { position: "absolute", maxWidth: "none", width: `${10000 / crop.width}%`, height: `${10000 / crop.height}%`, left: `${-100 * crop.x / crop.width}%`, top: `${-100 * crop.y / crop.height}%`, objectFit: "fill" };
 }
-/** Fit the cropped viewport without stretching when the minimum object size limits its ratio. */
-export function cropViewportStyle(dimensions: { width: number; height: number }, crop: CropRect): CSSProperties {
+/** Size the cropped viewport inside its frame, preserving proportions unless Fill is selected. */
+export function cropViewportStyle(dimensions: { width: number; height: number }, crop: CropRect, fit: "contain" | "cover" | "fill" = "contain"): CSSProperties {
   const size = croppedDimensions(dimensions, crop), aspect = size.width / size.height;
-  return { width: `min(100cqw, calc(100cqh * ${aspect}))`, height: `min(100cqh, calc(100cqw / ${aspect}))`, flexShrink: 0 };
+  if (fit === "fill") return { width: "100%", height: "100%", flexShrink: 0 };
+  const bound = fit === "cover" ? "max" : "min";
+  return { width: `${bound}(100cqw, calc(100cqh * ${aspect}))`, height: `${bound}(100cqh, calc(100cqw / ${aspect}))`, flexShrink: 0 };
 }
 export function moveCrop(rect: CropRect, dx: number, dy: number): CropRect {
   return { ...rect, x: Math.max(0, Math.min(100 - rect.width, rect.x + dx)), y: Math.max(0, Math.min(100 - rect.height, rect.y + dy)) };

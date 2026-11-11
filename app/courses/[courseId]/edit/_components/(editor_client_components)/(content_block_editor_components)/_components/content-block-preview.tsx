@@ -34,6 +34,9 @@ export function ContentBlockPreview({ block, onChange, presentation = false, cou
   ) : block.type === "image" ? (
     <ImageBlockLayout
       layout={block.data.layout}
+      imageFit={block.data.imageFit}
+      imagePosition={block.data.imagePosition}
+      imageAspectRatio={block.data.imageAspectRatio}
       title={block.data.title}
       body={block.data.body}
       caption={block.data.caption}

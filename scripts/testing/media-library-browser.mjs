@@ -22,15 +22,18 @@ import {createRoot} from 'react-dom/client';
 import {MediaLibraryDialog} from '/app/courses/[courseId]/edit/_components/media-library-dialog.tsx';
 import {SlideCanvasMediaReplace} from '/app/courses/[courseId]/edit/presentation-mode/_components/slide-presentation/slide-canvas-media-replace.tsx';
 import {Dialog} from '/components/ui/dialog.tsx';
+import {DraggableSettingsPanel} from '/app/courses/[courseId]/edit/_components/(editor_client_components)/draggable-settings-panel.tsx';
 import {Button} from '/components/ui/button.tsx';
 import {blockSchema} from '/lib/schemas/block.ts';
 import '/app/globals.css';
 function App(){
   const [open,setOpen]=useState(false),[nested,setNested]=useState(false),[nestedLibrary,setNestedLibrary]=useState(false),[zoom,setZoom]=useState(.25);
+  const [settings,setSettings]=useState(false),[settingsLibrary,setSettingsLibrary]=useState(false);
   const [block,setBlock]=useState(()=>blockSchema.parse({id:'attachment',type:'attachment',version:1,slideFrame:{x:10,y:10,width:30,height:30,z:0},data:{src:'',fileName:'',size:0}}));
   window.__block=block;window.__setZoom=setZoom;
   const choose=asset=>{window.__selected=asset.id;};
-  return <main className="p-5"><div className="mb-8 flex flex-wrap gap-2"><Button onClick={()=>setOpen(true)}>Open media library</Button><Button onClick={()=>setNested(true)}>Open popup editor</Button></div>
+  return <main className="p-5"><div className="mb-8 flex flex-wrap gap-2"><Button onClick={()=>setOpen(true)}>Open media library</Button><Button onClick={()=>setNested(true)}>Open popup editor</Button><Button onClick={()=>setSettings(true)}>Open content settings</Button></div>
+    {settings&&<DraggableSettingsPanel id="content-settings" title="Content settings" side="left"><Button onClick={()=>setSettingsLibrary(true)}>Choose settings media</Button><MediaLibraryDialog courseId="course" kind="attachment" open={settingsLibrary} onClose={()=>setSettingsLibrary(false)} onSelect={choose}/></DraggableSettingsPanel>}
     <div data-slide-stage className="relative h-[200px] w-full max-w-[480px] overflow-hidden border bg-slate-100">
       <div data-slide-canvas style={{position:'relative',width:960,height:540,transform:'scale('+zoom+')',transformOrigin:'top left'}}><div data-slide-object-frame data-slide-object-id="attachment" style={{position:'absolute',left:50,top:70,width:200,height:100}}>Media object</div></div>
       <SlideCanvasMediaReplace block={block} courseId="course" onChange={setBlock}/>
@@ -116,6 +119,24 @@ try {
     await replacement.getByRole("button", { name: "Close dialog", exact: true }).click();
     assert.equal(await page.evaluate(() => window.__lastPlayer.paused), true, "Embedded playback must stop on close");
   }
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(`${origin}/__media`);
+  await page.getByRole("button", { name: "Open content settings", exact: true }).click();
+  const settings = page.getByRole("dialog", { name: "Content settings", exact: true });
+  for (const trigger of [page.getByRole("button", { name: "Open media library", exact: true }), settings.getByRole("button", { name: "Choose settings media", exact: true })]) {
+    await trigger.click();
+    const backdrop = page.locator("[data-media-library]");
+    await expect(backdrop.locator("[data-media-asset-id]")).toHaveCount(4);
+    // Check actual hit testing over settings for both sibling and nested pickers.
+    const panel = await settings.boundingBox();
+    assert.equal(await backdrop.evaluate((element, point) => element.contains(document.elementFromPoint(point.x, point.y)), { x: panel.x + 20, y: panel.y + 20 }), true, "Media library must appear above content settings");
+    await page.getByRole("dialog", { name: "Media library", exact: true }).getByRole("button", { name: "Use Notes.txt", exact: true }).click();
+    await expect(backdrop).toHaveCount(0);
+    await expect(settings).toBeVisible();
+    assert.equal(await page.evaluate(() => window.__selected), assets[3].id);
+  }
+  await page.goto(`${origin}/__media`);
 
   await page.getByRole("button", { name: "Open media library", exact: true }).click();
   const library = page.getByRole("dialog", { name: "Media library", exact: true });

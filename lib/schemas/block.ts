@@ -55,6 +55,10 @@ export const imageLayoutSchema = z.enum([
   "cover",
 ]);
 export type ImageLayout = z.infer<typeof imageLayoutSchema>;
+export const imageFitSchema = z.enum(["cover", "contain", "fill"]);
+export const imageAspectRatioSchema = z.enum(["4/3", "16/9", "1/1", "3/4"]);
+export type ImageFit = z.infer<typeof imageFitSchema>;
+export type ImageAspectRatio = z.infer<typeof imageAspectRatioSchema>;
 export const imageCoverHeightSchema = z.enum(["short", "medium", "tall", "viewport"]);
 export const imageCoverPositionSchema = z.enum(["center", "top", "bottom", "left", "right"]);
 export type ImageCoverHeight = z.infer<typeof imageCoverHeightSchema>;
@@ -128,6 +132,9 @@ export const imageBlockSchema = z.object({
     alt: z.string().max(500),
     caption: z.string().max(1_000).optional(),
     layout: imageLayoutSchema.optional(),
+    imageFit: imageFitSchema.optional(),
+    imagePosition: imageCoverPositionSchema.optional(),
+    imageAspectRatio: imageAspectRatioSchema.optional(),
     title: z.string().max(500).optional(),
     body: z.string().max(5_000).optional(),
     coverHeight: imageCoverHeightSchema.optional(),

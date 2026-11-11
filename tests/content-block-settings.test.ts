@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 
-import { act, createElement } from "react";
+import { act, createElement, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -169,15 +169,44 @@ describe("content block settings access", () => {
     expect(container.querySelector('[data-image-layout="cover"]')).not.toBeNull();
     expect(container.querySelector('[data-image-layout="cover"] img')?.className).toContain("object-cover");
     expect(document.querySelector('[aria-label="Image cover height"]')).not.toBeNull();
-    expect(document.querySelector('[aria-label="Image cover focal point"]')).not.toBeNull();
+    expect(document.querySelector('[aria-label="Image focal point"]')).not.toBeNull();
     expect(document.querySelector('[aria-label="Image cover overlay darkness"]')).not.toBeNull();
 
-    const focalPoint = document.querySelector<HTMLSelectElement>('[aria-label="Image cover focal point"]')!;
+    const focalPoint = document.querySelector<HTMLSelectElement>('[aria-label="Image focal point"]')!;
     act(() => {
       focalPoint.value = "top";
       focalPoint.dispatchEvent(new Event("change", { bubbles: true }));
     });
-    expect(onChange.mock.lastCall?.[0]).toMatchObject({ data: { layout: "cover", coverPosition: "top" } });
+    expect(onChange.mock.lastCall?.[0]).toMatchObject({ data: { layout: "cover", imagePosition: "top" } });
+  });
+
+  it.each(["full", "banner", "text-left", "text-right", "text-overlay", "card", "cover"] as const)("updates image fit, focal point, and frame ratio in %s blocks", (layout) => {
+    let saved: ContentBlock;
+    function Editor() {
+      const source = blocks.find((block) => block.type === "image")!;
+      const [block, setBlock] = useState<ContentBlock>({ ...source, data: { ...source.data, layout } });
+      saved = block;
+      return createElement(ContentBlockEditor, { block, courseId: "course-1", onChange: setBlock });
+    }
+    act(() => root.render(createElement(Editor)));
+    act(() => document.querySelector<HTMLButtonElement>('[aria-label="Open content settings"]')!.click());
+    const fit = document.querySelector<HTMLSelectElement>('[aria-label="Image fit"]')!;
+    expect(fit.value).toBe(layout === "full" ? "contain" : "cover");
+    expect([...fit.options].map((option) => option.value)).toEqual(["cover", "contain", "fill"]);
+    for (const value of ["contain", "fill", "cover"]) {
+      act(() => { fit.value = value; fit.dispatchEvent(new Event("change", { bubbles: true })); });
+      expect(container.querySelector("[data-image-frame]")?.getAttribute("data-image-fit")).toBe(value);
+    }
+    for (const [label, value] of [["Image focal point", "top"], ["Image frame ratio", "1/1"]]) {
+      const field = document.querySelector<HTMLSelectElement>(`[aria-label="${label}"]`)!;
+      act(() => { field.value = value; field.dispatchEvent(new Event("change", { bubbles: true })); });
+    }
+    expect(saved!).toMatchObject({ data: { layout, imageFit: "cover", imagePosition: "top", imageAspectRatio: "1/1" } });
+    expect(container.querySelector(".aspect-square")).not.toBeNull();
+    expect(container.querySelector("[data-image-frame]")?.className).toContain("object-top");
+    const ratio = document.querySelector<HTMLSelectElement>('[aria-label="Image frame ratio"]')!;
+    act(() => { ratio.value = "default"; ratio.dispatchEvent(new Event("change", { bubbles: true })); });
+    expect(saved!).toMatchObject({ data: { layout, imageAspectRatio: undefined } });
   });
 
   it("exposes editable front and back copy for a flip card", () => {

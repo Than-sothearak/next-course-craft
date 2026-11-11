@@ -228,7 +228,7 @@ function OpenMediaLibrary({ courseId, kind, onClose, onSelect, embedded = false 
     <div
       ref={libraryRef}
       data-media-library
-      className={embedded ? "flex min-h-0 flex-1 flex-col" : "dialog-backdrop-in fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/45 p-3 sm:p-6"}
+      className={embedded ? "flex min-h-0 flex-1 flex-col" : "dialog-backdrop-in fixed inset-0 z-[10020] flex items-center justify-center bg-slate-950/45 p-3 sm:p-6"}
       onClick={(event) => {
         if (!embedded && event.target === event.currentTarget) { event.stopPropagation(); closeLibrary(); }
       }}

@@ -1,6 +1,6 @@
 "use client";
 
-import { imageCoverHeightSchema, imageCoverPositionSchema, type ContentBlock } from "@/lib/schemas/block";
+import { imageAspectRatioSchema, imageFitSchema, imageCoverHeightSchema, imageCoverPositionSchema, type ContentBlock } from "@/lib/schemas/block";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -42,11 +42,52 @@ export function ImageBlockSettings({ block, onChange, setMediaLibraryTarget }: {
         <option value="card">Image feature card</option>
         <option value="cover">Cover — full-width image</option>
       </Select>
+      <>
+        <label className="block space-y-1 text-xs font-medium text-slate-600">
+          Image fit
+          <Select aria-label="Image fit" value={block.data.imageFit ?? (!block.data.layout || block.data.layout === "full" ? "contain" : "cover")} onChange={(event) => {
+            const fit = imageFitSchema.safeParse(event.target.value);
+            if (fit.success) onChange({ ...block, data: { ...block.data, imageFit: fit.data } });
+          }} className="h-9 w-full">
+            <option value="cover">Cover (crop to fill)</option>
+            <option value="contain">Contain (show entire image)</option>
+            <option value="fill">Fill (stretch to fit)</option>
+          </Select>
+        </label>
+        <label className="block space-y-1 text-xs font-medium text-slate-600">
+          Image focal point
+          <Select aria-label="Image focal point" value={block.data.imagePosition ?? (block.data.layout === "cover" ? block.data.coverPosition : undefined) ?? "center"} onChange={(event) => {
+            const position = imageCoverPositionSchema.safeParse(event.target.value);
+            if (position.success) onChange({ ...block, data: { ...block.data, imagePosition: position.data } });
+          }} className="h-9 w-full">
+            <option value="center">Center</option>
+            <option value="top">Top</option>
+            <option value="bottom">Bottom</option>
+            <option value="left">Left</option>
+            <option value="right">Right</option>
+          </Select>
+        </label>
+        <label className="block space-y-1 text-xs font-medium text-slate-600">
+          Image frame ratio
+          <Select aria-label="Image frame ratio" value={block.data.imageAspectRatio ?? "default"} onChange={(event) => {
+            if (event.target.value === "default") { onChange({ ...block, data: { ...block.data, imageAspectRatio: undefined } }); return; }
+            const ratio = imageAspectRatioSchema.safeParse(event.target.value);
+            if (ratio.success) onChange({ ...block, data: { ...block.data, imageAspectRatio: ratio.data } });
+          }} className="h-9 w-full">
+            <option value="default">Use layout default</option>
+            <option value="4/3">Landscape (4:3)</option>
+            <option value="16/9">Widescreen (16:9)</option>
+            <option value="1/1">Square (1:1)</option>
+            <option value="3/4">Portrait (3:4)</option>
+          </Select>
+        </label>
+      </>
       {block.data.layout === "cover" && <>
         <label className="block space-y-1 text-xs font-medium text-slate-600">
           Cover height
           <Select
             aria-label="Image cover height"
+            disabled={block.data.imageAspectRatio !== undefined}
             value={block.data.coverHeight ?? "medium"}
             onChange={(event) => {
               const height = imageCoverHeightSchema.safeParse(event.target.value);
@@ -59,24 +100,7 @@ export function ImageBlockSettings({ block, onChange, setMediaLibraryTarget }: {
             <option value="tall">Tall</option>
             <option value="viewport">Screen height</option>
           </Select>
-        </label>
-        <label className="block space-y-1 text-xs font-medium text-slate-600">
-          Image focal point
-          <Select
-            aria-label="Image cover focal point"
-            value={block.data.coverPosition ?? "center"}
-            onChange={(event) => {
-              const position = imageCoverPositionSchema.safeParse(event.target.value);
-              if (position.success) onChange({ ...block, data: { ...block.data, coverPosition: position.data } });
-            }}
-            className="h-9 w-full"
-          >
-            <option value="center">Center</option>
-            <option value="top">Top</option>
-            <option value="bottom">Bottom</option>
-            <option value="left">Left</option>
-            <option value="right">Right</option>
-          </Select>
+          {block.data.imageAspectRatio && <span className="block text-xs font-normal text-slate-500">Use the default frame ratio to set a cover height.</span>}
         </label>
         <label className="block space-y-1 text-xs font-medium text-slate-600">
           Text overlay darkness

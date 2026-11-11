@@ -22,10 +22,14 @@ export function SlideMediaObject({ block, onDimensions, onDurationChange, onVide
 }) {
   const dimensions = resolveSlideMedia(block);
   const videoFile = block.type === "video" && isSlideVideoFile(block);
+  const imageRatio = block.type === "image" ? block.data.imageAspectRatio : undefined;
+  const aspect = imageRatio ? Number(imageRatio.split("/")[0]) / Number(imageRatio.split("/")[1]) : undefined;
   return (
-    <div data-slide-media-object className="relative h-full w-full" style={{ backgroundColor: "transparent" }}>
+    <div data-slide-media-object className={block.type === "image" ? "relative flex h-full w-full items-center justify-center" : "relative h-full w-full"} style={{ backgroundColor: "transparent", containerType: aspect ? "size" : undefined }}>
       {block.type === "image" ? (
-        <PreviewImage src={block.data.src} alt={block.data.alt} caption={block.data.caption} className="h-full w-full object-contain" fitFrame dimensions={dimensions} crop={resolveSlideCrop(block)} onDimensions={onDimensions} />
+        <div data-image-frame data-image-fit={block.data.imageFit ?? "contain"} data-image-position={block.data.imagePosition ?? "center"} data-image-aspect-ratio={imageRatio} className="h-full w-full" style={aspect ? { width: `min(100cqw, calc(100cqh * ${aspect}))`, height: `min(100cqh, calc(100cqw / ${aspect}))`, flexShrink: 0 } : undefined}>
+          <PreviewImage src={block.data.src} alt={block.data.alt} caption={block.data.caption} className="h-full w-full object-contain" imageFit={block.data.imageFit} imagePosition={block.data.imagePosition} fitFrame dimensions={dimensions} crop={resolveSlideCrop(block)} onDimensions={onDimensions} />
+        </div>
       ) : videoFile ? (
         <SlideMediaPlayer key={block.data.src} block={block} onDimensions={onDimensions} onDurationChange={onDurationChange} onEnded={onVideoEnded} requireFullPlayback={requireFullPlayback} trackProgress={trackProgress} completed={completed} initialProgress={initialProgress} onProgress={onProgress} />
       ) : (

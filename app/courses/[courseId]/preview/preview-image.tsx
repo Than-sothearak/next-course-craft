@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { croppedDimensions, croppedMediaStyle, cropViewportStyle, type CropRect } from "@/lib/editor/slide-crop";
+import type { ImageCoverPosition, ImageFit } from "@/lib/schemas/block";
 
 export function PreviewImage({
   src,
@@ -15,6 +16,8 @@ export function PreviewImage({
   dimensions,
   onDimensions,
   crop,
+  imageFit,
+  imagePosition,
 }: {
   src: string;
   alt: string;
@@ -24,6 +27,8 @@ export function PreviewImage({
   dimensions?: { width: number; height: number };
   onDimensions?: (dimensions: { width: number; height: number }) => void;
   crop?: CropRect;
+  imageFit?: ImageFit;
+  imagePosition?: ImageCoverPosition;
 }) {
   const [open, setOpen] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -42,10 +47,10 @@ export function PreviewImage({
         type="button"
         aria-label={`View image full screen${alt ? `: ${alt}` : ""}`}
         onClick={() => setOpen(true)}
-        className={`cursor-pointer group relative w-full cursor-zoom-in rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${cropped ? "flex items-center justify-center" : "block"} ${fitFrame ? "h-full" : ""}`}
-        style={cropped ? { containerType: "size" } : undefined}
+        className={`cursor-pointer group relative w-full cursor-zoom-in rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 ${cropped ? "flex overflow-hidden" : "block"} ${fitFrame ? "h-full" : ""}`}
+        style={cropped ? { containerType: "size", justifyContent: imagePosition === "left" ? "flex-start" : imagePosition === "right" ? "flex-end" : "center", alignItems: imagePosition === "top" ? "flex-start" : imagePosition === "bottom" ? "flex-end" : "center" } : undefined}
       >
-        <span data-slide-media-crop={cropped ? true : undefined} className={cropped ? "relative block h-full w-full overflow-hidden" : "contents"} style={cropped && dimensions ? cropViewportStyle(dimensions, cropped) : undefined}><img src={src} alt={alt} width={dimensions?.width ?? (fitFrame ? undefined : 1200)} height={dimensions?.height ?? (fitFrame ? undefined : 675)} style={cropped ? croppedMediaStyle(cropped) : undefined} onLoad={(event) => {
+        <span data-slide-media-crop={cropped ? true : undefined} className={cropped ? "relative block h-full w-full overflow-hidden" : "contents"} style={cropped && dimensions ? cropViewportStyle(dimensions, cropped, imageFit) : undefined}><img src={src} alt={alt} width={dimensions?.width ?? (fitFrame ? undefined : 1200)} height={dimensions?.height ?? (fitFrame ? undefined : 675)} style={cropped ? croppedMediaStyle(cropped) : { objectFit: imageFit, objectPosition: imagePosition }} onLoad={(event) => {
           const image = event.currentTarget;
           if (image.naturalWidth && image.naturalHeight) onDimensions?.({ width: image.naturalWidth, height: image.naturalHeight });
         }} className={className} /></span>

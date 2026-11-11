@@ -176,6 +176,9 @@ export function PreviewBlock({
     content = (
       <ImageBlockLayout
         layout={imageLayout}
+        imageFit={block.data.imageFit}
+        imagePosition={block.data.imagePosition}
+        imageAspectRatio={block.data.imageAspectRatio}
         title={block.data.title}
         body={block.data.body}
         caption={block.data.caption}
