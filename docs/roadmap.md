@@ -1,5 +1,7 @@
 # Delivery roadmap
 
+Requested process-step editing extension: optional titles, directly editable formatted instructions with links, editable Previous/Next button labels, course-owned step media/files, and theme-based defaults across all step styles. It uses the existing Standard/Presentation/popup editors, ownership validation, draft history, and static learner export boundaries. Other phase scope remains unchanged.
+
 Work one phase at a time; stop after the requested phase.
 
 Requested gallery template extension: a horizontally scrolling, snapping image carousel with Previous/Next controls, clickable images, keyboard navigation, and gallery-wide or per-image Fill/Contain/Cover fit. Existing galleries keep their grid layout. The extension uses existing authoring, popup, media, save/undo, preview and static HTML/SCORM paths within the core blocks and requested presentation template scope.

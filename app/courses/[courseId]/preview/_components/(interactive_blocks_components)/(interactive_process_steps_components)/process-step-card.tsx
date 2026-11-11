@@ -1,5 +1,8 @@
 import type { ContentBlock, ProcessStepsStyle } from "@/lib/schemas/block";
 import { textPaint } from "@/lib/color";
+import type { ReactNode } from "react";
+import { StatementTextPreview } from "@/app/courses/[courseId]/edit/_components/statement-text-preview";
+import { ProcessStepMedia } from "./process-step-media";
 
 type Step = Extract<ContentBlock, { type: "processSteps" }>["data"]["steps"][number];
 
@@ -11,7 +14,7 @@ const cardClasses: Record<ProcessStepsStyle, string> = {
   minimal: "border-0 bg-transparent py-4",
 };
 
-export function ProcessStepCard({ step, index, style, showNumbers, accentColor }: { step: Step; index: number; style: ProcessStepsStyle; showNumbers: boolean; accentColor?: string }) {
+export function ProcessStepCard({ step, index, style, showNumbers, accentColor, presentation, decorative, renderTitle, renderBody, renderMedia }: { step: Step; index: number; style: ProcessStepsStyle; showNumbers: boolean; accentColor?: string; presentation?: boolean; decorative?: boolean; renderTitle?: (step: Step, index: number) => ReactNode; renderBody?: (step: Step, index: number) => ReactNode; renderMedia?: (step: Step, index: number) => ReactNode }) {
   return (
     <article aria-live="polite" className={`min-h-40 min-w-0 [overflow-wrap:anywhere] ${cardClasses[style]}`} style={style === "spotlight" ? { borderColor: "var(--process-accent)", backgroundColor: "var(--process-tint)" } : undefined}>
       {showNumbers && <span
@@ -20,8 +23,17 @@ export function ProcessStepCard({ step, index, style, showNumbers, accentColor }
           ? textPaint(accentColor ?? "var(--process-accent)")
           : { background: "var(--process-paint)", color: "var(--process-accent-text)" }}
       >{index + 1}</span>}
-      <h3 className={`${showNumbers ? "mt-4" : "mt-0"} text-lg font-semibold text-slate-900`}>{step.title || `Step ${index + 1}`}</h3>
-      <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{step.body || "Add instructions for this step."}</p>
+      {(renderTitle || step.title.trim()) && <div className={showNumbers ? "mt-4" : "mt-0"}>
+        {renderTitle ? renderTitle(step, index) : step.titleHtml !== undefined
+          ? <StatementTextPreview tag="h3" text={step.title} html={step.titleHtml} className="text-lg font-semibold text-slate-900" />
+          : <h3 className="text-lg font-semibold text-slate-900">{step.title}</h3>}
+      </div>}
+      <div className="mt-2 text-sm leading-6 text-slate-700">
+        {renderBody ? renderBody(step, index) : step.bodyHtml !== undefined
+          ? <StatementTextPreview tag="p" text={step.body} html={step.bodyHtml} className="prose max-w-none text-sm leading-6" />
+          : <p className="whitespace-pre-wrap">{step.body}</p>}
+      </div>
+      {(renderMedia || step.media) && <div className="mt-4">{renderMedia ? renderMedia(step, index) : step.media && <ProcessStepMedia media={step.media} presentation={presentation} decorative={decorative} />}</div>}
     </article>
   );
 }

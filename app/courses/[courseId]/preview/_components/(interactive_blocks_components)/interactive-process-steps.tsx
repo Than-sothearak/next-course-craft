@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import type { ContentBlock, ProcessStepsStyle } from "@/lib/schemas/block";
 import { contrastTextColor } from "../(course_preview_components)/preview-utils";
@@ -9,9 +9,16 @@ import { ProcessStepNavigation } from "./(interactive_process_steps_components)/
 import { solidColor } from "@/lib/color";
 
 type Steps = Extract<ContentBlock, { type: "processSteps" }>["data"]["steps"];
+type Step = Steps[number];
+export type ProcessStepControl = { direction: "previous" | "next"; label: string; disabled: boolean; onClick: () => void };
 
-export function InteractiveProcessSteps({ blockId, steps, style = "cards", accentColor, showNumbers = true, onStepInteract, presentation = false }: {
-  blockId: string; steps: Steps; style?: ProcessStepsStyle; accentColor?: string; showNumbers?: boolean; onStepInteract?: (stepId: string) => void; presentation?: boolean;
+export function InteractiveProcessSteps({ blockId, steps, style = "cards", accentColor, showNumbers = true, previousLabel, nextLabel, onStepInteract, presentation = false, decorative = false, renderTitle, renderBody, renderMedia, renderControl }: {
+  blockId: string; steps: Steps; style?: ProcessStepsStyle; accentColor?: string; showNumbers?: boolean; previousLabel?: string; nextLabel?: string; onStepInteract?: (stepId: string) => void; presentation?: boolean;
+  renderTitle?: (step: Step, index: number) => ReactNode;
+  renderBody?: (step: Step, index: number) => ReactNode;
+  renderMedia?: (step: Step, index: number) => ReactNode;
+  renderControl?: (control: ProcessStepControl) => ReactNode;
+  decorative?: boolean;
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const currentIndex = Math.min(activeIndex, steps.length - 1);
@@ -27,8 +34,10 @@ export function InteractiveProcessSteps({ blockId, steps, style = "cards", accen
     "--process-accent": accentColor ? solidColor(accentColor) : "var(--course-primary, #2f5f9f)",
     "--process-paint": accentColor ?? "var(--course-primary, #2f5f9f)",
     "--process-accent-text": accentColor ? contrastTextColor(accentColor) : "#ffffff",
-    "--process-tint": accentColor ? `${solidColor(accentColor)}12` : "#f1f5f9",
+    "--process-tint": "color-mix(in srgb, var(--process-accent) 7%, white)",
   } as CSSProperties;
+  const previous: ProcessStepControl = { direction: "previous", label: previousLabel?.trim() || "Previous step", disabled: currentIndex === 0, onClick: () => selectStep(currentIndex - 1) };
+  const next: ProcessStepControl = { direction: "next", label: nextLabel?.trim() || "Next step", disabled: currentIndex === steps.length - 1, onClick: () => selectStep(currentIndex + 1) };
   return (
     <section aria-label="Process steps" data-process-style={style} className="@container/process-steps mx-auto w-full min-w-0 max-w-3xl space-y-5" style={colors}>
       <div className="grid min-w-0 items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-500 @min-[20rem]/process-steps:grid-cols-[auto_minmax(0,1fr)] @min-[20rem]/process-steps:gap-3">
@@ -39,11 +48,11 @@ export function InteractiveProcessSteps({ blockId, steps, style = "cards", accen
       </div>
       <div className={style === "timeline" ? "grid min-w-0 grid-cols-1 gap-4 @min-[36rem]/process-steps:grid-cols-[minmax(140px,190px)_minmax(0,1fr)]" : "min-w-0 space-y-4"}>
         {(style === "timeline" || style === "numbered") && <ProcessStepNavigation steps={steps} activeIndex={currentIndex} timeline={style === "timeline"} showNumbers={showNumbers} onSelect={selectStep} />}
-        <ProcessStepCard key={`${blockId}-${activeStep.id}`} step={activeStep} index={currentIndex} style={style} showNumbers={showNumbers} accentColor={accentColor} />
+        <ProcessStepCard key={`${blockId}-${activeStep.id}`} step={activeStep} index={currentIndex} style={style} showNumbers={showNumbers} accentColor={accentColor} presentation={presentation} decorative={decorative} renderTitle={renderTitle} renderBody={renderBody} renderMedia={renderMedia} />
       </div>
       <div className="grid min-w-0 grid-cols-1 gap-3 @min-[20rem]/process-steps:grid-cols-2">
-        <Button type="button" variant="outline" className="min-h-11 w-full min-w-0 whitespace-normal" disabled={currentIndex === 0} onClick={() => selectStep(currentIndex - 1)}>Previous step</Button>
-        {currentIndex < steps.length - 1 && <Button type="button" className="min-h-11 w-full min-w-0 whitespace-normal" onClick={() => selectStep(currentIndex + 1)} style={{ background: "var(--process-paint)", color: "var(--process-accent-text)" }}>Next step</Button>}
+        {renderControl ? renderControl(previous) : <Button type="button" variant="outline" className="min-h-11 w-full min-w-0 whitespace-normal" disabled={previous.disabled} onClick={previous.onClick}>{previous.label}</Button>}
+        {(!next.disabled || renderControl) && (renderControl ? renderControl(next) : <Button type="button" className="min-h-11 w-full min-w-0 whitespace-normal" onClick={next.onClick} style={{ background: "var(--process-paint)", color: "var(--process-accent-text)" }}>{next.label}</Button>)}
       </div>
     </section>
   );

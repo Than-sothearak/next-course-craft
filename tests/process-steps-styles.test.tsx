@@ -116,7 +116,7 @@ describe("process-step styles", () => {
   it("changes a prebuilt style without replacing authored step IDs or text", () => {
     const original = { style: "cards" as const, steps: [{ id: "custom-1", title: "My first step", body: "Original instructions." }, { id: "custom-2", title: "Finish", body: "Original finishing instructions." }] };
     const preset = blockTemplates.find((template) => template.id === "interactive-process-steps-timeline")!.processSteps!;
-    expect(applyProcessStepsPreset(original, preset)).toMatchObject({ style: "timeline", accentColor: "#0f766e", steps: original.steps });
+    expect(applyProcessStepsPreset(original, preset)).toMatchObject({ style: "timeline", accentColor: undefined, steps: original.steps });
     expect(applyProcessStepsPreset({ ...original, accentColor: "#123456" }, { steps: processStepsSample })).toMatchObject({ style: "cards", accentColor: undefined, steps: original.steps });
   });
 
@@ -140,6 +140,7 @@ describe("process-step styles", () => {
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(control, value);
       control.dispatchEvent(new Event("change", { bubbles: true }));
     });
+    act(() => document.querySelector<HTMLInputElement>('[aria-label="Use custom process step color"]')!.click());
     input("Process step accent color", "#7c3aed");
     input("Process step 1 title", "My edited step");
     act(() => Array.from(document.querySelectorAll("button")).find((button) => button.textContent?.includes("Add step"))!.click());

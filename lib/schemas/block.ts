@@ -12,6 +12,7 @@ import { audioInstructionGuideSchema } from "@/lib/editor/audio-instruction-guid
 import { balloonArcherDataSchema } from "./balloon-archer";
 import { peelSettingsSchema } from "./peel-to-reveal";
 import { hangingRopeSettingsSchema, ropeCardSettingsSchema } from "./hanging-rope-cards";
+import { mediaMimeTypeSchema } from "@/lib/media/schemas";
 
 export const blockTypes = [
   "heading",
@@ -448,6 +449,12 @@ export const labeledGraphicBlockSchema = z.object({
 });
 export const processStepsStyleSchema = z.enum(["cards", "numbered", "timeline", "spotlight", "minimal"]);
 export type ProcessStepsStyle = z.infer<typeof processStepsStyleSchema>;
+export const processStepMediaSchema = z.object({
+  src: z.string().regex(/^\/api\/assets\/[a-f\d]{24}\/file$/i),
+  fileName: z.string().max(255),
+  mimeType: mediaMimeTypeSchema,
+  size: z.number().int().min(0).max(250 * 1024 * 1024),
+});
 export const processStepsBlockSchema = z.object({
   ...blockBase("medium", 40),
   type: z.literal("processSteps"),
@@ -455,12 +462,17 @@ export const processStepsBlockSchema = z.object({
     style: processStepsStyleSchema.optional(),
     accentColor: colorValueSchema.optional(),
     showNumbers: z.boolean().optional(),
+    previousLabel: z.string().max(120).optional(),
+    nextLabel: z.string().max(120).optional(),
     steps: z
       .array(
         z.object({
           id: z.string().min(1).max(64),
-          title: z.string().max(160),
+          title: z.string().max(160).default(""),
           body: z.string().max(5_000),
+          titleHtml: z.string().max(20_000).optional(),
+          bodyHtml: z.string().max(100_000).optional(),
+          media: processStepMediaSchema.optional(),
         }),
       )
       .min(2)

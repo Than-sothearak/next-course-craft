@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { editorSnapshotSchema } from "@/lib/editor/schemas";
-import { interactionButtonBlockSchema, peelToRevealBlockSchema, hangingRopeCardsBlockSchema } from "@/lib/schemas/block";
+import { interactionButtonBlockSchema, peelToRevealBlockSchema, hangingRopeCardsBlockSchema, processStepsBlockSchema } from "@/lib/schemas/block";
 
 const { find, lean } = vi.hoisted(() => ({ find: vi.fn(), lean: vi.fn() }));
 vi.mock("@/models/Asset", () => ({ Asset: { find } }));
@@ -15,6 +15,19 @@ const lessons = () => editorSnapshotSchema.parse({ title: "Presentation", descri
 
 describe("interaction button asset ownership", () => {
   beforeEach(() => { vi.clearAllMocks(); find.mockReturnValue({ select: () => ({ lean }) }); lean.mockResolvedValue([{ _id: "asset" }]); });
+  it.each([false, true])("checks step media and inline instruction links, nested in a popup: %s", async (nested) => {
+    const content = lessons();
+    const process = processStepsBlockSchema.parse({ id: "steps", type: "processSteps", version: 1, data: { steps: [
+      { id: "one", body: "Instructions", bodyHtml: `<p><a href="${url("b")}">Download guide</a></p>`, media: { src: url("a"), fileName: "Guide.png", mimeType: "image/png", size: 100 } },
+      { id: "two", body: "Finish" },
+    ] } });
+    content[0].blocks = nested ? [interactionButtonBlockSchema.parse({ id: "popup", type: "interactionButton", version: 1, data: { popup: { blocks: [process] } } })] : [process];
+    await assertInteractionButtonAssets("owner", "course", content);
+    expect(find).toHaveBeenCalledWith({ _id: { $in: ["a".repeat(24)] }, ownerId: "owner", courseId: "course", status: "ready", mimeType: /^image\// });
+    expect(find).toHaveBeenCalledWith({ _id: { $in: ["b".repeat(24)] }, ownerId: "owner", courseId: "course", status: "ready" });
+    lean.mockResolvedValue([]);
+    await expect(assertInteractionButtonAssets("owner", "course", content)).rejects.toThrow("media library");
+  });
   it("checks owned ready media within every hanging card and rejects foreign or unavailable assets", async () => {
     const content = lessons(); content[0].blocks = [hangingRopeCardsBlockSchema.parse({ id: "ropes", type: "hangingRopeCards", version: 1, data: { cards: [{ id: "one", blocks: [
       { id: "image", type: "image", version: 1, data: { src: url("a"), alt: "Image" } },

@@ -9,8 +9,9 @@ import { AudioPlayer } from "@/components/audio-player";
 import { FileAttachmentLink } from "@/components/file-attachment-link";
 import { CourseLinkBlock } from "@/components/course-link-block";
 import { InputBlockPreview } from "../../input-block-preview";
-import { InteractiveFlipCard, InteractiveLabeledGraphic, InteractiveProcessSteps } from "../../../../../preview/interactive-blocks";
+import { InteractiveFlipCard, InteractiveLabeledGraphic } from "../../../../../preview/interactive-blocks";
 import { AccordionBlockEditor } from "../accordion-block-editor";
+import { ProcessStepsBlockEditor } from "../process-steps-block-editor";
 import { ImageBlockLayout } from "../../../image-block-layout";
 import { ChartBlockPreview } from "../../../../../preview/chart-block";
 import { GalleryCarousel } from "@/components/gallery-carousel";
@@ -19,7 +20,7 @@ import { BalloonArcher } from "@/components/balloon-archer";
 
 type PreviewBlock = Exclude<ContentBlock, { type: "heading" | "richText" | "statement" | "lessonMap" }>;
 
-export function ContentBlockPreview({ block, onChange, presentation = false }: { block: PreviewBlock; onChange: (block: ContentBlock) => void; presentation?: boolean }) {
+export function ContentBlockPreview({ block, onChange, presentation = false, courseId }: { block: PreviewBlock; onChange: (block: ContentBlock) => void; presentation?: boolean; courseId?: string }) {
   if (block.type === "gallery" && block.data.layout === "carousel") return <GalleryCarousel key={block.id} data={block.data} presentation={presentation} />;
   if (block.type === "balloonArcher") return <BalloonArcher blockId={block.id} data={block.data} presentation={presentation} authoring editing onPositionChange={(id, point) => onChange({ ...block, data: { ...block.data, balloons: block.data.balloons.map((balloon) => balloon.id === id ? { ...balloon, ...point } : balloon) } })} />;
   return (block.type === "interactionButton" || block.type === "audioInstruction" || block.type === "peelToReveal" || block.type === "hangingRopeCards") ? <LearnerBlock block={block} device="desktop" orientation="landscape" slideLayout={presentation} authoring /> : block.type === "link" ? (
@@ -179,7 +180,7 @@ export function ContentBlockPreview({ block, onChange, presentation = false }: {
       })}
     />
   ) : block.type === "processSteps" ? (
-    <InteractiveProcessSteps blockId={block.id} steps={block.data.steps} style={block.data.style} accentColor={block.data.accentColor} showNumbers={block.data.showNumbers} />
+    <ProcessStepsBlockEditor block={block} courseId={courseId} onChange={onChange} />
   ) : block.type === "knowledgeCheck" ? (
     <InputBlockPreview
       type="knowledgeCheck"

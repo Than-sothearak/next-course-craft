@@ -24,6 +24,12 @@ export async function assertInteractionButtonAssets(ownerId: string, courseId: s
     else if (block.type === "image" || block.type === "video" || block.type === "audio") add(block.data.src, block.type);
     else if (block.type === "audioInstruction") add(block.data.src, "audio");
     else if (block.type === "attachment") add(block.data.src, "attachment");
+    else if (block.type === "processSteps") for (const step of block.data.steps) {
+      if (step.media) {
+        const kind = step.media.mimeType.split("/")[0];
+        add(step.media.src, kind === "image" || kind === "video" || kind === "audio" ? kind : "attachment");
+      }
+    }
     else if (block.type === "gallery") block.data.images.forEach((image) => add(image.src, "image", false));
     else if (block.type === "labeledGraphic") add(block.data.src, "image", false);
     else if (block.type === "flipCard") for (const card of block.data.cards) {
@@ -32,7 +38,7 @@ export async function assertInteractionButtonAssets(ownerId: string, courseId: s
     }
   }
   for (const lesson of lessons) for (const block of lesson.blocks) {
-    if (block.type !== "interactionButton" && block.type !== "peelToReveal" && block.type !== "hangingRopeCards") continue;
+    if (block.type !== "interactionButton" && block.type !== "peelToReveal" && block.type !== "hangingRopeCards" && block.type !== "processSteps") continue;
     visit(block);
     for (const id of courseAssetIds(block)) groups.other.add(id);
   }

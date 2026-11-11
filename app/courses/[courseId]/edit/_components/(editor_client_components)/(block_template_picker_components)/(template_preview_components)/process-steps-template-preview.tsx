@@ -7,14 +7,14 @@ export function ProcessStepsTemplatePreview({
 }) {
   const firstStep = data.steps[0];
   const style = data.style ?? "cards";
-  const accent = data.accentColor ?? "#4f46e5";
+  const accent = data.accentColor ?? "var(--course-primary, #2f5f9f)";
   return (
     <div
       data-process-template-style={style}
       className={`space-y-2 p-2.5 ${style === "minimal" ? "bg-white" : "rounded-lg border border-slate-200 bg-white"}`}
       style={
         style === "spotlight"
-          ? { backgroundColor: `${accent}12`, borderTop: `3px solid ${accent}` }
+          ? { backgroundColor: `color-mix(in srgb, ${accent} 7%, white)`, borderTop: `3px solid ${accent}` }
           : undefined
       }
     >

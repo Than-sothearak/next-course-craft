@@ -76,6 +76,7 @@ export function ContentBlockEditor({
       if (!(target instanceof Node)) return;
       if (
         settingsButtonRef.current?.contains(target) ||
+        (target instanceof Element && target.closest("[data-media-library]")) ||
         document.getElementById(settingsPanelId)?.contains(target)
       )
         return;
@@ -267,7 +268,7 @@ export function ContentBlockEditor({
       /></div>
     );
 
-  const preview = <ContentBlockPreview block={block} onChange={onChange} />;
+  const preview = <ContentBlockPreview block={block} courseId={courseId} onChange={onChange} />;
   const hasProgressRequirement =
     getInteractiveBlockProgressIds(block, lessonBlocks).length > 0 ||
     (block.type === "divider" && block.data.style === "continue");
@@ -284,7 +285,7 @@ export function ContentBlockEditor({
     {block.type === "flipCard" && <FlipCardBlockSettings presentation={inlineSettings} block={block} onChange={onChange} updateFlipCard={updateFlipCard} updateFlipCardFace={updateFlipCardFace} setMediaLibraryTarget={setMediaLibraryTarget} />}
     {block.type === "accordion" && <AccordionBlockSettings block={block} onChange={onChange} />}
     {block.type === "labeledGraphic" && <LabeledGraphicBlockSettings block={block} onChange={onChange} setMediaLibraryTarget={setMediaLibraryTarget} presentation={inlineSettings} />}
-    {block.type === "processSteps" && <ProcessStepsBlockSettings block={block} onChange={onChange} />}
+    {block.type === "processSteps" && <ProcessStepsBlockSettings block={block} courseId={courseId} onChange={onChange} />}
     {block.type === "balloonArcher" && <BalloonArcherSettings block={block} onChange={onChange} />}
     {block.type === "peelToReveal" && <PeelSettingsEditor block={block} courseId={courseId} onChange={onChange} renderContentEditor={(content, change) => <ContentBlockEditor block={content} courseId={courseId} onChange={change} inlineSettings />} />}
     {block.type === "hangingRopeCards" && <HangingRopeSettingsEditor block={block} courseId={courseId} onChange={onChange} renderContentEditor={(content, change) => <ContentBlockEditor block={content} courseId={courseId} onChange={change} inlineSettings />} />}
@@ -301,7 +302,7 @@ export function ContentBlockEditor({
   return (
     <div className="group relative">
       {!inlineSettings && settingsButton()}
-      {(!inlineSettings || (block.type !== "flipCard" && block.type !== "accordion")) && <div className="block w-full rounded-md text-left">{preview}</div>}
+      {(!inlineSettings || (block.type !== "flipCard" && block.type !== "accordion" && block.type !== "processSteps")) && <div className="block w-full rounded-md text-left">{preview}</div>}
       {inlineSettings && <div className="mt-3 space-y-3">{settingsContent}</div>}
       {!inlineSettings && editing && (
         <DraggableSettingsPanel

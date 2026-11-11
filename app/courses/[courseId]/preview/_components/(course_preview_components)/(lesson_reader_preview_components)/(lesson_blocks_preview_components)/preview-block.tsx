@@ -311,10 +311,13 @@ export function PreviewBlock({
       <InteractiveProcessSteps
         blockId={block.id}
         presentation={slideLayout}
+        decorative={decorative}
         steps={block.data.steps}
         style={block.data.style}
         accentColor={block.data.accentColor}
         showNumbers={block.data.showNumbers}
+        previousLabel={block.data.previousLabel}
+        nextLabel={block.data.nextLabel}
         onStepInteract={(stepId) =>
           onInteractiveProgress?.(
             getInteractiveItemProgressId(block.id, "step", stepId),
