@@ -6,7 +6,6 @@ import { ArrowLeft, Eye, List, Presentation, Redo2, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { CourseNavigationMode } from "@/lib/editor/navigation";
 import type { CourseTheme } from "@/lib/editor/theme";
-import { editorModeHref } from "@/lib/editor/course-routes";
 import { CourseNavigationSettings } from "@/app/courses/[courseId]/edit/_components/(editor_client_components)/course-navigation-settings";
 import { CourseThemeSettings } from "@/app/courses/[courseId]/edit/_components/(editor_client_components)/course-theme-settings";
 
@@ -37,6 +36,7 @@ type Props = {
   onRedo: () => void;
   onPreview: () => void;
   onBackToOutline: () => void;
+  onBackToCourse: () => void;
   onReloadCourse: () => void;
 };
 
@@ -65,8 +65,56 @@ export function EditorTopbar({
   onRedo,
   onPreview,
   onBackToOutline,
+  onBackToCourse,
   onReloadCourse,
 }: Props) {
+  function renderBackControl() {
+    if (hasActiveLesson && !focusedLessonId) {
+      const label = slideCourse
+        ? "Presentation settings"
+        : "Back to course outline";
+      return (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={onBackToOutline}
+          aria-label={label}
+          title={label}
+          className="size-9 shrink-0 rounded-lg text-slate-500 hover:text-slate-900"
+        >
+          <ArrowLeft size={18} />
+        </Button>
+      );
+    }
+
+    if (focusedLessonId) {
+      return (
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          aria-label="Back to course"
+          title="Back to course"
+          className="size-9 shrink-0 rounded-lg text-slate-500 hover:text-slate-900"
+          onClick={onBackToCourse}
+        >
+          <ArrowLeft size={18} />
+        </Button>
+      );
+    }
+
+    return (
+      <Link
+        href="/dashboard"
+        aria-label="Back to dashboard"
+        className="grid size-9 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+      >
+        <ArrowLeft size={18} />
+      </Link>
+    );
+  }
+
   return (
     <header
       data-presentation-editor-header={slideCourse || undefined}
@@ -76,31 +124,7 @@ export function EditorTopbar({
         className="flex min-h-16 flex-wrap items-center justify-between gap-x-4 gap-y-2 px-3 py-2 sm:px-5"
       >
       <div className="flex min-w-0 flex-1 basis-40 items-center gap-2">
-          {hasActiveLesson && !focusedLessonId ? (
-            <button
-              type="button"
-              onClick={onBackToOutline}
-              aria-label={
-                slideCourse ? "Presentation settings" : "Back to course outline"
-              }
-              title={slideCourse ? "Presentation settings" : "Back to course outline"}
-              className="cursor-pointer grid size-9 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900"
-            >
-              <ArrowLeft size={18} />
-            </button>
-          ) : (
-            <Link
-              href={
-                focusedLessonId
-                  ? editorModeHref(courseId, slideCourse ? "presentation" : "standard")
-                  : "/dashboard"
-              }
-              aria-label={focusedLessonId ? "Back to course" : "Back to dashboard"}
-              className="grid size-9 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900"
-            >
-              <ArrowLeft size={18} />
-            </Link>
-          )}
+          {renderBackControl()}
           {slideCourse && (
             <span className="hidden size-8 shrink-0 place-items-center rounded-lg bg-indigo-50 text-indigo-600 sm:grid">
               <Presentation size={17} strokeWidth={1.75} aria-hidden="true" />

@@ -61,14 +61,14 @@ describe("editor draft persistence", () => {
     expect(editor.hasUnsavedChanges).toBe(true);
   });
 
-  it("waits for a successful save before navigating away", async () => {
+  it("waits for a successful save before returning to the course editor", async () => {
     let finish!: (response: Response) => void;
     fetchMock.mockImplementationOnce(() => new Promise<Response>((resolve) => { finish = resolve; }));
     act(() => editor.updateDraft((draft) => ({ ...draft, description: "Unsaved description" })));
-    act(() => editor.openRouteAfterSave("/courses/course/preview"));
+    act(() => editor.openRouteAfterSave("/courses/course/edit/standard-mode"));
     expect(navigate).not.toHaveBeenCalled();
     await act(async () => { finish(saved(8)); });
-    expect(navigate).toHaveBeenCalledExactlyOnceWith("/courses/course/preview");
+    expect(navigate).toHaveBeenCalledExactlyOnceWith("/courses/course/edit/standard-mode");
   });
 
   it("does not save an invalid title and can save after the title is corrected", async () => {

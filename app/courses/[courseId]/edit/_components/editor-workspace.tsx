@@ -66,6 +66,7 @@ type EditorWorkspaceProps = {
   courseGenerationOpen: boolean;
   setCourseGenerationOpen: Dispatch<SetStateAction<boolean>>;
   navigateBack: () => void;
+  backToCourse: () => void;
   setActiveLessonId: (id: string | null) => void;
   onForward: () => void;
   openPreview: () => void;
@@ -110,6 +111,7 @@ export function EditorWorkspace({
   courseGenerationOpen,
   setCourseGenerationOpen,
   navigateBack,
+  backToCourse,
   setActiveLessonId,
   onForward,
   openPreview,
@@ -264,6 +266,7 @@ export function EditorWorkspace({
           onRedo={redo}
           onPreview={openPreview}
           onBackToOutline={() => setActiveLessonId(null)}
+          onBackToCourse={backToCourse}
           onReloadCourse={() => window.location.reload()}
         />
       )}

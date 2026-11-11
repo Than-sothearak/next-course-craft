@@ -155,6 +155,21 @@ describe("preview links to the exact editor block", () => {
     expect(push).toHaveBeenCalledWith("/courses/course-1/edit/standard-mode");
   });
 
+  it("loads a fresh course editor page from the preview Back button", async () => {
+    const navigateFresh = vi.fn();
+    await act(async () => root.render(createElement(CoursePreviewRoute, {
+      canEdit: true,
+      initialData,
+      authorName: "Author",
+      navigateFresh,
+    })));
+
+    act(() => container.querySelector<HTMLButtonElement>('header button[aria-label="Back"]')!.click());
+
+    expect(navigateFresh).toHaveBeenCalledExactlyOnceWith("/courses/course-1/edit/standard-mode");
+    expect(push).not.toHaveBeenCalled();
+  });
+
   it("keeps block editing controls out of the standalone learner export", async () => {
     await act(async () => root.render(createElement(CoursePreview, { initialData, authorName: "Author", initialLessonId: "lesson-2", standalone: true, onEdit: vi.fn() })));
     expect(container.querySelector('[aria-label^="Edit block"]')).toBeNull();

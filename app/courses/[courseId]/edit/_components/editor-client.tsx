@@ -9,6 +9,7 @@ import type { GeneratedCourseDraft } from "@/lib/ai/course-generation-schemas";
 import { useFocusedContentBlock } from "./(editor_client_components)/use-focused-content-block";
 import type { Permission } from "@/lib/auth/policy";
 import { createClientId } from "@/lib/client-id";
+import { editorModeHref } from "@/lib/editor/course-routes";
 import { migrateCoverAudio } from "@/lib/editor/audio-instruction";
 import { defaultSlideMaster, normalizeSlideLessonFrames } from "@/lib/editor/slide-design";
 
@@ -104,7 +105,17 @@ export function EditorClient({
     courseId: initialData.courseId,
     titleValid,
     titleValidRef,
-    onNavigate: router.push,
+    onNavigate: (path) => {
+      if (
+        focusedLessonId &&
+        path === editorModeHref(initialData.courseId, "standard")
+      ) {
+        // The overview may still be in the App Router cache from before this lesson was edited.
+        window.location.assign(path);
+        return;
+      }
+      router.push(path);
+    },
   });
   const [courseGenerationOpen, setCourseGenerationOpen] = useState(false);
   const activeLesson =
@@ -198,6 +209,10 @@ export function EditorClient({
     updateLesson,
   });
 
+  function backToCourse() {
+    openRouteAfterSave(editorModeHref(initialData.courseId, "standard"));
+  }
+
   return (
     <EditorWorkspace
       courseId={initialData.courseId}
@@ -237,6 +252,7 @@ export function EditorClient({
       courseGenerationOpen={courseGenerationOpen}
       setCourseGenerationOpen={setCourseGenerationOpen}
       navigateBack={navigateBack}
+      backToCourse={backToCourse}
       setActiveLessonId={setActiveLessonId}
       onForward={() => router.forward()}
       openPreview={openPreview}
