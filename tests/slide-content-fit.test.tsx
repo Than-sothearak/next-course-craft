@@ -9,6 +9,21 @@ import { SlideObjectContent } from "@/app/courses/[courseId]/_components/slide-p
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
 describe("presentation content fitting", () => {
+  it("keeps configured step media at the same scale while allowing taller content to scroll", async () => {
+    const container = document.createElement("div"); document.body.append(container);
+    const root = createRoot(container);
+    try {
+      await act(async () => root.render(<SlideObjectContent scroll><div style={{ height: 1000 }}>Step media and instructions</div></SlideObjectContent>));
+      const viewport = container.querySelector<HTMLElement>("[data-slide-object-content]")!;
+      const body = container.querySelector<HTMLElement>("[data-slide-content-body]")!;
+      expect(viewport.dataset.contentScale).toBe("1");
+      expect(viewport.className).toContain("overflow-y-auto");
+      expect(body.style.transform).toBe("");
+      await act(async () => root.render(<SlideObjectContent scroll><div style={{ height: 300 }}>Next step</div></SlideObjectContent>));
+      expect(viewport.dataset.contentScale).toBe("1");
+      expect(body.style.transform).toBe("");
+    } finally { act(() => root.unmount()); container.remove(); }
+  });
   it.each([
     [{ width: 600, height: 300 }, { width: 600, height: 1200 }, 0.25],
     [{ width: 300, height: 300 }, { width: 600, height: 300 }, 0.5],

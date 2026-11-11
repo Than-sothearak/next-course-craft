@@ -462,6 +462,13 @@ export const processStepMediaSchema = z.object({
   mimeType: mediaMimeTypeSchema,
   size: z.number().int().min(0).max(250 * 1024 * 1024),
 });
+export const processMediaLayoutSchema = z.object({
+  width: z.number().int().min(64).max(1600).default(640),
+  height: z.number().int().min(64).max(1600).default(360),
+  fit: imageFitSchema.default("contain"),
+  position: imageCoverPositionSchema.default("center"),
+});
+export type ProcessMediaLayout = z.infer<typeof processMediaLayoutSchema>;
 export const processStepsBlockSchema = z.object({
   ...blockBase("medium", 40),
   type: z.literal("processSteps"),
@@ -471,6 +478,7 @@ export const processStepsBlockSchema = z.object({
     showNumbers: z.boolean().optional(),
     previousLabel: z.string().max(120).optional(),
     nextLabel: z.string().max(120).optional(),
+    mediaLayout: processMediaLayoutSchema.optional(),
     steps: z
       .array(
         z.object({
@@ -480,6 +488,7 @@ export const processStepsBlockSchema = z.object({
           titleHtml: z.string().max(20_000).optional(),
           bodyHtml: z.string().max(100_000).optional(),
           media: processStepMediaSchema.optional(),
+          attachment: processStepMediaSchema.optional(),
         }),
       )
       .min(2)

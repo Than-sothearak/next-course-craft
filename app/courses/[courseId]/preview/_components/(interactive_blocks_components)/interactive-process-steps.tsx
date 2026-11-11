@@ -2,7 +2,7 @@
 
 import { useState, type CSSProperties, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import type { ContentBlock, ProcessStepsStyle } from "@/lib/schemas/block";
+import type { ContentBlock, ProcessMediaLayout, ProcessStepsStyle } from "@/lib/schemas/block";
 import { contrastTextColor } from "../(course_preview_components)/preview-utils";
 import { ProcessStepCard } from "./(interactive_process_steps_components)/process-step-card";
 import { ProcessStepNavigation } from "./(interactive_process_steps_components)/process-step-navigation";
@@ -12,13 +12,14 @@ type Steps = Extract<ContentBlock, { type: "processSteps" }>["data"]["steps"];
 type Step = Steps[number];
 export type ProcessStepControl = { direction: "previous" | "next"; label: string; disabled: boolean; onClick: () => void };
 
-export function InteractiveProcessSteps({ blockId, steps, style = "cards", accentColor, showNumbers = true, previousLabel, nextLabel, onStepInteract, presentation = false, decorative = false, renderTitle, renderBody, renderMedia, renderControl }: {
+export function InteractiveProcessSteps({ blockId, steps, style = "cards", accentColor, showNumbers = true, previousLabel, nextLabel, mediaLayout, onStepInteract, presentation = false, decorative = false, renderTitle, renderBody, renderMedia, renderControl }: {
   blockId: string; steps: Steps; style?: ProcessStepsStyle; accentColor?: string; showNumbers?: boolean; previousLabel?: string; nextLabel?: string; onStepInteract?: (stepId: string) => void; presentation?: boolean;
   renderTitle?: (step: Step, index: number) => ReactNode;
   renderBody?: (step: Step, index: number) => ReactNode;
   renderMedia?: (step: Step, index: number) => ReactNode;
   renderControl?: (control: ProcessStepControl) => ReactNode;
   decorative?: boolean;
+  mediaLayout?: ProcessMediaLayout;
 }) {
   const [activeIndex, setActiveIndex] = useState(0);
   const currentIndex = Math.min(activeIndex, steps.length - 1);
@@ -48,7 +49,7 @@ export function InteractiveProcessSteps({ blockId, steps, style = "cards", accen
       </div>
       <div className={style === "timeline" ? "grid min-w-0 grid-cols-1 gap-4 @min-[36rem]/process-steps:grid-cols-[minmax(140px,190px)_minmax(0,1fr)]" : "min-w-0 space-y-4"}>
         {(style === "timeline" || style === "numbered") && <ProcessStepNavigation steps={steps} activeIndex={currentIndex} timeline={style === "timeline"} showNumbers={showNumbers} onSelect={selectStep} />}
-        <ProcessStepCard key={`${blockId}-${activeStep.id}`} step={activeStep} index={currentIndex} style={style} showNumbers={showNumbers} accentColor={accentColor} presentation={presentation} decorative={decorative} renderTitle={renderTitle} renderBody={renderBody} renderMedia={renderMedia} />
+        <ProcessStepCard key={`${blockId}-${activeStep.id}`} step={activeStep} index={currentIndex} style={style} showNumbers={showNumbers} accentColor={accentColor} presentation={presentation} decorative={decorative} mediaLayout={mediaLayout} renderTitle={renderTitle} renderBody={renderBody} renderMedia={renderMedia} />
       </div>
       <div className="grid min-w-0 grid-cols-1 gap-3 @min-[20rem]/process-steps:grid-cols-2">
         {renderControl ? renderControl(previous) : <Button type="button" variant="outline" className="min-h-11 w-full min-w-0 whitespace-normal" disabled={previous.disabled} onClick={previous.onClick}>{previous.label}</Button>}

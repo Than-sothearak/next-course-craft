@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { processStepsPresets } from "@/lib/editor/process-steps";
 import type { ContentBlock, ProcessStepsStyle } from "@/lib/schemas/block";
 import { ProcessStepMediaEditor } from "./process-step-media-editor";
+import { ProcessMediaLayoutSettings } from "./process-media-layout-settings";
 
 type ProcessBlock = Extract<ContentBlock, { type: "processSteps" }>;
 
@@ -48,6 +49,7 @@ export function ProcessStepsSettings({ block, onChange, courseId }: { block: Pro
       </label>
       <label className="block space-y-1 text-xs font-medium text-slate-600"><span>Previous button</span><Input aria-label="Process previous button label" value={block.data.previousLabel ?? "Previous step"} maxLength={120} onChange={(event) => update({ previousLabel: event.target.value })} /></label>
       <label className="block space-y-1 text-xs font-medium text-slate-600"><span>Next button</span><Input aria-label="Process next button label" value={block.data.nextLabel ?? "Next step"} maxLength={120} onChange={(event) => update({ nextLabel: event.target.value })} /></label>
+      <ProcessMediaLayoutSettings value={block.data.mediaLayout} onChange={(mediaLayout) => update({ mediaLayout })} />
       {block.data.steps.map((step, index) => (
         <div key={step.id} className="space-y-2 rounded-lg border border-slate-200 p-2.5">
           <div className="flex items-center justify-between gap-2">
@@ -56,7 +58,7 @@ export function ProcessStepsSettings({ block, onChange, courseId }: { block: Pro
           </div>
           <Input aria-label={`Process step ${index + 1} title`} value={step.title} maxLength={160} onChange={(event) => update({ steps: block.data.steps.map((entry) => entry.id === step.id ? { ...entry, title: event.target.value, titleHtml: undefined } : entry) })} placeholder="Step title (optional)" className="h-9" />
           <Textarea aria-label={`Process step ${index + 1} instructions`} value={step.body} maxLength={5000} onChange={(event) => update({ steps: block.data.steps.map((entry) => entry.id === step.id ? { ...entry, body: event.target.value, bodyHtml: undefined } : entry) })} placeholder="Instructions for this step" className="min-h-16 resize-y" />
-          {courseId && <ProcessStepMediaEditor step={step} index={index} courseId={courseId} onChange={(media) => update({ steps: block.data.steps.map((entry) => entry.id === step.id ? { ...entry, media } : entry) })} />}
+          {courseId && <ProcessStepMediaEditor step={step} index={index} courseId={courseId} onChange={(patch) => update({ steps: block.data.steps.map((entry) => entry.id === step.id ? { ...entry, ...patch } : entry) })} />}
         </div>
       ))}
       <Button type="button" variant="outline" size="sm" disabled={block.data.steps.length >= 20} onClick={() => update({ steps: [...block.data.steps, { id: createClientId(), title: "New step", body: "" }] })} className="w-full justify-center"><Plus size={14} /> Add step</Button>

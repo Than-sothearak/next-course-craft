@@ -7,6 +7,8 @@ import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const assetId = "a".repeat(24);
+const fileId = "b".repeat(24), videoId = "c".repeat(24);
+let video;
 const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Zl1sAAAAASUVORK5CYII=", "base64");
 const fixture = `import React,{useState}from'react';import{createRoot}from'react-dom/client';
 import{processStepsBlockSchema}from'/lib/schemas/block.ts';
@@ -28,9 +30,17 @@ const vite = await createServer({
     server.middlewares.use((request, response, next) => {
       if (request.url === "/api/courses/course/assets") {
         response.setHeader("Content-Type", "application/json");
-        response.end(JSON.stringify({ assets: [{ id: assetId, originalName: "Step guide.png", contentType: "image/png", size: png.length, fileUrl: `/api/assets/${assetId}/file`, createdAt: "2026-01-01T00:00:00Z" }] }));
+        response.end(JSON.stringify({ assets: [
+          { id: assetId, originalName: "Step guide.png", contentType: "image/png", size: png.length, fileUrl: `/api/assets/${assetId}/file`, createdAt: "2026-01-01T00:00:00Z" },
+          { id: fileId, originalName: "Worksheet.txt", contentType: "text/plain", size: 10, fileUrl: `/api/assets/${fileId}/file`, createdAt: "2026-01-01T00:00:00Z" },
+          { id: videoId, originalName: "Step demo.webm", contentType: "video/webm", size: video.length, fileUrl: `/api/assets/${videoId}/file`, createdAt: "2026-01-01T00:00:00Z" },
+        ] }));
       } else if (request.url === `/api/assets/${assetId}/file`) {
         response.setHeader("Content-Type", "image/png"); response.end(png);
+      } else if (request.url === `/api/assets/${fileId}/file`) {
+        response.setHeader("Content-Type", "text/plain"); response.end("Worksheet");
+      } else if (request.url === `/api/assets/${videoId}/file`) {
+        response.setHeader("Content-Type", "video/webm"); response.end(video);
       } else if (request.url === "/__steps") {
         response.setHeader("Content-Type", "text/html");
         response.end('<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div><script type="module" src="/__steps.tsx"></script></body></html>');
@@ -47,6 +57,17 @@ try {
   const errors = []; page.on("pageerror", (error) => { errors.push(error.message); console.error(error); });
   await page.addInitScript(() => { window.process = { env: { NODE_ENV: "development" } }; });
   await page.goto(`http://127.0.0.1:${vite.httpServer.address().port}/__steps`);
+  video = Buffer.from(await page.evaluate(async () => {
+    const canvas = document.createElement("canvas"); canvas.width = 320; canvas.height = 160;
+    const context = canvas.getContext("2d"), stream = canvas.captureStream(12);
+    const recorder = new MediaRecorder(stream, { mimeType: "video/webm;codecs=vp8" }), chunks = [];
+    recorder.ondataavailable = event => chunks.push(event.data);
+    const finished = new Promise(resolve => { recorder.onstop = resolve; });
+    const draw = setInterval(() => { context.fillStyle = "#24734f"; context.fillRect(0, 0, 320, 160); }, 40);
+    recorder.start(); await new Promise(resolve => setTimeout(resolve, 300)); recorder.stop(); await finished;
+    clearInterval(draw); stream.getTracks().forEach(track => track.stop());
+    return [...new Uint8Array(await new Blob(chunks, { type: "video/webm" }).arrayBuffer())];
+  }));
   const field = (scope = page) => scope.locator('[contenteditable="true"][aria-label="Edit process step 1 instructions"]');
   await field().fill("Read the resource and continue.");
   await field().press("ControlOrMeta+a");
@@ -66,16 +87,43 @@ try {
   await library.waitFor({ state: "visible" });
   await library.getByRole("button", { name: "Use Step guide.png", exact: true }).click();
   await expect(page.locator("article img")).toHaveAttribute("src", `/api/assets/${assetId}/file`);
+  await page.getByRole("button", { name: "Add process step 1 file", exact: true }).click();
+  await library.getByRole("button", { name: "Use Worksheet.txt", exact: true }).click();
+  await expect(page.locator(`article a[href="/api/assets/${fileId}/file"]`)).toBeVisible();
+  await page.getByRole("button", { name: "Remove process step 1 file", exact: true }).click();
+  await expect(page.locator("article img")).toBeVisible();
+  await page.getByRole("button", { name: "Add process step 1 file", exact: true }).click();
+  await library.getByRole("button", { name: "Use Worksheet.txt", exact: true }).click();
   await page.getByRole("button", { name: "Go to next process step", exact: true }).click();
   await expect(page.locator("article")).toContainText("Check the result.");
+  await page.getByLabel("Process step 2 media type", { exact: true }).selectOption("video");
+  await page.getByRole("button", { name: "Add process step 2 media", exact: true }).click();
+  await expect(library.getByRole("button", { name: "Use Worksheet.txt", exact: true })).toHaveCount(0);
+  await library.getByRole("button", { name: "Use Step demo.webm", exact: true }).click();
   await page.getByRole("button", { name: "Go to previous process step", exact: true }).click();
   await expect(field().locator("strong a, a strong")).toHaveText("Read the resource and continue.");
   await page.getByRole("button", { name: "Open content settings", exact: true }).click();
   const settings = page.locator("#content-settings-steps");
+  await settings.getByLabel("Process media width", { exact: true }).fill("320");
+  await settings.getByLabel("Process media width", { exact: true }).blur();
+  await settings.getByLabel("Process media height", { exact: true }).fill("200");
+  await settings.getByLabel("Process media height", { exact: true }).blur();
+  await settings.getByLabel("Process media fit", { exact: true }).selectOption("cover");
+  await settings.getByLabel("Process media focal point", { exact: true }).selectOption("top");
   await settings.getByRole("button", { name: "Replace process step 1 media", exact: true }).click();
   await library.getByRole("button", { name: "Use Step guide.png", exact: true }).click();
   await expect(settings).toBeVisible();
   await page.getByRole("button", { name: "Close content settings", exact: true }).click();
+  const imageFrame = await page.locator("[data-process-media-frame]").boundingBox();
+  assert.ok(Math.abs(imageFrame.width / imageFrame.height - 1.6) < .01);
+  assert.equal(await page.locator("article img").evaluate(node => getComputedStyle(node).objectFit), "cover");
+  await page.getByRole("button", { name: "Go to next process step", exact: true }).click();
+  await expect.poll(() => page.locator("article video").evaluate(node => node.videoWidth)).toBe(320);
+  const videoFrame = await page.locator("[data-process-media-frame]").boundingBox();
+  assert.ok(Math.abs(imageFrame.width - videoFrame.width) < 1 && Math.abs(imageFrame.height - videoFrame.height) < 1, "Images and videos must retain the same frame size across steps");
+  await page.locator("article video").evaluate(async node => { node.loop = true; window.__stepVideo = node; await node.play(); });
+  await page.getByRole("button", { name: "Go to previous process step", exact: true }).click();
+  assert.equal(await page.evaluate(() => window.__stepVideo.paused), true, "Leaving a step must pause its video");
   const color = () => page.locator("article > span").first().evaluate((node) => getComputedStyle(node).backgroundColor);
   assert.equal(await color(), "rgb(36, 115, 79)");
   await page.getByRole("button", { name: "Change theme", exact: true }).click();
@@ -123,10 +171,12 @@ try {
   const snapshot = editorSnapshotSchema.parse({ title: "Process", description: "", revision: 0, sections: [{ id: "s", title: "Section", order: 0 }], lessons: [{ id: "l", sectionId: "s", title: "Steps", order: 0, blocks: [authored] }] });
   const serialize = (value) => JSON.stringify(value).replaceAll("<", "\\u003c");
   for (const courseLayout of ["standard", "slides"]) {
-    const data = { ...snapshot, courseId: `steps-${courseLayout}`, courseLayout };
+    const data = { ...structuredClone(snapshot), courseId: `steps-${courseLayout}`, courseLayout };
     data.lessons[0].blocks[0].data.steps[0].media.src = `coursecraft-media:${assetId}`;
+    data.lessons[0].blocks[0].data.steps[0].attachment.src = `coursecraft-media:${fileId}`;
+    data.lessons[0].blocks[0].data.steps[1].media.src = `coursecraft-media:${videoId}`;
     const file = resolve(`test-results/process-steps-${courseLayout}.html`);
-    writeFileSync(file, `<!doctype html><html><head><meta charset="utf-8"><style>${css}</style></head><body><div id="export-root"></div><script>window.COURSE_EXPORT_DATA=${serialize(data)};window.COURSE_EXPORT_MEDIA=${serialize({ [assetId]: `data:image/png;base64,${png.toString("base64")}` })}</script><script>${js}</script></body></html>`);
+    writeFileSync(file, `<!doctype html><html><head><meta charset="utf-8"><style>${css}</style></head><body><div id="export-root"></div><script>window.COURSE_EXPORT_DATA=${serialize(data)};window.COURSE_EXPORT_MEDIA=${serialize({ [assetId]: `data:image/png;base64,${png.toString("base64")}`, [fileId]: "data:text/plain;base64,V29ya3NoZWV0", [videoId]: `data:video/webm;base64,${video.toString("base64")}` })}</script><script>${js}</script></body></html>`);
     const offline = await browser.newPage({ viewport: { width: 1400, height: 1000 } });
     const requests = [], offlineErrors = [];
     offline.on("request", (request) => { if (/^https?:/.test(request.url())) requests.push(request.url()); });
@@ -137,8 +187,14 @@ try {
     await expect(active.locator("article em")).toHaveText("Edited inside a popup.");
     assert.equal(await active.locator("article h3").count(), 0);
     await expect(active.locator("article img")).toHaveAttribute("src", /^blob:/);
+    await expect(active.locator("article a[download]")).toHaveAttribute("href", /^blob:/);
+    const firstBounds = await active.locator("[data-process-media-frame]").boundingBox();
+    assert.ok(Math.abs(firstBounds.width / firstBounds.height - 1.6) < .01);
     await active.getByRole("button", { name: "Continue learning", exact: true }).click();
     await expect(active.locator("article")).toContainText("Check the result.");
+    await expect(active.locator("article video")).toHaveAttribute("src", /^blob:/);
+    const secondBounds = await active.locator("[data-process-media-frame]").boundingBox();
+    assert.ok(Math.abs(firstBounds.width - secondBounds.width) < 1 && Math.abs(firstBounds.height - secondBounds.height) < 1, `${courseLayout} media frames must match: ${JSON.stringify({ firstBounds, secondBounds })}`);
     assert.deepEqual(requests, []); assert.deepEqual(offlineErrors, []);
     await offline.close();
   }

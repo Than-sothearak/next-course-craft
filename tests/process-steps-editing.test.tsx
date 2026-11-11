@@ -3,7 +3,7 @@ import { act, useState } from "react";
 import type { Editor } from "@tiptap/core";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { processStepsBlockSchema, processStepMediaSchema, type ContentBlock } from "@/lib/schemas/block";
+import { processStepsBlockSchema, processStepMediaSchema, processMediaLayoutSchema, type ContentBlock } from "@/lib/schemas/block";
 import { ProcessStepsBlockEditor } from "@/app/courses/[courseId]/edit/_components/(editor_client_components)/(content_block_editor_components)/process-steps-block-editor";
 import { ContentBlockEditor } from "@/app/courses/[courseId]/edit/_components/(editor_client_components)/content-block-editor";
 import { InteractiveProcessSteps } from "@/app/courses/[courseId]/preview/interactive-blocks";
@@ -15,12 +15,17 @@ import { blockTemplates } from "@/app/courses/[courseId]/edit/_components/(edito
 import { createBlocksFromTemplate } from "@/app/courses/[courseId]/edit/_components/(editor_client_components)/(block_template_picker_components)/create-blocks-from-template";
 import { SlidePlaybackContext } from "@/app/courses/[courseId]/_components/slide-presentation/slide-playback-context";
 import { ProcessStepMedia } from "@/app/courses/[courseId]/preview/_components/(interactive_blocks_components)/(interactive_process_steps_components)/process-step-media";
+import { ProcessStepsSettings } from "@/app/courses/[courseId]/edit/_components/(editor_client_components)/(content_block_editor_components)/process-steps-settings";
+import { PreviewBlock } from "@/app/courses/[courseId]/preview/_components/(course_preview_components)/(lesson_reader_preview_components)/(lesson_blocks_preview_components)/preview-block";
+import { duplicateLessonContent } from "@/lib/editor/course-content";
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 const assetId = "a".repeat(24);
 const media = { src: `/api/assets/${assetId}/file`, fileName: "Guide.png", mimeType: "image/png" as const, size: 128 };
+const file = { src: `/api/assets/${"b".repeat(24)}/file`, fileName: "Worksheet.pdf", mimeType: "application/pdf" as const, size: 256 };
+let selectedAsset = { id: assetId, fileUrl: media.src, originalName: media.fileName, contentType: String(media.mimeType), size: media.size };
 vi.mock("@/app/courses/[courseId]/edit/_components/media-library-dialog", () => ({
-  MediaLibraryDialog: ({ open, courseId, kind, onSelect }: { open: boolean; courseId: string; kind: string; onSelect: (asset: unknown) => void }) => open ? <button aria-label="Select step media" data-course-id={courseId} data-kind={kind} onClick={() => onSelect({ id: assetId, fileUrl: media.src, originalName: media.fileName, contentType: media.mimeType, size: media.size })}>Select media</button> : null,
+  MediaLibraryDialog: ({ open, courseId, kind, onSelect }: { open: boolean; courseId: string; kind: string; onSelect: (asset: unknown) => void }) => open ? <button aria-label="Select step media" data-course-id={courseId} data-kind={kind} onClick={() => onSelect(selectedAsset)}>Select media</button> : null,
 }));
 
 const initial = () => processStepsBlockSchema.parse({ id: "steps", version: 1, type: "processSteps", data: { steps: [{ id: "one", title: "Prepare", body: "First instructions" }, { id: "two", title: "Finish", body: "Last instructions" }] } });
@@ -29,6 +34,7 @@ type ProcessBlock = ReturnType<typeof initial>;
 describe("process step authoring", () => {
   let root: Root, container: HTMLDivElement, saved: ProcessBlock;
   beforeEach(() => {
+    selectedAsset = { id: assetId, fileUrl: media.src, originalName: media.fileName, contentType: media.mimeType, size: media.size };
     Object.defineProperty(Range.prototype, "getClientRects", { configurable: true, value: () => [] });
     Object.defineProperty(Range.prototype, "getBoundingClientRect", { configurable: true, value: () => new DOMRect() });
     container = document.createElement("div"); document.body.append(container); root = createRoot(container);
@@ -84,7 +90,7 @@ describe("process step authoring", () => {
     await act(async () => root.render(<Authoring />));
     await click("Add process step 1 media");
     expect(document.querySelector('[aria-label="Select step media"]')?.getAttribute("data-course-id")).toBe("course");
-    expect(document.querySelector('[aria-label="Select step media"]')?.getAttribute("data-kind")).toBe("attachment");
+    expect(document.querySelector('[aria-label="Select step media"]')?.getAttribute("data-kind")).toBe("image");
     await click("Select step media");
     expect(saved.data.steps[0].media).toEqual(media);
     expect(saved.data.steps[1].media).toBeUndefined();
@@ -110,6 +116,87 @@ describe("process step authoring", () => {
     expect(saved.data.steps[0].body).toBe("Updated First line\nSecond <instruction> & detail");
   });
 
+  it.each(["standard", "slide", "popup"] as const)("keeps media and downloads independent in %s", async (mode) => {
+    await act(async () => root.render(<Authoring mode={mode} />));
+    await click("Add process step 1 media"); await click("Select step media");
+    selectedAsset = { id: "b".repeat(24), fileUrl: file.src, originalName: file.fileName, contentType: file.mimeType, size: file.size };
+    await click("Add process step 1 file");
+    expect(document.querySelector('[aria-label="Select step media"]')?.getAttribute("data-kind")).toBe("attachment");
+    await click("Select step media");
+    expect(saved.data.steps[0]).toMatchObject({ media, attachment: file });
+    expect(container.querySelector("article img")).not.toBeNull();
+    expect(container.querySelector(`article a[href="${file.src}"]`)).not.toBeNull();
+    await click("Remove process step 1 file");
+    expect(saved.data.steps[0]).toMatchObject({ media, attachment: undefined });
+    await click("Add process step 1 file"); await click("Select step media");
+    await click("Remove process step 1 media");
+    expect(saved.data.steps[0]).toMatchObject({ media: undefined, attachment: file });
+    expect(container.querySelector("article img")).toBeNull();
+    expect(container.querySelector(`article a[href="${file.src}"]`)).not.toBeNull();
+    expect(saved.data.steps[1]).not.toHaveProperty("attachment");
+  });
+
+  it("preserves a legacy downloadable file when adding media and allows independent removal", async () => {
+    const original = initial(); original.data.steps[0].media = file;
+    await act(async () => root.render(<Authoring original={original} />));
+    expect(container.querySelector(`article a[href="${file.src}"]`)).not.toBeNull();
+    await click("Add process step 1 media"); await click("Select step media");
+    expect(saved.data.steps[0]).toMatchObject({ media, attachment: file });
+    await click("Remove process step 1 media");
+    expect(saved.data.steps[0].attachment).toEqual(file);
+    await click("Remove process step 1 file");
+    expect(saved.data.steps[0].attachment).toBeUndefined();
+    expect(container.querySelector(`article a[href="${file.src}"]`)).toBeNull();
+  });
+
+  it("commits bounded shared dimensions on blur and uses the same frame for images and videos", async () => {
+    let restore = () => {};
+    function Settings() {
+      const original = initial(); original.data.steps[0].media = media;
+      original.data.steps[0].attachment = file;
+      original.data.steps[1].media = { ...media, mimeType: "video/mp4" };
+      const [block, setBlock] = useState<ContentBlock>(original);
+      saved = processStepsBlockSchema.parse(block);
+      restore = () => setBlock(original);
+      return <><ProcessStepsSettings block={saved} courseId="course" onChange={setBlock} /><PreviewBlock block={saved} device="desktop" orientation="landscape" /></>;
+    }
+    await act(async () => root.render(<Settings />));
+    const dimension = (name: string) => container.querySelector<HTMLInputElement>(`[aria-label="Process media ${name}"]`)!;
+    for (const [name, value] of [["width", "320"], ["height", "200"]]) {
+      await act(async () => dimension(name).focus());
+      await input(`Process media ${name}`, value);
+      await act(async () => dimension(name).blur());
+    }
+    await act(async () => dimension("width").focus());
+    await input("Process media width", "");
+    expect(saved.data.mediaLayout?.width).toBe(320);
+    await act(async () => dimension("width").blur());
+    expect(dimension("width").value).toBe("320");
+    for (const [name, value] of [["fit", "cover"], ["focal point", "top"]]) await act(async () => {
+      const select = container.querySelector<HTMLSelectElement>(`[aria-label="Process media ${name}"]`)!;
+      select.value = value; select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    expect(saved.data.mediaLayout).toEqual({ width: 320, height: 200, fit: "cover", position: "top" });
+    const frame = () => container.querySelector<HTMLElement>("[data-process-media-frame]")!;
+    expect(frame().style.width).toBe("320px"); expect(frame().style.aspectRatio).toBe("320 / 200");
+    expect(frame().querySelector("img")?.style.objectFit).toBe("cover");
+    await act(async () => [...container.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === "Next step")!.click());
+    expect(frame().style.aspectRatio).toBe("320 / 200");
+    expect(frame().querySelector("video")?.style.objectFit).toBe("cover");
+    const snapshot = parseScorm12Snapshot({ title: "Steps", description: "", revision: 0, sections: [{ id: "s", title: "Section", order: 0 }], lessons: [{ id: "l", sectionId: "s", title: "Lesson", order: 0, blocks: [saved] }] });
+    let id = 0; const duplicate = duplicateLessonContent(snapshot.lessons[0], () => `copy-${id++}`);
+    expect(duplicate.blocks[0]).toMatchObject({ data: { mediaLayout: saved.data.mediaLayout } });
+    const packaged = remapCourseAssetUrls(snapshot, new Map([[assetId, "./media/guide.png"], ["b".repeat(24), "./media/worksheet.pdf"]]));
+    expect(packaged.lessons[0].blocks[0]).toMatchObject({ data: { mediaLayout: saved.data.mediaLayout, steps: [{ media: { src: "./media/guide.png" }, attachment: { src: "./media/worksheet.pdf" } }, {}] } });
+    expect(getHandoutBlockText(saved)).toContain("File: Worksheet.pdf");
+    await act(async () => restore());
+    expect(dimension("width").value).toBe("640"); expect(dimension("height").value).toBe("360");
+  });
+
+  it.each([{ width: 0 }, { height: 1601 }, { width: 200.5 }, { fit: "invalid" }, { position: "outside" }])("rejects invalid media sizing %j", (layout) => {
+    expect(processMediaLayoutSchema.safeParse(layout).success).toBe(false);
+  });
+
   it("pauses instructional media on slide exit and cleanup, and keeps thumbnails inactive", async () => {
     const audio = { ...media, mimeType: "audio/mpeg" as const };
     await act(async () => root.render(<SlidePlaybackContext value={true}><ProcessStepMedia media={audio} presentation /></SlidePlaybackContext>));
@@ -133,6 +220,13 @@ describe("process step authoring", () => {
     const element = container.querySelector(`article ${tag}`)!;
     expect(element.getAttribute(tag === "a" ? "href" : "src")).toBe("./media/file");
     if (tag === "audio" || tag === "video") expect(element.hasAttribute("controls")).toBe(true);
+  });
+
+  it.each(["image/png", "video/mp4", "application/pdf"] as const)("offers an attached %s as a download independently of media", async (mimeType) => {
+    const steps = initial().data.steps.map((step) => ({ ...step, attachment: { ...file, src: "./media/download", mimeType } }));
+    await act(async () => root.render(<InteractiveProcessSteps blockId="steps" steps={steps} />));
+    expect(container.querySelector('article a[download]')?.getAttribute("href")).toBe("./media/download");
+    expect(container.querySelector("article img, article video, article audio")).toBeNull();
   });
 
   it("clears corresponding formatting when editing the plain settings fields", async () => {

@@ -321,6 +321,7 @@ export function PreviewBlock({
         showNumbers={block.data.showNumbers}
         previousLabel={block.data.previousLabel}
         nextLabel={block.data.nextLabel}
+        mediaLayout={block.data.mediaLayout}
         onStepInteract={(stepId) =>
           onInteractiveProgress?.(
             getInteractiveItemProgressId(block.id, "step", stepId),

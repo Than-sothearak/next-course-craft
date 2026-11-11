@@ -29,6 +29,7 @@ export async function assertInteractionButtonAssets(ownerId: string, courseId: s
         const kind = step.media.mimeType.split("/")[0];
         add(step.media.src, kind === "image" || kind === "video" || kind === "audio" ? kind : "attachment");
       }
+      if (step.attachment) add(step.attachment.src, "attachment");
     }
     else if (block.type === "gallery") block.data.images.forEach((image) => add(image.src, "image", false));
     else if (block.type === "labeledGraphic") add(block.data.src, "image", false);

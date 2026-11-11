@@ -18,13 +18,16 @@ describe("interaction button asset ownership", () => {
   it.each([false, true])("checks step media and inline instruction links, nested in a popup: %s", async (nested) => {
     const content = lessons();
     const process = processStepsBlockSchema.parse({ id: "steps", type: "processSteps", version: 1, data: { steps: [
-      { id: "one", body: "Instructions", bodyHtml: `<p><a href="${url("b")}">Download guide</a></p>`, media: { src: url("a"), fileName: "Guide.png", mimeType: "image/png", size: 100 } },
+      { id: "one", body: "Instructions", bodyHtml: `<p><a href="${url("b")}">Download guide</a></p>`, media: { src: url("a"), fileName: "Guide.png", mimeType: "image/png", size: 100 }, attachment: { src: url("d"), fileName: "Worksheet.pdf", mimeType: "application/pdf", size: 200 } },
       { id: "two", body: "Finish" },
     ] } });
     content[0].blocks = nested ? [interactionButtonBlockSchema.parse({ id: "popup", type: "interactionButton", version: 1, data: { popup: { blocks: [process] } } })] : [process];
     await assertInteractionButtonAssets("owner", "course", content);
     expect(find).toHaveBeenCalledWith({ _id: { $in: ["a".repeat(24)] }, ownerId: "owner", courseId: "course", status: "ready", mimeType: /^image\// });
     expect(find).toHaveBeenCalledWith({ _id: { $in: ["b".repeat(24)] }, ownerId: "owner", courseId: "course", status: "ready" });
+    expect(find).toHaveBeenCalledWith({ _id: { $in: ["d".repeat(24)] }, ownerId: "owner", courseId: "course", status: "ready" });
+    lean.mockResolvedValueOnce([{ _id: "a" }]).mockResolvedValueOnce([]);
+    await expect(assertInteractionButtonAssets("owner", "course", content)).rejects.toThrow("media library");
     lean.mockResolvedValue([]);
     await expect(assertInteractionButtonAssets("owner", "course", content)).rejects.toThrow("media library");
   });

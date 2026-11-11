@@ -131,7 +131,7 @@ export function getHandoutBlockText(block: ContentBlock): string[] {
         ...block.data.markers.map((marker, index) => `${index + 1}. ${marker.label}: ${marker.description}`),
       ];
     case "processSteps":
-      return block.data.steps.flatMap((step, index) => [`Step ${index + 1}${step.title.trim() ? `: ${htmlToHandoutText(step.titleHtml ?? step.title)}` : ""}`, htmlToHandoutText(step.bodyHtml ?? step.body), step.media ? `File: ${step.media.fileName}` : ""]).filter(Boolean);
+      return block.data.steps.flatMap((step, index) => [`Step ${index + 1}${step.title.trim() ? `: ${htmlToHandoutText(step.titleHtml ?? step.title)}` : ""}`, htmlToHandoutText(step.bodyHtml ?? step.body), step.media ? `File: ${step.media.fileName}` : "", step.attachment ? `File: ${step.attachment.fileName}` : ""]).filter(Boolean);
     case "peelToReveal":
       return [block.data.title, block.data.instructions, ...block.data.blocks.flatMap(getHandoutBlockText)];
     case "hangingRopeCards":

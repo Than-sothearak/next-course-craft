@@ -4,13 +4,13 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { fitSlideContent } from "@/lib/editor/slide-content-fit";
 
 /** Keep every rendered block inside its frame, including content added or expanded later. */
-export function SlideObjectContent({ children, media = false }: { children: ReactNode; media?: boolean }) {
+export function SlideObjectContent({ children, media = false, scroll = false }: { children: ReactNode; media?: boolean; scroll?: boolean }) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const [fit, setFit] = useState({ scale: 1, left: 0, top: 0 });
 
   useLayoutEffect(() => {
-    if (media) return;
+    if (media || scroll) return;
     const viewport = viewportRef.current;
     const content = contentRef.current;
     if (!viewport || !content) return;
@@ -50,14 +50,16 @@ export function SlideObjectContent({ children, media = false }: { children: Reac
       document.fonts?.removeEventListener("loadingdone", schedule);
       window.removeEventListener("resize", schedule);
     };
-  }, [media]);
+  }, [media, scroll]);
+
+  const unscaled = media || scroll;
 
   return (
-    <div ref={viewportRef} data-slide-object-content data-content-scale={media ? 1 : fit.scale} className="relative h-full w-full min-w-0" style={{ backgroundColor: "transparent" }}>
-      <div ref={contentRef} data-slide-content-body className="absolute flow-root h-full w-full min-w-0" style={{
-        left: media ? 0 : fit.left,
-        top: media ? 0 : fit.top,
-        transform: !media && fit.scale < 1 ? `scale(${fit.scale})` : undefined,
+    <div ref={viewportRef} data-slide-object-content data-content-scale={unscaled ? 1 : fit.scale} className={`relative h-full w-full min-w-0 ${scroll ? "overflow-x-hidden overflow-y-auto overscroll-contain" : ""}`} style={{ backgroundColor: "transparent" }}>
+      <div ref={contentRef} data-slide-content-body className={scroll ? "relative flow-root min-h-full w-full min-w-0" : "absolute flow-root h-full w-full min-w-0"} style={{
+        left: unscaled ? 0 : fit.left,
+        top: unscaled ? 0 : fit.top,
+        transform: !unscaled && fit.scale < 1 ? `scale(${fit.scale})` : undefined,
         transformOrigin: "top left",
       }}>
         {children}

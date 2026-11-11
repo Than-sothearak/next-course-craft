@@ -2,7 +2,7 @@
 
 The requested image block refinement adds Cover, Contain, and Fill settings, focal points, and frame-ratio controls to all seven image layouts and plain slide images, including crops. Existing images retain their previous appearance until edited. The same optional block fields serve authoring, thumbnails, preview, and static exports through existing validation and save paths; this does not expand other phase scope.
 
-Requested process-step editing extension: optional titles, directly editable formatted instructions with links, editable Previous/Next button labels, course-owned step media/files, and theme-based defaults across all step styles. It uses the existing Standard/Presentation/popup editors, ownership validation, draft history, and static learner export boundaries. Other phase scope remains unchanged.
+Requested process-step editing extension: optional titles, directly editable formatted instructions with links, editable Previous/Next button labels, independent course-owned media and downloadable files per step, and theme-based defaults across all step styles. Shared image/video frame width, height, fit, and focal-point controls maintain consistent media sizing across steps and adapt to smaller screens. Legacy attachments remain compatible. It uses the existing Standard/Presentation/popup editors, ownership validation, draft history, and static learner export boundaries. Other phase scope remains unchanged.
 
 Work one phase at a time; stop after the requested phase.
 

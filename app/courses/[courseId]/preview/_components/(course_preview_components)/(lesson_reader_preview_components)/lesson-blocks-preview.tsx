@@ -10,6 +10,7 @@ import type { ContentBlock } from "@/lib/schemas/block";
 import { resolveSlideFrame, slideFrameStyle, slideObjectArea, type SlideSize } from "@/lib/editor/slide-design";
 import { isSlideMediaObject } from "@/lib/editor/slide-objects";
 import { SlideObjectContent } from "@/app/courses/[courseId]/_components/slide-presentation/slide-object-content";
+import { hasProcessStepMedia } from "@/lib/editor/process-steps";
 import { SlideAnimatedObjectFrame } from "@/app/courses/[courseId]/_components/slide-presentation/slide-animated-object-frame";
 import { Button } from "@/components/ui/button";
 import { getPendingInteractiveProgressIds } from "@/lib/export/progress";
@@ -153,7 +154,7 @@ export function LessonBlocksPreview({
   const place = (block: ContentBlock, index: number, content: ReactNode) => {
     if (!slideLayout) return content;
     const frame = resolveSlideFrame(block, index, blocks.length, slideArea);
-    return <SlideAnimatedObjectFrame key={block.id} animation={block.slideAnimation} authoring={authoring} data-slide-object-frame data-slide-object-id={block.id} className="pointer-events-auto absolute overflow-hidden rounded-md" style={{ ...slideFrameStyle(frame), ...slideObjectSurfaceStyle(block, slideBackgroundColor, slideTextColor) }}><SlideObjectContent media={isSlideMediaObject(block) || block.type === "flipCard"}>{content}</SlideObjectContent></SlideAnimatedObjectFrame>;
+    return <SlideAnimatedObjectFrame key={block.id} animation={block.slideAnimation} authoring={authoring} data-slide-object-frame data-slide-object-id={block.id} className="pointer-events-auto absolute overflow-hidden rounded-md" style={{ ...slideFrameStyle(frame), ...slideObjectSurfaceStyle(block, slideBackgroundColor, slideTextColor) }}><SlideObjectContent media={isSlideMediaObject(block) || block.type === "flipCard"} scroll={hasProcessStepMedia(block)}>{content}</SlideObjectContent></SlideAnimatedObjectFrame>;
   };
 
   return (
