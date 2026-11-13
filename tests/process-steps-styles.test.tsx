@@ -34,9 +34,10 @@ describe("process-step styles", () => {
     expect(container.querySelector("article")?.textContent).toContain(processStepsSample[0].body);
     const next = Array.from(container.querySelectorAll("button")).find((button) => button.textContent === "Next step")!;
     act(() => next.click());
+    if (style === "slider") expect(container.querySelector("[data-process-slide-direction]")?.getAttribute("data-process-slide-direction")).toBe("next");
     expect(container.querySelector("article")?.textContent).toContain(processStepsSample[1].body);
     expect(onStepInteract).toHaveBeenLastCalledWith("step-2");
-    expect(container.querySelector('[role="progressbar"]')?.getAttribute("aria-valuenow")).toBe("2");
+    expect(Number(container.querySelector('[role="progressbar"]')?.getAttribute("aria-valuenow"))).toBeCloseTo(style === "slider" ? 200 / processStepsSample.length : 2);
     expect(container.querySelector("section")?.style.getPropertyValue("--process-accent")).toBe("#0f766e");
   });
 
@@ -59,8 +60,12 @@ describe("process-step styles", () => {
     expect(section.querySelector("article")?.textContent).toContain(steps[0].body);
     expect(section.querySelector('[role="progressbar"]')?.className).toContain("min-w-0");
     const controls = section.lastElementChild!;
-    expect(controls.className).toContain("grid-cols-1");
-    expect(controls.className).toContain("@min-[20rem]/process-steps:grid-cols-2");
+    if (style === "slider") {
+      expect(controls.hasAttribute("data-process-slider")).toBe(true);
+    } else {
+      expect(controls.className).toContain("grid-cols-1");
+      expect(controls.className).toContain("@min-[20rem]/process-steps:grid-cols-2");
+    }
     for (const button of controls.querySelectorAll("button")) {
       expect(button.className).toContain("whitespace-normal");
       expect(button.className).toContain("min-h-11");
@@ -87,6 +92,48 @@ describe("process-step styles", () => {
     expect(container.querySelector("article span")).toBeNull();
     expect(container.querySelector("section")?.style.getPropertyValue("--process-accent-text")).toBe("#111827");
     expect(container.querySelector("article")?.textContent).toContain("Prepare");
+  });
+
+  it("navigates the slider card with side arrows and keyboard without wrapping at either end", () => {
+    const onStepInteract = vi.fn();
+    act(() => root.render(createElement(InteractiveProcessSteps, { blockId: "slider", steps: processStepsSample, style: "slider", onStepInteract })));
+    const previous = container.querySelector<HTMLButtonElement>('button[title="Previous step"]')!;
+    const next = container.querySelector<HTMLButtonElement>('button[title="Next step"]')!;
+    expect(previous.disabled).toBe(true);
+    expect(next.disabled).toBe(false);
+    expect(container.querySelector('[aria-roledescription="carousel"]')).not.toBeNull();
+    expect(container.textContent).toContain("Step 1 of 3");
+    const progress = container.querySelector<HTMLElement>('[role="progressbar"]')!;
+    expect(progress.className).not.toContain("sr-only");
+    expect(Number.parseFloat((progress.firstElementChild as HTMLElement).style.width)).toBeCloseTo(100 / 3);
+    act(() => next.click());
+    expect(container.querySelector("article")?.textContent).toContain(processStepsSample[1].body);
+    act(() => next.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })));
+    expect(container.textContent).toContain("Step 3 of 3");
+    expect(progress.getAttribute("aria-valuenow")).toBe("100");
+    expect((progress.firstElementChild as HTMLElement).style.width).toBe("100%");
+    expect(next.disabled).toBe(true);
+    act(() => previous.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true })));
+    expect(container.querySelector("[data-process-slide-direction]")?.getAttribute("data-process-slide-direction")).toBe("previous");
+    expect(container.textContent).toContain("Step 2 of 3");
+    expect(progress.getAttribute("aria-valuetext")).toBe("Step 2 of 3");
+    expect(Number.parseFloat((progress.firstElementChild as HTMLElement).style.width)).toBeCloseTo(200 / 3);
+    expect(onStepInteract).toHaveBeenLastCalledWith("step-2");
+  });
+
+  it("places slider media before editable title and body renderers", () => {
+    act(() => root.render(createElement(InteractiveProcessSteps, {
+      blockId: "slider-content", steps: processStepsSample, style: "slider",
+      renderMedia: () => createElement("div", { "data-test-media": true }, "Image picker"),
+      renderTitle: (step) => createElement("h3", { contentEditable: true, suppressContentEditableWarning: true }, step.title),
+      renderBody: (step) => createElement("p", { contentEditable: true, suppressContentEditableWarning: true }, step.body),
+    })));
+    const card = container.querySelector("article")!;
+    expect(card.firstElementChild?.querySelector("[data-test-media]")).not.toBeNull();
+    const title = card.querySelector("h3")!;
+    act(() => title.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })));
+    expect(card.textContent).toContain(processStepsSample[0].body);
+    expect(container.textContent).toContain("Step 1 of 3");
   });
 
   it("provides templates for every process style with previews and preserves SCORM settings", () => {

@@ -9,6 +9,7 @@ import { ImageTemplatePreview } from "./(template_preview_components)/image-temp
 import { LabeledGraphicTemplatePreview } from "./(template_preview_components)/labeled-graphic-template-preview";
 import { ListTemplatePreview } from "./(template_preview_components)/list-template-preview";
 import { ProcessStepsTemplatePreview } from "./(template_preview_components)/process-steps-template-preview";
+import { TimelineTemplatePreview } from "./(template_preview_components)/timeline-template-preview";
 import { TextTemplatePreview } from "./(template_preview_components)/text-template-preview";
 import { CodeTemplatePreview } from "./(template_preview_components)/code-template-preview";
 import { CourseLinkBlock } from "@/components/course-link-block";
@@ -16,6 +17,7 @@ import { LessonMapTemplateThumbnail } from "@/components/lesson-map";
 import { InteractionIcon } from "@/components/interaction-icon";
 
 export function TemplatePreview({ template }: { template: BlockTemplate }) {
+  if (template.type === "timeline" && template.timeline) return <TimelineTemplatePreview style={template.timeline.style} />;
   if (template.type === "hangingRopeCards") return <div className="flex aspect-video items-start justify-center gap-4 overflow-hidden rounded-xl border border-slate-200 bg-white px-5"><div className="flex w-full justify-around">{["Explore", "Connect", "Remember"].map((title, index) => <div key={title} className="flex flex-col items-center"><span className="h-7 w-px bg-stone-400" style={{ height: 24 + index % 2 * 8 }} /><span className="grid h-16 w-12 place-items-center rounded-lg border border-stone-200 bg-amber-50 text-[8px] font-semibold text-stone-700 shadow-sm">{title}</span><span className="mt-3 size-3 rounded-full border border-indigo-400 bg-indigo-100 shadow-[0_0_8px_#a5b4fc]" /></div>)}</div></div>;
   if (template.type === "peelToReveal") return <div className="relative grid aspect-video place-items-center overflow-hidden rounded-xl bg-indigo-50 p-5"><div className="absolute inset-5 rounded-lg bg-white p-4 text-[11px] font-medium text-indigo-800">Your next discovery</div><svg viewBox="0 0 240 135" aria-hidden="true" className="absolute inset-0 size-full"><defs><linearGradient id="peel-preview-fold"><stop stopColor="#fff8e8" /><stop offset=".5" stopColor="#ffffff" /><stop offset="1" stopColor="#b6ab98" /></linearGradient></defs><path d="M20 18H160L220 78V117H20Z" fill="#fff8e8" stroke="#ebe4d5" /><path d="M160 18Q150 65 220 78Q178 87 160 18Z" fill="url(#peel-preview-fold)" stroke="#e0d6c4" /></svg><div className="relative mt-6 text-xs font-semibold text-stone-700">Peel to discover</div></div>;
   if (template.type === "balloonArcher") return <div className="relative grid aspect-video place-items-center overflow-hidden rounded-xl border border-slate-200 bg-white p-4"><div className="flex w-full items-start justify-around gap-2 pb-5">{["Explore", "Practice", "Remember"].map((word) => <span key={word} className="grid h-16 w-12 place-items-center rounded-[50%] bg-black text-[8px] font-bold text-white">{word}</span>)}</div><span aria-hidden="true" className="absolute bottom-3 text-3xl text-black">? ?</span></div>;

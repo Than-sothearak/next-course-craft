@@ -7,6 +7,7 @@ import type { ContentBlock } from "@/lib/schemas/block";
 import type { Draft } from "./use-editor-draft";
 import { applyListTemplateToHtml } from "@/lib/editor/list-template";
 import { applyProcessStepsPreset } from "@/lib/editor/process-steps";
+import { applyTimelinePreset } from "@/lib/editor/timeline";
 import { defaultCanvasSlideFrame, resolveSlideTextLayout } from "@/lib/editor/slide-design";
 import { pasteSlideObject } from "@/lib/editor/slide-clipboard";
 import { removeLessonBlock } from "@/lib/editor/course-content";
@@ -45,7 +46,7 @@ function getTemplateCategory(block: ContentBlock): BlockCategory {
   if (block.type === "video" || block.type === "audio" || block.type === "audioInstruction") return "Multimedia";
   if (block.type === "attachment") return "Attachment";
   if (block.type === "divider") return "Divider";
-  if (block.type === "flipCard" || block.type === "accordion" || block.type === "labeledGraphic" || block.type === "processSteps" || block.type === "lessonMap" || block.type === "balloonArcher" || block.type === "peelToReveal" || block.type === "hangingRopeCards") return "Interactive";
+  if (block.type === "flipCard" || block.type === "accordion" || block.type === "labeledGraphic" || block.type === "processSteps" || block.type === "timeline" || block.type === "lessonMap" || block.type === "balloonArcher" || block.type === "peelToReveal" || block.type === "hangingRopeCards") return "Interactive";
   if (block.type === "chart") return "Chart";
   if (block.type === "knowledgeCheck") return "Knowledge check";
   return "Survey";
@@ -162,6 +163,7 @@ export function useEditorBlockOperations({
       const slideReplacement = slideCourse
         ? enableSlideTextFit(replacement)
         : replacement;
+      if (existing.type === "timeline" && slideReplacement.type === "timeline") slideReplacement.data = applyTimelinePreset(existing.data, slideReplacement.data);
       if (
         existing.type === "processSteps" &&
         slideReplacement.type === "processSteps"

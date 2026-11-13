@@ -20,6 +20,7 @@ const fieldsByType = {
   accordion: ["steps", "layout", "displayMode"],
   labeledGraphic: ["imagePrompt", "imageAlt", "markers", "markerColor", "textColor", "radarColor"],
   processSteps: ["steps"],
+  timeline: ["timelineStyle", "timelineItems"],
   chart: ["chartType", "chartDescription", "chartColor", "chartFields"],
 } as const satisfies Record<BlockType, readonly string[]>;
 

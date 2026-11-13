@@ -32,6 +32,7 @@ import {
 import { blockTypes, lessonContentSchema } from "../lib/schemas/block";
 import { parseScorm12Snapshot } from "../lib/scorm12/snapshot";
 import type { CodeExampleTemplate, CodeLanguage } from "../lib/editor/code-example";
+import { toContentBlock } from "../lib/ai/generation/block-content";
 
 vi.mock("../lib/ai/generation/transport", () => ({
   requestGenerationResponse: (apiKey: string, body: string, signal: AbortSignal) => fetch("https://api.openai.com/v1/responses", {
@@ -68,6 +69,8 @@ function block(type: GenerationBlockType = "text"): {
   minLabel: string;
   maxLabel: string;
   steps: { title: string; body: string }[];
+  timelineStyle: "vertical" | "horizontal" | "stacked";
+  timelineItems: { label: string; title: string; body: string }[];
   cards: {
     front: string;
     back: string;
@@ -118,6 +121,8 @@ function block(type: GenerationBlockType = "text"): {
     minLabel: "Not confident",
     maxLabel: "Very confident",
     steps: [],
+    timelineStyle: "vertical",
+    timelineItems: [],
     cards: [],
     layout: "accordion",
     displayMode: "all",
@@ -478,12 +483,23 @@ describe("AI course generation contracts", () => {
     expect(restored).toMatchObject({ jobId: jobId.toString(), status: "completed", course: draft });
   });
 
-  it("supports generation blocks while leaving uploaded media and manually authored physics/popup blocks to the editor", () => {
+  it("supports Timeline generation while leaving uploaded media and manually authored physics/popup blocks to the editor", () => {
     const authoringOnly = new Set(["attachment", "audio", "audioInstruction", "interactionButton", "balloonArcher", "peelToReveal", "hangingRopeCards"]);
     expect(generatedBlockTypeValues).toEqual([...blockTypes.filter((type) => !authoringOnly.has(type)), "text", "code"]);
   });
 
   it("validates the project-specific fields for rich interactive block intents", () => {
+    expect(generatedBlockSeedSchema.safeParse({
+      ...block("timeline"),
+      timelineItems: [
+        { label: "1990", title: "First event", body: "The initial milestone." },
+        { label: "2000", title: "Second event", body: "The next milestone." },
+      ],
+    }).success).toBe(true);
+    expect(generatedBlockSeedSchema.safeParse({
+      ...block("timeline"),
+      timelineItems: [{ label: "1990", title: "Only event", body: "One event is not a timeline." }],
+    }).success).toBe(false);
     expect(generatedBlockSeedSchema.safeParse({
       ...block("labeledGraphic"),
       markers: [{ label: "Input", description: "Where information enters.", x: 20, y: 40, color: "" }],
@@ -680,9 +696,12 @@ describe("AI course generation contracts", () => {
       y: index,
       color: "",
     }));
+    const longTimeline = Array.from({ length: 21 }, (_, index) => ({ label: `Year ${index + 1}`, title: `Event ${index + 1}`, body: `Description ${index + 1}` }));
+    const parsedLongTimeline = generatedBlockSeedSchema.parse({ ...block("timeline"), sourceElementIds, timelineItems: longTimeline });
     const longFields = Array.from({ length: 41 }, (_, index) => ({ label: `Value ${index + 1}`, value: index }));
     const split = splitGeneratedBlockSeeds([
       { ...block("processSteps"), sourceElementIds, steps: longSteps },
+      parsedLongTimeline,
       { ...block("accordion"), sourceElementIds, steps: longAccordion },
       { ...block("flipCard"), sourceElementIds, cards: longCards },
       { ...block("labeledGraphic"), sourceElementIds, markers: longMarkers },
@@ -692,6 +711,8 @@ describe("AI course generation contracts", () => {
 
     expect(collect("processSteps").map((item) => item.steps.length)).toEqual([19, 2]);
     expect(collect("processSteps").flatMap((item) => item.steps.map((step) => step.title))).toEqual(longSteps.map((step) => step.title));
+    expect(collect("timeline").map((item) => item.timelineItems.length)).toEqual([19, 2]);
+    expect(collect("timeline").flatMap((item) => item.timelineItems.map((event) => event.title))).toEqual(longTimeline.map((event) => event.title));
     expect(collect("accordion").map((item) => item.steps.length)).toEqual([11, 2]);
     expect(collect("accordion").flatMap((item) => item.steps.map((step) => step.title))).toEqual(longAccordion.map((step) => step.title));
     expect(collect("flipCard").map((item) => item.cards.length)).toEqual([30, 1]);
@@ -702,17 +723,43 @@ describe("AI course generation contracts", () => {
     expect(collect("chart").flatMap((item) => item.chartFields.map((field) => field.label))).toEqual(longFields.map((field) => field.label));
   });
 
-  it("preserves paragraph content returned inside a heading and avoids an adjacent repeated title", () => {
-    const [heading, paragraph] = splitGeneratedBlockSeeds([
+  it("keeps a heading and its explanation in one editable title-and-text block", async () => {
+    const combined = splitGeneratedBlockSeeds([
       generatedBlockSeedSchema.parse({ ...block("heading"), sourceElementIds: ["p1-e1"], title: "Flexbox", body: "Flexbox arranges items in a row or column." }),
     ]);
-    expect(heading).toMatchObject({ type: "heading", title: "Flexbox", body: "" });
-    expect(paragraph).toMatchObject({ type: "text", title: "", body: "Flexbox arranges items in a row or column.", sourceElementIds: ["p1-e1"] });
+    expect(combined).toHaveLength(1);
+    expect(combined[0]).toMatchObject({ type: "richText", title: "Flexbox", body: "Flexbox arranges items in a row or column.", sourceElementIds: ["p1-e1"] });
+    const converted = await toContentBlock(combined[0], "owner", "course", false, false, () => {});
+    expect(converted.block).toMatchObject({ type: "richText", data: { html: "<h3>Flexbox</h3><p>Flexbox arranges items in a row or column.</p>" } });
     const normalized = splitGeneratedBlockSeeds([
-      generatedBlockSeedSchema.parse({ ...block("heading"), title: "Flexbox", body: "" }),
-      generatedBlockSeedSchema.parse({ ...block("text"), title: "Flexbox", body: "The container controls the main axis." }),
+      generatedBlockSeedSchema.parse({ ...block("heading"), title: "Flexbox", body: "", sourceElementIds: ["p1-e1"] }),
+      generatedBlockSeedSchema.parse({ ...block("text"), title: "Flexbox", body: "The container controls the main axis.", sourceElementIds: ["p1-e2"] }),
     ]);
-    expect(normalized[1]).toMatchObject({ title: "", body: "The container controls the main axis." });
+    expect(normalized).toHaveLength(1);
+    expect(normalized[0]).toMatchObject({ title: "Flexbox", body: "The container controls the main axis.", sourceElementIds: ["p1-e1", "p1-e2"] });
+  });
+
+  it("groups untitled paragraphs and lists with their heading without merging unrelated topics", () => {
+    const normalized = splitGeneratedBlockSeeds([
+      generatedBlockSeedSchema.parse({ ...block("heading"), title: "Layout", body: "", sourceElementIds: ["p1-e1", "shared"] }),
+      generatedBlockSeedSchema.parse({ ...block("richText"), title: "", body: "", bullets: ["Use rows", "Use columns"], sourceElementIds: ["shared", "p1-e2"] }),
+      generatedBlockSeedSchema.parse({ ...block("heading"), title: "Other topic", body: "" }),
+      generatedBlockSeedSchema.parse({ ...block("text"), title: "A different explanation" }),
+    ]);
+    expect(normalized).toHaveLength(3);
+    expect(normalized[0]).toMatchObject({ type: "richText", title: "Layout", bullets: ["Use rows", "Use columns"], sourceElementIds: ["p1-e1", "shared", "p1-e2"] });
+    expect(normalized[1]).toMatchObject({ type: "heading", title: "Other topic" });
+    expect(normalized[2].title).toBe("A different explanation");
+  });
+
+  it("keeps an adjacent code title and exact source code in the same code template", () => {
+    const code = '<h1>Example</h1>\n  <p>Text</p>\n';
+    const normalized = splitGeneratedBlockSeeds([
+      generatedBlockSeedSchema.parse({ ...block("heading"), title: "HTML example", body: "", sourceElementIds: ["p1-e1"] }),
+      generatedBlockSeedSchema.parse({ ...block("code"), title: "", body: code, sourceElementIds: ["p1-e2"], codeExample: { template: "paper-explained-above", language: "html", explanation: "The browser displays a heading and paragraph." } }),
+    ]);
+    expect(normalized).toHaveLength(1);
+    expect(normalized[0]).toMatchObject({ type: "code", title: "HTML example", body: code, sourceElementIds: ["p1-e1", "p1-e2"], codeExample: { explanation: "The browser displays a heading and paragraph." } });
   });
 
   it("generates a styled code example with its full explanation and source coverage intact", async () => {
@@ -1733,6 +1780,7 @@ describe("AI course generation contracts", () => {
     const learnDeveloperPrompt = courseRequest.input[0].content as string;
     const lessonPrompt = courseRequest.input[1].content[0].text as string;
     expect(learnDeveloperPrompt.length).toBeLessThan(1_000);
+    expect(learnDeveloperPrompt).toContain("timeline orders historical events");
     expect(learnDeveloperPrompt).toMatch(/map every sourceElementId to a block/i);
     expect(learnDeveloperPrompt).toContain("Avoid duplicate facts");
     expect(learnDeveloperPrompt).not.toContain("Course content blocks supported by this project");
@@ -2029,7 +2077,7 @@ describe("AI course generation contracts", () => {
     expect(textBlock.type === "richText" && textBlock.data.html).toContain("&lt;script&gt;");
     const codeBlock = course.lessons[0].blocks[2];
     expect(codeBlock.type === "richText" && codeBlock.data.html).toContain("<pre><code>const message = &#39;&lt;hello&gt;&#39;;");
-    expect(textBlock.type === "richText" && textBlock.data.html).toContain("<h2>Identify the request</h2>");
+    expect(textBlock.type === "richText" && textBlock.data.html).toContain("<h3>Identify the request</h3>");
   });
 
   it("maps native editor block types and their settings into valid course blocks", async () => {
@@ -2040,6 +2088,7 @@ describe("AI course generation contracts", () => {
       block("statement"),
       { ...block("knowledgeCheck"), question: "Which response is correct?" },
       { ...block("processSteps"), steps: [{ title: "First", body: "Do this." }, { title: "Next", body: "Then do this." }] },
+      { ...block("timeline"), timelineStyle: "horizontal" as const, timelineItems: [{ label: "1980", title: "First", body: "First event." }, { label: "2000", title: "Next", body: "Then this happened." }] },
       { ...block("flipCard"), cards: [{ front: "Term", back: "Definition", frontImagePrompt: "", frontImageAlt: "", backImagePrompt: "", backImageAlt: "" }] },
       { ...block("accordion"), layout: "tabs" as const, steps: [{ title: "One", body: "Detail one." }, { title: "Two", body: "Detail two." }] },
       { ...block("divider"), dividerStyle: "line" as const },
@@ -2058,14 +2107,18 @@ describe("AI course generation contracts", () => {
     });
 
     expect(course.lessons[0].blocks.slice(1).map((item) => item.type)).toEqual([
-      "heading", "richText", "statement", "knowledgeCheck", "processSteps",
+      "heading", "richText", "statement", "knowledgeCheck", "processSteps", "timeline",
       "flipCard", "accordion", "divider", "survey", "gallery", "video", "link", "chart",
       ...Array.from({ length: 8 }, () => "richText"),
     ]);
-    expect(lessonContentSchema.parse({ schemaVersion: 1, blocks: course.lessons[0].blocks }).blocks).toHaveLength(22);
-    const tabs = course.lessons[0].blocks[7];
+    expect(lessonContentSchema.parse({ schemaVersion: 1, blocks: course.lessons[0].blocks }).blocks).toHaveLength(23);
+    const process = course.lessons[0].blocks.find((item) => item.type === "processSteps");
+    expect(process?.data).toMatchObject({ style: "slider", steps: [{ title: "First", body: "Do this." }, { title: "Next", body: "Then do this." }] });
+    const timeline = course.lessons[0].blocks.find((item) => item.type === "timeline");
+    expect(timeline).toMatchObject({ type: "timeline", data: { style: "horizontal", items: [{ label: "1980", title: "First" }, { label: "2000", title: "Next" }] } });
+    const tabs = course.lessons[0].blocks.find((item) => item.type === "accordion")!;
     expect(tabs.type === "accordion" && tabs.data).toMatchObject({ layout: "tabs", displayMode: "all" });
-    const link = course.lessons[0].blocks[12];
+    const link = course.lessons[0].blocks[13];
     expect(link.type === "link" && link.data).toMatchObject({ url: "https://example.test/handbook", label: "Open handbook", description: "Read the support handbook." });
   });
 

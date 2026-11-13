@@ -212,7 +212,7 @@ export function StandardLessonEditor({
                         </Button>
                       </div>
                       <div
-                        className="w-full"
+                        className={`w-full ${block.type === "timeline" ? "timeline-block-surface" : ""}`}
                         style={{
                           backgroundColor: block.backgroundColor,
                           color: contrastTextColor(block.backgroundColor),
@@ -221,7 +221,7 @@ export function StandardLessonEditor({
                         }}
                       >
                         <div
-                          className={`mx-auto w-full ${widthClass} ${block.type === "image" && block.data.layout === "cover" ? "px-0" : "px-4"} transition-all duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none`}
+                          className={`mx-auto w-full ${widthClass} ${block.type === "image" && block.data.layout === "cover" ? "px-0" : block.type === "timeline" ? "timeline-block-content px-4" : "px-4"} transition-all duration-[380ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none`}
                         >
                           <div
                             className={

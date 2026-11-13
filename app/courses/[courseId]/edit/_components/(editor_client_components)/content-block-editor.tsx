@@ -33,6 +33,7 @@ import { BalloonArcherSettings } from "@/components/balloon-archer/balloon-arche
 import { PeelSettingsEditor } from "@/components/physics-interaction/peel-settings";
 import { HangingRopeSettingsEditor } from "@/components/physics-interaction/hanging-rope-settings";
 import { BlockProgressControls } from "@/components/block-progress-controls";
+import { TimelineBlockSettings } from "./(content_block_editor_components)/timeline-block-editor";
 import { getInteractiveBlockProgressIds } from "@/lib/export/progress";
 
 export function ContentBlockEditor({
@@ -286,6 +287,7 @@ export function ContentBlockEditor({
     {block.type === "accordion" && <AccordionBlockSettings block={block} onChange={onChange} />}
     {block.type === "labeledGraphic" && <LabeledGraphicBlockSettings block={block} onChange={onChange} setMediaLibraryTarget={setMediaLibraryTarget} presentation={inlineSettings} />}
     {block.type === "processSteps" && <ProcessStepsBlockSettings block={block} courseId={courseId} onChange={onChange} />}
+    {block.type === "timeline" && <TimelineBlockSettings block={block} onChange={onChange} />}
     {block.type === "balloonArcher" && <BalloonArcherSettings block={block} onChange={onChange} />}
     {block.type === "peelToReveal" && <PeelSettingsEditor block={block} courseId={courseId} onChange={onChange} renderContentEditor={(content, change) => <ContentBlockEditor block={content} courseId={courseId} onChange={change} inlineSettings />} />}
     {block.type === "hangingRopeCards" && <HangingRopeSettingsEditor block={block} courseId={courseId} onChange={onChange} renderContentEditor={(content, change) => <ContentBlockEditor block={content} courseId={courseId} onChange={change} inlineSettings />} />}
@@ -302,7 +304,7 @@ export function ContentBlockEditor({
   return (
     <div className="group relative">
       {!inlineSettings && settingsButton()}
-      {(!inlineSettings || (block.type !== "flipCard" && block.type !== "accordion" && block.type !== "processSteps")) && <div className="block w-full rounded-md text-left">{preview}</div>}
+      {(!inlineSettings || (block.type !== "flipCard" && block.type !== "accordion" && block.type !== "processSteps" && block.type !== "timeline")) && <div className="block w-full rounded-md text-left">{preview}</div>}
       {inlineSettings && <div className="mt-3 space-y-3">{settingsContent}</div>}
       {!inlineSettings && editing && (
         <DraggableSettingsPanel

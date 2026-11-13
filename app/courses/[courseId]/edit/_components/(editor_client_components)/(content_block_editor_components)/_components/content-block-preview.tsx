@@ -12,6 +12,7 @@ import { InputBlockPreview } from "../../input-block-preview";
 import { InteractiveFlipCard, InteractiveLabeledGraphic } from "../../../../../preview/interactive-blocks";
 import { AccordionBlockEditor } from "../accordion-block-editor";
 import { ProcessStepsBlockEditor } from "../process-steps-block-editor";
+import { TimelineBlockEditor } from "../timeline-block-editor";
 import { ImageBlockLayout } from "../../../image-block-layout";
 import { ChartBlockPreview } from "../../../../../preview/chart-block";
 import { GalleryCarousel } from "@/components/gallery-carousel";
@@ -182,6 +183,8 @@ export function ContentBlockPreview({ block, onChange, presentation = false, cou
         },
       })}
     />
+  ) : block.type === "timeline" ? (
+    <TimelineBlockEditor block={block} onChange={onChange} />
   ) : block.type === "processSteps" ? (
     <ProcessStepsBlockEditor block={block} courseId={courseId} onChange={onChange} />
   ) : block.type === "knowledgeCheck" ? (

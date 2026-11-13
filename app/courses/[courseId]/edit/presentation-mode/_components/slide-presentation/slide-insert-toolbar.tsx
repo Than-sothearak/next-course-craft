@@ -59,6 +59,7 @@ const groups: { label: string; tools: InsertTool[] }[] = [
         label: "Peel to Reveal",
         icon: StickyNote,
       },
+      { id: "interactive-timeline-vertical", label: "Timeline", icon: Layers },
       { id: "interactive-reveal", label: "Flip cards", icon: Layers },
       {
         id: "interactive-labeled-graphic",

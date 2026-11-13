@@ -39,7 +39,7 @@ export async function assertInteractionButtonAssets(ownerId: string, courseId: s
     }
   }
   for (const lesson of lessons) for (const block of lesson.blocks) {
-    if (block.type !== "interactionButton" && block.type !== "peelToReveal" && block.type !== "hangingRopeCards" && block.type !== "processSteps") continue;
+    if (block.type !== "interactionButton" && block.type !== "peelToReveal" && block.type !== "hangingRopeCards" && block.type !== "processSteps" && block.type !== "timeline") continue;
     visit(block);
     for (const id of courseAssetIds(block)) groups.other.add(id);
   }

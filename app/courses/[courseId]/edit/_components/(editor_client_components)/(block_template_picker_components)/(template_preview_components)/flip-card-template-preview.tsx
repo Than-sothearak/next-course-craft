@@ -2,11 +2,14 @@ import { ImageIcon, RotateCcw } from "lucide-react";
 import type { BlockTemplate } from "../block-template-data";
 
 export function FlipCardTemplatePreview({ cards }: { cards: NonNullable<BlockTemplate["flipCard"]>["cards"] }) {
-  const columns = cards.length === 3 ? "grid-cols-3" : "grid-cols-2";
+  const previewCards = cards.slice(0, 2);
+  if (previewCards.length === 1) {
+    previewCards.push({ ...previewCards[0], id: `${previewCards[0].id}-preview-2` });
+  }
 
   return (
-    <div className={`grid ${columns} gap-1.5`}>
-      {cards.map((card, index) => (
+    <div className="grid grid-cols-2 gap-1.5">
+      {previewCards.map((card, index) => (
         <div
           key={card.id}
           data-template-preview-card={card.id}

@@ -20,6 +20,7 @@ export const processStepsPresets = [
   { style: "timeline", title: "Step timeline", description: "A connected sequence beside the current instructions.", accentColor: undefined },
   { style: "spotlight", title: "Spotlight steps", description: "A tinted panel that highlights each action.", accentColor: undefined },
   { style: "minimal", title: "Minimal steps", description: "A simple, open layout with fewer borders.", accentColor: undefined },
+  { style: "slider", title: "Step slider", description: "A simple image and text card with centered side arrows.", accentColor: undefined },
 ] as const satisfies readonly { style: ProcessStepsStyle; title: string; description: string; accentColor?: string }[];
 
 export const processStepsSample = [

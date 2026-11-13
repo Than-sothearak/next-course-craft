@@ -10,6 +10,7 @@ export function duplicateLessonBlocks(blocks: Lesson["blocks"], createId: () => 
     const block = { ...original, ...(original.slideGroupId ? { slideGroupId: groups.get(original.slideGroupId)! } : {}) };
     const id = ids.get(block.id)!;
     if (block.type === "flipCard") return { ...block, id, data: { ...block.data, cards: block.data.cards.map((card) => ({ ...card, id: createId() })) } };
+    if (block.type === "timeline") return { ...block, id, data: { ...block.data, items: block.data.items.map((item) => ({ ...item, id: createId() })) } };
     if (block.type === "hangingRopeCards") return { ...block, id, data: { ...block.data, cards: block.data.cards.map((card) => ({ ...card, id: createId(), blocks: card.blocks.map((content) => ({ ...content, id: createId() })) })) } };
     if (block.type === "peelToReveal") return { ...block, id, data: { ...block.data, blocks: block.data.blocks.map((content) => ({ ...content, id: createId() })) } };
     if (block.type !== "interactionButton") return { ...block, id };

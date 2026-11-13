@@ -36,7 +36,7 @@ describe("flip-card canvas authoring", () => {
   async function saved() { await act(async () => vi.advanceTimersByTimeAsync(1000)); const request = fetchMock.mock.calls.findLast(([, init]) => init?.method === "PUT"); expect(request).toBeDefined(); return editorSnapshotSchema.parse(JSON.parse(request![1].body)); }
 
   it("shows clickable learner-style cards without inline canvas editing", async () => {
-    await start(); expect(cards()).toHaveLength(3);
+    await start(); expect(cards()).toHaveLength(2);
     expect(container.querySelector('[aria-label="Canvas card 1 front text"]')).toBeNull();
     expect(container.querySelector('[aria-label="Selected flip card actions"]')).toBeNull();
     await click("Flip card 1 to reveal the back");
@@ -61,7 +61,7 @@ describe("flip-card canvas authoring", () => {
     for (const standalone of [false, true]) {
       await act(async () => root.render(<CoursePreview key={String(standalone)} initialData={{ ...snapshot, courseId: "slides" }} authorName="Author" initialLessonId="slide" persistLocalProgress={false} standalone={standalone} />));
       const grid = container.querySelector<HTMLElement>('[data-slide-active="true"] [data-flip-card-grid]')!;
-      expect(grid.dataset.flipCardColumns).toBe("2"); expect(grid.dataset.flipCardRows).toBe("2"); expect(grid.style.padding).toBe("24px");
+      expect(grid.dataset.flipCardColumns).toBe("2"); expect(grid.dataset.flipCardRows).toBe("1"); expect(grid.style.padding).toBe("24px");
     }
   });
 
@@ -70,7 +70,7 @@ describe("flip-card canvas authoring", () => {
     await clickText("Interaction button"); await clickText("Edit popup mini slide (1 objects)");
     const popup = () => container.querySelector<HTMLDialogElement>('dialog[open]')!;
     await clickText("Flip cards", popup());
-    expect(cards()).toHaveLength(3); expect(container.querySelector('[aria-label="Canvas card 1 front text"]')).toBeNull();
+    expect(cards()).toHaveLength(2); expect(container.querySelector('[aria-label="Canvas card 1 front text"]')).toBeNull();
     await click("Flip card 1 to reveal the back");
     expect(popup().querySelector('[aria-label="Show the front of card 1"]')).not.toBeNull();
     await clickText("Cancel", popup());
@@ -98,16 +98,16 @@ describe("flip-card canvas authoring", () => {
     const key = (value: string) => act(async () => handle.dispatchEvent(new KeyboardEvent("keydown", { key: value, bubbles: true, cancelable: true })));
     const settingsIds = () => [...container.querySelectorAll<HTMLElement>('[data-flip-card-settings]')].map((element) => element.dataset.flipCardSettings);
     await key(" "); await key("ArrowDown");
-    expect(settingsIds()).toEqual([ids[1], ids[0], ids[2]]);
+    expect(settingsIds()).toEqual([ids[1], ids[0]]);
     expect(cards().map((card) => card.dataset.flipCardId)).toEqual(ids);
     await key("Escape"); expect(settingsIds()).toEqual(ids);
     await act(async () => vi.advanceTimersByTimeAsync(1000)); expect(fetchMock).not.toHaveBeenCalled();
     await key(" "); await key("ArrowDown"); await key("Enter");
-    expect(cards().map((card) => card.dataset.flipCardId)).toEqual([ids[1], ids[0], ids[2]]);
+    expect(cards().map((card) => card.dataset.flipCardId)).toEqual([ids[1], ids[0]]);
     await click("Undo"); expect(cards().map((card) => card.dataset.flipCardId)).toEqual(ids);
     await click("Redo");
     const snapshot = await saved();
     const block = snapshot.lessons[0].blocks[0];
-    expect(block.type === "flipCard" && block.data.cards.map((card) => card.id)).toEqual([ids[1], ids[0], ids[2]]);
+    expect(block.type === "flipCard" && block.data.cards.map((card) => card.id)).toEqual([ids[1], ids[0]]);
   });
 });

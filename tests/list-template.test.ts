@@ -5,9 +5,54 @@ import { Editor } from "@tiptap/core";
 import { act, createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { applyListTemplateToHtml } from "../lib/editor/list-template";
-import { richTextEditorExtensions, TextFormattingToolbar } from "../app/courses/[courseId]/edit/_components/(editor_client_components)/(text_editing_components)/text-formatting-toolbar";
+import { richTextEditorExtensions, textEditorExtensions, TextFormattingToolbar } from "../app/courses/[courseId]/edit/_components/(editor_client_components)/(text_editing_components)/text-formatting-toolbar";
 
 describe("list template style changes", () => {
+  it.each([
+    ["body editor", richTextEditorExtensions],
+    ["single object editor", textEditorExtensions],
+  ] as const)("keeps a title and supporting text in one item in the %s", (_name, extensions) => {
+    const editor = new Editor({
+      extensions: [...extensions],
+      content: '<ol><li><p><strong>Item title</strong></p></li></ol>',
+    });
+    const pressEnter = (shiftKey = false) => {
+      const event = new KeyboardEvent("keydown", { key: "Enter", shiftKey, bubbles: true, cancelable: true });
+      editor.view.dom.dispatchEvent(event);
+      expect(event.defaultPrevented).toBe(true);
+    };
+
+    try {
+      let endOfTitle = 0;
+      editor.state.doc.descendants((node, position) => {
+        if (node.isText) endOfTitle = position + node.nodeSize;
+      });
+      editor.commands.setTextSelection(endOfTitle);
+      pressEnter(true);
+      editor.commands.insertContent("Supporting explanation");
+      let parsed = new DOMParser().parseFromString(editor.getHTML(), "text/html");
+      expect(parsed.querySelectorAll("li")).toHaveLength(1);
+      expect([...parsed.querySelectorAll("li > p")].map((node) => node.textContent)).toEqual(["Item title", "Supporting explanation"]);
+      expect(parsed.querySelector("li > p:first-child strong")?.textContent).toBe("Item title");
+      expect(parsed.querySelector("li > p:last-child strong")).toBeNull();
+
+      pressEnter();
+      editor.commands.insertContent("Next title");
+      parsed = new DOMParser().parseFromString(editor.getHTML(), "text/html");
+      expect(parsed.querySelectorAll("li")).toHaveLength(2);
+      expect(parsed.querySelectorAll("li")[1].textContent).toBe("Next title");
+
+      const html = editor.getHTML();
+      editor.commands.setContent(html);
+      expect(editor.getHTML()).toBe(html);
+      const styled = applyListTemplateToHtml(html, '<ul data-list-style="check"><li><p>Placeholder</p></li></ul>');
+      const styledDocument = new DOMParser().parseFromString(styled, "text/html");
+      expect(styledDocument.querySelectorAll("li")[0].querySelectorAll("p")).toHaveLength(2);
+    } finally {
+      editor.destroy();
+    }
+  });
+
   it("changes bullet markers without replacing authored list text or inline formatting", () => {
     const html = applyListTemplateToHtml(
       '<p>Keep this introduction.</p><ul data-list-style="circle" data-item-spacing="spacious"><li><p><strong>Authored first item</strong></p></li><li><p>Authored second item</p></li></ul>',
@@ -63,6 +108,31 @@ describe("list template style changes", () => {
       expect(link?.getAttribute("href")).toBe("https://example.com/guide");
       expect(link?.textContent).toBe("this source");
       expect(parsedDocument.body.textContent).toBe("Read this source now.");
+    } finally {
+      await act(async () => root.unmount());
+      container.remove();
+      editor.destroy();
+      Reflect.deleteProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT");
+    }
+  });
+
+  it("adds supporting text from the selected list item's toolbar", async () => {
+    Object.defineProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT", { configurable: true, value: true });
+    const editor = new Editor({ extensions: richTextEditorExtensions, content: '<ul><li><p><strong>Title</strong></p></li></ul>' });
+    editor.commands.setTextSelection(8);
+    const container = document.createElement("div");
+    document.body.append(container);
+    const root = createRoot(container);
+    try {
+      await act(async () => root.render(createElement(TextFormattingToolbar, { editor })));
+      const button = container.querySelector<HTMLButtonElement>('[aria-label="Text below list title (Shift+Enter)"]');
+      expect(button).not.toBeNull();
+      await act(async () => { button?.click(); });
+      await act(async () => { editor.commands.insertContent("Explanation"); });
+      const parsed = new DOMParser().parseFromString(editor.getHTML(), "text/html");
+      expect(parsed.querySelectorAll("li")).toHaveLength(1);
+      expect([...parsed.querySelectorAll("li > p")].map((node) => node.textContent)).toEqual(["Title", "Explanation"]);
+      expect(parsed.querySelector("li > p:last-child strong")).toBeNull();
     } finally {
       await act(async () => root.unmount());
       container.remove();

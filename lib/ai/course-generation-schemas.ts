@@ -5,6 +5,7 @@ import {
   blockTypes,
   chartTypeSchema,
   imageLayoutSchema,
+  timelineStyleSchema,
 } from "../schemas/block";
 
 const generatedNativeBlockTypes = [
@@ -22,6 +23,7 @@ const generatedNativeBlockTypes = [
   "accordion",
   "labeledGraphic",
   "processSteps",
+  "timeline",
   "chart",
 ] as const satisfies readonly (typeof blockTypes)[number][];
 
@@ -34,8 +36,8 @@ export const generatedBlockTypeValues = [
 export const courseBlockGenerationGuide = `CourseCraft block catalog and instructional design guide:
 
 EXPLANATION AND STRUCTURE BLOCKS
-- heading: marks a genuine topic boundary. Use title and headingLevel 1, 2, or 3; level 2 is the normal 24px heading. Do not make a heading for every paragraph or repeat the lesson title.
-- richText (also the text intent): teaches through complete paragraphs in body and can present lists through bullets. Use it for clear explanations, context, examples, and transitions. Leave title empty for ordinary paragraphs and after a standalone heading; a title alone is not an explanation.
+- heading: reserve for a genuine standalone topic boundary with no accompanying explanation. When a title introduces paragraphs or bullets, use one richText block with title and body/bullets together instead of a separate heading block. Do not repeat the lesson title.
+- richText (also the text intent): teaches through complete paragraphs in body and can present lists through bullets. Use the Title and paragraph template: put a meaningful heading in title and its explanation in body/bullets in the SAME block. Leave title empty only for untitled continuation paragraphs. A title alone is not an explanation.
 - statement: highlights one useful takeaway, tip, warning, or centered callout. Provide title, body, and style key/tip/warning/centered. Use it for emphasis, not as a substitute for the full explanation.
 - divider: separates substantial sections or gives learners a Continue control. dividerStyle is line, space, or continue. Use completionType none unless the author explicitly asks to require completion above it.
 
@@ -45,6 +47,7 @@ ACTIVE LEARNING BLOCKS
 - flipCard: supports active recall, vocabulary, question/answer practice, or matching a concept to an explanation, with 1–30 cards. Each face needs nonempty text (front/back) or a matching image prompt (frontImagePrompt/backImagePrompt). For image faces provide accessible alt text (frontImageAlt/backImageAlt); front/back text may also be provided as a fallback when images are disabled. Do not leave both the text and image prompt empty for either face. Do not repeat the template's automatically generated keyword cards.
 - accordion: groups related details learners may want to reveal selectively; use 2–12 steps/items and layout accordion or tabs. Generated blocks use displayMode all so learners can open multiple items.
 - processSteps: teaches a real ordered procedure with 2–20 steps. Give each step a title and explanation; do not use it for unrelated facts.
+- timeline: presents 2–20 ordered historical events, milestones, or phases that are not an instructional procedure. For each event provide an optional short date/period label, a title, and a concise explanation. Use vertical, horizontal, or stacked style. Do not invent dates or chronology; use processSteps for instructions.
 
 VISUAL AND DATA BLOCKS
 - image: one useful generated illustration. Provide imagePrompt and accessible imageAlt. imageLayout may be full, banner, text-left, text-right, text-overlay, card, or cover; title/body are optional accompanying copy.
@@ -60,13 +63,13 @@ CODE BLOCK
 - code: preserves exact raw code in body, never Markdown fences. Use codeExample with template, language, and a complete paragraph explaining its purpose, important lines, and result. Templates: ${codeTemplateValues.join(", ")}. Explained templates place the explanation above or below the code. Choose consistently, follow author style requests, and leave title empty unless a meaningful example heading is needed. Code is stored in the editable richText block. Return codeExample null on other block types.
 
 BLOCK CHOICE AND VARIETY
-Teach with a purposeful mix: use richText for explanation, then select active-learning, visual, or data blocks when they help learners recall, decide, reflect, compare, follow a procedure, or interpret information. For substantive lessons, include an appropriate learner-active block when the material supports one. Vary suitable interaction types across lessons instead of repeating the same interaction pattern throughout the course. Respect the requested interactivity level. Keep explanations alongside activities, preserve all meaningful source details, and never force an unsuitable interaction or invent facts, data, or media.
+Teach with a purposeful mix: use richText for explanation, then select active-learning, visual, or data blocks when they help learners recall, decide, reflect, compare, follow a procedure, understand historical chronology, or interpret information. For substantive lessons, include an appropriate learner-active block when the material supports one. Vary suitable interaction types across lessons instead of repeating the same interaction pattern throughout the course. Respect the requested interactivity level. Keep explanations alongside activities, preserve all meaningful source details, and never force an unsuitable interaction or invent facts, data, or media.
 
 Interactivity levels: low means use interactions selectively; medium means include a suitable learner interaction in most substantive lessons; high means include at least one suitable learner interaction in each substantive lesson and vary the formats across the course. Apply these levels only where the source and learning goal support an activity.
 
-For unused string/array fields return empty strings/arrays; for required settings use these neutral values: style tip, headingLevel 2, correctOptionIndex 0, layout accordion, displayMode all, imageLayout full, dividerStyle continue, dividerCompletionType none, chartType bar, and chartColor #4f46e5. The application assigns block IDs and visual styling.`;
+For unused string/array fields return empty strings/arrays; for required settings use these neutral values: style tip, headingLevel 2, correctOptionIndex 0, layout accordion, displayMode all, timelineStyle vertical, timelineItems [], imageLayout full, dividerStyle continue, dividerCompletionType none, chartType bar, and chartColor #4f46e5. The application assigns block IDs and visual styling.`;
 
-export const courseBlockLearnGuide = `BLOCKS (${generatedNativeBlockTypes.join(", ")}, text/code): richText explains; knowledgeCheck tests; survey reflects; flipCard recalls; accordion/tabs group; processSteps guide; statement highlights; divider separates; image/labeledGraphic illustrate; chart uses source data; gallery/video/link use explicit source URLs. BLOCK CHOICE AND VARIETY: High: one interaction per substantive lesson; medium: most; low: selective. Vary formats. Avoid filler, duplication, unsupported claims, and invented data/media.`;
+export const courseBlockLearnGuide = `BLOCKS (${generatedNativeBlockTypes.join(", ")}, text/code): richText explains; knowledgeCheck quizzes; survey reflects; flipCard recalls; accordion groups; processSteps teach procedures; timeline orders historical events; statement highlights; chart uses supplied data; gallery/video/link use source media. Keep a title and its explanation together in one richText block. BLOCK CHOICE AND VARIETY: high, one suitable interaction per substantive lesson; medium, most; low, selective. Vary; no filler or invented data/media.`;
 
 export const courseGenerationModelValues = [
   "gpt-6-astra",
@@ -211,6 +214,12 @@ export const generatedBlockSeedSchema = z
         }),
       )
       .max(500),
+    timelineStyle: timelineStyleSchema.default("vertical"),
+    timelineItems: z.array(z.object({
+      label: z.string().max(120).default(""),
+      title: z.string().max(160),
+      body: z.string().max(5_000).default(""),
+    })).max(500).default([]),
     cards: z
       .array(
         z.object({
@@ -337,6 +346,14 @@ export const generatedBlockSeedSchema = z
             ["steps", index],
             "Each process step needs a title and explanation.",
           );
+      });
+    }
+    if (block.type === "timeline") {
+      if (block.timelineItems.length < 2)
+        addIssue(["timelineItems"], "Timelines need at least two ordered events.");
+      block.timelineItems.forEach((item, index) => {
+        if (!item.title.trim() && !item.body.trim())
+          addIssue(["timelineItems", index], "Each timeline event needs a title or explanation.");
       });
     }
     if (block.type === "flipCard") {

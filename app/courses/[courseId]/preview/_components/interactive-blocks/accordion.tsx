@@ -19,7 +19,7 @@ function AccordionPanel({ id, labelledBy, tab = false, children }: { id: string;
     exit={tab ? { opacity: 0, y: -4 } : { height: 0, opacity: 0 }}
     transition={{ duration: reducedMotion ? 0 : 0.24, ease: [0.22, 1, 0.36, 1] }}
     className={`min-w-0 overflow-hidden ${tab && !present ? "absolute inset-x-0 top-0" : ""}`}>
-    <div className={tab ? "rounded-b-xl border border-t-0 border-slate-200 bg-white p-4 text-sm leading-6 text-slate-700 sm:p-5" : "border-t border-slate-100 px-4 py-3 text-sm leading-6 text-slate-700 sm:px-5"}>{children}</div>
+    <div className={tab ? "rounded-b-xl border border-t-0 border-slate-200 bg-white p-4 text-base leading-6 text-slate-700 sm:p-5" : "border-t border-slate-100 px-4 py-3 text-base leading-6 text-slate-700 sm:px-5"}>{children}</div>
   </motion.div>;
 }
 
@@ -37,11 +37,11 @@ export function InteractiveAccordion({ blockId, layout, displayMode, items, onIt
   const activeItem = items.find((item) => item.id === activeItemId) ?? items[0];
   function body(item: AccordionItem, index: number) {
     return renderBody ? renderBody(item, index) : item.bodyHtml !== undefined
-      ? <StatementTextPreview tag="p" text={item.body} html={item.bodyHtml} className="prose max-w-none text-sm leading-6" />
+      ? <StatementTextPreview tag="p" text={item.body} html={item.bodyHtml} className="prose max-w-none text-base leading-6" />
       : <div className="whitespace-pre-wrap">{item.body || "Add an explanation for this section."}</div>;
   }
   function title(item: AccordionItem) {
-    return item.titleHtml !== undefined ? <StatementTextPreview tag="p" text={item.title} html={item.titleHtml} className="text-sm font-semibold" /> : item.title || (layout === "tabs" ? "Untitled tab" : "Untitled section");
+    return item.titleHtml !== undefined ? <StatementTextPreview tag="h3" text={item.title} html={item.titleHtml} className="text-[20px] font-semibold" /> : <span data-block-text-role="title">{item.title || (layout === "tabs" ? "Untitled tab" : "Untitled section")}</span>;
   }
   function openTab(id: string) { setActiveItemId(id); onItemInteract?.(id); }
 
@@ -58,7 +58,7 @@ export function InteractiveAccordion({ blockId, layout, displayMode, items, onIt
       }}>
         {items.map((item, index) => {
           const selected = item.id === activeItem?.id;
-          const trigger = <Button id={`${blockId}-tab-${item.id}`} variant="ghost" role="tab" aria-selected={selected} tabIndex={selected ? 0 : -1} aria-controls={`${blockId}-panel-${item.id}`} aria-label={renderTitle ? `Show section ${index + 1}` : item.title || "Untitled tab"} onClick={() => openTab(item.id)} className={`h-auto shrink-0 rounded-none border-b-2 px-3 py-2.5 text-sm font-medium sm:px-4 ${selected ? "border-[var(--course-primary,#2f5f9f)] text-slate-900" : "border-transparent text-slate-500 hover:text-slate-800"}`}>
+          const trigger = <Button id={`${blockId}-tab-${item.id}`} variant="ghost" role="tab" aria-selected={selected} tabIndex={selected ? 0 : -1} aria-controls={`${blockId}-panel-${item.id}`} aria-label={renderTitle ? `Show section ${index + 1}` : item.title || "Untitled tab"} onClick={() => openTab(item.id)} className={`h-auto shrink-0 rounded-none border-b-2 px-3 py-2.5 text-[20px] font-medium sm:px-4 ${selected ? "border-[var(--course-primary,#2f5f9f)] text-slate-900" : "border-transparent text-slate-500 hover:text-slate-800"}`}>
             {renderTitle ? <ChevronDown size={14} aria-hidden="true" /> : title(item)}
           </Button>;
           return renderTitle ? <div key={item.id} data-slide-animation-item className="flex shrink-0 items-center gap-1 pl-3"><div className="min-w-16">{renderTitle(item, index)}</div>{trigger}</div> : <div key={item.id} data-slide-animation-item>{trigger}</div>;
@@ -79,7 +79,7 @@ export function InteractiveAccordion({ blockId, layout, displayMode, items, onIt
       const icon = <Plus aria-hidden="true" size={18} className={`shrink-0 text-slate-400 transition-transform duration-200 motion-reduce:transition-none ${expanded ? "rotate-45" : ""}`} />;
       return <section key={item.id} data-slide-animation-item className="overflow-hidden rounded-xl border border-slate-200 bg-white">
         {renderTitle ? <div className="flex items-start gap-3 px-4 py-3 sm:px-5"><div className="min-w-0 flex-1">{renderTitle(item, index)}</div><Button id={`${blockId}-trigger-${item.id}`} variant="ghost" size="icon" className="size-7" aria-label={`${expanded ? "Collapse" : "Expand"} section ${index + 1}`} aria-expanded={expanded} aria-controls={`${blockId}-panel-${item.id}`} onClick={toggle}>{icon}</Button></div>
-          : <Button id={`${blockId}-trigger-${item.id}`} variant="ghost" aria-expanded={expanded} aria-controls={`${blockId}-panel-${item.id}`} onClick={toggle} className="h-auto w-full justify-between gap-3 rounded-none px-4 py-3 text-left text-sm font-semibold text-slate-800 hover:bg-slate-50 sm:px-5"><span className="min-w-0 flex-1">{title(item)}</span>{icon}</Button>}
+          : <Button id={`${blockId}-trigger-${item.id}`} variant="ghost" aria-expanded={expanded} aria-controls={`${blockId}-panel-${item.id}`} onClick={toggle} className="h-auto w-full justify-between gap-3 rounded-none px-4 py-3 text-left text-[20px] font-semibold text-slate-800 hover:bg-slate-50 sm:px-5"><span className="min-w-0 flex-1">{title(item)}</span>{icon}</Button>}
         <AnimatePresence initial={false}>{expanded && <AccordionPanel key={item.id} id={`${blockId}-panel-${item.id}`} labelledBy={`${blockId}-trigger-${item.id}`}>{body(item, index)}</AccordionPanel>}</AnimatePresence>
       </section>;
     })}

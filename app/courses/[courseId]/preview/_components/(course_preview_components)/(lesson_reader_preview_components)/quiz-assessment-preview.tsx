@@ -79,7 +79,8 @@ export function QuizAssessmentPreview({
   }
 
   return (
-    <div data-presentation-quiz={presentation || undefined} className={`mx-auto w-full min-w-0 max-w-[720px] shrink-0 px-4 ${presentation ? "my-3 space-y-3" : "mt-10 mb-16 space-y-6"}`}>
+    <div data-quiz-container className="mx-auto w-full min-w-0 max-w-[720px] shrink-0">
+    <div data-quiz-assessment data-presentation-quiz={presentation || undefined} className={`px-4 ${presentation ? "my-3 space-y-3" : "mt-10 mb-16 space-y-6"}`}>
       {result && <Dialog open={resultDialogOpen} onClose={() => setResultDialogOpen(false)} title={result.passed ? "Congratulations!" : "Keep trying"} className="max-w-md">
         <div className="text-center">
           <span className={`mx-auto mb-4 grid size-16 place-items-center rounded-full ${result.passed ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
@@ -171,6 +172,7 @@ export function QuizAssessmentPreview({
           </Button>
         </section>
       )}
+    </div>
     </div>
   );
 }

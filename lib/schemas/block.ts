@@ -36,6 +36,7 @@ export const blockTypes = [
   "accordion",
   "labeledGraphic",
   "processSteps",
+  "timeline",
   "chart",
 ] as const;
 export const statementStyleSchema = z.enum([
@@ -454,7 +455,26 @@ export const labeledGraphicBlockSchema = z.object({
     }
   }),
 });
-export const processStepsStyleSchema = z.enum(["cards", "numbered", "timeline", "spotlight", "minimal"]);
+export const timelineStyleSchema = z.enum(["vertical", "horizontal", "stacked"]);
+export const timelineBlockSchema = z.object({
+  ...blockBase("full", 40),
+  type: z.literal("timeline"),
+  data: z.object({
+    style: timelineStyleSchema.default("vertical"),
+    accentColor: colorValueSchema.optional(),
+    items: z.array(z.object({
+      id: z.string().min(1).max(64),
+      label: z.string().max(120).default(""),
+      title: z.string().max(160).default(""),
+      body: z.string().max(5_000).default(""),
+      labelHtml: z.string().max(100_000).optional(),
+      titleHtml: z.string().max(100_000).optional(),
+      bodyHtml: z.string().max(100_000).optional(),
+    })).min(1).max(20).refine((items) => new Set(items.map((item) => item.id)).size === items.length, "Timeline entries must have unique IDs."),
+  }),
+});
+
+export const processStepsStyleSchema = z.enum(["cards", "numbered", "timeline", "spotlight", "minimal", "slider"]);
 export type ProcessStepsStyle = z.infer<typeof processStepsStyleSchema>;
 export const processStepMediaSchema = z.object({
   src: z.string().regex(/^\/api\/assets\/[a-f\d]{24}\/file$/i),
@@ -613,6 +633,7 @@ const plainContentBlockSchema = z.discriminatedUnion("type", [
   accordionBlockSchema,
   labeledGraphicBlockSchema,
   processStepsBlockSchema,
+  timelineBlockSchema,
   lessonMapBlockSchema,
   chartBlockSchema,
   balloonArcherBlockSchema,
@@ -689,7 +710,7 @@ export function defaultBlockWidth(
 ): ContentBlock["width"] {
   if (type === "heading" || type === "richText" || type === "statement" || type === "peelToReveal") return "medium";
   if (type === "image" || type === "video" || type === "audio" || type === "gallery") return "medium";
-  if (type === "flipCard" || type === "labeledGraphic" || type === "lessonMap" || type === "balloonArcher" || type === "hangingRopeCards") return "full";
+  if (type === "flipCard" || type === "labeledGraphic" || type === "lessonMap" || type === "balloonArcher" || type === "hangingRopeCards" || type === "timeline") return "full";
   if (type === "accordion" || type === "processSteps" || type === "chart") return "medium";
   return "small";
 }

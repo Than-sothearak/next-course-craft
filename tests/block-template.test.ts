@@ -54,12 +54,17 @@ describe("prebuilt lesson text templates", () => {
     const htmlById = new Map(inserted);
 
     expect(htmlById.get("text-title-paragraph")).toContain("font-size: 36px");
+    expect(htmlById.get("text-title-paragraph")).toContain("<h3>");
+    expect(htmlById.get("text-title-paragraph")).not.toContain("<p><strong><span style=\"font-size: 36px\">");
     expect(htmlById.get("text-lead")).toContain("font-size: 20px");
     expect(htmlById.get("text-large-body")).toContain("font-size: 24px");
     expect(htmlById.get("text-small-note")).toContain("font-size: 14px");
     expect(htmlById.get("text-centered-intro")).toContain('text-align: center');
+    expect(htmlById.get("text-centered-intro")).toContain('<h3 style="text-align: center">');
     expect(htmlById.get("text-subheading")).toContain("font-size: 24px");
+    expect(htmlById.get("text-subheading")).toContain("<h3>");
     expect(htmlById.get("text-color-emphasis")).toContain("color: #4f46e5");
+    expect(htmlById.get("text-color-emphasis")).toContain("<h3>");
   });
 });
 
@@ -405,12 +410,21 @@ describe("prebuilt divider templates", () => {
 });
 
 describe("prebuilt interactive block templates", () => {
+  it("omits the retired Explore presets while keeping the interactive image block", () => {
+    for (const id of ["interactive-explore-data", "interactive-explore-network", "interactive-explore-field"]) {
+      expect(blockTemplates.some((template) => template.id === id)).toBe(false);
+    }
+    expect(blockTemplates.some((template) => template.id === "interactive-labeled-graphic")).toBe(true);
+  });
   it("offers ready-made flip cards plus other learner interactions", () => {
     const interactiveTemplates = blockTemplates.filter(
       (item) => item.category === "Interactive",
     );
 
     expect(interactiveTemplates.map((item) => item.id)).toEqual([
+      "interactive-timeline-vertical",
+      "interactive-timeline-horizontal",
+      "interactive-timeline-stacked",
       "interactive-hanging-rope-cards",
       "interactive-peel-to-reveal",
       "interactive-balloon-archer",
@@ -419,9 +433,6 @@ describe("prebuilt interactive block templates", () => {
       "interactive-accordion",
       "interactive-tabs",
       "interactive-labeled-graphic",
-      "interactive-explore-data",
-      "interactive-explore-network",
-      "interactive-explore-field",
       "interactive-process-steps",
       "interactive-sequence-data",
       "interactive-sequence-it",
@@ -430,6 +441,7 @@ describe("prebuilt interactive block templates", () => {
       "interactive-process-steps-timeline",
       "interactive-process-steps-spotlight",
       "interactive-process-steps-minimal",
+      "interactive-process-steps-slider",
       "interactive-confidence-poll",
     ]);
 
@@ -446,11 +458,11 @@ describe("prebuilt interactive block templates", () => {
       width: "full",
       blockPadding: 40,
       data: {
-        cardsPerRow: 3,
+        cardsPerRow: 2,
         cardStyle: "classic",
         cardBackgroundColor: "#ffffff",
         cardTextColor: "#0f172a",
-        cards: [{ frontLabel: "Predict", backLabel: "Reveal" }],
+        cards: [{ frontLabel: "Predict", backLabel: "Reveal" }, { frontLabel: "Predict", backLabel: "Reveal" }],
       },
     });
     expect(insertedById.get("interactive-accordion")).toMatchObject({
@@ -477,20 +489,6 @@ describe("prebuilt interactive block templates", () => {
         ]),
       },
     });
-    for (const [templateId, sceneTheme] of [
-      ["interactive-explore-data", "data"],
-      ["interactive-explore-network", "network"],
-      ["interactive-explore-field", "agriculture"],
-    ] as const) {
-      expect(insertedById.get(templateId)).toMatchObject({
-        type: "labeledGraphic",
-        data: {
-          interactionMode: "explore",
-          sceneTheme,
-          markers: expect.arrayContaining([expect.any(Object), expect.any(Object)]),
-        },
-      });
-    }
     expect(insertedById.get("interactive-process-steps")).toMatchObject({
       type: "processSteps",
       data: {
@@ -528,22 +526,7 @@ describe("prebuilt interactive block templates", () => {
     expect(markup).not.toContain("illustrated lesson map");
   });
 
-  it("previews field-specific explore scenes with clickable markers", () => {
-    for (const [templateId, theme] of [
-      ["interactive-explore-data", "data"],
-      ["interactive-explore-network", "network"],
-      ["interactive-explore-field", "agriculture"],
-    ] as const) {
-      const template = blockTemplates.find((item) => item.id === templateId);
-      expect(template).toBeDefined();
-      const markup = renderToStaticMarkup(createElement(TemplatePreview, { template: template! }));
-      expect(markup).toContain('data-scene-hotspot-preview=""');
-      expect(markup).toContain(`data-scene-theme="${theme}"`);
-      expect(markup.match(/Select a marker to explore/g)).toHaveLength(1);
-    }
-  });
-
-  it("previews one flip card template with a single card", () => {
+  it("previews the flip card template with two cards without changing inserted content", () => {
     const flipCardTemplates = blockTemplates.filter(
       (item) => item.category === "Interactive" && item.type === "flipCard",
     );
@@ -552,7 +535,10 @@ describe("prebuilt interactive block templates", () => {
     const markup = renderToStaticMarkup(
       createElement(TemplatePreview, { template: flipCardTemplates[0] }),
     );
-    expect(markup.match(/data-template-preview-card=/g)).toHaveLength(1);
+    expect(markup.match(/data-template-preview-card=/g)).toHaveLength(2);
+    expect(flipCardTemplates[0].flipCard?.cards).toHaveLength(2);
+    const inserted = createBlocksFromTemplate(flipCardTemplates[0], "flip-card")[0];
+    expect(inserted.type === "flipCard" && inserted.data.cards).toHaveLength(2);
   });
 
   it("previews accordion, tabs, labeled graphic markers, and process steps", () => {

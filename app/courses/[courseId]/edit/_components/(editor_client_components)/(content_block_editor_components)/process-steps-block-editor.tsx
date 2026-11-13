@@ -28,13 +28,14 @@ export function ProcessStepsBlockEditor({ block, courseId, onChange, onEditorFoc
   }
   return <div data-process-steps-editor className="min-w-0">
     <InteractiveProcessSteps blockId={block.id} {...block.data}
-      renderTitle={(step, index) => <StatementTextEditor id={`${block.id}-${step.id}-title`} label={`Edit process step ${index + 1} title`} tag="h3" html={step.titleHtml} text={step.title} maxLength={160} placeholder="Step title (optional)" onEditorFocus={onEditorFocus} onChange={(html, text) => update(step.id, { title: text, titleHtml: html })} className="text-lg font-semibold" />}
-      renderBody={(step, index) => <StatementTextEditor id={`${block.id}-${step.id}-body`} label={`Edit process step ${index + 1} instructions`} tag="p" html={step.bodyHtml ?? plainInstructionsHtml(step.body)} text={step.body} maxLength={5000} multiline placeholder="Add instructions. Select text to format or add a link." onEditorFocus={onEditorFocus} onChange={(html, text) => update(step.id, { body: text, bodyHtml: html })} className="lesson-rich-text text-sm leading-6" />}
+      renderTitle={(step, index) => <StatementTextEditor id={`${block.id}-${step.id}-title`} label={`Edit process step ${index + 1} title`} tag="h3" html={step.titleHtml} text={step.title} maxLength={160} placeholder="Step title (optional)" onEditorFocus={onEditorFocus} onChange={(html, text) => update(step.id, { title: text, titleHtml: html })} className="text-[20px] font-semibold" />}
+      renderBody={(step, index) => <StatementTextEditor id={`${block.id}-${step.id}-body`} label={`Edit process step ${index + 1} instructions`} tag="p" html={step.bodyHtml ?? plainInstructionsHtml(step.body)} text={step.body} maxLength={5000} multiline placeholder="Add instructions. Select text to format or add a link." onEditorFocus={onEditorFocus} onChange={(html, text) => update(step.id, { body: text, bodyHtml: html })} className="lesson-rich-text text-base leading-6" />}
       renderMedia={(step, index) => <div className="space-y-3">
         <ProcessStepAssets step={step} layout={block.data.mediaLayout} />
         {courseId && <ProcessStepMediaEditor step={step} index={index} courseId={courseId} onChange={(patch) => update(step.id, patch)} />}
       </div>}
-      renderControl={({ direction, disabled, onClick }) => {
+      renderControl={({ direction, label: controlLabel, disabled, onClick }) => {
+        if (block.data.style === "slider") return <Button variant="outline" size="icon" className="size-11 shrink-0 rounded-full" aria-label={`Go to ${direction} process step`} title={controlLabel} disabled={disabled} onClick={onClick}>{direction === "previous" ? <ArrowLeft size={20} /> : <ArrowRight size={20} />}</Button>;
         const field = direction === "previous" ? "previousLabel" : "nextLabel";
         const label = direction === "previous" ? "Previous step" : "Next step";
         return <div className={`${buttonVariants({ variant: direction === "previous" ? "outline" : "default" })} min-h-11 min-w-0 gap-1 px-2`} style={direction === "next" ? { background: "var(--process-paint)", color: "var(--process-accent-text)" } : undefined}>

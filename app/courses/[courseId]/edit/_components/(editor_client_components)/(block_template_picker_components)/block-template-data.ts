@@ -14,6 +14,7 @@ import {
   processStepsPresets,
   processStepsSample,
 } from "@/lib/editor/process-steps";
+import { timelinePresets, timelineSample } from "@/lib/editor/timeline";
 
 export const blockCategories = [
   "Text",
@@ -57,6 +58,7 @@ export type BlockTemplate = {
   labeledGraphic?: Extract<ContentBlock, { type: "labeledGraphic" }>["data"];
   lessonMap?: Extract<ContentBlock, { type: "lessonMap" }>["data"];
   processSteps?: Extract<ContentBlock, { type: "processSteps" }>["data"];
+  timeline?: Extract<ContentBlock, { type: "timeline" }>["data"];
   chart?: Extract<ContentBlock, { type: "chart" }>["data"];
   galleryLayout?: "grid" | "carousel";
   galleryImageFit?: "contain" | "cover" | "fill";
@@ -70,6 +72,7 @@ export type BlockTemplate = {
 };
 
 export const blockTemplates: BlockTemplate[] = [
+  ...timelinePresets.map((preset): BlockTemplate => ({ id: `interactive-timeline-${preset.style}`, category: "Interactive", title: preset.title, description: preset.description, type: "timeline", timeline: { style: preset.style, items: timelineSample.map((item) => ({ ...item })) }, preview: "timeline" })),
   { id: "interactive-hanging-rope-cards", category: "Interactive", title: "Hanging Rope Cards", description: "Stretch and sway hanging cards. Pull to a glowing point to discover content.", type: "hangingRopeCards", preview: "hanging-rope-cards" },
   { id: "interactive-peel-to-reveal", category: "Interactive", title: "Peel to Reveal", description: "Peel a curled paper corner to uncover text, images, video, or audio.", type: "peelToReveal", preview: "peel-to-reveal" },
   { id: "interactive-balloon-archer", category: "Interactive", title: "Balloon Archer", description: "Pull, aim, and shoot word balloons to reveal hidden explanations.", type: "balloonArcher", preview: "balloon-archer" },
@@ -81,7 +84,7 @@ export const blockTemplates: BlockTemplate[] = [
     title: "Title and paragraph",
     description: "A bold section title followed by comfortable body text.",
     type: "richText",
-    html: '<p><strong><span style="font-size: 36px">Section heading</span></strong></p><p><span style="font-size: 16px">Write your paragraph here.</span></p>',
+    html: '<h3><strong><span style="font-size: 36px">Section heading</span></strong></h3><p><span style="font-size: 16px">Write your paragraph here.</span></p>',
     preview: "title",
   },
   {
@@ -126,7 +129,7 @@ export const blockTemplates: BlockTemplate[] = [
     title: "Centered introduction",
     description: "Center a short 20px introduction for a clear visual pause.",
     type: "richText",
-    html: '<p style="text-align: center"><strong><span style="font-size: 20px">A new way to think about this topic</span></strong></p><p style="text-align: center"><span style="font-size: 16px">Add a sentence that sets up the lesson below.</span></p>',
+    html: '<h3 style="text-align: center"><strong><span style="font-size: 20px">A new way to think about this topic</span></strong></h3><p style="text-align: center"><span style="font-size: 16px">Add a sentence that sets up the lesson below.</span></p>',
     preview: "text-centered-intro",
   },
   {
@@ -135,7 +138,7 @@ export const blockTemplates: BlockTemplate[] = [
     title: "Subheading and body",
     description: "Separate a bold 24px subheading from its 16px explanation.",
     type: "richText",
-    html: '<p><strong><span style="font-size: 24px">A clear subheading</span></strong></p><p><span style="font-size: 16px">Use the paragraph below to explain the idea or add an example.</span></p>',
+    html: '<h3><strong><span style="font-size: 24px">A clear subheading</span></strong></h3><p><span style="font-size: 16px">Use the paragraph below to explain the idea or add an example.</span></p>',
     preview: "text-subheading",
   },
   {
@@ -144,7 +147,7 @@ export const blockTemplates: BlockTemplate[] = [
     title: "Color emphasis",
     description: "Pair a colored 22px key phrase with regular supporting text.",
     type: "richText",
-    html: '<p><strong><span style="font-size: 22px; color: #4f46e5">Key idea</span></strong><br><span style="font-size: 16px">Explain why this idea matters to the learner.</span></p>',
+    html: '<h3><strong><span style="font-size: 22px; color: #4f46e5">Key idea</span></strong></h3><p><span style="font-size: 16px">Explain why this idea matters to the learner.</span></p>',
     preview: "text-color-emphasis",
   },
   {
@@ -492,6 +495,7 @@ export const blockTemplates: BlockTemplate[] = [
     description: "Ask learners to predict an outcome, then reveal a short explanation.",
     type: "flipCard",
     flipCard: {
+      cardsPerRow: 2,
       cards: [
         {
           id: "card-1",
@@ -505,6 +509,13 @@ export const blockTemplates: BlockTemplate[] = [
             type: "text",
             text: "Compare your prediction with the result and look for evidence that explains the difference.",
           },
+        },
+        {
+          id: "card-2",
+          frontLabel: "Predict",
+          front: { type: "text", text: "What evidence would help you explain the result?" },
+          backLabel: "Reveal",
+          back: { type: "text", text: "Review what changed and use specific observations to explain the outcome." },
         },
       ],
     },
@@ -600,64 +611,6 @@ export const blockTemplates: BlockTemplate[] = [
           x: 52,
           y: 25,
         },
-      ],
-    },
-    preview: "labeled-graphic",
-  },
-  {
-    id: "interactive-explore-data",
-    category: "Interactive",
-    title: "Explore: Data signals",
-    description: "Inspect a dashboard and open hotspots to investigate its signals.",
-    type: "labeledGraphic",
-    labeledGraphic: {
-      src: "",
-      alt: "Data dashboard showing a feature distribution and model monitoring signals.",
-      interactionMode: "explore",
-      sceneTheme: "data",
-      markers: [
-        { id: "records", label: "Record volume", description: "Compare the number of records across the current observation window.", x: 82, y: 23 },
-        { id: "feature-trend", label: "Feature trend", description: "Follow the plotted feature values and look for points that depart from the main pattern.", x: 78, y: 52 },
-        { id: "outlier", label: "Unusual reading", description: "Check an unusual reading against its source and time window before drawing a conclusion.", x: 77.5, y: 45 },
-      ],
-    },
-    preview: "labeled-graphic",
-  },
-  {
-    id: "interactive-explore-network",
-    category: "Interactive",
-    title: "Explore: Network path",
-    description: "Follow a packet across devices and inspect each connection point.",
-    type: "labeledGraphic",
-    labeledGraphic: {
-      src: "",
-      alt: "Network diagram showing a client, router, access point, and remote service.",
-      interactionMode: "explore",
-      sceneTheme: "network",
-      markers: [
-        { id: "client", label: "Client device", description: "The client starts the request and sends it to the network gateway.", x: 19, y: 53 },
-        { id: "router", label: "Router", description: "The router forwards packets toward the next network or service.", x: 39, y: 43 },
-        { id: "access-point", label: "Access point", description: "The access point connects wireless devices to the wired network.", x: 58, y: 53 },
-        { id: "service", label: "Remote service", description: "The destination responds after the request reaches the service.", x: 82, y: 43 },
-      ],
-    },
-    preview: "labeled-graphic",
-  },
-  {
-    id: "interactive-explore-field",
-    category: "Interactive",
-    title: "Explore: Crop field",
-    description: "Inspect plants and field conditions through clickable hotspots.",
-    type: "labeledGraphic",
-    labeledGraphic: {
-      src: "",
-      alt: "Illustrated crop field with rows of plants, soil, and a plant showing stress.",
-      interactionMode: "explore",
-      sceneTheme: "agriculture",
-      markers: [
-        { id: "healthy-row", label: "Healthy row", description: "Use nearby plants as a baseline when comparing crop health.", x: 30, y: 64 },
-        { id: "stressed-plant", label: "Stressed plant", description: "Discolored leaves are a sign to inspect water, nutrients, and pests before treating.", x: 77.5, y: 58 },
-        { id: "soil", label: "Soil condition", description: "Check soil moisture and texture to understand what may be affecting the plants.", x: 54, y: 82 },
       ],
     },
     preview: "labeled-graphic",

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { editorSnapshotSchema } from "@/lib/editor/schemas";
-import { interactionButtonBlockSchema, peelToRevealBlockSchema, hangingRopeCardsBlockSchema, processStepsBlockSchema } from "@/lib/schemas/block";
+import { interactionButtonBlockSchema, peelToRevealBlockSchema, hangingRopeCardsBlockSchema, processStepsBlockSchema, timelineBlockSchema } from "@/lib/schemas/block";
 
 const { find, lean } = vi.hoisted(() => ({ find: vi.fn(), lean: vi.fn() }));
 vi.mock("@/models/Asset", () => ({ Asset: { find } }));
@@ -15,6 +15,15 @@ const lessons = () => editorSnapshotSchema.parse({ title: "Presentation", descri
 
 describe("interaction button asset ownership", () => {
   beforeEach(() => { vi.clearAllMocks(); find.mockReturnValue({ select: () => ({ lean }) }); lean.mockResolvedValue([{ _id: "asset" }]); });
+  it.each([false, true])("checks timeline asset links against the owning course, nested: %s", async (nested) => {
+    const content = lessons();
+    const timeline = timelineBlockSchema.parse({ id: "history", version: 1, type: "timeline", data: { items: [{ id: "event", label: "Today", title: "Reference", bodyHtml: `<p><a href="${url("d")}">Read the source</a></p>` }] } });
+    content[0].blocks = nested ? [interactionButtonBlockSchema.parse({ id: "popup", version: 1, type: "interactionButton", data: { popup: { blocks: [timeline] } } })] : [timeline];
+    await assertInteractionButtonAssets("owner", "course", content);
+    expect(find).toHaveBeenCalledWith({ _id: { $in: ["d".repeat(24)] }, ownerId: "owner", courseId: "course", status: "ready" });
+    lean.mockResolvedValue([]);
+    await expect(assertInteractionButtonAssets("owner", "course", content)).rejects.toThrow("media library");
+  });
   it.each([false, true])("checks step media and inline instruction links, nested in a popup: %s", async (nested) => {
     const content = lessons();
     const process = processStepsBlockSchema.parse({ id: "steps", type: "processSteps", version: 1, data: { steps: [

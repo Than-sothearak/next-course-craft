@@ -123,6 +123,8 @@ export const courseResponseSchema = {
                       "options",
                       "correctOptionIndex",
                       "steps",
+                      "timelineStyle",
+                      "timelineItems",
                       "cards",
                       "imageAlt",
                       "imagePrompt",
@@ -188,6 +190,20 @@ export const courseResponseSchema = {
                           additionalProperties: false,
                           required: ["title", "body"],
                           properties: {
+                            title: { type: "string" },
+                            body: { type: "string" },
+                          },
+                        },
+                      },
+                      timelineStyle: { type: "string", enum: ["vertical", "horizontal", "stacked"] },
+                      timelineItems: {
+                        type: "array",
+                        items: {
+                          type: "object",
+                          additionalProperties: false,
+                          required: ["label", "title", "body"],
+                          properties: {
+                            label: { type: "string", description: "Optional date or short phase label; leave empty when the source provides none." },
                             title: { type: "string" },
                             body: { type: "string" },
                           },

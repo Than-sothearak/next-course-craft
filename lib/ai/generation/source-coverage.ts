@@ -150,6 +150,7 @@ function generatedBlockSearchText(block: z.infer<typeof generatedBlockSeedSchema
     block.question,
     ...block.options,
     ...block.steps.flatMap((step) => [step.title, step.body]),
+    ...block.timelineItems.flatMap((item) => [item.label, item.title, item.body]),
     ...block.cards.flatMap((card) => [card.front, card.back]),
     block.imageTitle,
     block.imageBody,

@@ -41,6 +41,7 @@ function blockTypeLabel(block: ContentBlock) {
   if (block.type === "accordion") return block.data.layout === "tabs" ? "Tabs" : "Accordion";
   if (block.type === "labeledGraphic") return block.data.interactionMode === "spotTarget" ? "Mini-game" : "Labeled graphic";
   if (block.type === "processSteps") return "Process steps";
+  if (block.type === "timeline") return "Timeline";
   if (block.type === "balloonArcher") return "Balloon Archer";
   if (block.type === "peelToReveal") return "Peel to Reveal";
   if (block.type === "hangingRopeCards") return "Hanging Rope Cards";
@@ -77,6 +78,7 @@ function blockTitle(block: ContentBlock) {
     return front?.type === "text" ? front.text.trim() || "Flip card" : front?.alt.trim() || "Flip card";
   }
   if (block.type === "accordion") return block.data.items[0]?.title.trim() || "Reveal sections";
+  if (block.type === "timeline") return block.data.items[0]?.title.trim() || "Timeline";
   if (block.type === "labeledGraphic") {
     if (block.data.interactionMode === "spotTarget") return block.data.challengePrompt?.trim() || "Spot the clue";
     return `${block.data.markers.length} labeled marker${block.data.markers.length === 1 ? "" : "s"}`;

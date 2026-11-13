@@ -26,7 +26,7 @@ export function textHtml(
   khmer = false,
 ) {
   const parts = [
-    title.trim() ? `<h2>${escapeHtml(title.trim())}</h2>` : "",
+    title.trim() ? `<h3>${escapeHtml(title.trim())}</h3>` : "",
     body.trim()
       ? body.trim().split(/\r?\n\s*\r?\n/).map((paragraph) => `<p>${escapeHtml(paragraph.trim()).replace(/\r?\n/g, "<br />")}</p>`).join("")
       : "",
@@ -56,10 +56,11 @@ export function needsContinueAfter(
     block.chartDescription,
     ...block.bullets,
     ...block.steps.flatMap((step) => [step.title, step.body]),
+    ...block.timelineItems.flatMap((item) => [item.label, item.title, item.body]),
     ...block.cards.flatMap((card) => [card.front, card.back]),
     ...block.chartFields.map((field) => field.label),
   ].join("").length;
-  return contentLength >= 850 || block.steps.length >= 6 || block.chartFields.length >= 12;
+  return contentLength >= 850 || block.steps.length >= 6 || block.timelineItems.length >= 6 || block.chartFields.length >= 12;
 }
 
 export function continueBlock(khmer: boolean): ContentBlock {
@@ -456,7 +457,27 @@ export async function toContentBlock(
         block: blockSchema.parse({
           ...base,
           type: "processSteps",
-          data: { steps },
+          data: { style: "slider", steps },
+        }),
+        generatedImage: false,
+      };
+    }
+  }
+  if (seed.type === "timeline") {
+    const items = seed.timelineItems
+      .filter((item) => item.title.trim() || item.body.trim())
+      .map((item) => ({
+        id: randomUUID(),
+        label: item.label.trim(),
+        title: item.title.trim(),
+        body: item.body.trim(),
+      }));
+    if (items.length >= 2 && items.length <= 20) {
+      return {
+        block: blockSchema.parse({
+          ...base,
+          type: "timeline",
+          data: { style: seed.timelineStyle, items },
         }),
         generatedImage: false,
       };
@@ -604,7 +625,7 @@ export async function toContentBlock(
       };
     }
     const title = seed.title.trim()
-      ? `<h2>${escapeHtml(seed.title.trim())}</h2>`
+      ? `<h3>${escapeHtml(seed.title.trim())}</h3>`
       : "";
     const code = seed.body.trim() ? seed.body : seed.bullets.join("\n");
     return {

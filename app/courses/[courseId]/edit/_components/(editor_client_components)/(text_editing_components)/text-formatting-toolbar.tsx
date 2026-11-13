@@ -28,6 +28,7 @@ import {
   Redo2,
   RemoveFormatting,
   Strikethrough,
+  TextCursorInput,
   Superscript as SuperscriptIcon,
   Subscript as SubscriptIcon,
   Sigma,
@@ -306,6 +307,20 @@ const ListSpacingFormatting = Extension.create({
 
 const SingleElementDocument = Document.extend({ content: "block" });
 
+// Keep supporting paragraphs inside the current item, with a single marker.
+const ListItemParagraphEditing = Extension.create({
+  name: "listItemParagraphEditing",
+  priority: 1100,
+  addKeyboardShortcuts() {
+    return {
+      "Shift-Enter": () =>
+        this.editor.isActive("listItem")
+          ? this.editor.chain().splitBlock({ keepMarks: false }).unsetAllMarks().run()
+          : false,
+    };
+  },
+});
+
 const SingleElementEditing = Extension.create({
   name: "singleElementEditing",
   priority: 1100,
@@ -396,6 +411,7 @@ const sharedTextExtensions = [
   ParagraphFormatting,
   ListMarkerFormatting,
   ListSpacingFormatting,
+  ListItemParagraphEditing,
 ];
 
 function getListContext(editor: Editor) {
@@ -637,6 +653,14 @@ export function TextFormattingToolbar({
             <ListOrdered size={16} />
           </ToolbarButton>
         </>
+      )}
+      {editorFormatting?.activeListType && (
+        <ToolbarButton
+          label="Text below list title (Shift+Enter)"
+          onClick={() => editor.chain().focus().splitBlock({ keepMarks: false }).unsetAllMarks().run()}
+        >
+          <TextCursorInput size={16} />
+        </ToolbarButton>
       )}
       {editorFormatting?.activeListType && (
         <Select

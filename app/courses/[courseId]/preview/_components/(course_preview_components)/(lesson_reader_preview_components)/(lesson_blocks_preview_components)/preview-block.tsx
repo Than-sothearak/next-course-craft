@@ -17,6 +17,7 @@ import { isSlideMediaObject } from "@/lib/editor/slide-objects";
 import { SlideMediaObject } from "@/app/courses/[courseId]/_components/slide-presentation/slide-media-object";
 import { SlideGallery } from "@/app/courses/[courseId]/_components/slide-presentation/slide-gallery";
 import { GalleryCarousel } from "@/components/gallery-carousel";
+import { TimelineBlock } from "@/components/timeline-block";
 import { BalloonArcher } from "@/components/balloon-archer";
 import { PeelToReveal } from "@/components/physics-interaction/peel-to-reveal";
 import { HangingRopeCards } from "@/components/physics-interaction/hanging-rope-cards";
@@ -128,25 +129,25 @@ export function PreviewBlock({
   if (slideLayout && block.type === "audio") return <SlideMediaPlayer key={block.data.src} block={block} {...tracking} requireFullPlayback={requireFullPlayback} decorative={decorative} onDurationChange={onMediaDurationChange} onEnded={() => onInteractiveProgress?.(`${block.id}:listened`)} />;
 
   let content: ReactNode;
-  if (block.type === "heading") {
-    const compactText = device === "mobile" && orientation === "portrait";
+  if (block.type === "timeline") {
+    content = <TimelineBlock data={block.data} decorative={decorative} />;
+  } else if (block.type === "heading") {
     content = (
       <StatementTextPreview
         tag="h3"
         text={block.data.text}
         html={block.data.html}
-        className={`${compactText ? "text-2xl [&_h1]:text-3xl [&_h2]:text-2xl [&_h3]:text-xl [&_p]:text-2xl" : "text-3xl [&_h1]:text-4xl [&_h2]:text-2xl [&_h3]:text-2xl [&_p]:text-3xl"} font-semibold tracking-tight [&_h1]:my-0 [&_h2]:my-0 [&_h3]:my-0 [&_p]:my-0 [&_p]:font-semibold [&_h2]:font-bold`}
+        className="text-3xl [&_h1]:text-4xl [&_h2]:text-2xl [&_h3]:text-2xl [&_p]:text-3xl font-semibold tracking-tight [&_h1]:my-0 [&_h2]:my-0 [&_h3]:my-0 [&_p]:my-0 [&_p]:font-semibold [&_h2]:font-bold"
       />
     );
   } else if (block.type === "richText") {
-    const compactText = !slideLayout && device === "mobile" && orientation === "portrait";
     content = (
       <StatementTextPreview
         tag="p"
         text=""
         html={block.data.html}
         matchEditorSpacing={slideLayout}
-        className={slideLayout ? `prose max-w-none ${animateListItems ? "lesson-list-enter" : ""}` : `prose max-w-none ${compactText ? "text-sm leading-6" : "text-base leading-7"} [&_p]:my-3 [&_h1]:my-5 [&_h2]:my-4 [&_h3]:my-3 ${animateListItems ? "lesson-list-enter" : ""}`}
+        className={slideLayout ? `prose max-w-none ${animateListItems ? "lesson-list-enter" : ""}` : `prose max-w-none text-base leading-7 [&_p]:my-3 [&_h1]:my-5 [&_h2]:my-4 [&_h3]:my-3 ${animateListItems ? "lesson-list-enter" : ""}`}
       />
     );
   } else if (block.type === "audio") {
@@ -366,8 +367,8 @@ export function PreviewBlock({
   }
 
   return (
-    <div className="w-full" style={style}>
-      <div className={`mx-auto w-full ${widthClass} px-4`}>{content}</div>
+    <div className={`w-full ${block.type === "timeline" ? "timeline-block-surface" : ""}`} style={style}>
+      <div className={`mx-auto w-full ${widthClass} ${block.type === "timeline" ? "timeline-block-content px-4" : "px-4"}`}>{content}</div>
     </div>
   );
 }

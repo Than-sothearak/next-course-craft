@@ -41,6 +41,7 @@ export function QuizQuestionPreview({
 
   return (
     <section
+      data-quiz-question
       aria-labelledby={`quiz-question-${question.id}`}
       className={presentation ? "rounded-xl border border-slate-200 bg-white p-4 shadow-sm" : "rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7"}
     >
@@ -48,6 +49,7 @@ export function QuizQuestionPreview({
         Question {index + 1}
       </p>
       <h2
+        data-quiz-prompt
         id={`quiz-question-${question.id}`}
         className={presentation ? "mt-1 text-lg font-semibold leading-snug text-slate-900" : "mt-2 text-xl font-semibold leading-snug text-slate-900"}
       >
@@ -74,7 +76,7 @@ export function QuizQuestionPreview({
               className={`${presentation ? "rounded-lg" : "rounded-xl"} transition-colors`}
               style={selectedChoiceIds.includes(choice.id) ? { backgroundColor: "color-mix(in srgb, var(--course-primary, #2f5f9f) 9%, white)" } : undefined}
             >
-              <label className={`flex cursor-pointer items-start gap-3 text-sm ${presentation ? "px-3 py-2" : "px-4 py-3"}`}>
+              <label data-quiz-choice className={`flex cursor-pointer items-start gap-3 text-sm ${presentation ? "px-3 py-2" : "px-4 py-3"}`}>
                 <input
                   type={
                     question.selectionMode === "single" ? "radio" : "checkbox"

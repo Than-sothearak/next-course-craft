@@ -18,7 +18,7 @@ import{Dialog}from'/components/ui/dialog.tsx';import'/app/globals.css';
 const initial=()=>processStepsBlockSchema.parse({id:'steps',type:'processSteps',version:1,slideFrame:{x:5,y:5,width:90,height:90,z:1},data:{style:'timeline',steps:[{id:'one',title:'Prepare',body:'Read these instructions.'},{id:'two',title:'Review',body:'Check the result.'}]}});
 function App(){const[block,setBlock]=useState(initial),[mode,setMode]=useState('standard'),[open,setOpen]=useState(false),[theme,setTheme]=useState('#24734f');window.__steps=block;
 const slide=()=> <div style={{width:768,height:432}}><div data-slide-objects style={{position:'relative',width:960,height:540,transform:'scale(.8)',transformOrigin:'top left'}}><SlideObject block={block} courseId="course" index={0} total={1} selected area={{width:960,height:540}} onSelect={()=>{}} onFrame={()=>{}} onChange={setBlock} onEditorFocus={()=>{}}/></div></div>;
-return <main style={{padding:20,'--course-primary':theme}}><nav style={{display:'flex',gap:16,marginBottom:24}}><button onClick={()=>setMode('standard')}>Standard</button><button onClick={()=>setMode('slide')}>Slide</button><button onClick={()=>setOpen(true)}>Open popup</button><button onClick={()=>setTheme('#b45309')}>Change theme</button></nav>{mode==='standard'?<div style={{maxWidth:720,marginInline:'auto'}}><ContentBlockEditor block={block} courseId="course" onChange={setBlock}/></div>:slide()}{open&&<Dialog open title="Step popup" onClose={()=>setOpen(false)} className="max-w-4xl">{slide()}</Dialog>}</main>;}createRoot(document.getElementById('root')).render(<App/>);`;
+return <main style={{padding:20,'--course-primary':theme}}><nav style={{display:'flex',gap:16,marginBottom:24}}><button onClick={()=>setMode('standard')}>Standard</button><button onClick={()=>setMode('slide')}>Slide</button><button onClick={()=>setOpen(true)}>Open popup</button><button onClick={()=>setTheme('#b45309')}>Change theme</button><button onClick={()=>setBlock(value=>({...value,data:{...value.data,style:"slider"}}))}>Step slider</button></nav>{mode==='standard'?<div style={{maxWidth:720,marginInline:'auto'}}><ContentBlockEditor block={block} courseId="course" onChange={setBlock}/></div>:slide()}{open&&<Dialog open title="Step popup" onClose={()=>setOpen(false)} className="max-w-4xl">{slide()}</Dialog>}</main>;}createRoot(document.getElementById('root')).render(<App/>);`;
 
 const vite = await createServer({
   configFile: false, cacheDir: "node_modules/.vite-process-steps-browser", root: process.cwd(),
@@ -182,6 +182,39 @@ try {
   assert.ok(await stepRegion.evaluate((node) => node.scrollWidth <= node.clientWidth + 1), "Step content should fit a narrow viewport");
   await expect(page.getByLabel("Edit process next button label", { exact: true })).toBeVisible();
   await checkImageZoom(page, page, { keyboard: true });
+  await page.getByRole("button", { name: "Step slider", exact: true }).click();
+  await expect(stepRegion).toHaveAttribute("data-process-style", "slider");
+  await expect(stepRegion.getByRole("progressbar", { name: "Process step progress" })).toBeVisible();
+  await expect(stepRegion.getByRole("progressbar", { name: "Process step progress" })).toHaveAttribute("aria-valuenow", "50");
+  for (const width of [360, 768]) {
+    await page.setViewportSize({ width, height: 900 });
+    const card = await stepRegion.locator("article").boundingBox();
+    for (const direction of ["previous", "next"]) {
+      const arrow = await stepRegion.getByRole("button", { name: `Go to ${direction} process step`, exact: true }).boundingBox();
+      if (width <= 640) assert.ok(arrow.y >= card.y + card.height - 1, `Slider ${direction} arrow must be below the card on mobile`);
+      else assert.ok(Math.abs(arrow.y + arrow.height / 2 - card.y - card.height / 2) < 2, `Slider ${direction} arrow must be centered against the card at ${width}px`);
+      assert.ok(arrow.width >= 44 && arrow.height >= 44, "Slider arrows retain touch target sizes");
+    }
+    assert.ok(await stepRegion.evaluate(node => node.scrollWidth <= node.clientWidth + 1), "Slider card must fit narrow screens");
+  }
+  const badge = await stepRegion.locator("[data-process-slider-number]").evaluate(node => ({ fontSize: Number.parseFloat(getComputedStyle(node).fontSize), background: getComputedStyle(node).backgroundColor, theme: getComputedStyle(node).getPropertyValue("--course-primary").trim() }));
+  assert.equal(badge.fontSize, 12, "Slider step badge retains its original label size");
+  assert.notEqual(badge.background, "rgba(0, 0, 0, 0)");
+  assert.equal(badge.theme, "#b45309");
+  await expect(field().locator("em")).toHaveText("Edited inside a popup.");
+  await checkImageZoom(page, page, { keyboard: true });
+  await stepRegion.getByRole("button", { name: "Go to next process step", exact: true }).click();
+  assert.equal(await stepRegion.locator("[data-process-slide-direction]").evaluate(node => getComputedStyle(node).animationName), "process-slider-from-right");
+  await expect(stepRegion.locator("article video")).toBeVisible();
+  await expect(stepRegion.getByRole("button", { name: "Go to next process step", exact: true })).toBeDisabled();
+  await expect(stepRegion.getByRole("progressbar", { name: "Process step progress" })).toHaveAttribute("aria-valuenow", "100");
+  await stepRegion.getByRole("button", { name: "Go to previous process step", exact: true }).click();
+  assert.equal(await stepRegion.locator("[data-process-slide-direction]").evaluate(node => getComputedStyle(node).animationName), "process-slider-from-left");
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await stepRegion.getByRole("button", { name: "Go to next process step", exact: true }).click();
+  assert.equal(await stepRegion.locator("[data-process-slide-direction]").evaluate(node => getComputedStyle(node).animationName), "none");
+  await stepRegion.getByRole("button", { name: "Go to previous process step", exact: true }).click();
+  await page.emulateMedia({ reducedMotion: "no-preference" });
   assert.deepEqual(errors, []);
 
   // Exercise the compiled learner from local files, including media, with no application APIs.

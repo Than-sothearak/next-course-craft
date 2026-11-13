@@ -86,6 +86,25 @@ describe("process step authoring", () => {
     expect([...container.querySelectorAll("button")].map((button) => button.textContent)).toEqual(["Go back", "Continue learning"]);
   });
 
+  it.each(["standard", "slide", "popup"] as const)("edits slider images and formatted text in %s", async (mode) => {
+    const original = initial();
+    original.data.style = "slider";
+    await act(async () => root.render(<Authoring mode={mode} original={original} />));
+    expect(container.querySelector("[data-process-slider]")).not.toBeNull();
+    await click("Add process step 1 media");
+    await click("Select step media");
+    const body = editor("instructions");
+    act(() => body.editor.commands.setContent('<p><strong>Read the image</strong> and <a href="https://example.com/guide">guide</a>.</p>'));
+    expect(saved.data.steps[0].media).toEqual(media);
+    expect(saved.data.steps[0].bodyHtml).toContain("<strong>Read the image</strong>");
+    await click("Go to next process step");
+    expect(editor("instructions", 2).textContent).toBe("Last instructions");
+    await click("Go to previous process step");
+    expect(editor("instructions").querySelector("strong")?.textContent).toBe("Read the image");
+    expect(container.querySelector("article img")?.getAttribute("src")).toBe(media.src);
+    expect(remapCourseAssetUrls(saved, new Map([[assetId, "./media/guide.png"]])).data.steps[0].media?.src).toBe("./media/guide.png");
+  });
+
   it("adds and removes course media on the active step and retains it through static asset remapping", async () => {
     await act(async () => root.render(<Authoring />));
     await click("Add process step 1 media");

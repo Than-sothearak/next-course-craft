@@ -33,7 +33,7 @@ export function lessonDesignInstruction(input: CourseGenerationInput, pages?: So
     `LESSON DEPTH: For each full ${input.contentDepth} lesson, aim for ${profile.blocks} substantive teaching blocks and about ${profile.words} words of explanation in English, or comparable detail in the target language.`,
     `Minimum for this ${pages ? "assigned source portion" : "lesson"}: ${profile.minTeachingBlocks} distinct teaching blocks and ${profile.minExplanationCharacters} characters of explanatory learning content. Headings, Continue dividers, questions, surveys, repeated copy, and raw code do not replace explanations.`,
     "Teach a complete learning sequence: explain the goal and its relevance, introduce concepts in connected paragraphs, demonstrate a worked example with reasoning, explain a common mistake and how to avoid it, provide guided application, and close with a useful recap or transfer tip. Use multiple focused blocks rather than one short overview or a list of labels. Give accordion items, process steps, and card answers full explanations. Choose formats that fit the subject; vary them between lessons.",
-    "ACTIVITY LIMITS: The entire generated course may contain at most 2 knowledgeCheck question blocks and 1 survey block, never per lesson. These are upper limits, not targets. Do not repeat a question or confidence survey across lessons. Use flip cards, accordions/tabs, and process steps for other suitable learning activities. Dedicated Pre/Post assessment quizzes keep their separately configured question counts.",
+    "ACTIVITY LIMITS: The entire generated course may contain at most 2 knowledgeCheck question blocks and 1 survey block, never per lesson. These are upper limits, not targets. Do not repeat a question or confidence survey across lessons. Use flip cards, accordions/tabs, process steps, and timelines for other suitable learning activities. Dedicated Pre/Post assessment quizzes keep their separately configured question counts.",
     "Continue controls belong only between substantial sections with more teaching content after them. Never end a lesson with a Continue button; end with substantive learning content.",
     ...(pages ? ["Preserve every assigned source detail and exact code in order. Scale the full-lesson targets to the supplied source portion; for sparse source material, use only supported explanations and do not invent facts or add filler to meet a quota."] : []),
   ].join("\n");
@@ -46,6 +46,8 @@ function explanatoryText(block: BlockSeed) {
     case "code": return block.codeExample?.explanation ?? "";
     case "processSteps": case "accordion":
       return block.steps.map((step) => `${step.title}\n${step.body}`).join("\n");
+    case "timeline":
+      return block.timelineItems.map((item) => `${item.label}\n${item.title}\n${item.body}`).join("\n");
     case "flipCard":
       return block.cards.map((card) => `${card.front}\n${card.back}`).join("\n");
     case "image": return block.imageBody;

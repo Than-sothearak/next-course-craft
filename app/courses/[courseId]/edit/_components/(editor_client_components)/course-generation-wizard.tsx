@@ -189,12 +189,15 @@ export function CourseGenerationWizard({ open, onClose, courseId, courseTitle, c
         <Field label="Course title"><Input value={outline.title} maxLength={160} onChange={(event) => editOutline((value) => ({ ...value, title: event.target.value }))} /></Field>
         <Field label="Course description"><Textarea value={outline.description} maxLength={5_000} onChange={(event) => editOutline((value) => ({ ...value, description: event.target.value }))} /></Field>
         {outline.sections.map((section, sectionIndex) => <div key={section.id} data-outline-section-id={section.id} className="space-y-3 rounded-xl border border-slate-200 p-4">
-          {customOutline && <div role="group" aria-label={`Section actions for ${section.title}`} className="flex justify-end gap-1">
+          <div className="flex items-center justify-between gap-2">
+          <span className="text-xs text-slate-500">Section {sectionIndex + 1}</span>
+          {customOutline && <div role="group" aria-label={`Section actions for ${section.title}`} className="flex shrink-0 gap-1">
             <Button variant="ghost" size="icon" aria-label={`Move section ${section.title} up`} disabled={sectionIndex === 0} onClick={() => moveOutlineSection(section.id, -1)}><ArrowUp size={14} /></Button>
             <Button variant="ghost" size="icon" aria-label={`Move section ${section.title} down`} disabled={sectionIndex === outline.sections.length - 1} onClick={() => moveOutlineSection(section.id, 1)}><ArrowDown size={14} /></Button>
             <Button variant="ghost" size="icon" aria-label={`Remove section ${section.title}`} disabled={outline.sections.length <= 1} onClick={() => removeOutlineSection(section.id)}><Trash2 size={14} /></Button>
           </div>}
-          <Field label={`Section ${sectionIndex + 1}`}><Input value={section.title} autoFocus={section.id === newSectionId} maxLength={160} onChange={(event) => editOutline((value) => ({ ...value, sections: value.sections.map((candidate) => candidate.id === section.id ? { ...candidate, title: event.target.value } : candidate) }))} /></Field>
+          </div>
+          <Field label="Section title"><Input value={section.title} autoFocus={section.id === newSectionId} maxLength={160} onChange={(event) => editOutline((value) => ({ ...value, sections: value.sections.map((candidate) => candidate.id === section.id ? { ...candidate, title: event.target.value } : candidate) }))} /></Field>
           {section.lessons.map((lesson, index) => <div key={lesson.id} className="space-y-2 rounded-lg bg-slate-50 p-3">
             <div className="flex items-center justify-between gap-2"><span className="text-xs text-slate-500">{lesson.kind === "learn" ? `Lesson ${index + 1}` : "Template activity"}{lesson.sourceIndex !== undefined ? ` · Source group ${lesson.sourceIndex + 1}` : ""}</span>
               {lesson.kind === "learn" && <div className="flex gap-1">

@@ -44,5 +44,5 @@ export function StatementTextPreview({
     });
   }, [className, content, editor]);
 
-  return <EditorContent editor={editor} style={inheritColor ? { color: "inherit" } : undefined} className={`lesson-rich-text ${className} [&_.tiptap]:m-0 [&_.tiptap]:outline-none [&_.tiptap_*]:text-inherit ${matchEditorSpacing ? "[&_.tiptap_p]:my-2" : "[&_.tiptap_h1]:my-0 [&_.tiptap_h2]:my-0 [&_.tiptap_h3]:my-0 [&_.tiptap_p]:my-0"}`} />;
+  return <EditorContent editor={editor} data-block-text-role={tag === "h3" ? "title" : "body"} style={inheritColor ? { color: "inherit" } : undefined} className={`lesson-rich-text ${className} [&_.tiptap]:m-0 [&_.tiptap]:outline-none [&_.tiptap_*]:text-inherit ${matchEditorSpacing ? "[&_.tiptap_p]:my-2" : "[&_.tiptap_h1]:my-0 [&_.tiptap_h2]:my-0 [&_.tiptap_h3]:my-0 [&_.tiptap_p]:my-0"}`} />;
 }

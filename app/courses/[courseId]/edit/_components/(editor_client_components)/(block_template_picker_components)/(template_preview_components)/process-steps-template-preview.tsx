@@ -1,4 +1,7 @@
 import type { BlockTemplate } from "../block-template-data";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import type { CSSProperties } from "react";
 
 export function ProcessStepsTemplatePreview({
   data,
@@ -8,6 +11,19 @@ export function ProcessStepsTemplatePreview({
   const firstStep = data.steps[0];
   const style = data.style ?? "cards";
   const accent = data.accentColor ?? "var(--course-primary, #2f5f9f)";
+  if (style === "slider") return <div data-process-template-style={style} className="space-y-2 p-2.5">
+    <p className="text-center"><span className="inline-flex rounded-full px-2 py-1 text-[8px] font-semibold text-white" style={{ backgroundColor: accent }}>Step 1 of {data.steps.length}</span></p>
+    <Progress value={100 / data.steps.length} aria-hidden="true" className="h-1 [&>div]:[background:var(--process-preview-accent)]" style={{ "--process-preview-accent": accent } as CSSProperties} />
+    <div className="grid grid-cols-[16px_minmax(0,1fr)_16px] items-center gap-1">
+      <ChevronLeft size={14} className="text-slate-400" aria-hidden="true" />
+      <div className="space-y-1 rounded-lg border border-slate-200 bg-white p-2">
+        <div className="h-10 rounded bg-slate-100" aria-hidden="true" />
+        <p className="text-[10px] font-semibold text-slate-800">{firstStep?.title}</p>
+        <p className="line-clamp-2 text-[8px] leading-3 text-slate-500">{firstStep?.body}</p>
+      </div>
+      <ChevronRight size={14} style={{ color: accent }} aria-hidden="true" />
+    </div>
+  </div>;
   return (
     <div
       data-process-template-style={style}

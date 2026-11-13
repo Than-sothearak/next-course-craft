@@ -1,5 +1,27 @@
 # Delivery roadmap
 
+Requested interactive mobile typography: scrolling interactive blocks use maximum 18px titles and 14px body text on phone-sized screens, including custom inline sizes and revealed explanations. Smaller text, desktop formatting, ordinary lesson text and quiz-specific typography retain their existing behavior.
+
+Requested Timeline block: editable event labels, titles and formatted text with centered vertical, horizontal and stacked-card layouts. Three templates and shared settings support entry addition/removal/reordering, course theme inheritance and layout changes that retain content. Standard lessons, presentation slides, popup mini slides, snapshots, duplication, PDF and static HTML/SCORM reuse the existing single-app block pipeline. AI generation uses Timeline only for source-supported chronology; the block remains informational and adds no completion behavior.
+
+Requested block-picker cleanup: removed Explore: Data signals, Explore: Network path and Explore: Crop field presets. The ordinary interactive image template remains available; existing authored scene blocks retain their rendering and export support.
+
+Requested Step slider progress: a visible themed bar below the step badge tracks the current card and fills on the final step across authoring, preview and standalone learners.
+
+Requested generation default: new generated process-step activities use Step slider through the shared draft converter. Existing courses and author-selected step templates retain their styles.
+
+Requested Step slider preset: a simple process card with a theme-colored step badge with its original 12px label above, image-first content, formatted editable title/body and centered side arrows that move below the card on mobile. Next/Previous slide in from opposite directions, with reduced-motion support. It reuses existing step media, settings, templates, progress and static export paths in Standard, Presentation and popup views, without expanding other phase scope.
+
+Requested block typography refinement: accordion/tab titles and every process-step style default to 20px titles and 16px explanations across editor, preview and standalone export, preserving explicit text formatting and separate navigation labels.
+
+Requested mobile quiz refinement: Standard quiz sections use less padding, 16px questions and 12px answer/supporting text at phone widths, including framed mobile previews. Shared styling retains desktop and presentation behavior and carries into standalone exports within the existing quiz slice.
+
+Requested generation text refinement: titled explanations use one editable title-and-paragraph block. Generator instructions and shared assembly keep heading/body content together and combine adjacent matching heading/text seeds while preserving source coverage, code templates and native limits. This remains within the current generation slice and does not migrate existing courses.
+
+Requested mobile typography refinement: all scrolling learner blocks cap rendered headings/title fields at 22px and paragraphs/list text at 16px at phone widths, including authored inline font sizes and dynamically revealed explanations. For example, 72px list text renders at 16px on mobile; smaller captions retain their sizes. Desktop sizes restore on resize; presentation canvases keep their existing proportional scaling. Preview and standalone exports share the same browser-only behavior within the existing rendering slice.
+
+Requested list editing refinement: authors can add supporting text below a list title within the same bullet/number using the shared formatting toolbar or Shift+Enter; Enter creates the next item. This extends existing rich-text editing and static HTML rendering within the current application.
+
 The requested image block refinement adds Cover, Contain, and Fill settings, focal points, and frame-ratio controls to all seven image layouts and plain slide images, including crops. Existing images retain their previous appearance until edited. The same optional block fields serve authoring, thumbnails, preview, and static exports through existing validation and save paths; this does not expand other phase scope.
 
 Requested process-step editing extension: optional titles, directly editable formatted instructions with links, editable Previous/Next button labels, independent course-owned media and downloadable files per step, and theme-based defaults across all step styles. Shared image/video frame width, height, fit, and focal-point controls maintain consistent media sizing across steps and adapt to smaller screens. Legacy attachments remain compatible. It uses the existing Standard/Presentation/popup editors, ownership validation, draft history, and static learner export boundaries. Other phase scope remains unchanged.
@@ -44,7 +66,7 @@ The requested presentation text slice adds supported font families, superscript/
 
 The requested Faster Presentation Editing slice adds multi-selection, persistent flat groups, shared movement and proportional corner resizing, selection/canvas alignment, equal spacing, and group-aware lock/hide/layer controls in main and popup editors. Text/icon styles keep their authored sizes, and hidden editing layers remain complete in learner preview and exports. Bulk clipboard operations remain compatible with older payloads and preserve ownership, cover, nesting, object-count, save, and undo boundaries. Group rotation, nested groups, bulk styling, reusable templates, and narration timelines remain outside this slice.
 
-The requested flip-card presentation extension creates three cards in new main-slide and popup objects, adds direct front/back editing and a nearby card toolbar, individual duplication/deletion and pointer/touch/keyboard ordering, shared colors with per-card overrides, and responsive Auto/Custom grids with padding, gaps, alignment and radius controls. Equal cells fill the object and long text remains scrollable. Existing cards retain their content/count, learner IDs, legacy compatibility, media ownership, undo/autosave and popup Apply/Cancel. Shared rendering preserves thumbnails, preview and offline HTML/SCORM. This extends the existing presentation slice without expanding other phases.
+The requested flip-card presentation extension creates two cards in new Standard blocks, main-slide and popup objects, adds direct front/back editing and a nearby card toolbar, individual duplication/deletion and pointer/touch/keyboard ordering, shared colors with per-card overrides, and responsive Auto/Custom grids with padding, gaps, alignment and radius controls. Equal cells fill the object and long text remains scrollable. Existing cards retain their content/count, learner IDs, legacy compatibility, media ownership, undo/autosave and popup Apply/Cancel. Shared rendering preserves thumbnails, preview and offline HTML/SCORM. This extends the existing presentation slice without expanding other phases.
 
 The requested presentation media overlay extension adds independent solid/gradient overlay colors to image backgrounds, headers, and covers, plus color and opacity controls for plain image and video objects. Existing save, ownership, media replacement, thumbnail, preview, and static export paths retain these settings without adding another application or expanding other phases.
 

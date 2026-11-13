@@ -5,19 +5,36 @@ import { generatedBlockSeedSchema } from "../course-generation-schemas";
 export function splitGeneratedBlockSeeds(
   blocks: z.infer<typeof generatedBlockSeedSchema>[],
 ) {
+  const grouped: z.infer<typeof generatedBlockSeedSchema>[] = [];
+  for (const original of blocks) {
+    const block = original.type === "heading" && (original.body.trim() || original.bullets.some((bullet) => bullet.trim()))
+      ? { ...original, type: "richText" as const }
+      : original;
+    const previous = grouped.at(-1);
+    const matchingTitle = !block.title.trim() || previous?.title.trim().normalize("NFKC").toLocaleLowerCase() === block.title.trim().normalize("NFKC").toLocaleLowerCase();
+    const sourceElementIds = [...new Set([...(previous?.sourceElementIds ?? []), ...block.sourceElementIds])];
+    if (previous?.type === "heading" && ["text", "richText", "code"].includes(block.type) && matchingTitle && sourceElementIds.length <= 500) {
+      grouped[grouped.length - 1] = {
+        ...block,
+        title: previous.title,
+        sourceElementIds,
+      };
+    } else grouped.push(block);
+  }
   const normalized: z.infer<typeof generatedBlockSeedSchema>[] = [];
-  for (const block of blocks) {
+  for (const block of grouped) {
     let split: z.infer<typeof generatedBlockSeedSchema>[] = [block];
-    if (block.type === "heading" && (block.body.trim() || block.bullets.some((bullet) => bullet.trim()))) {
-      split = [
-        { ...block, body: "", bullets: [] },
-        { ...block, type: "text", title: "" },
-      ];
-    } else if (block.type === "processSteps" && block.steps.length > 20) {
+    if (block.type === "processSteps" && block.steps.length > 20) {
       split = chunkArray(block.steps, 20, 2).map((steps, index) => ({
         ...block,
         title: continuedTitle(block.title, index),
         steps,
+      }));
+    } else if (block.type === "timeline" && block.timelineItems.length > 20) {
+      split = chunkArray(block.timelineItems, 20, 2).map((timelineItems, index) => ({
+        ...block,
+        title: continuedTitle(block.title, index),
+        timelineItems,
       }));
     } else if (block.type === "accordion" && block.steps.length > 12) {
       split = chunkArray(block.steps, 12, 2).map((steps, index) => ({
@@ -53,11 +70,7 @@ export function splitGeneratedBlockSeeds(
       ];
     }
     for (const part of split.flatMap(splitLongBodyAndBullets)) {
-      const previous = normalized.at(-1);
-      const duplicateHeading = previous?.type === "heading"
-        && ["text", "richText", "code"].includes(part.type)
-        && previous.title.trim().toLocaleLowerCase() === part.title.trim().toLocaleLowerCase();
-      normalized.push(duplicateHeading ? { ...part, title: "" } : part);
+      normalized.push(part);
     }
   }
   return normalized.map((block) => generatedBlockSeedSchema.parse(block));

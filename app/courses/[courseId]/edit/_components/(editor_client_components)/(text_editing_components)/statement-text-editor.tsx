@@ -59,6 +59,13 @@ export function StatementTextEditor({
   }, [id, extensions]);
 
   useEffect(() => {
+    if (!editor) return;
+    // Event/section ordering can change the visible position while retaining
+    // this editor instance and its authored content.
+    editor.setOptions({ editorProps: { ...editor.options.editorProps, attributes: { role: "textbox", "aria-label": label, "aria-multiline": String(multiline) } } });
+  }, [editor, label, multiline]);
+
+  useEffect(() => {
     const content = html ?? `<${tag}>${escapeHtml(text)}</${tag}>`;
     if (editor && editor.getHTML() !== content) editor.commands.setContent(content, { emitUpdate: false });
   }, [editor, html, tag, text]);

@@ -119,6 +119,8 @@ export function getHandoutBlockText(block: ContentBlock): string[] {
       ]);
     case "accordion":
       return block.data.items.flatMap((item) => [item.titleHtml === undefined ? item.title : htmlToHandoutText(item.titleHtml), htmlToHandoutText(item.bodyHtml ?? item.body)]).filter(Boolean);
+    case "timeline":
+      return block.data.items.flatMap((item) => [htmlToHandoutText(item.labelHtml ?? item.label), htmlToHandoutText(item.titleHtml ?? item.title), htmlToHandoutText(item.bodyHtml ?? item.body)]).filter(Boolean);
     case "labeledGraphic":
       if (block.data.interactionMode === "spotTarget")
         return [

@@ -102,7 +102,7 @@ function FlipCardFace({ card, side, presentation, textColor }: { card: FlipCard;
       {face.type === "image" ? (
         <img src={face.src} alt={face.alt} className={`h-auto w-auto max-w-full rounded-lg object-contain ${presentation ? "min-h-0 flex-1 max-h-full" : "max-h-56"}`} />
       ) : (
-        <span style={textPaint(textColor)} className={`min-w-0 w-full max-w-full whitespace-pre-wrap break-words ${presentation ? "min-h-0 flex-1 overflow-y-auto content-center" : ""} [overflow-wrap:anywhere] ${presentation ? side === "front" ? "text-sm font-semibold @min-[30rem]/flip-cards:text-base" : "text-xs @min-[30rem]/flip-cards:text-sm" : side === "front" ? "text-lg font-semibold @min-[36rem]/flip-cards:text-xl" : "text-base @min-[36rem]/flip-cards:text-lg"}`}>
+        <span data-block-text-role={side === "front" ? "title" : "body"} style={textPaint(textColor)} className={`min-w-0 w-full max-w-full whitespace-pre-wrap break-words ${presentation ? "min-h-0 flex-1 overflow-y-auto content-center" : ""} [overflow-wrap:anywhere] ${presentation ? side === "front" ? "text-sm font-semibold @min-[30rem]/flip-cards:text-base" : "text-xs @min-[30rem]/flip-cards:text-sm" : side === "front" ? "text-lg font-semibold @min-[36rem]/flip-cards:text-xl" : "text-base @min-[36rem]/flip-cards:text-lg"}`}>
           {face.text || (side === "front" ? "Add a prompt for your learner." : "Add the answer or explanation here.")}
         </span>
       )}

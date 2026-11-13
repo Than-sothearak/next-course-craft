@@ -13,6 +13,7 @@ import { SlideObjectContent } from "@/app/courses/[courseId]/_components/slide-p
 import { hasProcessStepMedia } from "@/lib/editor/process-steps";
 import { SlideAnimatedObjectFrame } from "@/app/courses/[courseId]/_components/slide-presentation/slide-animated-object-frame";
 import { Button } from "@/components/ui/button";
+import { ResponsiveBlockText } from "@/components/responsive-block-text";
 import { getPendingInteractiveProgressIds } from "@/lib/export/progress";
 import { blockSurfaceStyle, blockWidthClass, slideObjectSurfaceStyle } from "../preview-utils";
 import type { PreviewDevice, PreviewOrientation } from "../preview-types";
@@ -25,12 +26,14 @@ function LessonBlockEntrance({
   blockDelay,
   children,
   fillHeight = false,
+  interactive = false,
 }: {
   blockId: string;
   animate: boolean;
   blockDelay: number;
   children: (entered: boolean) => ReactNode;
   fillHeight?: boolean;
+  interactive?: boolean;
 }) {
   const [inView, setInView] = useState(false);
   const reducedMotion = useReducedMotion();
@@ -41,6 +44,7 @@ function LessonBlockEntrance({
   return (
     <motion.div
       data-lesson-block-id={blockId}
+      data-interactive-block={interactive || undefined}
       className={fillHeight ? "h-full" : undefined}
       data-lesson-block-in-view={entered}
       variants={{
@@ -154,11 +158,11 @@ export function LessonBlocksPreview({
   const place = (block: ContentBlock, index: number, content: ReactNode) => {
     if (!slideLayout) return content;
     const frame = resolveSlideFrame(block, index, blocks.length, slideArea);
-    return <SlideAnimatedObjectFrame key={block.id} animation={block.slideAnimation} authoring={authoring} data-slide-object-frame data-slide-object-id={block.id} className="pointer-events-auto absolute overflow-hidden rounded-md" style={{ ...slideFrameStyle(frame), ...slideObjectSurfaceStyle(block, slideBackgroundColor, slideTextColor) }}><SlideObjectContent media={isSlideMediaObject(block) || block.type === "flipCard"} scroll={hasProcessStepMedia(block)}>{content}</SlideObjectContent></SlideAnimatedObjectFrame>;
+    return <SlideAnimatedObjectFrame key={block.id} animation={block.slideAnimation} authoring={authoring} data-slide-object-frame data-slide-object-id={block.id} className="pointer-events-auto absolute overflow-hidden rounded-md" style={{ ...slideFrameStyle(frame), ...slideObjectSurfaceStyle(block, slideBackgroundColor, slideTextColor) }}><SlideObjectContent media={isSlideMediaObject(block) || block.type === "flipCard"} scroll={hasProcessStepMedia(block) || block.type === "timeline"}>{content}</SlideObjectContent></SlideAnimatedObjectFrame>;
   };
 
   return (
-    <div className={slideLayout ? "pointer-events-none relative h-full w-full" : "mt-10 min-w-0 shrink-0"}>
+    <ResponsiveBlockText enabled={!slideLayout} className={slideLayout ? "pointer-events-none relative h-full w-full" : "mt-10 min-w-0 shrink-0"}>
       {visibleBlocks.map((block, index) => {
         const blockDelay = Math.min(
           100,
@@ -234,6 +238,7 @@ export function LessonBlocksPreview({
             // Keep the native video and its verified playback ranges across visits.
             key={slideLayout && block.type === "video" ? block.id : `${block.id}-${animate ? "active" : "inactive"}`}
             blockId={block.id}
+            interactive={["timeline", "accordion", "processSteps", "flipCard", "labeledGraphic", "lessonMap", "balloonArcher", "peelToReveal", "hangingRopeCards", "interactionButton", "knowledgeCheck", "survey"].includes(block.type)}
             fillHeight={slideLayout}
             animate={animate && !slideLayout}
             blockDelay={blockDelay}
@@ -262,6 +267,6 @@ export function LessonBlocksPreview({
           </LessonBlockEntrance>,
         );
       })}
-    </div>
+    </ResponsiveBlockText>
   );
 }

@@ -23,6 +23,10 @@ afterEach(() => {
 });
 
 describe("editable code example templates", () => {
+  it("uses a level-three heading for the block title", () => {
+    expect(renderCodeExampleHtml({ title: "Example title", code: "run()" })).toContain("<h3>Example title</h3>");
+  });
+
   it.each(codeExamplePresets)("preserves title, explanations, exact code, and $theme style through an editor round trip", (preset) => {
     const sourceCode = 'const message = "<script>មេរៀន</script>";\nconsole.log(message);\n';
     const html = renderCodeExampleHtml({

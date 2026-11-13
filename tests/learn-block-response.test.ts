@@ -19,6 +19,7 @@ const examples = {
   accordion: { steps: [{ title: "Block", body: "Uses block layout." }, { title: "Flex", body: "Uses flex layout." }], layout: "tabs", displayMode: "all" },
   labeledGraphic: { imagePrompt: "A diagram of the main axis", imageAlt: "Main axis diagram", markers: [{ label: "Main axis", description: "The direction of item flow.", x: 50, y: 50, color: "" }], markerColor: "", textColor: "", radarColor: "" },
   processSteps: { steps: [{ title: "Select", body: "Select the container." }, { title: "Apply", body: "Apply display: flex." }] },
+  timeline: { timelineStyle: "vertical", timelineItems: [{ label: "1990", title: "First event", body: "The beginning." }, { label: "2000", title: "Next event", body: "A later milestone." }] },
   chart: { title: "Sizes", chartType: "bar", chartDescription: "Source size values.", chartColor: "#4f46e5", chartFields: [{ label: "First", value: 16 }] },
 } satisfies Record<(typeof generatedBlockTypeValues)[number], object>;
 

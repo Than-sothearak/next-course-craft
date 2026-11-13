@@ -25,7 +25,7 @@ export function createSlideBlocksFromTemplate(template: BlockTemplate, id: strin
     if (block.type === "heading" || block.type === "richText") return { ...block, blockPadding: 0, slideBorderRadius: 0, slideTextLayout: { ...resolveSlideTextLayout(), paddingX: 0, paddingY: 0, fitToText: true } };
     if (block.type === "statement") return { ...block, slideTextLayout: { ...resolveSlideTextLayout(block.slideTextLayout), fitToText: true } };
     if (block.type === "audio") return { ...block, blockPadding: 0, slidePlayback: { autoPlay: false, showControls: true, ...block.slidePlayback, showFileName: false, audioSize: defaultSlideAudioSize } };
-    if (block.type === "flipCard") return { ...block, blockPadding: 0, data: { ...block.data, presentationLayout: { ...defaultFlipCardLayout }, cards: Array.from({ length: 3 }, (_, index) => ({ ...structuredClone(block.data.cards[0]), id: createClientId(), ...(index ? { front: { type: "text" as const, text: `Question ${index + 1}` }, back: { type: "text" as const, text: `Answer ${index + 1}` } } : {}) })) } };
+    if (block.type === "flipCard") return { ...block, blockPadding: 0, data: { ...block.data, presentationLayout: { ...defaultFlipCardLayout }, cards: block.data.cards.map((card) => ({ ...structuredClone(card), id: createClientId() })) } };
     return block;
   });
 }
@@ -154,6 +154,10 @@ function buildBlocksFromTemplate(
         `Process steps template "${template.id}" is missing its content.`,
       );
     return [{ ...base, type: "processSteps", data: template.processSteps }];
+  }
+  if (template.type === "timeline") {
+    if (!template.timeline) throw new Error(`Timeline template "${template.id}" is missing its content.`);
+    return [{ ...base, type: "timeline", data: { ...structuredClone(template.timeline), items: template.timeline.items.map((item) => ({ ...structuredClone(item), id: createClientId() })) } }];
   }
   if (template.type === "chart") {
     if (!template.chart)

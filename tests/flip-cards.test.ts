@@ -14,14 +14,14 @@ const sample = (): FlipCardBlock => {
 };
 
 describe("presentation flip cards", () => {
-  it("creates three unique cards only for new presentation objects", () => {
+  it("starts new standard and presentation blocks with two cards", () => {
     const block = sample(), other = sample();
-    expect(block.data.cards).toHaveLength(3);
-    expect(new Set([...block.data.cards, ...other.data.cards].map((card) => card.id)).size).toBe(6);
+    expect(block.data.cards).toHaveLength(2);
+    expect(new Set([...block.data.cards, ...other.data.cards].map((card) => card.id)).size).toBe(4);
     expect(block.blockPadding).toBe(0);
     expect(block.data.presentationLayout).toEqual(defaultFlipCardLayout);
     const standard = createBlocksFromTemplate(template, "standard")[0];
-    expect(standard.type === "flipCard" && standard.data.cards).toHaveLength(1);
+    expect(standard.type === "flipCard" && standard.data.cards).toHaveLength(2);
   });
 
   it("retains legacy cards and validates optional layout and color overrides", () => {
@@ -39,7 +39,7 @@ describe("presentation flip cards", () => {
     const block = sample(), source = block.data.cards[1];
     source.backgroundColor = "#112233";
     const next = duplicateFlipCard(block, source.id, "copy");
-    expect(next.data.cards.map((card) => card.id)).toEqual([block.data.cards[0].id, source.id, "copy", block.data.cards[2].id]);
+    expect(next.data.cards.map((card) => card.id)).toEqual([block.data.cards[0].id, source.id, "copy"]);
     expect(next.data.cards[2]).toEqual({ ...source, id: "copy" });
     expect(next.data.cards[2].front).not.toBe(source.front);
     expect(getFlipCardProgressId(block.id, "copy")).not.toBe(getFlipCardProgressId(block.id, source.id));
@@ -51,8 +51,8 @@ describe("presentation flip cards", () => {
   it("reorders without replacing card IDs and retains settings through whole-object copying", () => {
     const block = sample();
     block.data.cards[0].backgroundColor = "#112233";
-    const next = moveFlipCard(block, block.data.cards[0].id, 2);
-    expect(next.data.cards.map((card) => card.id)).toEqual([block.data.cards[1].id, block.data.cards[2].id, block.data.cards[0].id]);
+    const next = moveFlipCard(block, block.data.cards[0].id, 1);
+    expect(next.data.cards.map((card) => card.id)).toEqual([block.data.cards[1].id, block.data.cards[0].id]);
     let counter = 0;
     const [copy] = duplicateLessonBlocks([block], () => `copy-${++counter}`);
     expect(copy.type === "flipCard" && copy.data.presentationLayout).toEqual(block.data.presentationLayout);

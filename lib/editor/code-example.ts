@@ -51,7 +51,7 @@ export function renderCodeExampleHtml({ title = "", code, explanation = "", temp
 }) {
   const preset = codeExamplePresets.find((item) => item.id === template) ?? codeExamplePresets[2];
   const normalizedLanguage = normalizeCodeLanguage(language);
-  const heading = title.trim() ? `<h2>${escapeCodeHtml(title.trim())}</h2>` : "";
+  const heading = title.trim() ? `<h3>${escapeCodeHtml(title.trim())}</h3>` : "";
   const paragraphs = explanation.trim().split(/\r?\n\s*\r?\n/).filter(Boolean)
     .map((paragraph) => `<p>${escapeCodeHtml(paragraph).replace(/\r?\n/g, "<br>")}</p>`).join("");
   const snippet = `<pre data-code-theme="${preset.theme}" data-code-language="${normalizedLanguage}"><code class="language-${normalizedLanguage}">${escapeCodeHtml(code)}</code></pre>`;
