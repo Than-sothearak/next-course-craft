@@ -80,14 +80,14 @@ export function QuizAssessmentPreview({
 
   return (
     <div data-quiz-container className="mx-auto w-full min-w-0 max-w-[720px] shrink-0">
-    <div data-quiz-assessment data-presentation-quiz={presentation || undefined} className={`px-4 ${presentation ? "my-3 space-y-3" : "mt-10 mb-16 space-y-6"}`}>
+    <div data-quiz-assessment={!presentation || undefined} className={`px-4 ${presentation ? "my-3 space-y-3" : "mt-10 mb-16 space-y-6"}`}>
       {result && <Dialog open={resultDialogOpen} onClose={() => setResultDialogOpen(false)} title={result.passed ? "Congratulations!" : "Keep trying"} className="max-w-md">
         <div className="text-center">
           <span className={`mx-auto mb-4 grid size-16 place-items-center rounded-full ${result.passed ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
             {result.passed ? <Trophy size={31} aria-hidden="true" /> : <CircleAlert size={31} aria-hidden="true" />}
           </span>
           <p className="text-sm text-slate-600">{result.passed ? "You passed the quiz" : "You did not reach the passing score yet"}</p>
-          <p className={`mt-2 text-5xl font-bold tabular-nums ${result.passed ? "text-emerald-700" : "text-rose-700"}`} aria-label={`Score ${result.score} percent`}>{result.score}%</p>
+          <p data-quiz-score className={`mt-2 text-5xl font-bold tabular-nums ${result.passed ? "text-emerald-700" : "text-rose-700"}`} aria-label={`Score ${result.score} percent`}>{result.score}%</p>
           <p className="mt-3 text-sm text-slate-600">{result.correctCount} of {result.questionCount} correct · Passing score {result.passingScore}%</p>
           <div className="mt-6 flex flex-wrap justify-center gap-2">
             <Button type="button" variant="outline" onClick={() => setResultDialogOpen(false)}>Review quiz</Button>

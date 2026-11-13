@@ -52,18 +52,21 @@
 
 [data-quiz-container] { container-type: inline-size; container-name: quiz; }
 @container quiz (max-width: 640px) {
-  [data-quiz-assessment]:not([data-presentation-quiz]) {
+  [data-quiz-assessment] {
     padding-inline: 8px;
     margin-block: 16px 24px;
     font-size: 12px;
   }
-  [data-quiz-assessment]:not([data-presentation-quiz]) > * + * { margin-block-start: 12px; }
-  [data-quiz-assessment]:not([data-presentation-quiz]) [data-quiz-question] { padding: 12px; }
-  [data-quiz-assessment]:not([data-presentation-quiz]) [data-quiz-prompt] { font-size: 16px; overflow-wrap: anywhere; }
-  [data-quiz-assessment]:not([data-presentation-quiz]) fieldset { margin-block-start: 12px; }
-  [data-quiz-assessment]:not([data-presentation-quiz]) [data-quiz-choice] { padding: 8px; gap: 8px; font-size: 12px; }
-  [data-quiz-assessment]:not([data-presentation-quiz]) :is(p:not([aria-label^="Score "]), button, [role="status"]) { font-size: 12px; }
-  [data-quiz-assessment]:not([data-presentation-quiz]) [data-quiz-actions] { flex-wrap: wrap; gap: 8px; }
+  [data-quiz-assessment] > * + * { margin-block-start: 12px; }
+  [data-quiz-assessment] [data-quiz-question] { padding: 12px; }
+  [data-quiz-assessment] [data-quiz-prompt] { font-size: 16px; overflow-wrap: anywhere; }
+  [data-quiz-assessment] fieldset { margin-block-start: 12px; }
+  [data-quiz-assessment] [data-quiz-choice] { padding: 8px; gap: 8px; font-size: 12px; }
+  [data-quiz-assessment] p,
+  [data-quiz-assessment] button,
+  [data-quiz-assessment] [role="status"] { font-size: 12px; }
+  [data-quiz-assessment] [data-quiz-score] { font-size: 3rem; }
+  [data-quiz-assessment] [data-quiz-actions] { flex-wrap: wrap; gap: 8px; }
 }
 
 /* Runtime sizes include authored inline fonts and utility classes. Each node
