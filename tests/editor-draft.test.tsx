@@ -96,4 +96,43 @@ describe("editor draft persistence", () => {
     expect(initialDraft.title).toBe("Original course");
     expect(editor.hasUnsavedChanges).toBe(true);
   });
+  it("serializes generated lesson saves and preserves edits typed while they finish", async () => {
+    let finish!: (value: { editor: Draft & { revision: number } }) => void;
+    let pending!: Promise<{ editor: Draft & { revision: number } }>;
+    const generated = { ...initialDraft, lessons: [{ id: "lesson", sectionId: "section", title: "Generated lesson", lessonType: "content" as const, order: 0, quizQuestions: [], blocks: [] }] };
+    await act(async () => {
+      pending = editor.runServerMutation((revision) => { expect(revision).toBe(7); return new Promise((resolve) => { finish = resolve; }); });
+    });
+    act(() => editor.updateDraft((draft) => ({ ...draft, description: "Typed during lesson save" })));
+    await act(async () => vi.advanceTimersByTimeAsync(700));
+    expect(fetchMock).not.toHaveBeenCalled();
+    await act(async () => { finish({ editor: { ...generated, revision: 8 } }); await pending; });
+    expect(editor.draft.lessons).toHaveLength(1);
+    expect(editor.draft.description).toBe("Typed during lesson save");
+    fetchMock.mockResolvedValue(saved(9));
+    await act(async () => vi.advanceTimersByTimeAsync(700));
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({ revision: 8, description: "Typed during lesson save", lessons: generated.lessons });
+    expect(editor.hasUnsavedChanges).toBe(false);
+  });
+
+  it("recovers the database revision after a lost generation save response", async () => {
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ ...initialDraft, revision: 8, description: "Saved generated update" })));
+    await act(async () => { await expect(editor.runServerMutation(async () => { throw new Error("Response lost"); })).rejects.toThrow("Response lost"); });
+    expect(editor.draft.description).toBe("Saved generated update");
+    fetchMock.mockResolvedValueOnce(saved(9));
+    act(() => editor.updateDraft((draft) => ({ ...draft, title: "Author title" })));
+    await act(async () => vi.advanceTimersByTimeAsync(700));
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({ revision: 8, title: "Author title" });
+  });
+
+  it("waits for an in-flight generated save before navigating to another lesson", async () => {
+    let finish!: (value: { editor: Draft & { revision: number } }) => void;
+    let pending!: Promise<{ editor: Draft & { revision: number } }>;
+    await act(async () => { pending = editor.runServerMutation(() => new Promise((resolve) => { finish = resolve; })); });
+    act(() => editor.openRouteAfterSave("/courses/course/edit/standard-mode/lessons/saved-lesson"));
+    expect(navigate).not.toHaveBeenCalled();
+    await act(async () => { finish({ editor: { ...initialDraft, revision: 8 } }); await pending; });
+    expect(navigate).toHaveBeenCalledWith("/courses/course/edit/standard-mode/lessons/saved-lesson");
+  });
+
 });

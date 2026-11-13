@@ -1,0 +1,148 @@
+/** @vitest-environment jsdom */
+import { act, type ComponentProps } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { CourseGenerationWizard } from "@/app/courses/[courseId]/edit/_components/(editor_client_components)/course-generation-wizard";
+import { CourseGenerationProgress } from "@/app/courses/[courseId]/edit/_components/(editor_client_components)/course-generation-progress";
+import { courseGenerationInputSchema } from "@/lib/ai/course-generation-schemas";
+import type { GenerationSessionSnapshot } from "@/lib/ai/course-generation-session-schema";
+import { courseCoverSchema } from "@/lib/editor/course-cover";
+import { CourseOverviewEditor } from "@/app/courses/[courseId]/edit/standard-mode/_components/course-overview-editor";
+import { editorSnapshotSchema } from "@/lib/editor/schemas";
+
+const input = courseGenerationInputSchema.parse({ prompt: "Teach HTML", audience: "Students", level: "beginner", lessonCount: 5, template: "custom", includeImages: false, courseTitle: "", courseDescription: "" });
+const session: GenerationSessionSnapshot = { id: "507f1f77bcf86cd799439013", status: "outline", input, error: null, readyToSave: false, currentLessonId: "lesson-0", completedLessonIds: [], outline: { title: "HTML course", description: "Learn HTML", sections: [{ id: "learn", title: "Learn", lessons: Array.from({ length: 5 }, (_, index) => ({ id: `lesson-${index}`, title: `HTML ${index + 1}`, objective: `Explain HTML topic ${index + 1}`, kind: "learn" })) }] } };
+const editor = editorSnapshotSchema.parse({ title: "HTML course", description: "Learn HTML", revision: 2, sections: [{ id: "learn", title: "Learn", order: 0 }], lessons: [] });
+let container: HTMLDivElement, root: Root;
+const fetchMock = vi.fn();
+const onStarted = vi.fn(), onClose = vi.fn();
+const runServerMutation: ComponentProps<typeof CourseGenerationWizard>["runServerMutation"] = async (operation) => operation(1);
+const renderWizard = (savedSession: GenerationSessionSnapshot | null = null) => act(async () => root.render(<CourseGenerationWizard open onClose={onClose} courseId="course" courseTitle="" courseDescription="" existingLessonCount={0} savedSession={savedSession} runServerMutation={runServerMutation} onStarted={onStarted} />));
+const click = async (text: string) => act(async () => { const button = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes(text)); expect(button).toBeTruthy(); button!.click(); });
+const type = async (element: HTMLInputElement | HTMLTextAreaElement, value: string) => act(async () => { const prototype = element instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype; Object.getOwnPropertyDescriptor(prototype, "value")!.set!.call(element, value); element.dispatchEvent(new Event("input", { bubbles: true })); });
+beforeEach(() => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value: function (this: HTMLDialogElement) { this.open = true; } });
+  Object.defineProperty(HTMLDialogElement.prototype, "close", { configurable: true, value: function (this: HTMLDialogElement) { this.open = false; } });
+  window.localStorage.clear(); vi.clearAllMocks();
+  fetchMock.mockReset(); vi.stubGlobal("fetch", fetchMock);
+  container = document.createElement("div"); document.body.append(container); root = createRoot(container);
+});
+afterEach(() => { act(() => root.unmount()); container.remove(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+
+describe("AI course review wizard", () => {
+  it("shows all four steps and waits for approval before saving lesson drafts", async () => {
+    await renderWizard();
+    expect(container.querySelector('[aria-label="Course generation steps"]')?.textContent).toContain("1. Source material2. Course details3. Course outline4. Lesson drafts");
+    await type(container.querySelector("textarea")!, "Teach HTML");
+    await click("Continue to course details");
+    expect(fetchMock).not.toHaveBeenCalled();
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify(session)));
+    await click("Generate outline");
+    expect(container.textContent).toContain("Review and correct the outline");
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).action).toBe("plan");
+    expect(onStarted).not.toHaveBeenCalled();
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ session: { ...session, status: "generating" }, editor })));
+    await click("Approve outline and generate lessons");
+    const request = JSON.parse(fetchMock.mock.calls[1][1].body);
+    expect(request).toMatchObject({ action: "approve", revision: 1, mode: "replace", outline: session.outline });
+    expect(onStarted).toHaveBeenCalledWith(expect.objectContaining({ status: "generating" }));
+    expect(onClose).toHaveBeenCalled();
+  });
+  it("lets an author correct, reorder, remove and add lessons before approval", async () => {
+    await renderWizard(session);
+    const firstTitle = [...container.querySelectorAll("label")].find((label) => label.textContent === "Lesson title")!.querySelector("input")!;
+    await type(firstTitle, "Corrected title");
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Move Corrected title down"]')!.click());
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Remove HTML 3"]')!.click());
+    await click("Add lesson");
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ session: { ...session, status: "generating" }, editor })));
+    await click("Approve outline and generate lessons");
+    const approved = JSON.parse(fetchMock.mock.calls[0][1].body).outline.sections[0].lessons;
+    expect(approved[1].title).toBe("Corrected title");
+    expect(approved.some((lesson: { title: string }) => lesson.title === "HTML 3")).toBe(false);
+    expect(approved.at(-1).title).toBe("New lesson");
+  });
+  it("adds Custom sections and lessons and includes them in the approved outline", async () => {
+    await renderWizard(session);
+    await click("Add section");
+    const sections = container.querySelectorAll<HTMLElement>("[data-outline-section-id]");
+    expect(sections).toHaveLength(2);
+    const added = sections[1];
+    await type(added.querySelector("input")!, "Practice");
+    await type([...added.querySelectorAll("label")].find((label) => label.textContent === "Lesson title")!.querySelector("input")!, "Practice task");
+    await act(async () => [...added.querySelectorAll("button")].find((button) => button.textContent === "Add lesson")!.click());
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ session: { ...session, status: "generating" }, editor })));
+    await click("Approve outline and generate lessons");
+    const approved = JSON.parse(fetchMock.mock.calls[0][1].body).outline;
+    expect(approved.sections).toHaveLength(2);
+    expect(approved.sections[1].title).toBe("Practice");
+    expect(approved.sections[1].lessons.map((lesson: { title: string }) => lesson.title)).toEqual(["Practice task", "New lesson"]);
+    const ids = approved.sections.flatMap((section: { lessons: { id: string }[] }) => section.lessons.map((lesson) => lesson.id));
+    expect(new Set(ids).size).toBe(7);
+  });
+
+  it("previews the prepared course-card image with the editable title below it", async () => {
+    await renderWizard({ ...session, cover: courseCoverSchema.parse({ template: "image", imageSrc: "/api/assets/507f1f77bcf86cd799439014/file", titleOnly: true }) });
+    const preview = container.querySelector('[aria-label="Course card image preview"]')!;
+    expect(preview.querySelector("img")?.classList.contains("aspect-video")).toBe(true);
+    expect(preview.textContent).toBe("HTML course");
+    const title = [...container.querySelectorAll("label")].find((label) => label.textContent === "Course title")!.querySelector("input")!;
+    await type(title, "Updated course title");
+    expect(preview.textContent).toBe("Updated course title");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+  it("keeps approval available when the outline has a cover warning", async () => {
+    await renderWizard({ ...session, coverWarning: "The outline is ready, but the cover could not be generated." });
+    expect(container.textContent).toContain("cover could not be generated");
+    expect([...container.querySelectorAll("button")].find((button) => button.textContent?.includes("Approve outline"))!.disabled).toBe(false);
+  });
+  it("requires a new outline after changing course details", async () => {
+    await renderWizard(session);
+    await click("Back");
+    const title = [...container.querySelectorAll("label")].find((label) => label.textContent === "Course title (optional)")!.querySelector("input")!;
+    await type(title, "New course title");
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify(session)));
+    await click("Generate outline");
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({ action: "plan", input: { courseTitle: "New course title" } });
+  });
+});
+
+describe("saved lesson progress", () => {
+  it.each(["completed", "cancelled"] as const)("keeps the current %s run visible with a Close button", async (status) => {
+    const onClose = vi.fn();
+    const props = { session: { ...session, status: "generating" as const }, running: true, error: "", onRetry: () => {}, onCancel: () => {}, onSelectLesson: () => {}, onClose };
+    await act(async () => root.render(<CourseGenerationProgress {...props} />));
+    await act(async () => root.render(<CourseGenerationProgress {...props} session={{ ...session, status }} error="Earlier error" />));
+    expect(container.querySelector('[aria-label="Lesson draft generation"]')).not.toBeNull();
+    expect(container.textContent).not.toContain("Earlier error");
+    expect(container.textContent).not.toContain("Cancel remaining");
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Close lesson drafts"]')!.click());
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("shows only saved lessons as complete, with retry and cancellation controls", async () => {
+    const retry = vi.fn(), cancel = vi.fn();
+    await act(async () => root.render(<CourseGenerationProgress session={{ ...session, status: "generating", completedLessonIds: ["lesson-0", "lesson-1"], currentLessonId: "lesson-2" }} running={false} error="Provider unavailable" onRetry={retry} onCancel={cancel} onSelectLesson={() => {}} />));
+    expect(container.textContent).toContain("2 of 5 lessons generated and saved · 40%");
+    expect(container.querySelector('[role="progressbar"]')?.getAttribute("aria-valuenow")).toBe("40");
+    expect(container.textContent).toContain("Failed");
+    expect(container.querySelectorAll('[role="img"][aria-label="Saved"]')).toHaveLength(2);
+    expect(container.querySelector('[role="img"][aria-label="AI generation"]')).not.toBeNull();
+    await click("Retry / resume"); await click("Cancel remaining");
+    expect(retry).toHaveBeenCalledOnce(); expect(cancel).toHaveBeenCalledOnce();
+  });
+});
+
+
+describe("original course editor layout", () => {
+  it("keeps the title in the original large text field without an image banner", async () => {
+    const onTitleChange = vi.fn();
+    await act(async () => root.render(<CourseOverviewEditor title="HTML course" titleValid authorVisible description="Learn HTML" authorName="Author" primaryColor="#2f5f9f" accentColor="#ff876c" onTitleChange={onTitleChange} onAuthorVisibilityChange={() => {}} onDescriptionChange={() => {}} />));
+    const title = container.querySelector<HTMLTextAreaElement>('[aria-label="Course title"]')!;
+    expect(title.value).toBe("HTML course"); expect(title.classList.contains("text-[36px]")).toBe(true);
+    expect(container.querySelector('[data-course-cover]')).toBeNull();
+    await type(title, "Edited title");
+    expect(onTitleChange).toHaveBeenCalledWith("Edited title");
+  });
+});

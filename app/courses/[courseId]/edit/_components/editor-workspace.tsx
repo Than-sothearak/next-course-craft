@@ -1,10 +1,10 @@
 "use client";
 
-import type { CSSProperties, Dispatch, RefObject, SetStateAction } from "react";
+import type { ReactNode, CSSProperties, Dispatch, RefObject, SetStateAction } from "react";
 import { FilePlus2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Permission } from "@/lib/auth/policy";
-import type { GeneratedCourseDraft } from "@/lib/ai/course-generation-schemas";
+import type { GenerationSessionSnapshot } from "@/lib/ai/course-generation-session-schema";
 import { courseThemeFontFamilies } from "@/lib/editor/theme";
 import { CourseOutline } from "../standard-mode/_components/course-outline";
 import { BlockTemplatePicker } from "./(editor_client_components)/block-template-picker";
@@ -17,7 +17,7 @@ import { PresentationSlideWorkspace } from "../presentation-mode/_components/pre
 import { StandardLessonEditor } from "../standard-mode/_components/standard-lesson-editor";
 import { CourseOverviewEditor } from "../standard-mode/_components/course-overview-editor";
 import { CourseOverviewToolbar } from "./course-overview-toolbar";
-import { CourseGenerationDialog } from "./(editor_client_components)/course-generation-dialog";
+import { CourseGenerationWizard } from "./(editor_client_components)/course-generation-wizard";
 import { EditorSaveStatus } from "./_components/editor-save-status";
 import type { Draft } from "./_components/use-editor-draft";
 import { useEditorDraft } from "./_components/use-editor-draft";
@@ -64,13 +64,17 @@ type EditorWorkspaceProps = {
   slideSnapEnabled: boolean;
   setSlideSnapEnabled: Dispatch<SetStateAction<boolean>>;
   courseGenerationOpen: boolean;
+  onGenerate: () => void;
   setCourseGenerationOpen: Dispatch<SetStateAction<boolean>>;
   navigateBack: () => void;
   backToCourse: () => void;
   setActiveLessonId: (id: string | null) => void;
   onForward: () => void;
   openPreview: () => void;
-  applyGeneratedCourse: (course: GeneratedCourseDraft, mode: "append" | "replace") => void;
+  runServerMutation: ReturnType<typeof useEditorDraft>["runServerMutation"];
+  generationSession: GenerationSessionSnapshot | null;
+  onGenerationStarted: (session: GenerationSessionSnapshot) => void;
+  generationPanel: ReactNode;
 };
 
 export function EditorWorkspace({
@@ -109,13 +113,17 @@ export function EditorWorkspace({
   slideSnapEnabled,
   setSlideSnapEnabled,
   courseGenerationOpen,
+  onGenerate,
   setCourseGenerationOpen,
   navigateBack,
   backToCourse,
   setActiveLessonId,
   onForward,
   openPreview,
-  applyGeneratedCourse,
+  runServerMutation,
+  generationSession,
+  onGenerationStarted,
+  generationPanel,
 }: EditorWorkspaceProps) {
   const {
     openLesson,
@@ -154,6 +162,14 @@ export function EditorWorkspace({
     deleteBlock,
   } = blockOperations;
 
+  const pendingLessonIds = new Set(
+    generationSession?.status === "generating"
+      ? generationSession.outline.sections.flatMap((section) => section.lessons)
+          .filter((lesson) => !generationSession.completedLessonIds.includes(lesson.id))
+          .map((lesson) => lesson.id)
+      : [],
+  );
+
   function renderOutline() {
     return (
       <CourseOutline
@@ -161,6 +177,7 @@ export function EditorWorkspace({
         sections={draft.sections}
         lessons={draft.lessons}
         activeLessonId={activeLessonId}
+        pendingLessonIds={pendingLessonIds}
         onSelectLesson={openLesson}
         onAddSection={addSection}
         onRenameSection={renameSection}
@@ -197,9 +214,9 @@ export function EditorWorkspace({
   const isQuizLesson = activeLesson?.lessonType === "quiz";
   const isDraftSaved =
     saveState === "saved" && titleValid && !hasUnsavedChanges;
-  const publishDisabledReason = isDraftSaved
-    ? undefined
-    : "Save all course edits before publishing.";
+  const publishDisabledReason = generationSession?.status === "generating"
+    ? "Finish or cancel lesson generation before publishing."
+    : isDraftSaved ? undefined : "Save all course edits before publishing.";
   const courseStyle = {
     "--course-primary": draft.theme.primaryColor,
     "--course-accent": draft.theme.accentColor,
@@ -232,7 +249,7 @@ export function EditorWorkspace({
           onForward={() => onForward()}
           onUndo={undo}
           onRedo={redo}
-          onGenerate={() => setCourseGenerationOpen(true)}
+          onGenerate={onGenerate}
           onThemeChange={(theme) => updateDraft((current) => ({ ...current, theme }))}
           onNavigationModeChange={(navigationMode) =>
             updateDraft((current) => ({ ...current, navigationMode }))
@@ -297,6 +314,7 @@ export function EditorWorkspace({
           </div>
         )}
 
+      {generationPanel}
       <div
         style={{ fontFamily: courseThemeFontFamilies[draft.theme.fontFamily] }}
         className={`mx-auto w-full ${isPresentationWorkspace ? "min-h-0 min-w-0 max-w-none flex-1 overflow-hidden px-2 py-2 sm:px-3" : isCourseOverview ? "max-w-[880px] px-5 pb-16 pt-7 sm:px-8 sm:pt-8" : focusedLessonId ? "max-w-none pb-40" : "max-w-none px-3 py-4 sm:px-5 lg:px-8"}`}
@@ -325,6 +343,7 @@ export function EditorWorkspace({
             <SlideEditorSidebar
               constrained={isPresentationWorkspace}
               slides={slides}
+              pendingLessonIds={pendingLessonIds}
               activeId={activeLesson?.id ?? null}
               master={draft.slideMaster}
               courseTitle={draft.title}
@@ -387,7 +406,12 @@ export function EditorWorkspace({
                   }
                 />
               )}
-              {activeLesson ? (
+              {activeLesson && generationSession?.status === "generating" && generationSession.outline.sections.some((section) => section.lessons.some((lesson) => lesson.id === activeLesson.id)) && !generationSession.completedLessonIds.includes(activeLesson.id) ? (
+                <div role="status" className="rounded-xl border border-dashed border-indigo-200 bg-white p-8 text-center text-sm text-slate-600">
+                  <h2 className="font-semibold text-slate-900">Lesson draft</h2>
+                  <p className="mt-2">{generationSession.currentLessonId === activeLesson.id ? "This lesson is being generated. Its content will appear after it is saved." : "This lesson is waiting to be generated."}</p>
+                </div>
+              ) : activeLesson ? (
                 slideCourse && activeLesson.lessonType !== "quiz" ? (
                   <PresentationSlideWorkspace
                     lesson={activeLesson}
@@ -557,15 +581,17 @@ export function EditorWorkspace({
           onSelect={applyTemplate}
         />
       )}
-      <CourseGenerationDialog
+      {courseGenerationOpen && <CourseGenerationWizard
         open={courseGenerationOpen}
         onClose={() => setCourseGenerationOpen(false)}
         courseId={courseId}
         courseTitle={draft.title}
         courseDescription={draft.description}
         existingLessonCount={draft.lessons.length}
-        onApply={applyGeneratedCourse}
-      />
+        runServerMutation={runServerMutation}
+        savedSession={generationSession}
+        onStarted={onGenerationStarted}
+      />}
       {activeLesson && activeLesson.lessonType !== "quiz" && (
         <BlockManagerSidebar
           open={blockManagerOpen}

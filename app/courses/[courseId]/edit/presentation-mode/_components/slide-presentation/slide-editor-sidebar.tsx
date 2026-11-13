@@ -6,6 +6,7 @@ import { SortableContext, rectSortingStrategy, sortableKeyboardCoordinates, useS
 import { CSS } from "@dnd-kit/utilities";
 import { useReducedMotion } from "framer-motion";
 import { Copy, GripVertical, Plus, Trash2 } from "lucide-react";
+import { LessonGenerationSkeleton } from "@/components/lesson-generation-skeleton";
 import { Button } from "@/components/ui/button";
 import { SlideThumbnail, type SlideItem } from "@/app/courses/[courseId]/_components/slide-presentation/slide-navigation";
 import { slideNavigationLabel, type SlideMaster } from "@/lib/editor/slide-design";
@@ -14,6 +15,7 @@ type Props = {
   constrained?: boolean;
   slides: readonly SlideItem[];
   activeId: string | null;
+  pendingLessonIds?: ReadonlySet<string>;
   onSelect: (id: string) => void;
   onAdd: () => void;
   onAddBlank?: () => void;
@@ -38,11 +40,11 @@ function SortableSlide({ slide, index, total, activeId, onSelect, onDuplicate, o
   </div>;
 }
 
-export function SlideEditorSidebar({ constrained = false, slides, activeId, onSelect, onAdd, onAddBlank, onAddQuiz, onDuplicate, onDelete, onReorder, master, courseTitle }: Props) {
+export function SlideEditorSidebar({ constrained = false, slides, activeId, pendingLessonIds, onSelect, onAdd, onAddBlank, onAddQuiz, onDuplicate, onDelete, onReorder, master, courseTitle }: Props) {
   const dndId = `slide-thumbnails-${useId().replaceAll(":", "")}`;
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
   function reorder(event: DragEndEvent) {
-    if (event.over && event.active.id !== event.over.id && slides.some((slide) => slide.id === event.active.id) && slides.some((slide) => slide.id === event.over?.id)) onReorder?.(String(event.active.id), String(event.over.id));
+    if (!pendingLessonIds?.size && event.over && event.active.id !== event.over.id && slides.some((slide) => slide.id === event.active.id) && slides.some((slide) => slide.id === event.over?.id)) onReorder?.(String(event.active.id), String(event.over.id));
   }
   return (
     <aside aria-label="Slide thumbnails" className={`min-w-0 rounded-xl border border-slate-200 bg-slate-100 p-3 ${constrained ? "max-h-[220px] overflow-y-auto lg:h-full lg:max-h-none lg:min-h-0" : "self-start lg:sticky lg:top-[84px] lg:max-h-[calc(100dvh-100px)] lg:min-h-[340px]"} lg:overflow-y-auto`}>
@@ -50,15 +52,15 @@ export function SlideEditorSidebar({ constrained = false, slides, activeId, onSe
         <span>Slides</span><span>{slides.length}</span>
       </div>
       <DndContext id={dndId} sensors={sensors} collisionDetection={closestCenter} onDragEnd={reorder} accessibility={{ screenReaderInstructions: { draggable: "To reorder a slide, press Space or Enter on its handle, use the arrow keys to move it, and press Space or Enter to drop. Press Escape to cancel." } }}>
-        <SortableContext items={slides.map((slide) => slide.id)} strategy={rectSortingStrategy}>
+        <SortableContext items={slides.filter((slide) => !pendingLessonIds?.has(slide.id)).map((slide) => slide.id)} strategy={rectSortingStrategy}>
           <div className="flex gap-2 overflow-x-auto p-1 lg:block lg:space-y-2 lg:overflow-x-visible">
-            {slides.map((slide, index) => <SortableSlide key={slide.id} slide={slide} index={index} total={slides.length} activeId={activeId} master={master} courseTitle={courseTitle} onSelect={onSelect} onDuplicate={onDuplicate} onDelete={onDelete} reorderable={Boolean(onReorder)} />)}
+            {slides.map((slide, index) => pendingLessonIds?.has(slide.id) ? <LessonGenerationSkeleton key={slide.id} lessonId={slide.id} position={index + 1} variant="slide" /> : <SortableSlide key={slide.id} slide={slide} index={index} total={slides.length} activeId={activeId} master={master} courseTitle={courseTitle} onSelect={onSelect} onDuplicate={onDuplicate} onDelete={onDelete} reorderable={Boolean(onReorder) && !pendingLessonIds?.size} />)}
           </div>
         </SortableContext>
       </DndContext>
       {!slides.length && <p className="py-4 text-center text-xs text-slate-500">No slides yet</p>}
       {onAddBlank && <Button variant="outline" size="sm" onClick={onAddBlank} className="mt-3 w-full border-dashed"><Plus size={15} />Blank slide</Button>}
-      {onReorder && slides.length > 1 && <p className="mt-2 px-1 text-[11px] text-slate-500">Drag the handles to reorder slides.</p>}
+      {onReorder && !pendingLessonIds?.size && slides.length > 1 && <p className="mt-2 px-1 text-[11px] text-slate-500">Drag the handles to reorder slides.</p>}
       <div className={`mt-3 grid gap-2 ${onAddQuiz ? "grid-cols-2" : "grid-cols-1"}`}><Button type="button" variant="outline" size="sm" onClick={onAdd} className="border-dashed"><Plus size={15} />Add slide</Button>{onAddQuiz && <Button type="button" variant="outline" size="sm" onClick={onAddQuiz} className="border-dashed"><Plus size={15} />Quiz slide</Button>}</div>
     </aside>
   );

@@ -1,3 +1,4 @@
+import { courseCoverSchema } from "../course-cover";
 import { randomUUID } from "node:crypto";
 import mongoose, { Types } from "mongoose";
 import { Course, Lesson } from "@/models";
@@ -22,15 +23,19 @@ export function transactionUnsupported(error: unknown) {
   );
 }
 
+export type GenerationReceipt = { sessionId: string; lessonId?: string; coverImage?: string };
+
 function lessonWriteOperations(
   courseId: Types.ObjectId,
   snapshot: EditorSnapshotInput,
+  receipt?: GenerationReceipt,
 ) {
   return snapshot.lessons.map((lesson) => ({
     updateOne: {
       filter: { courseId, editorId: lesson.id },
       update: {
         $set: {
+          ...(receipt?.lessonId === lesson.id ? { generationSessionId: new Types.ObjectId(receipt.sessionId) } : {}),
           sectionId: lesson.sectionId,
           title: lesson.title,
           titleHtml: lesson.titleHtml ?? null,
@@ -60,6 +65,7 @@ async function saveWithoutTransactions(
   ownerId: string,
   courseId: string,
   snapshot: EditorSnapshotInput,
+  receipt?: GenerationReceipt,
 ) {
   const courseObjectId = new Types.ObjectId(courseId);
   const before = await Course.findOne({
@@ -69,7 +75,7 @@ async function saveWithoutTransactions(
     revision: snapshot.revision,
   })
     .select(
-      "title description descriptionHtml authorVisible theme navigationMode slideMaster sections revision __v",
+      "title description descriptionHtml authorVisible theme navigationMode slideMaster sections revision __v generationOutlineSessionId coverImage",
     )
     .lean();
   if (!before) {
@@ -100,6 +106,8 @@ async function saveWithoutTransactions(
     },
     {
       $set: {
+        ...(receipt && !receipt.lessonId ? { generationOutlineSessionId: new Types.ObjectId(receipt.sessionId) } : {}),
+        ...(receipt?.coverImage ? { coverImage: receipt.coverImage } : {}),
         title: snapshot.title,
         description: snapshot.description,
         descriptionHtml: snapshot.descriptionHtml ?? null,
@@ -124,7 +132,7 @@ async function saveWithoutTransactions(
   let beforeLessons: Awaited<ReturnType<typeof Lesson.find>> | null = null;
   try {
     beforeLessons = await Lesson.find({ courseId: courseObjectId }).lean();
-    const operations = lessonWriteOperations(courseObjectId, snapshot);
+    const operations = lessonWriteOperations(courseObjectId, snapshot, receipt);
     if (operations.length) await Lesson.bulkWrite(operations);
     await Lesson.deleteMany({
       courseId: courseObjectId,
@@ -152,6 +160,8 @@ async function saveWithoutTransactions(
         { _id: courseObjectId, ownerId, editorSaveLock: lockId },
         {
           $set: {
+            generationOutlineSessionId: before.generationOutlineSessionId ?? null,
+            coverImage: before.coverImage ?? null,
             title: before.title,
             description: before.description,
             descriptionHtml: before.descriptionHtml ?? null,
@@ -181,10 +191,13 @@ export async function saveCourseEditor(
   ownerId: string,
   courseId: string,
   snapshot: EditorSnapshotInput,
+  receipt?: GenerationReceipt,
 ) {
   ownerObjectId(ownerId);
   if (!Types.ObjectId.isValid(courseId))
     throw new DashboardError("Course not found.", 404);
+  if (receipt?.coverImage)
+    await assertCourseCoverAsset(ownerId, courseId, courseCoverSchema.parse({ template: "image", imageSrc: receipt.coverImage }));
   await assertCourseCoverAsset(ownerId, courseId, snapshot.theme.cover);
   await assertCourseAudioAssets(ownerId, courseId, snapshot.lessons);
   await assertSlideCoverAssets(ownerId, courseId, snapshot.lessons);
@@ -206,6 +219,8 @@ export async function saveCourseEditor(
           },
           {
             $set: {
+              ...(receipt && !receipt.lessonId ? { generationOutlineSessionId: new Types.ObjectId(receipt.sessionId) } : {}),
+              ...(receipt?.coverImage ? { coverImage: receipt.coverImage } : {}),
               title: snapshot.title,
               description: snapshot.description,
               descriptionHtml: snapshot.descriptionHtml ?? null,
@@ -232,7 +247,7 @@ export async function saveCourseEditor(
           );
         }
 
-        const operations = lessonWriteOperations(course._id, snapshot);
+        const operations = lessonWriteOperations(course._id, snapshot, receipt);
         if (operations.length) await Lesson.bulkWrite(operations, { session });
         await Lesson.deleteMany(
           {
@@ -252,7 +267,7 @@ export async function saveCourseEditor(
   }
 
   if (standaloneFallback)
-    return saveWithoutTransactions(ownerId, courseId, snapshot);
+    return saveWithoutTransactions(ownerId, courseId, snapshot, receipt);
   if (nextRevision === null)
     throw new Error("The course editor save did not complete.");
   return { revision: nextRevision };

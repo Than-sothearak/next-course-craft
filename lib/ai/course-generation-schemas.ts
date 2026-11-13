@@ -572,5 +572,6 @@ export type SourceGenerationJobSnapshot = {
   totalWorkUnits: number;
   errorMessage: string | null;
   learnProgress?: { completedParts: number; totalParts: number };
+  uncertainSourcePages?: number[];
   course?: GeneratedCourseDraft;
 };

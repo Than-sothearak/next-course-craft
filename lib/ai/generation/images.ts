@@ -6,7 +6,10 @@ import { defaultCourseGenerationModel } from "../course-generation-schemas";
 import { activeStorageConfiguration, deleteStoredMedia, storageProvider } from "@/lib/media/service";
 import { providerConnectionError } from "./provider";
 
-async function generateImage(prompt: string) {
+export type GeneratedImageOptions = { purpose?: "course-cover" };
+
+async function generateImage(prompt: string, options: GeneratedImageOptions) {
+  const cover = options.purpose === "course-cover";
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey)
     throw new DashboardError(
@@ -29,7 +32,8 @@ async function generateImage(prompt: string) {
           {
             type: "image_generation",
             model: process.env.OPENAI_IMAGE_MODEL || "gpt-image-2.5-sunburst",
-            size: "1024x1024",
+            size: cover ? "1280x720" : "1024x1024",
+            ...(cover ? { output_format: "jpeg", output_compression: 75 } : {}),
             quality: "low",
           },
         ],
@@ -86,19 +90,19 @@ async function generateImage(prompt: string) {
       502,
     );
   const bytes = Buffer.from(imageItem.result, "base64");
-  const pngSignature = Buffer.from([
+  const signature = cover ? Buffer.from([0xff, 0xd8, 0xff]) : Buffer.from([
     0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
   ]);
   if (
-    bytes.length < pngSignature.length ||
+    bytes.length < signature.length ||
     bytes.length > 25 * 1024 * 1024 ||
-    !bytes.subarray(0, 8).equals(pngSignature)
+    !bytes.subarray(0, signature.length).equals(signature)
   )
     throw new DashboardError(
       "The generated image did not pass file validation.",
       502,
     );
-  return bytes;
+  return { bytes, mimeType: cover ? "image/jpeg" : "image/png", extension: cover ? "jpg" : "png" };
 }
 
 let activeImageGenerationJobs = 0;
@@ -109,12 +113,13 @@ export async function createGeneratedImageAsset(
   ownerId: string,
   courseId: string,
   prompt: string,
+  options: GeneratedImageOptions = {},
 ) {
   if (activeImageGenerationJobs >= 2)
     await new Promise<void>((resolve) => imageGenerationQueue.push(resolve));
   else activeImageGenerationJobs += 1;
   try {
-    return await createGeneratedImageAssetNow(ownerId, courseId, prompt);
+    return await createGeneratedImageAssetNow(ownerId, courseId, prompt, options);
   } finally {
     const next = imageGenerationQueue.shift();
     if (next) next();
@@ -126,16 +131,17 @@ async function createGeneratedImageAssetNow(
   ownerId: string,
   courseId: string,
   prompt: string,
+  options: GeneratedImageOptions,
 ) {
-  const bytes = await generateImage(prompt);
+  const { bytes, mimeType, extension } = await generateImage(prompt, options);
   const assetId = new Types.ObjectId();
   const assetIdText = assetId.toString();
   const objectKey = `${ownerId}/${courseId}/${assetIdText}`;
   const checksum = createHash("sha256").update(bytes).digest("hex");
   const { provider, directory } = await activeStorageConfiguration();
-  const stored = { objectKey, storageKey: objectKey, storageProvider: provider, storageDirectory: directory, mimeType: "image/png", size: bytes.length };
+  const stored = { objectKey, storageKey: objectKey, storageProvider: provider, storageDirectory: directory, mimeType, size: bytes.length };
   try {
-    await storageProvider(provider, directory).upload({ key: objectKey, assetId: assetIdText, body: bytes, contentType: "image/png", size: bytes.length });
+    await storageProvider(provider, directory).upload({ key: objectKey, assetId: assetIdText, body: bytes, contentType: mimeType, size: bytes.length });
     const asset = await Asset.create({
       _id: assetId,
       ownerId,
@@ -144,12 +150,12 @@ async function createGeneratedImageAssetNow(
       storageProvider: provider,
       storageKey: objectKey,
       ...(directory ? { storageDirectory: directory } : {}),
-      originalName: `ai-generated-${assetIdText}.png`,
-      mimeType: "image/png",
+      originalName: `ai-generated-${assetIdText}.${extension}`,
+      mimeType,
       size: bytes.length,
       status: "ready",
       checksum,
-      metadata: { source: "ai-course-generation", prompt },
+      metadata: { source: "ai-course-generation", prompt, ...(options.purpose ? { purpose: options.purpose, width: 1280, height: 720 } : {}) },
     });
     return { src: `/api/assets/${asset._id}/file`, id: assetIdText };
   } catch {

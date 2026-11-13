@@ -19,6 +19,7 @@ export async function assembleCourseDraft({
   sourceInventory,
   sourcePlan,
   coverageIssuesByItem,
+  includeCourseActivities = true,
 }: {
   ownerId: string;
   courseId: string;
@@ -27,6 +28,7 @@ export async function assembleCourseDraft({
   sourceInventory?: GeneratedSourceInventory;
   sourcePlan?: SourceCoursePlan;
   coverageIssuesByItem: string[][];
+  includeCourseActivities?: boolean;
 }): Promise<GeneratedCourseDraft> {
   seed = constrainCourseActivities(seed);
   if (sourceInventory && input.includeImages)
@@ -127,7 +129,7 @@ export async function assembleCourseDraft({
       );
     }
     generatedImageCount = createdAssetIds.length;
-    if (input.template === "preLearnPost") {
+    if (includeCourseActivities && input.template === "preLearnPost") {
       const activityCourse = buildPreLearnPostActivities(
         seed,
         sections[0],
@@ -136,7 +138,7 @@ export async function assembleCourseDraft({
       );
       sections = activityCourse.sections;
       lessons = activityCourse.lessons;
-    } else {
+    } else if (includeCourseActivities) {
       const activityCourse = addCustomTemplateCourseActivities(
         seed,
         sections,

@@ -574,6 +574,11 @@ async function sourceGenerationJobSnapshot(job: {
     totalWorkUnits: job.totalWorkUnits,
     errorMessage: job.errorMessage,
   };
+  if (job.status === "awaitingPrompt") {
+    const inventory = await loadGenerationSourceInventory(job);
+    const uncertain = inventory.pages.filter((page) => page.elements.some((element) => element.uncertainContent)).map((page) => page.pageNumber);
+    if (uncertain.length) snapshot.uncertainSourcePages = uncertain;
+  }
   if (job.status === "generatingLearn" && job.learnCursor !== undefined) {
     const work = sourceLearnWorkSchema.safeParse(await generationCheckpointPayload(job, "learnWork", String(job.learnCursor).padStart(3, "0")));
     if (work.success && work.data.parts.length > 1)
@@ -631,7 +636,7 @@ async function loadGenerationInventoryBatches(job: {
   return batches;
 }
 
-async function loadGenerationSourceInventory(job: {
+export async function loadGenerationSourceInventory(job: {
   _id: Types.ObjectId;
   ownerId: Types.ObjectId;
   courseId: Types.ObjectId;

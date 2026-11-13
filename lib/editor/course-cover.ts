@@ -16,6 +16,8 @@ const imageSource = z.string().refine((value) => value === "" ||
   /^data:image\/(?:png|jpeg|webp|avif|gif);base64,[a-z\d+/=\s]+$/i.test(value), "Choose an image from the media library.");
 
 export const courseCoverSchema = z.object({
+  // Read compatibility for previously auto-applied learner covers.
+  titleOnly: z.boolean().optional(),
   template: z.enum(["gradient", "solid", "image", "waves", "geometric", "editorial"]).default("gradient"),
   backgroundColor: color.optional(),
   textColor: color.default("#ffffff"),

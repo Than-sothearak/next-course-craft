@@ -5,7 +5,8 @@ import { useMemo, useRef, useState } from "react";
 import type { EditorSnapshotInput } from "@/lib/editor/schemas";
 import { defaultCourseNavigationMode } from "@/lib/editor/navigation";
 import { useDismissDetailsOnOutsideClick } from "@/lib/ui/use-dismiss-details";
-import type { GeneratedCourseDraft } from "@/lib/ai/course-generation-schemas";
+import { CourseGenerationProgress } from "./(editor_client_components)/course-generation-progress";
+import { useCourseGenerationSession } from "./_components/use-course-generation-session";
 import { useFocusedContentBlock } from "./(editor_client_components)/use-focused-content-block";
 import type { Permission } from "@/lib/auth/policy";
 import { createClientId } from "@/lib/client-id";
@@ -99,6 +100,7 @@ export function EditorClient({
     redo,
     saveLatest,
     clearSaveError,
+    runServerMutation,
   } = useEditorDraft({
     initialDraft,
     initialRevision: initialData.revision,
@@ -117,6 +119,7 @@ export function EditorClient({
       router.push(path);
     },
   });
+  const generation = useCourseGenerationSession(initialData.courseId, runServerMutation, permissions.includes("ai.generate"));
   const [courseGenerationOpen, setCourseGenerationOpen] = useState(false);
   const activeLesson =
     draft.lessons.find((lesson) => lesson.id === activeLessonId) ?? null;
@@ -144,43 +147,6 @@ export function EditorClient({
     );
     if (window.history.length > 1 && hasSameOriginHistory) router.back();
     else router.push("/dashboard");
-  }
-
-  function applyGeneratedCourse(
-    course: GeneratedCourseDraft,
-    mode: "append" | "replace",
-  ) {
-    const append = mode === "append" && draftRef.current.lessons.length > 0;
-    updateDraft((current) => {
-      if (!append) {
-        return {
-          ...current,
-          title: course.title,
-          description: course.description,
-          descriptionHtml: undefined,
-          sections: course.sections,
-          lessons: course.lessons,
-        };
-      }
-      const sectionOffset = current.sections.length;
-      return {
-        ...current,
-        sections: [
-          ...current.sections,
-          ...course.sections.map((section, index) => ({
-            ...section,
-            order: sectionOffset + index,
-          })),
-        ],
-        lessons: [...current.lessons, ...course.lessons],
-      };
-    });
-    if (!append) {
-      titleValidRef.current = true;
-      setTitleValid(true);
-    }
-    setCourseGenerationOpen(false);
-    void saveLatest();
   }
 
   const courseOperations = useEditorCourseOperations({
@@ -251,12 +217,16 @@ export function EditorClient({
       setSlideSnapEnabled={setSlideSnapEnabled}
       courseGenerationOpen={courseGenerationOpen}
       setCourseGenerationOpen={setCourseGenerationOpen}
+      onGenerate={() => { if (generation.session?.status === "generating") generation.showProgress(); else setCourseGenerationOpen(true); }}
       navigateBack={navigateBack}
       backToCourse={backToCourse}
       setActiveLessonId={setActiveLessonId}
       onForward={() => router.forward()}
       openPreview={openPreview}
-      applyGeneratedCourse={applyGeneratedCourse}
+      runServerMutation={runServerMutation}
+      generationSession={generation.session}
+      onGenerationStarted={(session) => { generation.setSession(session); setActiveLessonId(null); }}
+      generationPanel={generation.progressVisible && <CourseGenerationProgress session={generation.session} running={generation.running} error={generation.error} onClose={generation.dismissProgress} onRetry={generation.resume} onCancel={() => void generation.cancel()} onSelectLesson={courseOperations.openLesson} />}
     />
   );
 }

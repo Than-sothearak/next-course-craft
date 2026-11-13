@@ -6,6 +6,7 @@ import { SortableContext, arrayMove, sortableKeyboardCoordinates, verticalListSo
 import { useId } from "react";
 import { BookOpen, Check, ChevronDown, ChevronUp, CirclePlay, ClipboardList, Copy, FilePlus2, FileText, FolderPlus, Lightbulb, LoaderCircle, MoreHorizontal, Plus, Trash2, X } from "lucide-react";
 import type { EditorSnapshotInput } from "@/lib/editor/schemas";
+import { LessonGenerationSkeleton } from "@/components/lesson-generation-skeleton";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { SectionTitleInput } from "./(course_outline_components)/section-title-input";
@@ -29,6 +30,7 @@ type Props = {
   sections: Section[];
   lessons: Lesson[];
   activeLessonId: string | null;
+  pendingLessonIds?: ReadonlySet<string>;
   onSelectLesson: (id: string) => void;
   onAddSection: () => void;
   onRenameSection: (id: string, title: string) => void;
@@ -96,24 +98,26 @@ export function CourseOutline(props: Props) {
     <div className="space-y-14">
       {sections.map((section, index) => {
         const lessons = props.lessons.filter((lesson) => lesson.sectionId === section.id).sort((a, b) => a.order - b.order);
+        const sectionGenerating = lessons.some((lesson) => props.pendingLessonIds?.has(lesson.id));
         return <section key={section.id} className="group/section">
           <div className="flex items-center gap-1">
             <SectionTitleInput key={`${section.id}-${section.title}`} title={section.title} onCommit={(title) => props.onRenameSection(section.id, title)} className="text-black" />
             <Button variant="ghost" size="icon" disabled={index === 0} onClick={() => props.onMoveSection(section.id, -1)} aria-label="Move section up" className="size-7 opacity-0 transition-opacity group-hover/section:opacity-100 group-focus-within/section:opacity-100"><ChevronUp size={14} /></Button>
             <Button variant="ghost" size="icon" disabled={index === sections.length - 1} onClick={() => props.onMoveSection(section.id, 1)} aria-label="Move section down" className="size-7 opacity-0 transition-opacity group-hover/section:opacity-100 group-focus-within/section:opacity-100"><ChevronDown size={14} /></Button>
-            <details className="relative opacity-0 transition-opacity group-hover/section:opacity-100 group-focus-within/section:opacity-100"><summary aria-label={`Section actions for ${section.title}`} className="grid size-7 cursor-pointer list-none place-items-center rounded-md text-slate-400 hover:bg-slate-100 [&::-webkit-details-marker]:hidden"><MoreHorizontal size={15} /></summary><div className="absolute right-0 z-20 mt-1 w-40 rounded-lg border border-slate-200 bg-white p-1 shadow-lg"><button type="button" onClick={() => props.onDuplicateSection(section.id)} className="cursor-pointer flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs hover:bg-slate-50"><Copy size={13} />Duplicate section</button><button type="button" disabled={sections.length === 1} onClick={() => props.onDeleteSection(section.id)} className="cursor-pointer flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-rose-700 hover:bg-rose-50 disabled:opacity-40"><Trash2 size={13} />Delete section</button></div></details>
+            <details className="relative opacity-0 transition-opacity group-hover/section:opacity-100 group-focus-within/section:opacity-100"><summary aria-label={`Section actions for ${section.title}`} className="grid size-7 cursor-pointer list-none place-items-center rounded-md text-slate-400 hover:bg-slate-100 [&::-webkit-details-marker]:hidden"><MoreHorizontal size={15} /></summary><div className="absolute right-0 z-20 mt-1 w-40 rounded-lg border border-slate-200 bg-white p-1 shadow-lg"><button type="button" disabled={sectionGenerating} onClick={() => props.onDuplicateSection(section.id)} className="cursor-pointer flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs hover:bg-slate-50"><Copy size={13} />Duplicate section</button><button type="button" disabled={sections.length === 1 || sectionGenerating} onClick={() => props.onDeleteSection(section.id)} className="cursor-pointer flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs text-rose-700 hover:bg-rose-50 disabled:opacity-40"><Trash2 size={13} />Delete section</button></div></details>
           </div>
           <DndContext id={`${dndPrefix}-section-${section.id}`} sensors={sensors} collisionDetection={closestCenter} onDragEnd={(event: DragEndEvent) => {
-            if (!event.over || event.active.id === event.over.id) return;
+            if (sectionGenerating || !event.over || event.active.id === event.over.id) return;
             const from = lessons.findIndex((lesson) => `lesson-${lesson.id}` === event.active.id);
             const to = lessons.findIndex((lesson) => `lesson-${lesson.id}` === event.over?.id);
             if (from >= 0 && to >= 0) props.onReorderLessons(section.id, arrayMove(lessons.map((lesson) => lesson.id), from, to));
           }}>
-            <SortableContext items={lessons.map((lesson) => `lesson-${lesson.id}`)} strategy={verticalListSortingStrategy}>
-              <div className="divide-y divide-slate-200">{lessons.map((lesson) => {
+            <SortableContext items={lessons.filter((lesson) => !props.pendingLessonIds?.has(lesson.id)).map((lesson) => `lesson-${lesson.id}`)} strategy={verticalListSortingStrategy}>
+              <div className="divide-y divide-slate-200">{lessons.map((lesson, index) => {
+                if (props.pendingLessonIds?.has(lesson.id)) return <LessonGenerationSkeleton key={lesson.id} lessonId={lesson.id} position={index + 1} />;
                 const icon = contentIcons.find((item) => item.id === (lesson.icon ?? "file")) ?? contentIcons[0];
                 const Icon = icon.Icon;
-                return <SortableItem key={lesson.id} id={`lesson-${lesson.id}`} className="group/content-row" alwaysShowHandle>
+                return <SortableItem key={lesson.id} id={`lesson-${lesson.id}`} className="group/content-row" alwaysShowHandle disabled={sectionGenerating}>
                   <div className={`flex min-h-[88px] min-w-0 flex-1 items-start gap-3 px-2 py-4 ${props.activeLessonId === lesson.id ? "bg-blue-50/50" : "bg-white"}`}>
                     <span className="mt-0.5 grid size-5 shrink-0 place-items-center text-slate-700"><Icon size={17} /></span>
                     <button type="button" onClick={() => props.onSelectLesson(lesson.id)} className="cursor-pointer min-w-0 flex-1 truncate text-left text-[15px] font-semibold text-[#171717]">{lesson.title}<span className="mt-2 block text-sm font-normal text-[#858585]">{lesson.lessonType === "quiz" ? "Quiz" : "Lesson"}</span></button>

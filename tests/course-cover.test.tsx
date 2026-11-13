@@ -29,6 +29,19 @@ describe("course cover templates", () => {
     }
   });
 
+  it("retains the original learner-cover layout for legacy title-only settings", () => {
+    const cover = courseCoverSchema.parse({ template: "image", imageSrc: "/api/assets/123456789012345678901234/file", titleOnly: true });
+    const snapshot = parseScorm12Snapshot({ ...base, theme: { ...defaultCourseTheme, cover } });
+    for (const standalone of [false, true]) {
+      const html = renderToStaticMarkup(createElement(CoursePreview, { initialData: { ...snapshot, courseId: "course" }, authorName: "Author", standalone }));
+      const start = html.indexOf('data-course-cover="image"');
+      const hero = html.slice(start, html.indexOf("</section>", start));
+      expect(hero).not.toContain("aspect-video");
+      expect(hero).toContain("text-6xl");
+      expect(hero).toContain("Start learning"); expect(hero).toContain("Author");
+    }
+  });
+
   it("uses the existing gradient for older courses and a safe fallback for an empty image cover", () => {
     expect(courseThemeSchema.parse({}).cover).toBeUndefined();
     const html = renderToStaticMarkup(<CourseCover cover={{ ...defaultCourseCover, template: "image" }} primaryColor="#2f5f9f" accentColor="#ff876c">Course title</CourseCover>);

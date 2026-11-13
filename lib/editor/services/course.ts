@@ -8,6 +8,7 @@ import {
   type ContentBlock,
 } from "@/lib/schemas/block";
 import { defaultSection, ownerObjectId } from "./shared";
+import { restoreLegacyGeneratedCourseCover } from "./course-cover";
 import { normalizeCourseTheme } from "../theme";
 import { normalizeCourseLayout } from "../course-layout";
 import { slideAppearanceSchema, slideCoverSchema, slideHeaderStyleSchema, slideMasterSchema } from "../slide-design";
@@ -55,7 +56,7 @@ export async function getCourseEditor(ownerId: string, courseId: string) {
     description: course.description,
     descriptionHtml: course.descriptionHtml ?? undefined,
     authorVisible: course.authorVisible ?? true,
-    theme: normalizeCourseTheme(course.theme),
+    theme: await restoreLegacyGeneratedCourseCover(ownerId, courseId, normalizeCourseTheme(course.theme)),
     navigationMode: normalizeCourseNavigationMode(course.navigationMode),
     courseLayout: normalizeCourseLayout(course.courseLayout),
     slideMaster,

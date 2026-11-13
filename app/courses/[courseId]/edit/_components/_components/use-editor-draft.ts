@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type RefObject } from "react";
+import { mergeServerDraft } from "@/lib/editor/merge-server-draft";
 import type { EditorSnapshotInput } from "@/lib/editor/schemas";
 
 export type Draft = Omit<EditorSnapshotInput, "revision">;
@@ -17,6 +18,7 @@ export function useEditorDraft({ initialDraft, initialRevision, courseId, titleV
   const lastSavedRef = useRef(JSON.stringify(initialDraft));
 
   const saveInFlight = useRef(false);
+  const externalSaveInFlight = useRef(false);
 
   const savePending = useRef(false);
 
@@ -60,7 +62,7 @@ export function useEditorDraft({ initialDraft, initialRevision, courseId, titleV
   function openRouteAfterSave(path: string) {
     if (
       JSON.stringify(draftRef.current) === lastSavedRef.current &&
-      !saveInFlight.current
+      !saveInFlight.current && !externalSaveInFlight.current
     ) {
       onNavigate(path);
       return;
@@ -92,7 +94,7 @@ export function useEditorDraft({ initialDraft, initialRevision, courseId, titleV
   }
 
   async function saveLatest() {
-    if (conflictRef.current || !titleValidRef.current) return;
+    if (externalSaveInFlight.current || conflictRef.current || !titleValidRef.current) return;
     if (saveInFlight.current) {
       savePending.current = true;
       return;
@@ -157,6 +159,60 @@ export function useEditorDraft({ initialDraft, initialRevision, courseId, titleV
     }
   }
 
+  function adoptServerSnapshot(base: Draft, editor: EditorSnapshotInput) {
+    const { revision, ...snapshot } = editor;
+    const server: Draft = Object.fromEntries(Object.keys(base).map((key) => [key, snapshot[key as keyof typeof snapshot]])) as Draft;
+    revisionRef.current = revision;
+    lastSavedRef.current = JSON.stringify(server);
+    const next = mergeServerDraft(base, draftRef.current, server);
+    draftRef.current = next;
+    setDraft(next);
+    setHasUnsavedChanges(JSON.stringify(next) !== lastSavedRef.current);
+    historyRef.current = [];
+    redoRef.current = [];
+    setCanUndo(false);
+    setCanRedo(false);
+  }
+
+  async function runServerMutation<T extends { editor: EditorSnapshotInput }>(operation: (revision: number) => Promise<T>): Promise<T> {
+    if (externalSaveInFlight.current) throw new Error("A course update is already being saved.");
+    await saveLatest();
+    while (saveInFlight.current) await new Promise((resolve) => window.setTimeout(resolve, 25));
+    if (conflictRef.current || !titleValidRef.current || JSON.stringify(draftRef.current) !== lastSavedRef.current)
+      throw new Error("Save your course changes before continuing generation.");
+    externalSaveInFlight.current = true;
+    const base = draftRef.current;
+    setSaveState("saving");
+    try {
+      const result = await operation(revisionRef.current);
+      adoptServerSnapshot(base, result.editor);
+      setSaveState("saved");
+      setSaveMessage("");
+      return result;
+    } catch (error) {
+      // A lost response does not mean the database write failed. Recover the
+      // saved revision before any local edits are allowed to autosave again.
+      let recovered = false;
+      try {
+        const response = await fetch(`/api/courses/${courseId}/editor`, { cache: "no-store" });
+        if (response.ok) { adoptServerSnapshot(base, await response.json() as EditorSnapshotInput); recovered = true; }
+      } catch { /* Keep local changes and require a reload if the server is unreachable. */ }
+      if (!recovered) conflictRef.current = true;
+      setSaveState(recovered ? "error" : "conflict");
+      setSaveMessage(error instanceof Error ? error.message : "The course update could not be saved.");
+      throw error;
+    } finally {
+      externalSaveInFlight.current = false;
+      if (!conflictRef.current && pendingRouteRef.current) {
+        if (JSON.stringify(draftRef.current) === lastSavedRef.current) {
+          const route = pendingRouteRef.current;
+          pendingRouteRef.current = null;
+          onNavigate(route);
+        } else window.setTimeout(() => void saveLatest(), 250);
+      }
+    }
+  }
+
   useEffect(() => {
     if (
       JSON.stringify(draft) === lastSavedRef.current ||
@@ -176,5 +232,5 @@ export function useEditorDraft({ initialDraft, initialRevision, courseId, titleV
     }
   }
 
-  return { draft, draftRef, pendingRouteRef, canUndo, canRedo, saveState, saveMessage, hasUnsavedChanges, updateDraft, openRouteAfterSave, undo, redo, saveLatest, clearSaveError };
+  return { runServerMutation, draft, draftRef, pendingRouteRef, canUndo, canRedo, saveState, saveMessage, hasUnsavedChanges, updateDraft, openRouteAfterSave, undo, redo, saveLatest, clearSaveError };
 }

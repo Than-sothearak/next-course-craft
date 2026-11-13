@@ -3,6 +3,7 @@ import { Schema, model, models } from "mongoose";
 const LessonSchema = new Schema({
   courseId: { type: Schema.Types.ObjectId, required: true, index: true },
   editorId: { type: String, maxlength: 64 },
+  generationSessionId: { type: Schema.Types.ObjectId, default: null },
   sectionId: { type: String, required: true },
   title: { type: String, default: "", trim: true, maxlength: 160 },
   titleHtml: { type: String, maxlength: 100_000 },
@@ -19,5 +20,6 @@ const LessonSchema = new Schema({
   settings: { type: Schema.Types.Mixed, default: {} },
 }, { timestamps: true, optimisticConcurrency: true });
 LessonSchema.index({ courseId: 1, sectionId: 1, order: 1 });
+LessonSchema.index({ courseId: 1, generationSessionId: 1 });
 LessonSchema.index({ courseId: 1, editorId: 1 }, { unique: true, partialFilterExpression: { editorId: { $type: "string" } } });
 export const Lesson = models.Lesson ?? model("Lesson", LessonSchema);
