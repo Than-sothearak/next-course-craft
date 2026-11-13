@@ -22,6 +22,7 @@ export function parseCourseGenerationForm(formData: FormData, hasSource: boolean
     interactivity: text("interactivity", "high"),
     postTestCount: hasActivities ? number("postTestCount", 5) : 5,
     includeImages: formData.get("includeImages") === "true",
+    generateCoverImage: formData.get("generateCoverImage") === "true",
     courseTitle: text("courseTitle"),
     courseDescription: text("courseDescription"),
     model: text("model") || undefined,

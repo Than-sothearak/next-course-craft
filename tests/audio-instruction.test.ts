@@ -14,9 +14,9 @@ const block = audioInstructionBlockSchema.parse({ id: "instructions", version: 1
 const snapshot = { title: "Instructions", description: "", revision: 0, courseLayout: "slides", sections: [{ id: "section", title: "Slides", order: 0 }], lessons: [{ id: "cover", sectionId: "section", title: "Cover", order: 0, slideCover: { template: "imageCover" }, blocks: [block] }] };
 
 describe("audio instruction blocks", () => {
-  it("creates a required audio instruction template with editable icon, text and autoplay", () => {
+  it("creates an optional audio instruction template with editable icon, text and autoplay", () => {
     const template = blockTemplates.find((item) => item.id === "media-audio-instruction")!;
-    expect(createBlocksFromTemplate(template, "new")[0]).toMatchObject({ type: "audioInstruction", blockPadding: 0, requiredForProgress: true, data: { src: "", autoPlay: false, showIcon: true, showText: true, label: "Audio instructions", color: "#f8fafc", textColor: "#334155" } });
+    expect(createBlocksFromTemplate(template, "new")[0]).toMatchObject({ type: "audioInstruction", blockPadding: 0, requiredForProgress: false, data: { src: "", autoPlay: false, showIcon: true, showText: true, label: "Audio instructions", color: "#f8fafc", textColor: "#334155" } });
   });
   it.each([{ src: "javascript:alert(1)" }, { src: "https://example.com/audio.mp3" }, { mimeType: "video/mp4" }, { autoPlay: "true" }, { showIcon: "false" }, { showText: 0 }, { color: "url(x)" }])("rejects invalid configuration: %j", (data) => {
     expect(blockSchema.safeParse({ ...block, data: { ...block.data, ...data } }).success).toBe(false);

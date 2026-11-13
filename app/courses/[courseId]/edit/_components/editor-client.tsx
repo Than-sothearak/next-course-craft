@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { CourseNavigationModeContext } from "@/lib/editor/course-navigation-context";
 import { useMemo, useRef, useState } from "react";
 import type { EditorSnapshotInput } from "@/lib/editor/schemas";
 import { defaultCourseNavigationMode } from "@/lib/editor/navigation";
@@ -120,6 +121,12 @@ export function EditorClient({
     },
   });
   const generation = useCourseGenerationSession(initialData.courseId, runServerMutation, permissions.includes("ai.generate"));
+  function requestRouteAfterSave(path: string) {
+    // Returning from a focused lesson performs a full-page navigation, which
+    // already uses the native beforeunload warning.
+    const nativeNavigation = focusedLessonId && path === editorModeHref(initialData.courseId, "standard");
+    if (nativeNavigation || generation.confirmLeave()) openRouteAfterSave(path);
+  }
   const [courseGenerationOpen, setCourseGenerationOpen] = useState(false);
   const activeLesson =
     draft.lessons.find((lesson) => lesson.id === activeLessonId) ?? null;
@@ -146,7 +153,7 @@ export function EditorClient({
       window.location.origin,
     );
     if (window.history.length > 1 && hasSameOriginHistory) router.back();
-    else router.push("/dashboard");
+    else if (generation.confirmLeave()) router.push("/dashboard");
   }
 
   const courseOperations = useEditorCourseOperations({
@@ -158,7 +165,7 @@ export function EditorClient({
     orderedSections,
     slides,
     updateDraft,
-    openRouteAfterSave,
+    openRouteAfterSave: requestRouteAfterSave,
     pendingRouteRef,
     saveLatest,
     setActiveLessonId,
@@ -176,10 +183,11 @@ export function EditorClient({
   });
 
   function backToCourse() {
-    openRouteAfterSave(editorModeHref(initialData.courseId, "standard"));
+    requestRouteAfterSave(editorModeHref(initialData.courseId, "standard"));
   }
 
   return (
+    <CourseNavigationModeContext.Provider value={draft.navigationMode}>
     <EditorWorkspace
       courseId={initialData.courseId}
       focusedLessonId={focusedLessonId}
@@ -228,5 +236,6 @@ export function EditorClient({
       onGenerationStarted={(session) => { generation.setSession(session); setActiveLessonId(null); }}
       generationPanel={generation.progressVisible && <CourseGenerationProgress session={generation.session} running={generation.running} error={generation.error} onClose={generation.dismissProgress} onRetry={generation.resume} onCancel={() => void generation.cancel()} onSelectLesson={courseOperations.openLesson} />}
     />
+    </CourseNavigationModeContext.Provider>
   );
 }

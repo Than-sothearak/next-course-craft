@@ -66,6 +66,9 @@ export function CourseNavigationSettings({
             );
           })}
         </fieldset>
+        <p className="mt-3 text-xs leading-relaxed text-slate-500">
+          Switching to Restricted makes activities and media required. Switching away makes them optional. Continue buttons and interaction buttons keep their individual settings in every mode. New buttons start required.
+        </p>
         <p className="mt-3 border-t border-slate-100 pt-3 text-[11px] text-slate-500">
           Changes save automatically and apply to course previews and exports.
         </p>

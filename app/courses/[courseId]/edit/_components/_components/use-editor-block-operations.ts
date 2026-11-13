@@ -123,6 +123,7 @@ export function useEditorBlockOperations({
       )(template, newId(), {
         sections: draft.sections,
         lessons: draft.lessons,
+        navigationMode: draft.navigationMode,
       }).map((block, offset) =>
         slideCourse
           ? {
@@ -155,6 +156,7 @@ export function useEditorBlockOperations({
         createBlocksFromTemplate(template, existing.id, {
           sections: draft.sections,
           lessons: draft.lessons,
+          navigationMode: draft.navigationMode,
         })[0];
       if (!existing || !replacement) return;
       const slideReplacement = slideCourse
@@ -185,10 +187,7 @@ export function useEditorBlockOperations({
         slideLocked: existing.slideLocked,
         slideHiddenInEditor: existing.slideHiddenInEditor,
         slideAnimation: existing.slideAnimation,
-        requiredForProgress:
-          existing.requiredForProgress ??
-          slideReplacement.requiredForProgress ??
-          true,
+        requiredForProgress: existing.requiredForProgress ?? true,
         width: existing.width,
         widthCustom: existing.widthCustom,
         backgroundColor: existing.backgroundColor,
@@ -206,6 +205,7 @@ export function useEditorBlockOperations({
     const blocks = createSlideBlocksFromTemplate(template, newId(), {
       sections: draft.sections,
       lessons: draft.lessons,
+      navigationMode: draft.navigationMode,
     });
     updateLesson(activeLesson.id, (lesson) => ({
       ...lesson,

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import type { Permission } from "@/lib/auth/policy";
 import type { GenerationSessionSnapshot } from "@/lib/ai/course-generation-session-schema";
 import { courseThemeFontFamilies } from "@/lib/editor/theme";
+import { changeCourseNavigationMode } from "@/lib/editor/progress-settings";
 import { CourseOutline } from "../standard-mode/_components/course-outline";
 import { BlockTemplatePicker } from "./(editor_client_components)/block-template-picker";
 import { BlockManagerSidebar } from "../standard-mode/_components/block-manager-sidebar";
@@ -252,7 +253,7 @@ export function EditorWorkspace({
           onGenerate={onGenerate}
           onThemeChange={(theme) => updateDraft((current) => ({ ...current, theme }))}
           onNavigationModeChange={(navigationMode) =>
-            updateDraft((current) => ({ ...current, navigationMode }))
+            updateDraft((current) => changeCourseNavigationMode(current, navigationMode))
           }
           onPreview={openPreview}
         />
@@ -276,7 +277,7 @@ export function EditorWorkspace({
           theme={draft.theme}
           onThemeChange={(theme) => updateDraft((current) => ({ ...current, theme }))}
           navigationMode={draft.navigationMode}
-          onNavigationModeChange={(navigationMode) => updateDraft((current) => ({ ...current, navigationMode }))}
+          onNavigationModeChange={(navigationMode) => updateDraft((current) => changeCourseNavigationMode(current, navigationMode))}
           canUndo={canUndo}
           canRedo={canRedo}
           onUndo={undo}

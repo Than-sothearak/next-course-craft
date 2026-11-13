@@ -13,6 +13,8 @@ import type { BlockTemplate } from "./block-template-data";
 import { resolveSlideTextLayout } from "@/lib/editor/slide-design";
 import { defaultSlideAudioSize } from "@/lib/editor/slide-audio";
 import { defaultFlipCardLayout } from "@/lib/editor/flip-cards";
+import type { CourseNavigationMode } from "@/lib/editor/navigation";
+import { initializeBlockProgress } from "@/lib/editor/progress-settings";
 
 /** Slide insertion defaults stay separate from the normal lesson templates. */
 export function createSlideBlocksFromTemplate(template: BlockTemplate, id: string, courseTargets?: Parameters<typeof createBlocksFromTemplate>[2]): ContentBlock[] {
@@ -39,18 +41,24 @@ function commonBlock(id: string, type: ContentBlock["type"]) {
   };
 }
 
-export function createBlocksFromTemplate(
+export function createBlocksFromTemplate(...args: Parameters<typeof buildBlocksFromTemplate>): ContentBlock[] {
+  return initializeBlockProgress(buildBlocksFromTemplate(...args), args[2]?.navigationMode ?? "sequential");
+}
+
+function buildBlocksFromTemplate(
   template: BlockTemplate,
   id: string,
   courseTargets?: {
     sections: { id: string; title: string; order: number }[];
     lessons: { id: string; title: string; sectionId: string; order: number }[];
+    navigationMode?: CourseNavigationMode;
   },
 ): ContentBlock[] {
   const isLineDivider =
     template.type === "divider" && (template.dividerStyle ?? "line") === "line";
   const base = {
     ...commonBlock(id, template.type),
+    requiredForProgress: template.type === "interactionButton" || (template.type === "divider" && template.dividerStyle === "continue") || courseTargets?.navigationMode === "restricted",
     ...(isLineDivider ? { width: "full" as const, blockPadding: 60 } : {}),
     ...(template.type === "image" && template.imageLayout === "cover"
       ? { width: "full" as const, blockPadding: 0 }

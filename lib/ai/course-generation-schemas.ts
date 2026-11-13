@@ -104,6 +104,7 @@ export const courseGenerationInputSchema = z.object({
   interactivity: z.enum(["low", "medium", "high"]).default("high"),
   postTestCount: z.number().int().min(1).max(20).default(5),
   includeImages: z.boolean(),
+  generateCoverImage: z.boolean().default(false),
   courseTitle: z.string().max(160),
   courseDescription: z.string().max(5_000),
   model: courseGenerationModelSchema.optional(),

@@ -3,6 +3,8 @@ import { act, useEffect } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useEditorDraft, type Draft } from "@/app/courses/[courseId]/edit/_components/_components/use-editor-draft";
+import { changeCourseNavigationMode } from "@/lib/editor/progress-settings";
+import { blockSchema } from "@/lib/schemas/block";
 
 const initialDraft: Draft = {
   title: "Original course", description: "", authorVisible: true,
@@ -33,6 +35,20 @@ beforeEach(() => {
 afterEach(() => { act(() => root.unmount()); container.remove(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 describe("editor draft persistence", () => {
+  it("changes navigation and all block requirements in one undoable autosave", async () => {
+    const block = blockSchema.parse({ id: "check", version: 1, type: "knowledgeCheck", requiredForProgress: false, data: { question: "Ready?", options: ["Yes", "No"] } });
+    fetchMock.mockResolvedValue(saved(8));
+    act(() => editor.updateDraft((draft) => ({ ...draft, lessons: [{ id: "lesson", sectionId: "section", title: "Lesson", order: 0, lessonType: "content", quizQuestions: [], blocks: [block] }] })));
+    act(() => editor.updateDraft((draft) => changeCourseNavigationMode(draft, "restricted")));
+    expect(editor.draft.lessons[0].blocks[0].requiredForProgress).toBe(true);
+    act(() => editor.undo());
+    expect(editor.draft.navigationMode).toBe("sequential");
+    expect(editor.draft.lessons[0].blocks[0].requiredForProgress).toBe(false);
+    act(() => editor.redo());
+    await act(async () => vi.advanceTimersByTimeAsync(700));
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({ navigationMode: "restricted", lessons: [{ blocks: [{ requiredForProgress: true }] }] });
+  });
   it("serializes overlapping edits and saves the latest draft with the returned revision", async () => {
     let finish!: (response: Response) => void;
     fetchMock.mockImplementationOnce(() => new Promise<Response>((resolve) => { finish = resolve; })).mockResolvedValueOnce(saved(9));

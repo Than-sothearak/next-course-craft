@@ -53,4 +53,6 @@ export type GenerationSessionSnapshot = {
   currentLessonId: string | null;
   error: string | null;
   readyToSave: boolean;
+  // Response-only coordination metadata; never a saved-lesson receipt.
+  lease?: { locked: boolean; retryAfterMs: number };
 };

@@ -15,6 +15,7 @@ import { generationCheckpointPayload, saveGenerationCheckpoint } from "./generat
 import { loadGenerationSourceInventory } from "./source-generation-workflow";
 import { planGenerationSession } from "./session-planning";
 import { prepareSessionLesson } from "./session-lesson";
+import { initializeBlockProgress } from "@/lib/editor/progress-settings";
 import type { SourceCoursePlan } from "./types";
 
 type Scope = { ownerId: string; courseId: string };
@@ -63,11 +64,13 @@ export async function planSession(scope: Scope, input: CourseGenerationInput, so
   const inventory = sourceJobId ? await inventoryFor(scope, sourceJobId) : undefined;
   const plan = await planGenerationSession(input, modelFor(input), inventory);
   const session = await CourseGenerationSession.create({ ...scope, input, ...plan, sourceJobId, expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1_000) });
-  try {
-    const cover = await prepareOutlineCover(scope.ownerId, scope.courseId, plan.outline);
-    await CourseGenerationSession.updateOne({ _id: session._id, ...scope }, { $set: cover });
-  } catch (error) {
-    await CourseGenerationSession.updateOne({ _id: session._id, ...scope }, { $set: { coverWarning: `The outline is ready, but its cover image could not be prepared. ${error instanceof DashboardError ? error.message : "You can add a cover later."}`.slice(0, 1_000) } });
+  if (input.generateCoverImage) {
+    try {
+      const cover = await prepareOutlineCover(scope.ownerId, scope.courseId, plan.outline);
+      await CourseGenerationSession.updateOne({ _id: session._id, ...scope }, { $set: cover });
+    } catch (error) {
+      await CourseGenerationSession.updateOne({ _id: session._id, ...scope }, { $set: { coverWarning: `The outline is ready, but its cover image could not be prepared. ${error instanceof DashboardError ? error.message : "You can add a cover later."}`.slice(0, 1_000) } });
+    }
   }
   return getSession(scope, String(session._id));
 }
@@ -81,16 +84,17 @@ export async function approveSession(scope: Scope, sessionId: string, outline: C
   const approved = courseOutlineSchema.parse(outline);
   const originalLessons = original.sections.flatMap((section) => section.lessons);
   const approvedLessons = approved.sections.flatMap((section) => section.lessons);
-  // Source ranges and template activity identities cannot be changed by client data.
-  const protectedLessons = originalLessons.filter((lesson) => lesson.sourceIndex !== undefined || lesson.kind !== "learn");
+  // Kept source lessons retain their ranges. Template activities remain required.
+  // Custom outlines can intentionally remove source groups during review.
+  const protectedLessons = originalLessons.filter((lesson) => lesson.kind !== "learn" || (input.template === "preLearnPost" && lesson.sourceIndex !== undefined));
   for (const lesson of protectedLessons) {
     const next = approvedLessons.find((candidate) => candidate.id === lesson.id);
     if (!next || next.kind !== lesson.kind || next.sourceIndex !== lesson.sourceIndex)
       throw new DashboardError("Keep all source lessons and template activities in the outline.", 400);
   }
-  const protectedIds = new Set(protectedLessons.map((lesson) => lesson.id));
-  if (approvedLessons.filter((lesson) => protectedIds.has(lesson.id)).map((lesson) => lesson.id).join() !== protectedLessons.map((lesson) => lesson.id).join())
-    throw new DashboardError("Keep source lessons and template activities in their original order.", 400);
+  const protectedIds = new Set(protectedLessons.filter((lesson) => lesson.kind !== "learn").map((lesson) => lesson.id));
+  if (approvedLessons.filter((lesson) => protectedIds.has(lesson.id)).map((lesson) => lesson.id).join() !== protectedLessons.filter((lesson) => lesson.kind !== "learn").map((lesson) => lesson.id).join())
+    throw new DashboardError("Keep template activities in their original order.", 400);
   if (input.template === "preLearnPost") {
     const [pre, learn, post] = approved.sections;
     if (approved.sections.length !== 3
@@ -108,7 +112,7 @@ export async function approveSession(scope: Scope, sessionId: string, outline: C
   if (current.revision !== revision) throw new DashboardError("Save or reload your course before approving the outline.", 409);
   const course = await Course.findOne({ _id: scope.courseId, ownerId: scope.ownerId, deletedAt: null }).select("coverImage").lean();
   const cover = courseCoverSchema.safeParse(session.cover);
-  const applyCover = Boolean(session.generatedCover && cover.success && cover.data.imageSrc && !course?.coverImage);
+  const applyCover = Boolean(input.generateCoverImage && session.generatedCover && cover.success && cover.data.imageSrc && !course?.coverImage);
   const generatedCover = applyCover && cover.success ? cover.data : undefined;
   const append = mode === "append";
   const sections = approved.sections.map((section, index) => ({ id: section.id, title: section.title, order: (append ? current.sections.length : 0) + index }));
@@ -157,7 +161,7 @@ export async function commitNextLesson(scope: Scope, sessionId: string, revision
   const placeholder = current.lessons.find((candidate) => candidate.id === lesson.id);
   if (!placeholder || placeholder.blocks.length || placeholder.quizQuestions.length)
     throw new DashboardError("The pending lesson was changed or removed. Your edits were preserved. Restore its empty draft before retrying.", 409);
-  const snapshot = editorSnapshotSchema.parse({ ...current, lessons: current.lessons.map((candidate) => candidate.id === lesson.id ? { ...candidate, blocks: lesson.blocks, quizQuestions: lesson.quizQuestions, lessonType: lesson.lessonType, passingScore: lesson.passingScore } : candidate) });
+  const snapshot = editorSnapshotSchema.parse({ ...current, lessons: current.lessons.map((candidate) => candidate.id === lesson.id ? { ...candidate, blocks: initializeBlockProgress(lesson.blocks, current.navigationMode), quizQuestions: lesson.quizQuestions, lessonType: lesson.lessonType, passingScore: lesson.passingScore } : candidate) });
   await saveCourseEditor(scope.ownerId, scope.courseId, snapshot, { sessionId, lessonId: lesson.id });
   await CourseGenerationSession.updateOne({ _id: session._id, ...scope }, { $set: { error: null } });
   return { session: await getSession(scope, sessionId), editor: await getCourseEditor(scope.ownerId, scope.courseId) };

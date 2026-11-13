@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useContext, useRef, useState } from "react";
+import { CourseNavigationModeContext } from "@/lib/editor/course-navigation-context";
 import type { Editor } from "@tiptap/react";
 import { Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ import { SlideCanvasMediaReplace } from "./slide-canvas-media-replace";
 type Popup = Extract<ContentBlock, { type: "interactionButton" }>["data"]["popup"];
 export type PopupTargets = { sections: { id: string; title: string; order: number }[]; lessons: { id: string; title: string; sectionId: string; order: number; lessonType?: "content" | "quiz" }[] };
 export function InteractionPopupEditor({ popup, courseId, sections, lessons, onApply, onClose }: PopupTargets & { popup: Popup; courseId: string; onApply: (popup: Popup) => void; onClose: () => void }) {
+  const navigationMode = useContext(CourseNavigationModeContext);
   const [draft, setDraft] = useState(() => structuredClone(popup));
   const [focused, setFocused] = useState<{ id: string; editor: Editor } | null>(null);
   const [picker, setPicker] = useState<{ template: BlockTemplate; replace?: ContentBlock } | null>(null);
@@ -73,7 +75,7 @@ export function InteractionPopupEditor({ popup, courseId, sections, lessons, onA
     if (!replacing && draft.blocks.length >= 20) { setError("A popup can contain up to 20 objects."); return; }
     if (!asset && replacing?.type !== template.type && ["image", "video", "audio"].includes(template.type)) { setPicker({ template, replace: replacing }); setTemplates(null); return; }
     const id = replacing?.id ?? createClientId();
-    const created = createSlideBlocksFromTemplate(template, id, { sections, lessons }).map((block, offset) => {
+    const created = createSlideBlocksFromTemplate(template, id, { sections, lessons, navigationMode }).map((block, offset) => {
       let next: ContentBlock = { ...block, slideGroupId: replacing?.slideGroupId, slideLocked: replacing?.slideLocked, slideHiddenInEditor: replacing?.slideHiddenInEditor, slideAnimation: replacing?.slideAnimation, blockPadding: Math.min(block.blockPadding, 12), slideFrame: replacing?.slideFrame ?? defaultSlideFrame(draft.blocks.length + offset, block.type) };
       if (!asset && replacing?.type === "image" && next.type === "image") next = { ...next, slideMedia: replacing.slideMedia, slideCrop: replacing.slideCrop, data: { ...next.data, src: replacing.data.src, alt: replacing.data.alt } };
       if (!asset && replacing?.type === "video" && next.type === "video") next = { ...next, slideMedia: replacing.slideMedia, slideCrop: replacing.slideCrop, data: { ...next.data, ...replacing.data } };
@@ -81,7 +83,7 @@ export function InteractionPopupEditor({ popup, courseId, sections, lessons, onA
       if (asset && next.type === "image") next = { ...next, data: { ...next.data, src: asset.fileUrl, alt: asset.originalName } };
       if (asset && next.type === "video") next = { ...next, data: { ...next.data, src: asset.fileUrl, mimeType: asset.contentType as "video/mp4" | "video/webm" } };
       if (asset && next.type === "audio") next = { ...next, data: { ...next.data, src: asset.fileUrl, fileName: asset.originalName, mimeType: asset.contentType as "audio/mpeg" } };
-      return next;
+      return replacing ? { ...next, requiredForProgress: replacing.requiredForProgress ?? true } : next;
     });
     const parsed = blockSchema.array().safeParse(created);
     if (!parsed.success) { setError("Choose a supported image, MP4/WebM video, or audio file."); return; }

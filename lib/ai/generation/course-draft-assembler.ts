@@ -10,6 +10,7 @@ import { addSourceVisualBlocks, buildSourceCoverageReport } from "./source-cover
 import { splitGeneratedBlockSeeds } from "./block-seeds";
 import { toContentBlock, needsContinueAfter, continueBlock, buildPreLearnPostActivities, addCustomTemplateCourseActivities, removeTrailingContinueBlocks } from "./block-content";
 import { constrainCourseActivities } from "./lesson-design";
+import { initializeBlockProgress } from "@/lib/editor/progress-settings";
 
 export async function assembleCourseDraft({
   ownerId,
@@ -185,7 +186,7 @@ export async function assembleCourseDraft({
     title: seed.title,
     description: seed.description,
     sections,
-    lessons,
+    lessons: lessons.map((lesson) => ({ ...lesson, blocks: initializeBlockProgress(lesson.blocks, "sequential") })),
     template: input.template,
     learningLessonCount:
       input.template === "preLearnPost"

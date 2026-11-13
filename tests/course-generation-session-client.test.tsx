@@ -16,9 +16,125 @@ const mutation: ComponentProps<typeof CourseGenerationWizard>["runServerMutation
 let hook: ReturnType<typeof useCourseGenerationSession>, root: Root, container: HTMLDivElement;
 function Harness() { const value = useCourseGenerationSession("course", mutation); useEffect(() => { hook = value; }); return null; }
 beforeEach(() => { window.localStorage.clear(); vi.clearAllMocks(); vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true); vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(editor)))); container = document.createElement("div"); document.body.append(container); root = createRoot(container); });
-afterEach(() => { act(() => root.unmount()); container.remove(); vi.unstubAllGlobals(); });
+afterEach(() => { act(() => root.unmount()); container.remove(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 describe("lesson generation coordinator", () => {
+  const busy = { ...state, completedLessonIds: ["lesson-0"], currentLessonId: "lesson-1", lease: { locked: true, retryAfterMs: 2_000 } };
+  const completed = { ...state, status: "completed" as const, completedLessonIds: ["lesson-0", "lesson-1"], currentLessonId: null };
+  it("polls a restored active lock without submitting generation, then saves its checkpoint when the lock is free", async () => {
+    vi.useFakeTimers();
+    let latest = busy;
+    const actions: string[] = [];
+    vi.mocked(sessionRequest).mockImplementation(async (_courseId, body) => {
+      if (!body) return latest;
+      actions.push((body as { action: string }).action);
+      return { editor, session: completed };
+    });
+    await act(async () => root.render(<Harness />));
+    expect(actions).toEqual([]);
+    await act(async () => vi.advanceTimersByTimeAsync(6_000));
+    expect(actions).toEqual([]);
+    expect(hook.session!.completedLessonIds).toEqual(["lesson-0"]);
+    latest = { ...busy, readyToSave: true, lease: { locked: false, retryAfterMs: 0 } };
+    await act(async () => vi.advanceTimersByTimeAsync(2_000));
+    expect(actions).toEqual(["commit"]);
+    expect(hook.session!.status).toBe("completed");
+    expect(hook.error).toBe("");
+  });
+  it("switches a busy prepare response to GET polling and adopts lessons completed by the original request", async () => {
+    vi.useFakeTimers();
+    let latest: GenerationSessionSnapshot = state;
+    const actions: string[] = [];
+    vi.mocked(sessionRequest).mockImplementation(async (_courseId, body) => {
+      if (!body) return latest;
+      actions.push((body as { action: string }).action);
+      latest = busy;
+      return busy;
+    });
+    await act(async () => root.render(<Harness />));
+    expect(actions).toEqual(["prepare"]);
+    await act(async () => vi.advanceTimersByTimeAsync(4_000));
+    expect(actions).toEqual(["prepare"]);
+    latest = completed;
+    await act(async () => vi.advanceTimersByTimeAsync(2_000));
+    expect(hook.session!.completedLessonIds).toHaveLength(2);
+    expect(hook.running).toBe(false);
+    expect(actions).toEqual(["prepare"]);
+    // Initial synchronization and the original request's completed save.
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+  it("waits after a busy commit instead of counting an unsaved lesson or resubmitting it", async () => {
+    vi.useFakeTimers();
+    let latest: GenerationSessionSnapshot = { ...busy, readyToSave: true, lease: { locked: false, retryAfterMs: 0 } };
+    let commits = 0;
+    vi.mocked(sessionRequest).mockImplementation(async (_courseId, body) => {
+      if (!body) return latest;
+      commits += 1;
+      latest = commits === 1 ? { ...busy, readyToSave: true } : completed;
+      return { editor, session: latest };
+    });
+    await act(async () => root.render(<Harness />));
+    await act(async () => vi.advanceTimersByTimeAsync(4_000));
+    expect(commits).toBe(1);
+    expect(hook.session!.completedLessonIds).toHaveLength(1);
+    latest = { ...busy, readyToSave: true, lease: { locked: false, retryAfterMs: 0 } };
+    await act(async () => vi.advanceTimersByTimeAsync(2_000));
+    expect(commits).toBe(2);
+    expect(hook.session!.completedLessonIds).toHaveLength(2);
+  });
+  it("stops polling when unmounted and does not send a delayed generation request", async () => {
+    vi.useFakeTimers();
+    vi.mocked(sessionRequest).mockResolvedValue(busy);
+    await act(async () => root.render(<Harness />));
+    const calls = vi.mocked(sessionRequest).mock.calls.length;
+    await act(async () => root.render(null));
+    await act(async () => vi.advanceTimersByTimeAsync(10_000));
+    expect(sessionRequest).toHaveBeenCalledTimes(calls);
+  });
+  it("keeps a provider failure paused once an existing request releases its lock", async () => {
+    vi.useFakeTimers();
+    let latest: GenerationSessionSnapshot = busy;
+    vi.mocked(sessionRequest).mockImplementation(async () => latest);
+    await act(async () => root.render(<Harness />));
+    latest = { ...busy, lease: { locked: false, retryAfterMs: 0 }, error: "Provider unavailable" };
+    await act(async () => vi.advanceTimersByTimeAsync(2_000));
+    expect(hook.error).toBe("Provider unavailable");
+    expect(hook.running).toBe(false);
+    expect(vi.mocked(sessionRequest).mock.calls.every((call) => !call[1])).toBe(true);
+  });
+  it("adopts a completed session discovered during startup synchronization", async () => {
+    vi.mocked(sessionRequest).mockResolvedValueOnce(state).mockResolvedValue(completed);
+    await act(async () => root.render(<Harness />));
+    expect(hook.session!.status).toBe("completed");
+    expect(vi.mocked(sessionRequest).mock.calls.every((call) => !call[1])).toBe(true);
+  });
+  function wouldWarnBeforeLeaving() {
+    const event = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(event);
+    return event.defaultPrevented;
+  }
+  it("warns before refresh during generation even with the progress panel closed, and cleans up on unmount", async () => {
+    vi.mocked(sessionRequest).mockResolvedValue({ ...state, error: "Retry needed" });
+    expect(wouldWarnBeforeLeaving()).toBe(false);
+    await act(async () => root.render(<Harness />));
+    expect(wouldWarnBeforeLeaving()).toBe(true);
+    await act(async () => hook.dismissProgress());
+    expect(wouldWarnBeforeLeaving()).toBe(true);
+    await act(async () => root.render(null));
+    expect(wouldWarnBeforeLeaving()).toBe(false);
+  });
+  it.each(["completed", "cancelled"] as const)("removes the refresh warning when generation is %s", async (status) => {
+    vi.mocked(sessionRequest).mockResolvedValue({ ...state, error: "Retry needed" });
+    await act(async () => root.render(<Harness />));
+    expect(wouldWarnBeforeLeaving()).toBe(true);
+    if (status === "cancelled") {
+      vi.mocked(sessionRequest).mockResolvedValue({ ...state, status });
+      await act(async () => hook.cancel());
+    } else {
+      await act(async () => hook.setSession({ ...state, status }));
+    }
+    expect(wouldWarnBeforeLeaving()).toBe(false);
+  });
   it("waits for each database save before starting the next lesson", async () => {
     const actions: string[] = [];
     let latest = state;
@@ -31,6 +147,7 @@ describe("lesson generation coordinator", () => {
     });
     await act(async () => root.render(<Harness />));
     expect(actions).toEqual(["prepare", "commit"]); expect(hook.session!.completedLessonIds).toEqual([]);
+    expect(wouldWarnBeforeLeaving()).toBe(true);
     latest = { ...state, completedLessonIds: ["lesson-0"], currentLessonId: "lesson-1" };
     await act(async () => finishSave({ editor, session: latest }));
     expect(hook.session!.completedLessonIds).toEqual(["lesson-0"]);
@@ -38,6 +155,7 @@ describe("lesson generation coordinator", () => {
     await act(async () => finishSave({ editor, session: { ...state, status: "completed", completedLessonIds: ["lesson-0", "lesson-1"], currentLessonId: null } }));
     expect(hook.session!.status).toBe("completed"); expect(hook.running).toBe(false);
     expect(hook.progressVisible).toBe(true);
+    expect(wouldWarnBeforeLeaving()).toBe(false);
   });
   it("restores an interrupted job from the next unsaved lesson", async () => {
     const restored = { ...state, completedLessonIds: ["lesson-0"], currentLessonId: "lesson-1", readyToSave: true };

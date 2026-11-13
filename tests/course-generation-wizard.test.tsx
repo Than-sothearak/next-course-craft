@@ -2,8 +2,8 @@
 import { act, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { Dialog } from "@/components/ui/dialog";
 import { CourseGenerationWizard } from "@/app/courses/[courseId]/edit/_components/(editor_client_components)/course-generation-wizard";
-import { CourseGenerationProgress } from "@/app/courses/[courseId]/edit/_components/(editor_client_components)/course-generation-progress";
 import { courseGenerationInputSchema } from "@/lib/ai/course-generation-schemas";
 import type { GenerationSessionSnapshot } from "@/lib/ai/course-generation-session-schema";
 import { courseCoverSchema } from "@/lib/editor/course-cover";
@@ -31,6 +31,46 @@ beforeEach(() => {
 afterEach(() => { act(() => root.unmount()); container.remove(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe("AI course review wizard", () => {
+  it("ignores outside clicks and Escape until the Close button is clicked", async () => {
+    await renderWizard();
+    const dialog = container.querySelector("dialog")!;
+    const cancel = new Event("cancel", { bubbles: true, cancelable: true });
+    await act(async () => { dialog.dispatchEvent(new MouseEvent("click", { bubbles: true })); dialog.dispatchEvent(cancel); });
+    expect(cancel.defaultPrevented).toBe(true);
+    expect(onClose).not.toHaveBeenCalled();
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Close dialog"]')!.click());
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("asks before closing the outline and keeps edits when continuing", async () => {
+    await renderWizard(session);
+    const title = [...container.querySelectorAll("label")].find((label) => label.textContent === "Course title")!.querySelector("input")!;
+    await type(title, "Keep my outline changes");
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Close dialog"]')!.click());
+    expect(onClose).not.toHaveBeenCalled();
+    const warning = container.querySelector('[role="alertdialog"]')!;
+    expect(warning.textContent).toContain("Unsaved changes to this outline will be lost");
+    await click("Continue editing");
+    expect(container.querySelector('[role="alertdialog"]')).toBeNull();
+    expect(title.value).toBe("Keep my outline changes");
+    expect(onClose).not.toHaveBeenCalled();
+  });
+  it("closes the outline only after the warning is confirmed", async () => {
+    await renderWizard(session);
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Close dialog"]')!.click());
+    const warning = container.querySelector('[role="alertdialog"]')!;
+    await act(async () => [...warning.querySelectorAll("button")].find((button) => button.textContent === "Close")!.click());
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+  it("treats Escape on the confirmation as continuing the outline", async () => {
+    await renderWizard(session);
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Close dialog"]')!.click());
+    const warning = container.querySelector('[role="alertdialog"]')!;
+    await act(async () => warning.dispatchEvent(new Event("cancel", { bubbles: true, cancelable: true })));
+    expect(container.querySelector('[role="alertdialog"]')).toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
+  });
   it("shows all four steps and waits for approval before saving lesson drafts", async () => {
     await renderWizard();
     expect(container.querySelector('[aria-label="Course generation steps"]')?.textContent).toContain("1. Source material2. Course details3. Course outline4. Lesson drafts");
@@ -41,13 +81,48 @@ describe("AI course review wizard", () => {
     await click("Generate outline");
     expect(container.textContent).toContain("Review and correct the outline");
     expect(JSON.parse(fetchMock.mock.calls[0][1].body).action).toBe("plan");
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).input.generateCoverImage).toBe(false);
     expect(onStarted).not.toHaveBeenCalled();
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ session: { ...session, status: "generating" }, editor })));
     await click("Approve outline and generate lessons");
     const request = JSON.parse(fetchMock.mock.calls[1][1].body);
     expect(request).toMatchObject({ action: "approve", revision: 1, mode: "replace", outline: session.outline });
     expect(onStarted).toHaveBeenCalledWith(expect.objectContaining({ status: "generating" }));
-    expect(onClose).toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledOnce();
+    expect(onStarted.mock.invocationCallOrder[0]).toBeLessThan(onClose.mock.invocationCallOrder[0]);
+    expect(container.querySelector('[role="alertdialog"]')).toBeNull();
+  });
+  it("defaults card-image generation off before Course details and submits the enabled choice", async () => {
+    await renderWizard();
+    const label = [...container.querySelectorAll("label")].find((item) => item.textContent === "Generate course card image")!;
+    const checkbox = label.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
+    expect(checkbox.checked).toBe(false);
+    await act(async () => checkbox.click());
+    expect(checkbox.checked).toBe(true);
+    await click("Continue to course details");
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ ...session, input: { ...input, generateCoverImage: true } })));
+    await click("Generate outline");
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).input.generateCoverImage).toBe(true);
+  });
+  it("removes and reorders Custom sections and preserves the reviewed lesson order", async () => {
+    const custom: GenerationSessionSnapshot = { ...session, outline: { ...session.outline, sections: [session.outline.sections[0],
+      { id: "practice", title: "Practice", lessons: [{ id: "practice-1", title: "Practice one", objective: "Practice", kind: "learn" }, { id: "practice-2", title: "Practice two", objective: "Practice", kind: "learn" }] },
+      { id: "remove", title: "Unused", lessons: [{ id: "unused", title: "Unused lesson", objective: "Unused", kind: "learn" }] },
+    ] } };
+    await renderWizard(custom);
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Move section Practice up"]')!.click());
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Move Practice two up"]')!.click());
+    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Remove section Unused"]')!.click());
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ session: { ...session, status: "generating" }, editor })));
+    await click("Approve outline and generate lessons");
+    const approved = JSON.parse(fetchMock.mock.calls[0][1].body).outline;
+    expect(approved.sections.map((section: { id: string }) => section.id)).toEqual(["practice", "learn"]);
+    expect(approved.sections[0].lessons.map((lesson: { id: string }) => lesson.id)).toEqual(["practice-2", "practice-1"]);
+    expect(approved.sections.flatMap((section: { lessons: { id: string }[] }) => section.lessons).some((lesson: { id: string }) => lesson.id === "unused")).toBe(false);
+  });
+  it("keeps the last Custom section from being removed", async () => {
+    await renderWizard(session);
+    expect(container.querySelector<HTMLButtonElement>('[aria-label="Remove section Learn"]')!.disabled).toBe(true);
   });
   it("lets an author correct, reorder, remove and add lessons before approval", async () => {
     await renderWizard(session);
@@ -108,31 +183,6 @@ describe("AI course review wizard", () => {
   });
 });
 
-describe("saved lesson progress", () => {
-  it.each(["completed", "cancelled"] as const)("keeps the current %s run visible with a Close button", async (status) => {
-    const onClose = vi.fn();
-    const props = { session: { ...session, status: "generating" as const }, running: true, error: "", onRetry: () => {}, onCancel: () => {}, onSelectLesson: () => {}, onClose };
-    await act(async () => root.render(<CourseGenerationProgress {...props} />));
-    await act(async () => root.render(<CourseGenerationProgress {...props} session={{ ...session, status }} error="Earlier error" />));
-    expect(container.querySelector('[aria-label="Lesson draft generation"]')).not.toBeNull();
-    expect(container.textContent).not.toContain("Earlier error");
-    expect(container.textContent).not.toContain("Cancel remaining");
-    await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Close lesson drafts"]')!.click());
-    expect(onClose).toHaveBeenCalledOnce();
-  });
-
-  it("shows only saved lessons as complete, with retry and cancellation controls", async () => {
-    const retry = vi.fn(), cancel = vi.fn();
-    await act(async () => root.render(<CourseGenerationProgress session={{ ...session, status: "generating", completedLessonIds: ["lesson-0", "lesson-1"], currentLessonId: "lesson-2" }} running={false} error="Provider unavailable" onRetry={retry} onCancel={cancel} onSelectLesson={() => {}} />));
-    expect(container.textContent).toContain("2 of 5 lessons generated and saved · 40%");
-    expect(container.querySelector('[role="progressbar"]')?.getAttribute("aria-valuenow")).toBe("40");
-    expect(container.textContent).toContain("Failed");
-    expect(container.querySelectorAll('[role="img"][aria-label="Saved"]')).toHaveLength(2);
-    expect(container.querySelector('[role="img"][aria-label="AI generation"]')).not.toBeNull();
-    await click("Retry / resume"); await click("Cancel remaining");
-    expect(retry).toHaveBeenCalledOnce(); expect(cancel).toHaveBeenCalledOnce();
-  });
-});
 
 
 describe("original course editor layout", () => {
@@ -144,5 +194,17 @@ describe("original course editor layout", () => {
     expect(container.querySelector('[data-course-cover]')).toBeNull();
     await type(title, "Edited title");
     expect(onTitleChange).toHaveBeenCalledWith("Edited title");
+  });
+});
+
+
+describe("shared dialog dismissal defaults", () => {
+  it("retains outside-click and Escape dismissal for other dialogs", async () => {
+    const close = vi.fn();
+    await act(async () => root.render(<Dialog open onClose={close} title="Other dialog">Content</Dialog>));
+    const dialog = container.querySelector("dialog")!;
+    await act(async () => dialog.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+    await act(async () => dialog.dispatchEvent(new Event("cancel", { bubbles: true, cancelable: true })));
+    expect(close).toHaveBeenCalledTimes(2);
   });
 });

@@ -32,6 +32,41 @@ describe("interaction button presentation authoring", () => {
   async function saved() { await act(async () => vi.advanceTimersByTimeAsync(1000)); return editorSnapshotSchema.parse(JSON.parse(fetchMock.mock.calls.findLast(([, init]) => init?.method === "PUT")![1].body)); }
   async function start() { await act(async () => root.render(<EditorClient initialData={data} authorName="Author" />)); await clickText("Interaction button"); }
 
+  it("applies global mode changes, keeps individual overrides on reselection, and reloads the saved choices", async () => {
+    await start();
+    const setMode = async (title: string) => act(async () => {
+      const menu = container.querySelector('[aria-label="Navigation and progress settings"]')!.closest("details")!;
+      [...menu.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent?.startsWith(title))!.click();
+    });
+    await setMode("Restricted navigation");
+    expect((await saved()).lessons[0].blocks[0].requiredForProgress).toBe(true);
+    await act(async () => container.querySelector<HTMLInputElement>('[aria-label="Required for progress"]')!.click());
+    await setMode("Restricted navigation");
+    expect((await saved()).lessons[0].blocks[0].requiredForProgress).toBe(false);
+    await clickText("Flip cards");
+    expect((await saved()).lessons[0].blocks[1].requiredForProgress).toBe(true);
+    await setMode("Sequential navigation");
+    const snapshot = await saved();
+    expect(snapshot.lessons[0].blocks.every((block) => block.requiredForProgress === false)).toBe(true);
+    await act(async () => root.render(<EditorClient key="progress-reload" initialData={{ ...snapshot, courseId: "slides" }} authorName="Author" />));
+    await setMode("Restricted navigation");
+    expect((await saved()).lessons[0].blocks.map((block) => block.requiredForProgress)).toEqual([false, true]);
+  });
+
+  it.each(["free", "restricted"] as const)("uses the %s default for main-slide and popup activities and preserves manual popup overrides", async (navigationMode) => {
+    await act(async () => root.render(<EditorClient initialData={{ ...data, navigationMode }} authorName="Author" />));
+    await clickText("Interaction button");
+    await clickText("Edit popup mini slide (1 objects)");
+    await clickText("Flip cards", popup());
+    const toggle = popup().querySelector<HTMLInputElement>('[aria-label="Required for progress"]')!;
+    expect(toggle.checked).toBe(navigationMode === "restricted");
+    await act(async () => toggle.click());
+    await clickText("Apply popup", popup());
+    const block = (await saved()).lessons[0].blocks[0];
+    expect(block.requiredForProgress).toBe(true);
+    expect(block).toMatchObject({ data: { popup: { blocks: [{ type: "richText" }, { type: "flipCard", requiredForProgress: navigationMode !== "restricted" }] } } });
+  });
+
   it("replaces popup media locally, discards Cancel, and saves only after Apply", async () => {
     const block = { id: "trigger", type: "interactionButton", version: 1, data: { popup: { blocks: [{ id: "picture", type: "image", version: 1, data: { src: "/old.png", alt: "Original" } }] } } };
     const initial = { ...data, ...editorSnapshotSchema.parse({ ...data, lessons: [{ ...data.lessons[0], blocks: [block] }] }) };

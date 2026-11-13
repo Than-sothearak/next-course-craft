@@ -16,6 +16,7 @@ import { prepareSessionLesson } from "@/lib/ai/generation/session-lesson";
 import { planGenerationSession } from "@/lib/ai/generation/session-planning";
 import { courseGenerationInputSchema } from "@/lib/ai/course-generation-schemas";
 import type { CourseOutline } from "@/lib/ai/course-generation-session-schema";
+import type { ContentBlock } from "@/lib/schemas/block";
 
 vi.mock("@/lib/ai/generation/session-cover", () => ({ prepareOutlineCover: vi.fn(async () => ({ generatedCover: false })) }));
 vi.mock("@/lib/ai/generation/session-planning", () => ({ planGenerationSession: vi.fn() }));
@@ -51,6 +52,23 @@ describe.skipIf(!uri)("incremental course generation in MongoDB", () => {
     const editor = await getCourseEditor(ownerId, scope.courseId);
     return commitNextLesson(scope, id, editor.revision);
   }
+  it.each(["free", "sequential", "restricted"] as const)("uses the current %s mode when saving generated activities, preserving earlier individual choices", async (navigationMode) => {
+    const { session } = await approved();
+    vi.mocked(prepareSessionLesson).mockImplementation(async ({ item }) => editorLessonSchema.parse({ ...lessonDraft(item.id), blocks: [{ id: `activity-${item.id}`, version: 1, type: "knowledgeCheck", data: { question: "Ready?", options: ["Yes", "No"] } }] }));
+    await prepareNextLesson(scope, session!.id);
+    const beforeModeChange = await getCourseEditor(ownerId, scope.courseId);
+    await saveCourseEditor(ownerId, scope.courseId, { ...beforeModeChange, navigationMode });
+    const beforeCommit = await getCourseEditor(ownerId, scope.courseId);
+    await commitNextLesson(scope, session!.id, beforeCommit.revision);
+    const generated = await getCourseEditor(ownerId, scope.courseId);
+    const required = navigationMode === "restricted";
+    expect(generated.lessons[0].blocks[0].requiredForProgress).toBe(required);
+    await saveCourseEditor(ownerId, scope.courseId, { ...generated, lessons: generated.lessons.map((lesson, index) => index === 0 ? { ...lesson, blocks: lesson.blocks.map((block: ContentBlock) => ({ ...block, requiredForProgress: !required })) } : lesson) });
+    await completeNext(session!.id);
+    const next = await getCourseEditor(ownerId, scope.courseId);
+    expect(next.lessons[0].blocks[0].requiredForProgress).toBe(!required);
+    expect(next.lessons[1].blocks[0].requiredForProgress).toBe(required);
+  });
   it("requires outline approval before writing lessons", async () => {
     const session = (await planSession(scope, input))!;
     await prepareNextLesson(scope, session.id);
@@ -71,11 +89,49 @@ describe.skipIf(!uri)("incremental course generation in MongoDB", () => {
     const saved = await getCourseEditor(ownerId, scope.courseId);
     expect(saved.lessons.find((lesson) => lesson.id === "practice-one")?.blocks).toHaveLength(1);
   });
+  it("does not prepare a card image unless the author enables the option", async () => {
+    const session = (await planSession(scope, input))!;
+    expect(session.input.generateCoverImage).toBe(false);
+    expect(session.cover).toBeUndefined();
+    expect(prepareOutlineCover).not.toHaveBeenCalled();
+    expect(await Asset.countDocuments()).toBe(0);
+  });
+  it("saves the reviewed section and lesson ordering after a Custom section is removed", async () => {
+    const expanded: CourseOutline = { ...outline, sections: [outline.sections[0], { id: "practice", title: "Practice", lessons: [
+      { id: "practice-one", title: "First practice", objective: "Practice", kind: "learn" },
+      { id: "practice-two", title: "Second practice", objective: "Practice", kind: "learn" },
+    ] }, { id: "remove", title: "Omit this section", lessons: [{ id: "omitted", title: "Omitted", objective: "Omit", kind: "learn" }] }] };
+    vi.mocked(planGenerationSession).mockResolvedValueOnce({ outline: expanded, sourcePlan: null });
+    const session = (await planSession(scope, input))!;
+    const reviewed: CourseOutline = { ...expanded, sections: [{ ...expanded.sections[1], lessons: [...expanded.sections[1].lessons].reverse() }, expanded.sections[0]] };
+    const result = await approveSession(scope, session.id, reviewed, "replace", 0);
+    expect(result.editor.sections.map((section) => section.id)).toEqual(["practice", "learn"]);
+    expect(result.editor.lessons.filter((lesson) => lesson.sectionId === "practice").map((lesson) => lesson.id)).toEqual(["practice-two", "practice-one"]);
+    expect(result.editor.lessons.some((lesson) => lesson.id === "omitted")).toBe(false);
+    await completeNext(session.id);
+    expect((await getSession(scope, session.id))!.completedLessonIds).toEqual(["practice-two"]);
+  });
+  it("allows Custom source sections to be removed or reordered while keeping remaining source mappings immutable", async () => {
+    const sourceOutline: CourseOutline = { ...outline, sections: [
+      { id: "source-a", title: "Source A", lessons: [{ id: "source-0", title: "First", objective: "First", kind: "learn", sourceIndex: 0 }] },
+      { id: "source-b", title: "Source B", lessons: [
+        { id: "source-1", title: "Second", objective: "Second", kind: "learn", sourceIndex: 1 },
+        { id: "source-2", title: "Third", objective: "Third", kind: "learn", sourceIndex: 2 },
+      ] },
+    ] };
+    const job = await CourseGenerationSession.create({ ...scope, input, outline: sourceOutline, sourceJobId: new Types.ObjectId(), expiresAt: new Date(Date.now() + 60_000) });
+    const reviewed: CourseOutline = { ...sourceOutline, sections: [{ ...sourceOutline.sections[1], lessons: [...sourceOutline.sections[1].lessons].reverse() }] };
+    const changed = structuredClone(reviewed); changed.sections[0].lessons[0].sourceIndex = 0;
+    await expect(approveSession(scope, String(job._id), changed, "replace", 0)).rejects.toThrow("Invalid outline lesson change");
+    const approved = await approveSession(scope, String(job._id), reviewed, "replace", 0);
+    expect(approved.session!.outline.sections[0].lessons.map((lesson) => lesson.sourceIndex)).toEqual([2, 1]);
+    expect(approved.editor.lessons.map((lesson) => lesson.id)).toEqual(["source-2", "source-1"]);
+  });
   it("prepares the card image with the outline and saves only the dashboard image on approval", async () => {
     const asset = await Asset.create({ ownerId, courseId: scope.courseId, objectKey: randomUUID(), originalName: "cover.jpg", mimeType: "image/jpeg", size: 100, status: "ready" });
     const cover = courseCoverSchema.parse({ template: "image", imageSrc: `/api/assets/${asset._id}/file`, titleOnly: true });
     vi.mocked(prepareOutlineCover).mockResolvedValueOnce({ generatedCover: true, cover });
-    const session = (await planSession(scope, input))!;
+    const session = (await planSession(scope, { ...input, generateCoverImage: true }))!;
     expect(session.cover).toEqual(cover);
     expect((await Course.findById(scope.courseId).lean())!.coverImage).toBeNull();
     const approved = await approveSession(scope, session.id, outline, "replace", 0);
@@ -86,7 +142,7 @@ describe.skipIf(!uri)("incremental course generation in MongoDB", () => {
   it("preserves a course image added by an author while the outline is being reviewed", async () => {
     const cover = courseCoverSchema.parse({ template: "image", imageSrc: `/api/assets/${new Types.ObjectId()}/file`, titleOnly: true });
     vi.mocked(prepareOutlineCover).mockResolvedValueOnce({ generatedCover: true, cover });
-    const session = (await planSession(scope, input))!;
+    const session = (await planSession(scope, { ...input, generateCoverImage: true }))!;
     await Course.updateOne({ _id: scope.courseId }, { $set: { coverImage: "https://example.com/author-cover.jpg" }, $inc: { revision: 1 } });
     const approved = await approveSession(scope, session.id, outline, "replace", 1);
     expect(approved.editor.theme.cover).toBeUndefined();
@@ -99,7 +155,7 @@ describe.skipIf(!uri)("incremental course generation in MongoDB", () => {
     await Course.updateOne({ _id: scope.courseId }, { $set: { "theme.cover": learnerCover } });
     const card = courseCoverSchema.parse({ template: "image", imageSrc: `/api/assets/${generated._id}/file` });
     vi.mocked(prepareOutlineCover).mockResolvedValueOnce({ generatedCover: true, cover: card });
-    const session = (await planSession(scope, input))!;
+    const session = (await planSession(scope, { ...input, generateCoverImage: true }))!;
     const approved = await approveSession(scope, session.id, outline, "replace", 0);
     expect(approved.editor.theme.cover).toEqual(learnerCover);
     expect((await Course.findById(scope.courseId).lean())!.coverImage).toBe(card.imageSrc);
@@ -118,7 +174,7 @@ describe.skipIf(!uri)("incremental course generation in MongoDB", () => {
   });
   it("retains a reviewable outline when cover generation fails", async () => {
     vi.mocked(prepareOutlineCover).mockRejectedValueOnce(new Error("Image unavailable"));
-    const session = (await planSession(scope, input))!;
+    const session = (await planSession(scope, { ...input, generateCoverImage: true }))!;
     expect(session.status).toBe("outline"); expect(session.outline).toEqual(outline);
     expect(session.coverWarning).toContain("cover image could not be prepared");
     const approved = await approveSession(scope, session.id, outline, "replace", 0);

@@ -4,7 +4,8 @@ import { dashboardErrorResponse, readJson, requireOwnerId } from "@/lib/dashboar
 import { resolveCourseAccess } from "@/lib/workspaces/access";
 import { requireAIEnabled } from "@/lib/auth/authorization";
 import { assertMutationOrigin } from "@/lib/auth/http-security";
-import { acquireGenerationLease, releaseGenerationLease } from "@/lib/ai/generation-lease";
+import { acquireGenerationLease, getGenerationLeaseStatus, GenerationLeaseBusyError, releaseGenerationLease } from "@/lib/ai/generation-lease";
+import { getCourseEditor } from "@/lib/editor/services/course";
 import { sessionRequestSchema } from "@/lib/ai/course-generation-session-schema";
 import { getSession, planSession, approveSession, prepareNextLesson, commitNextLesson, cancelSession } from "@/lib/ai/generation/session-workflow";
 
@@ -16,7 +17,11 @@ export async function GET(request: NextRequest, { params }: Context) {
     await connectToDatabase();
     const { courseId } = await params;
     const { ownerId } = await resolveCourseAccess(userId, courseId, "courses.edit");
-    return NextResponse.json(await getSession({ ownerId, courseId }, request.nextUrl.searchParams.get("sessionId") ?? undefined), { headers: { "Cache-Control": "no-store" } });
+    const [session, lease] = await Promise.all([
+      getSession({ ownerId, courseId }, request.nextUrl.searchParams.get("sessionId") ?? undefined),
+      getGenerationLeaseStatus(ownerId, courseId),
+    ]);
+    return NextResponse.json(session ? { ...session, lease } : null, { headers: { "Cache-Control": "no-store" } });
   } catch (error) { return dashboardErrorResponse(error); }
 }
 export async function POST(request: NextRequest, { params }: Context) {
@@ -32,7 +37,19 @@ export async function POST(request: NextRequest, { params }: Context) {
     if (body.action === "cancel") return NextResponse.json(await cancelSession(scope, body.sessionId));
     await resolveCourseAccess(userId, courseId, "ai.generate");
     await requireAIEnabled();
-    lease = await acquireGenerationLease(ownerId, courseId);
+    try {
+      lease = await acquireGenerationLease(ownerId, courseId);
+    } catch (error) {
+      if (!(error instanceof GenerationLeaseBusyError) || (body.action !== "prepare" && body.action !== "commit")) throw error;
+      // Another request is doing the work. Return progress without submitting
+      // provider work or treating routine contention as a course save failure.
+      const [session, lock] = await Promise.all([getSession(scope, body.sessionId), getGenerationLeaseStatus(ownerId, courseId)]);
+      const progress = { ...session, lease: lock };
+      return NextResponse.json(body.action === "commit" ? { session: progress, editor: await getCourseEditor(ownerId, courseId) } : progress, {
+        status: 202,
+        headers: { "Cache-Control": "no-store", "Retry-After": "2" },
+      });
+    }
     switch (body.action) {
       case "plan": return NextResponse.json(await planSession(scope, body.input, body.sourceJobId));
       case "approve": return NextResponse.json(await approveSession(scope, body.sessionId, body.outline, body.mode, body.revision));
