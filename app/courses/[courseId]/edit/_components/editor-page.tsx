@@ -17,6 +17,7 @@ import { StandardEditor } from "../standard-mode/_components/standard-editor";
 type SearchParams = {
   lessonId?: string | string[];
   blockId?: string | string[];
+  generate?: string | string[];
 };
 
 export function EditorPage({
@@ -106,6 +107,8 @@ async function EditorPageContent({
     userName: user.name,
     permissions: access.permissions,
     globalPermissions: user.permissions,
+    openGenerationOnMount:
+      query.generate === "1" && access.permissions.includes("ai.generate"),
   };
 
   if (presentation) {

@@ -21,6 +21,23 @@ const steps = ["Source material", "Course details", "Course outline", "Lesson dr
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return <label className="grid gap-1.5 text-sm font-medium text-slate-700">{label}{children}</label>;
 }
+function GenerationSwitch({ label, checked, onChange }: {
+  label: string;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+}) {
+  return <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-slate-200 px-3.5 py-3 text-sm font-medium text-slate-700 transition-colors hover:border-indigo-300 hover:bg-indigo-50/40 has-[:checked]:border-indigo-300 has-[:checked]:bg-indigo-50/60">
+    <span>{label}</span>
+    <Checkbox
+      role="switch"
+      aria-label={label}
+      checked={checked}
+      onChange={(event) => onChange(event.target.checked)}
+      className="peer sr-only"
+    />
+    <span aria-hidden="true" className="relative h-5 w-9 shrink-0 rounded-full bg-slate-200 transition-colors after:absolute after:left-0.5 after:top-0.5 after:size-4 after:rounded-full after:bg-white after:shadow-sm after:transition-transform peer-checked:bg-indigo-600 peer-checked:after:translate-x-4 peer-focus-visible:ring-2 peer-focus-visible:ring-indigo-500 peer-focus-visible:ring-offset-2" />
+  </label>;
+}
 export function CourseGenerationWizard({ open, onClose, courseId, courseTitle, courseDescription, existingLessonCount, runServerMutation, onStarted, savedSession }: {
   open: boolean; onClose: () => void; courseId: string; courseTitle: string; courseDescription: string; existingLessonCount: number;
   runServerMutation: ReturnType<typeof useEditorDraft>["runServerMutation"];
@@ -154,10 +171,11 @@ export function CourseGenerationWizard({ open, onClose, courseId, courseTitle, c
     <fieldset disabled={busy || generating} className="min-w-0 space-y-5">
       {step === 0 && <>
         <GenerationPromptInput value={input.prompt} onChange={(prompt) => change("prompt", prompt)} inputRef={promptRef} disabled={busy || generating} />
-        <div>
-          <label className="flex items-center gap-2 text-sm"><Checkbox checked={input.generateCoverImage} onChange={(event) => change("generateCoverImage", event.target.checked)} />Generate course cover image</label>
-          <p className="ml-6 mt-1 text-xs text-slate-500">Used on the dashboard card and as the learner cover when no cover is already set.</p>
-        </div>
+        <GenerationSwitch
+          label="Generate course cover image"
+          checked={input.generateCoverImage}
+          onChange={(checked) => change("generateCoverImage", checked)}
+        />
         <Field label="Source material (optional PDF or PowerPoint)"><Input type="file" accept=".pdf,.pptx" onChange={(event) => { sourceChoiceRef.current = true; window.localStorage.removeItem(`course-generation-source:${courseId}`); setFile(event.target.files?.[0] ?? null); setSource(null); setPlanned(null); setOutline(null); }} /></Field>
         {source?.uncertainSourcePages?.length ? <p role="alert" className="text-sm text-amber-800">Some source content was difficult to read on pages {source.uncertainSourcePages.join(", ")}. Review the source and the generated lessons carefully.</p> : null}
         <p className="text-xs text-slate-500">Upload a PDF or PPTX up to 12 MB, or continue using only your prompt.</p>
@@ -181,7 +199,11 @@ export function CourseGenerationWizard({ open, onClose, courseId, courseTitle, c
           {input.template === "preLearnPost" && <Field label="Post-test questions"><Input type="number" min={1} max={20} value={input.postTestCount} onChange={(event) => change("postTestCount", Number(event.target.value))} /></Field>}
           {source && <><Field label="Source grouping"><Select value={input.learnGroupingMode} onChange={(event) => change("learnGroupingMode", event.target.value as CourseGenerationInput["learnGroupingMode"])}><option value="smart">Smart topics</option><option value="fixed">Fixed page groups</option></Select></Field><Field label="Pages per learning lesson"><Input type="number" min={1} max={500} value={input.slidesPerContent} onChange={(event) => change("slidesPerContent", Number(event.target.value))} /></Field></>}
         </div>
-        <label className="flex items-center gap-2 text-sm"><Checkbox checked={input.includeImages} onChange={(event) => change("includeImages", event.target.checked)} />Generate supplemental images</label>
+        <GenerationSwitch
+          label="Generate supplemental images"
+          checked={input.includeImages}
+          onChange={(checked) => change("includeImages", checked)}
+        />
         {source && <p className="text-xs text-slate-500">Source grouping determines the learning lesson count so every source page is covered.</p>}
       </>}
       {step === 2 && outline && <>

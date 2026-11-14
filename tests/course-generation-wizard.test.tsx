@@ -92,14 +92,15 @@ describe("AI course review wizard", () => {
     expect(onStarted.mock.invocationCallOrder[0]).toBeLessThan(onClose.mock.invocationCallOrder[0]);
     expect(container.querySelector('[role="alertdialog"]')).toBeNull();
   });
-  it("defaults cover-image generation off before Course details and submits the enabled choice", async () => {
+  it("uses switch controls for image options and submits the enabled cover choice", async () => {
     await renderWizard();
-    const label = [...container.querySelectorAll("label")].find((item) => item.textContent === "Generate course cover image")!;
-    const checkbox = label.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
-    expect(checkbox.checked).toBe(false);
-    await act(async () => checkbox.click());
-    expect(checkbox.checked).toBe(true);
+    const coverSwitch = container.querySelector<HTMLInputElement>('[role="switch"][aria-label="Generate course cover image"]')!;
+    expect(coverSwitch.checked).toBe(false);
+    expect(container.textContent).not.toContain("Used on the dashboard card and as the learner cover");
+    await act(async () => coverSwitch.click());
+    expect(coverSwitch.checked).toBe(true);
     await click("Continue to course details");
+    expect(container.querySelector('[role="switch"][aria-label="Generate supplemental images"]')).not.toBeNull();
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ ...session, input: { ...input, generateCoverImage: true } })));
     await click("Generate outline");
     expect(JSON.parse(fetchMock.mock.calls[0][1].body).input.generateCoverImage).toBe(true);

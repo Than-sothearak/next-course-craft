@@ -107,7 +107,7 @@ function buildBlocksFromTemplate(
       data: {
         ...template.flipCard,
         cardsPerRow: template.flipCard.cardsPerRow ?? 3,
-        cardStyle: template.flipCard.cardStyle ?? "classic",
+        cardStyle: template.flipCard.cardStyle ?? "realistic",
         cardBackgroundColor: template.flipCard.cardBackgroundColor ?? "#ffffff",
         cardTextColor: template.flipCard.cardTextColor ?? "#0f172a",
       },

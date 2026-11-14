@@ -33,12 +33,27 @@ export function colorWithOpacity(color: string, opacity: number) {
   return `rgba(${channels.join(", ")}, ${opacity / 100})`;
 }
 
+const courseThemePrimary = "var(--course-theme-primary, var(--course-primary, #2f5f9f))";
+const courseThemeAccent = "var(--course-theme-accent, var(--course-accent, #ff876c))";
+const courseThemeGradientEnd = `color-mix(in srgb, ${courseThemePrimary} 82%, ${courseThemeAccent} 18%)`;
+export const courseThemeFlipCardGradient = `linear-gradient(135deg, ${courseThemePrimary} 0%, ${courseThemeGradientEnd} 100%)`;
+
 export function backgroundPaint(value: string, opacity = 100): CSSProperties {
   const gradient = parseGradient(value);
-  return gradient ? {
+  if (gradient) return {
     backgroundColor: opacity === 100 ? gradient.start : "transparent",
     backgroundImage: gradientColor(colorWithOpacity(gradient.start, opacity), colorWithOpacity(gradient.end, opacity), gradient.angle),
-  } : { backgroundColor: colorWithOpacity(value, opacity) };
+  };
+  if (value === courseThemeFlipCardGradient) {
+    const themePrimary = opacity === 100 ? courseThemePrimary : `color-mix(in srgb, ${courseThemePrimary} ${opacity}%, transparent)`;
+    const themeAccent = opacity === 100 ? courseThemeAccent : `color-mix(in srgb, ${courseThemeAccent} ${opacity}%, transparent)`;
+    const gradientEnd = `color-mix(in srgb, ${themePrimary} 82%, ${themeAccent} 18%)`;
+    return {
+      backgroundColor: opacity === 100 ? courseThemePrimary : "transparent",
+      backgroundImage: `linear-gradient(135deg, ${themePrimary} 0%, ${gradientEnd} 100%)`,
+    };
+  }
+  return { backgroundColor: colorWithOpacity(value, opacity) };
 }
 
 export function textPaint(value?: string): CSSProperties {

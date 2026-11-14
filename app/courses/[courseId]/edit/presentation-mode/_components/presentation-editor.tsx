@@ -5,6 +5,7 @@ type PresentationEditorProps = Pick<
   | "initialData"
   | "initialPresentationLessonId"
   | "initialPresentationBlockId"
+  | "openGenerationOnMount"
   | "authorName"
   | "userName"
   | "permissions"

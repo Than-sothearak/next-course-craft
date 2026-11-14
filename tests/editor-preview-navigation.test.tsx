@@ -9,6 +9,8 @@ import { editorSnapshotSchema } from "@/lib/editor/schemas";
 import { courseGenerationInputSchema } from "@/lib/ai/course-generation-schemas";
 
 const { push } = vi.hoisted(() => ({ push: vi.fn() }));
+const originalDialogShowModal = Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, "showModal");
+const originalDialogClose = Object.getOwnPropertyDescriptor(HTMLDialogElement.prototype, "close");
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push, back: vi.fn(), forward: vi.fn() }) }));
 vi.mock("@/app/dashboard/_components/dashboard-navbar", () => ({ DashboardNavbar: ({ primaryAction, actions }: { primaryAction: ReactNode; actions: ReactNode }) => <header>{actions}{primaryAction}</header> }));
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
@@ -24,6 +26,8 @@ describe("editor previews the current lesson", () => {
   beforeEach(() => {
     push.mockClear();
     vi.stubGlobal("fetch", vi.fn(async () => Response.json({ revision: 2 })));
+    Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value: function (this: HTMLDialogElement) { this.open = true; } });
+    Object.defineProperty(HTMLDialogElement.prototype, "close", { configurable: true, value: function (this: HTMLDialogElement) { this.open = false; } });
     vi.stubGlobal("IntersectionObserver", class { observe() {} unobserve() {} disconnect() {} });
     vi.stubGlobal("matchMedia", () => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
     Object.defineProperty(HTMLElement.prototype, "scrollTo", { configurable: true, value: vi.fn() });
@@ -31,6 +35,10 @@ describe("editor previews the current lesson", () => {
   });
   afterEach(() => {
     act(() => root.unmount()); container.remove(); vi.restoreAllMocks(); vi.unstubAllGlobals();
+    if (originalDialogShowModal) Object.defineProperty(HTMLDialogElement.prototype, "showModal", originalDialogShowModal);
+    else Reflect.deleteProperty(HTMLDialogElement.prototype, "showModal");
+    if (originalDialogClose) Object.defineProperty(HTMLDialogElement.prototype, "close", originalDialogClose);
+    else Reflect.deleteProperty(HTMLDialogElement.prototype, "close");
     if (originalScrollTo) Object.defineProperty(HTMLElement.prototype, "scrollTo", originalScrollTo);
     else Reflect.deleteProperty(HTMLElement.prototype, "scrollTo");
   });
@@ -68,6 +76,11 @@ describe("editor previews the current lesson", () => {
     await act(async () => root.render(<EditorClient initialData={initialData} authorName="Author" />));
     await act(async () => preview().click());
     expect(push).toHaveBeenCalledExactlyOnceWith("/courses/course/preview/standard-mode");
+  });
+
+  it("opens the AI generation popup when requested after course creation", async () => {
+    await act(async () => root.render(<EditorClient initialData={initialData} authorName="Author" openGenerationOnMount />));
+    expect(container.querySelector<HTMLDialogElement>("dialog[open]")?.querySelector("h2")?.textContent).toBe("Generate course with AI");
   });
 
   it("saves pending changes before opening the same lesson's preview", async () => {

@@ -10,6 +10,7 @@ import { Select } from "@/components/ui/select";
 type Props = {
   openFolder: boolean;
   openCourse: boolean;
+  generateCourseAfterCreate: boolean;
   data: DashboardData;
   busy: boolean;
   onCloseFolder: () => void;
@@ -24,6 +25,7 @@ type Props = {
 export function DashboardDialogs({
   openFolder,
   openCourse,
+  generateCourseAfterCreate,
   data,
   busy,
   onCloseFolder,
@@ -133,16 +135,22 @@ export function DashboardDialogs({
             <div className="mb-6 flex items-start justify-between">
               <div>
                 <p className="text-sm font-medium text-indigo-700">
-                  New learning experience
+                  {generateCourseAfterCreate
+                    ? "AI course creation"
+                    : "New learning experience"}
                 </p>
                 <h2
                   id="new-course-title"
                   className="mt-1 text-xl font-semibold tracking-tight"
                 >
-                  Create a course
+                  {generateCourseAfterCreate
+                    ? "Generate a course"
+                    : "Create a course"}
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  Choose a layout, then add content with the lesson editor.
+                  {generateCourseAfterCreate
+                    ? "Set up your course, then continue to the AI generation popup."
+                    : "Choose a layout, then add content with the lesson editor."}
                 </p>
               </div>
               <Button
@@ -217,7 +225,9 @@ export function DashboardDialogs({
                   Cancel
                 </Button>
                 <Button type="submit" disabled={busy}>
-                  Create course
+                  {generateCourseAfterCreate
+                    ? "Continue to generator"
+                    : "Create course"}
                 </Button>
               </div>
             </form>

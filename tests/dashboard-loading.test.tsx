@@ -287,6 +287,40 @@ describe("dashboard loading and shared controls", () => {
     expect(container.querySelector('[role="dialog"]')).toBeNull();
   });
 
+  it("redirects a newly created course to its editor", async () => {
+    fetchMock
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: "created-course" }) })
+      .mockResolvedValueOnce(response(data));
+    render();
+    const createButton = [...container.querySelectorAll<HTMLButtonElement>("button")]
+      .find((button) => button.textContent?.includes("New course"))!;
+    act(() => createButton.click());
+    const dialog = container.querySelector('[role="dialog"]')!;
+    dialog.querySelector<HTMLInputElement>('input[name="title"]')!.value = "New course";
+    await act(async () => {
+      dialog.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    });
+    expect(router.push).toHaveBeenCalledWith("/courses/created-course/edit/standard-mode");
+  });
+
+  it("opens the AI generator after creating a course from the sidebar", async () => {
+    fetchMock
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ id: "generated-course" }) })
+      .mockResolvedValueOnce(response(data));
+    render();
+    const sidebar = container.querySelector('aside[aria-label="Workspace navigation"]')!;
+    const generateButton = [...sidebar.querySelectorAll<HTMLButtonElement>("button")]
+      .find((button) => button.textContent?.includes("Generate course"))!;
+    act(() => generateButton.click());
+    const dialog = container.querySelector('[role="dialog"]')!;
+    expect(dialog.querySelector("h2")?.textContent).toBe("Generate a course");
+    dialog.querySelector<HTMLInputElement>('input[name="title"]')!.value = "Generated course";
+    await act(async () => {
+      dialog.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    });
+    expect(router.push).toHaveBeenCalledWith("/courses/generated-course/edit/standard-mode?generate=1");
+  });
+
   it.each([null, "workspace-1"])("preserves search, filters, and workspace %s in folder links", (workspaceId) => {
     render({ ...filters, workspaceId, q: "alpha & beta", status: "published", sort: "title" }, workspaceId ? teamData() : data);
     const link = container.querySelector<HTMLAnchorElement>('a[title="Training"]')!;

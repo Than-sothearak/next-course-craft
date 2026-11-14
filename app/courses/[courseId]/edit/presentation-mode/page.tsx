@@ -5,7 +5,11 @@ export default function PresentationModeEditorPage({
   searchParams,
 }: {
   params: Promise<{ courseId: string }>;
-  searchParams?: Promise<{ lessonId?: string | string[]; blockId?: string | string[] }>;
+  searchParams?: Promise<{
+    lessonId?: string | string[];
+    blockId?: string | string[];
+    generate?: string | string[];
+  }>;
 }) {
   return (
     <EditorPage

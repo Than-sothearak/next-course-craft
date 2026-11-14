@@ -33,6 +33,7 @@ describe("flip-card canvas authoring", () => {
   async function start() { await act(async () => root.render(<EditorClient initialData={initial()} authorName="Author" />)); await clickText("Flip cards"); }
   const cards = () => [...container.querySelectorAll<HTMLElement>('[data-slide-flip-card-editor] [data-flip-card-id]')];
   const frontFace = (index: number) => cards()[index].querySelector<HTMLElement>(":scope > span > span")!;
+  const backFace = (index: number) => cards()[index].querySelector<HTMLElement>(":scope > span > span:nth-child(2)")!;
   async function saved() { await act(async () => vi.advanceTimersByTimeAsync(1000)); const request = fetchMock.mock.calls.findLast(([, init]) => init?.method === "PUT"); expect(request).toBeDefined(); return editorSnapshotSchema.parse(JSON.parse(request![1].body)); }
 
   it("shows clickable learner-style cards without inline canvas editing", async () => {
@@ -45,19 +46,34 @@ describe("flip-card canvas authoring", () => {
     expect(container.querySelector('[aria-label="Flip card 1 to reveal the back"]')).not.toBeNull();
   });
 
+  it("uses the course theme on the front and a near-white face on the back by default", async () => {
+    await start();
+    expect(frontFace(0).style.backgroundColor).toContain("var(--course-primary");
+    expect(frontFace(0).style.backgroundImage).toContain("color-mix(in srgb");
+    expect(frontFace(0).querySelector<HTMLElement>('[data-block-text-role="title"]')?.getAttribute("style")).toContain("--course-theme-contrast");
+    expect(backFace(0).style.backgroundColor).toBe("rgb(248, 250, 252)");
+    expect(backFace(0).querySelector<HTMLElement>('[data-block-text-role="body"]')?.style.color).toBe("rgb(15, 23, 42)");
+    expect(frontFace(0).style.boxShadow).toContain("inset");
+    expect(frontFace(0).querySelector(".bg-gradient-to-br")).not.toBeNull();
+  });
+
   it("inherits master colors, retains per-card overrides, resets them, and saves grid controls", async () => {
     await start();
-    await input("Card background color hex code", "#112233");
-    await input("Card 2 background color hex code", "#ff8800");
-    await input("Card background color hex code", "#223344");
+    await input("Master front background color hex code", "#112233");
+    await input("Card 2 front background color hex code", "#ff8800");
+    await input("Master front background color hex code", "#223344");
     expect(frontFace(0).style.backgroundColor).toBe("rgb(34, 51, 68)"); expect(frontFace(1).style.backgroundColor).toBe("rgb(255, 136, 0)");
-    await click("Use master colors for card 2"); expect(frontFace(1).style.backgroundColor).toBe("rgb(34, 51, 68)");
+    expect(backFace(0).style.backgroundColor).toBe("rgb(248, 250, 252)"); expect(backFace(1).style.backgroundColor).toBe("rgb(248, 250, 252)");
+    await click("Use master front colors for card 2"); expect(frontFace(1).style.backgroundColor).toBe("rgb(34, 51, 68)");
+    await select("Card style", "realistic");
+    expect(frontFace(0).style.boxShadow).toContain("inset"); expect(backFace(0).style.boxShadow).toContain("inset");
+    expect(frontFace(0).querySelector(".bg-gradient-to-br")).not.toBeNull();
     await select("Flip card grid mode", "custom"); await select("Cards per row", "2");
     await input("Flip card object padding", "24"); await input("Flip card card padding", "20");
     await input("Flip card column gap", "18"); await input("Flip card row gap", "14");
     await select("Flip card text alignment", "left"); await input("Flip card corner radius", "8");
     const snapshot = await saved();
-    expect(snapshot.lessons[0].blocks[0]).toMatchObject({ data: { cardsPerRow: 2, presentationLayout: { mode: "custom", padding: 24, cardPadding: 20, columnGap: 18, rowGap: 14, textAlign: "left", borderRadius: 8 } } });
+    expect(snapshot.lessons[0].blocks[0]).toMatchObject({ data: { cardStyle: "realistic", cardsPerRow: 2, presentationLayout: { mode: "custom", padding: 24, cardPadding: 20, columnGap: 18, rowGap: 14, textAlign: "left", borderRadius: 8 } } });
     for (const standalone of [false, true]) {
       await act(async () => root.render(<CoursePreview key={String(standalone)} initialData={{ ...snapshot, courseId: "slides" }} authorName="Author" initialLessonId="slide" persistLocalProgress={false} standalone={standalone} />));
       const grid = container.querySelector<HTMLElement>('[data-slide-active="true"] [data-flip-card-grid]')!;

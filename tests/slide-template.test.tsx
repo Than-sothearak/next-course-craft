@@ -24,6 +24,7 @@ describe("slide presentation template", () => {
   it("offers the slide template when creating a course", () => {
     const markup = renderToStaticMarkup(createElement(DashboardDialogs, {
       openFolder: false, openCourse: true,
+      generateCourseAfterCreate: false,
       data: { currentFolder: null, folderOptions: [] } as unknown as DashboardData,
       busy: false, onCloseFolder: () => {}, onCloseCourse: () => {}, onSubmit: async () => {},
     }));

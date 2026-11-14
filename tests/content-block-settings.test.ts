@@ -225,7 +225,11 @@ describe("content block settings access", () => {
     const cardsPerRow = document.querySelector<HTMLSelectElement>('[aria-label="Cards per row"]')!;
     expect([...cardsPerRow.options].map((option) => option.value)).toEqual(["1", "2", "3", "4", "5"]);
     const cardStyle = document.querySelector<HTMLSelectElement>('[aria-label="Card style"]')!;
-    expect([...cardStyle.options].map((option) => option.value)).toEqual(["classic", "soft", "outlined", "elevated"]);
+    expect([...cardStyle.options].map((option) => option.value)).toEqual(["classic", "soft", "outlined", "elevated", "realistic"]);
+    const frontGradient = document.querySelector<HTMLButtonElement>('[aria-label="Master front background color gradient"]');
+    expect(frontGradient).not.toBeNull();
+    act(() => frontGradient!.click());
+    expect(onChange.mock.lastCall?.[0]).toMatchObject({ data: { cardBackgroundColor: "linear-gradient(90deg, #ffffff 0%, #8b5cf6 100%)" } });
     act(() => {
       cardsPerRow.value = "5";
       cardsPerRow.dispatchEvent(new Event("change", { bubbles: true }));
@@ -238,7 +242,7 @@ describe("content block settings access", () => {
       courseId: "course-1",
       onChange,
     })));
-    const backgroundColor = document.querySelector<HTMLInputElement>('[aria-label="Card background color"]')!;
+    const backgroundColor = document.querySelector<HTMLInputElement>('[aria-label="Master front background color"]')!;
     act(() => {
       const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
       valueSetter?.call(backgroundColor, "#123456");

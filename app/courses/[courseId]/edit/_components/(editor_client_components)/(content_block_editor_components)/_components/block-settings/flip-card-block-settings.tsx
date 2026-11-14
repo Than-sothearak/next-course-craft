@@ -18,6 +18,13 @@ import { defaultFlipCardLayout, duplicateFlipCard, moveFlipCard, type FlipCardLa
 export function FlipCardBlockSettings({ block, onChange, updateFlipCard, updateFlipCardFace, setMediaLibraryTarget, presentation = false }: { block: Extract<ContentBlock, { type: "flipCard" }>; presentation?: boolean; onChange: (block: ContentBlock) => void; updateFlipCard: (cardId: string, update: (card: FlipCard) => FlipCard) => void; updateFlipCardFace: (cardId: string, side: FlipCardSide, face: FlipCardFace) => void; setMediaLibraryTarget: Dispatch<SetStateAction<MediaLibraryTarget | null>> }) {
   const layout = block.data.presentationLayout ?? defaultFlipCardLayout;
   const setLayout = (update: Partial<FlipCardLayout>) => onChange({ ...block, data: { ...block.data, presentationLayout: { ...layout, ...update } } });
+  const cardStyles = [
+    { value: "classic", label: "Classic" },
+    { value: "soft", label: "Soft" },
+    { value: "outlined", label: "Outlined" },
+    { value: "elevated", label: "Elevated" },
+    { value: "realistic", label: "Realistic" },
+  ] as const;
   return <div className="space-y-4">
     <section aria-label="Cards" className="space-y-2"><h3 className="text-xs font-semibold text-slate-700">Cards</h3>
       <FlipCardList block={block} onChange={onChange}>{(card, index) => (
@@ -45,10 +52,10 @@ export function FlipCardBlockSettings({ block, onChange, updateFlipCard, updateF
           <div className="space-y-3 border-t border-slate-100 p-3">
             <div className="flex gap-1"><Button type="button" size="sm" variant="outline" aria-label={`Move flip card ${index + 1} left`} disabled={index === 0} onClick={() => onChange(moveFlipCard(block, card.id, index - 1))}><ArrowLeft size={14} />Move left</Button><Button type="button" size="sm" variant="outline" aria-label={`Move flip card ${index + 1} right`} disabled={index === block.data.cards.length - 1} onClick={() => onChange(moveFlipCard(block, card.id, index + 1))}><ArrowRight size={14} />Move right</Button></div>
             <div className="grid grid-cols-2 gap-2">
-              <label className="space-y-1 text-xs">Background<ColorPicker aria-label={`Card ${index + 1} background color`} value={card.backgroundColor ?? block.data.cardBackgroundColor} onChange={(backgroundColor) => updateFlipCard(card.id, (current) => ({ ...current, backgroundColor }))} /></label>
-              <label className="space-y-1 text-xs">Text<ColorPicker aria-label={`Card ${index + 1} text color`} value={card.textColor ?? block.data.cardTextColor} onChange={(textColor) => updateFlipCard(card.id, (current) => ({ ...current, textColor }))} /></label>
+              <label className="space-y-1 text-xs">Front background<ColorPicker aria-label={`Card ${index + 1} front background color`} allowGradient value={card.backgroundColor ?? block.data.cardBackgroundColor} onChange={(backgroundColor) => updateFlipCard(card.id, (current) => ({ ...current, backgroundColor }))} /></label>
+              <label className="space-y-1 text-xs">Front text<ColorPicker aria-label={`Card ${index + 1} front text color`} allowGradient value={card.textColor ?? block.data.cardTextColor} onChange={(textColor) => updateFlipCard(card.id, (current) => ({ ...current, textColor }))} /></label>
             </div>
-            <Button type="button" variant="ghost" size="sm" aria-label={`Use master colors for card ${index + 1}`} onClick={() => updateFlipCard(card.id, (current) => ({ ...current, backgroundColor: undefined, textColor: undefined }))}>Use master colors</Button>
+            <Button type="button" variant="ghost" size="sm" aria-label={`Use master front colors for card ${index + 1}`} onClick={() => updateFlipCard(card.id, (current) => ({ ...current, backgroundColor: undefined, textColor: undefined }))}>Use master front colors</Button>
             {(["front", "back"] as const).map((side) => {
               const face = card[side];
               const faceLabel = side === "front" ? "front" : "back";
@@ -158,8 +165,9 @@ export function FlipCardBlockSettings({ block, onChange, updateFlipCard, updateF
       </>}
     </section>
     <section aria-label="Card appearance" className="space-y-3 border-t pt-3"><h3 className="text-xs font-semibold text-slate-700">Card appearance</h3>
-      <label className="block space-y-1 text-xs">Card style<Select aria-label="Card style" value={block.data.cardStyle} onChange={(event) => onChange({ ...block, data: { ...block.data, cardStyle: event.target.value as typeof block.data.cardStyle } })}>{["classic","soft","outlined","elevated"].map((style) => <option key={style} value={style}>{style}</option>)}</Select></label>
-      <div className="grid grid-cols-2 gap-2"><label className="space-y-1 text-xs">Master background<ColorPicker aria-label="Card background color" value={block.data.cardBackgroundColor} onChange={(cardBackgroundColor) => onChange({ ...block, data: { ...block.data, cardBackgroundColor } })} /></label><label className="space-y-1 text-xs">Master text<ColorPicker aria-label="Card text color" value={block.data.cardTextColor} onChange={(cardTextColor) => onChange({ ...block, data: { ...block.data, cardTextColor } })} /></label></div>
+      <label className="block space-y-1 text-xs">Card style<Select aria-label="Card style" value={block.data.cardStyle} onChange={(event) => onChange({ ...block, data: { ...block.data, cardStyle: event.target.value as typeof block.data.cardStyle } })}>{cardStyles.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}</Select></label>
+      <div className="grid grid-cols-2 gap-2"><label className="space-y-1 text-xs">Master front background<ColorPicker aria-label="Master front background color" allowGradient value={block.data.cardBackgroundColor} onChange={(cardBackgroundColor) => onChange({ ...block, data: { ...block.data, cardBackgroundColor } })} /></label><label className="space-y-1 text-xs">Master front text<ColorPicker aria-label="Master front text color" allowGradient value={block.data.cardTextColor} onChange={(cardTextColor) => onChange({ ...block, data: { ...block.data, cardTextColor } })} /></label></div>
+      <p className="text-xs leading-5 text-slate-500">The default front uses a gradient from the course colors. Front color controls style the front only; the back stays near-white with dark text.</p>
       {presentation && <div className="grid grid-cols-2 gap-2"><label className="space-y-1 text-xs">Corner radius<NumberInput precision={0} aria-label="Flip card corner radius" min={0} max={80} value={layout.borderRadius} onValueChange={(borderRadius) => setLayout({ borderRadius })} /></label><label className="space-y-1 text-xs">Text alignment<Select aria-label="Flip card text alignment" value={layout.textAlign} onChange={(event) => setLayout({ textAlign: event.target.value as FlipCardLayout["textAlign"] })}>{["left","center","right"].map((value) => <option key={value}>{value}</option>)}</Select></label></div>}
     </section>
   </div>;

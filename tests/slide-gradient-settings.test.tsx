@@ -34,16 +34,17 @@ describe("presentation object gradients", () => {
   afterEach(() => { act(() => root.unmount()); container.remove(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
   const button = (label: string) => container.querySelector<HTMLButtonElement>(`[aria-label="${label}"]`)!;
   const input = (label: string, value: string) => act(async () => { const element = container.querySelector<HTMLInputElement>(`[aria-label="${label}"]`)!; Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(element, value); element.dispatchEvent(new Event("input", { bubbles: true })); });
-  async function gradient(label: string) { await act(async () => button(`${label} gradient`).click()); await input(label === "Chart color picker" ? "Chart color hex code" : `${label} hex code`, "#2563eb"); await input(`${label} end hex code`, "#f97316"); await input(`${label} gradient angle`, "135"); }
+  async function gradient(label: string) { const toggle = container.querySelector<HTMLButtonElement>(`[aria-label="${label} gradient"]`); expect(toggle, `Missing gradient toggle for ${label}`).not.toBeNull(); await act(async () => toggle!.click()); await input(label === "Chart color picker" ? "Chart color hex code" : `${label} hex code`, "#2563eb"); await input(`${label} end hex code`, "#f97316"); await input(`${label} gradient angle`, "135"); }
 
   it("saves object fills and internal colors, retains undo, and renders gradients in both learners", async () => {
     await act(async () => root.render(<EditorClient initialData={initialData} authorName="Author" />));
-    const controls = [["labeledGraphic", "Graphic marker color"], ["flipCard", "Card background color"], ["chart", "Chart color picker"], ["divider", "Divider line color"], ["processSteps", "Process step accent color"]];
+    const controls = [["labeledGraphic", "Graphic marker color"], ["flipCard", "Master front background color"], ["chart", "Chart color picker"], ["divider", "Divider line color"], ["processSteps", "Process step accent color"]];
     for (const [type, label] of controls) {
       await act(async () => button(`Select ${type} object from layers`).click()); await gradient("Object background color");
       if (type === "chart" || type === "divider") {
         await act(async () => container.querySelector<HTMLInputElement>(`[aria-label="Use custom ${type === "chart" ? "chart" : "divider line"} color"]`)!.click());
       }
+      if (type === "processSteps") await act(async () => container.querySelector<HTMLInputElement>('[aria-label="Use custom process step color"]')!.click());
       await gradient(label);
     }
     await act(async () => button("Undo").click()); await act(async () => button("Redo").click());

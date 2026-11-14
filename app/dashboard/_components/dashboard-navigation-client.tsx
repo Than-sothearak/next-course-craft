@@ -16,7 +16,7 @@ function expandedFolderIds(nodes: FolderTreeNode[]): Set<string> {
 }
 
 export function DashboardNavigationClient({ initialNavigation, initialError }: { initialNavigation: DashboardNavigation; initialError: string | null }) {
-  const { navigation, filters, navigating, busy, navigateToWorkspace, setShowNewFolder, setShowNewCourse, setWorkspaceDialogMode } = useDashboard();
+  const { navigation, filters, navigating, busy, navigateToWorkspace, setShowNewFolder, setShowNewCourse, setGenerateCourseAfterCreate, setWorkspaceDialogMode } = useDashboard();
   const data = navigation ?? initialNavigation;
   const [expandedFolders, setExpandedFolders] = useState(() => expandedFolderIds(data.folderTree));
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -57,7 +57,16 @@ export function DashboardNavigationClient({ initialNavigation, initialError }: {
       return next;
     }),
     onNewFolder: () => { setMobileOpen(false); setShowNewFolder(true); },
-    onNewCourse: () => { setMobileOpen(false); setShowNewCourse(true); },
+    onNewCourse: () => {
+      setMobileOpen(false);
+      setGenerateCourseAfterCreate(false);
+      setShowNewCourse(true);
+    },
+    onGenerateCourse: () => {
+      setMobileOpen(false);
+      setGenerateCourseAfterCreate(true);
+      setShowNewCourse(true);
+    },
     onWorkspaceChange: (workspaceId: string | null) => { setMobileOpen(false); navigateToWorkspace(workspaceId); },
     onCreateWorkspace: () => { setMobileOpen(false); setWorkspaceDialogMode("create"); },
     onManageWorkspace: () => { setMobileOpen(false); setWorkspaceDialogMode("manage"); },

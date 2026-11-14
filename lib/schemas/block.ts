@@ -325,7 +325,7 @@ const flipCardCollectionDataSchema = z
   .object({
     cards: z.array(flipCardItemSchema).min(1).max(30),
     cardsPerRow: z.number().int().min(1).max(5).default(3),
-    cardStyle: z.enum(["classic", "soft", "outlined", "elevated"]).default("classic"),
+    cardStyle: z.enum(["classic", "soft", "outlined", "elevated", "realistic"]).default("realistic"),
     cardBackgroundColor: colorValueSchema.default("#ffffff"),
     cardTextColor: colorValueSchema.default("#0f172a"),
     presentationLayout: flipCardPresentationLayoutSchema.optional(),
@@ -349,7 +349,7 @@ const legacyFlipCardDataSchema = z.object({
   backLabel: z.string().max(80),
   back: z.string().max(2_000),
   cardsPerRow: z.number().int().min(1).max(5).default(3),
-  cardStyle: z.enum(["classic", "soft", "outlined", "elevated"]).default("classic"),
+  cardStyle: z.enum(["classic", "soft", "outlined", "elevated", "realistic"]).default("realistic"),
   cardBackgroundColor: colorValueSchema.default("#ffffff"),
   cardTextColor: colorValueSchema.default("#0f172a"),
 });

@@ -3,6 +3,7 @@
 import type { ReactNode, CSSProperties, Dispatch, RefObject, SetStateAction } from "react";
 import { FilePlus2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { contrastTextColor } from "@/lib/color";
 import type { Permission } from "@/lib/auth/policy";
 import type { GenerationSessionSnapshot } from "@/lib/ai/course-generation-session-schema";
 import { courseThemeFontFamilies } from "@/lib/editor/theme";
@@ -220,7 +221,11 @@ export function EditorWorkspace({
     : isDraftSaved ? undefined : "Save all course edits before publishing.";
   const courseStyle = {
     "--course-primary": draft.theme.primaryColor,
+    "--course-primary-contrast": contrastTextColor(draft.theme.primaryColor),
     "--course-accent": draft.theme.accentColor,
+    "--course-theme-primary": draft.theme.primaryColor,
+    "--course-theme-accent": draft.theme.accentColor,
+    "--course-theme-contrast": contrastTextColor(draft.theme.primaryColor),
   } as CSSProperties;
 
   return (

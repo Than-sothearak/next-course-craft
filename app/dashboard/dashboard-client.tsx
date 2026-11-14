@@ -58,6 +58,8 @@ export default function DashboardClient({
     setShowNewFolder,
     showNewCourse,
     setShowNewCourse,
+    generateCourseAfterCreate,
+    setGenerateCourseAfterCreate,
     workspaceDialogMode,
     setWorkspaceDialogMode,
   } = useDashboard();
@@ -167,7 +169,7 @@ export default function DashboardClient({
         if (course) setDeletedCourse({ id: course.id, title: course.title });
       }
       const created = method === "POST" && url === "/api/courses" ? await response.json() as { id: string; firstSlideId?: string | null } : null;
-      await refresh();
+      if (!created) await refresh();
       if (url.endsWith("/restore")) setDeletedCourse(null);
       return created;
     } catch (cause) {
@@ -200,8 +202,15 @@ export default function DashboardClient({
     const created = await request(url, method, payload);
     if (method === "POST" && url === "/api/folders") setShowNewFolder(false);
     if (method === "POST" && url === "/api/courses") {
-      if (created) setShowNewCourse(false);
-      if (created?.firstSlideId) router.push(editorModeHref(created.id, "presentation"));
+      if (created) {
+        setShowNewCourse(false);
+        setGenerateCourseAfterCreate(false);
+        const mode = created.firstSlideId ? "presentation" : "standard";
+        const href = editorModeHref(created.id, mode);
+        router.push(
+          generateCourseAfterCreate ? `${href}?generate=1` : href,
+        );
+      }
     }
   }
 
@@ -279,7 +288,10 @@ export default function DashboardClient({
             <DashboardActions
               disabled={disabled || readOnly}
               onNewFolder={() => setShowNewFolder(true)}
-              onNewCourse={() => setShowNewCourse(true)}
+              onNewCourse={() => {
+                setGenerateCourseAfterCreate(false);
+                setShowNewCourse(true);
+              }}
             />
           )}
         </div>
@@ -348,10 +360,14 @@ export default function DashboardClient({
       <DashboardDialogs
         openFolder={showNewFolder}
         openCourse={showNewCourse}
+        generateCourseAfterCreate={generateCourseAfterCreate}
         data={data}
         busy={busy}
         onCloseFolder={() => setShowNewFolder(false)}
-        onCloseCourse={() => setShowNewCourse(false)}
+        onCloseCourse={() => {
+          setShowNewCourse(false);
+          setGenerateCourseAfterCreate(false);
+        }}
         onSubmit={submit}
       />
 
@@ -573,7 +589,10 @@ export default function DashboardClient({
                   canCreate={canCreate}
                   hasFolders={data.folders.length > 0}
                   query={query}
-                  onCreate={() => setShowNewCourse(true)}
+                  onCreate={() => {
+                    setGenerateCourseAfterCreate(false);
+                    setShowNewCourse(true);
+                  }}
                   disabled={disabled || readOnly}
                 />
               )}

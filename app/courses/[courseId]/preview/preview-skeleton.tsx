@@ -1,4 +1,6 @@
+import { CourseCover } from "@/components/course-cover";
 import { Skeleton } from "@/components/ui/skeleton";
+import { defaultCourseTheme } from "@/lib/editor/theme";
 import { Presentation } from "lucide-react";
 
 export function CoursePreviewSkeleton({ presentation = false }: { presentation?: boolean } = {}) {
@@ -12,28 +14,50 @@ export function CoursePreviewSkeleton({ presentation = false }: { presentation?:
     >
       <header className="relative z-50 flex min-h-14 shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-slate-200 bg-white px-3 py-2 sm:px-5">
         <div className="flex items-center gap-2">
-          <Skeleton className="size-8 rounded-md" />
+          <div className="grid size-9 place-items-center rounded-lg">
+            <Skeleton className="size-4 rounded-sm" />
+          </div>
           <div className="flex items-center gap-2">
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="hidden h-3 w-20 sm:block" />
+            <span className="text-sm font-semibold">Course Preview</span>
+            <span className="hidden text-xs text-slate-500 sm:inline">
+              Current version
+            </span>
           </div>
         </div>
 
         <div className="flex items-center rounded-lg bg-slate-100 p-0.5">
-          <Skeleton className="h-8 w-24 rounded-md" />
-          <Skeleton className="h-8 w-14 rounded-md bg-slate-100" />
+          <div className="flex h-9 w-24 items-center justify-center rounded-md bg-indigo-50">
+            <Skeleton className="h-3 w-20 bg-indigo-100" />
+          </div>
+          <div className="flex h-9 w-14 items-center justify-center rounded-md">
+            <Skeleton className="h-3 w-8" />
+          </div>
         </div>
 
         <div className="ml-auto flex items-center gap-1">
-          <Skeleton className="size-8 rounded-md" />
-          <Skeleton className="size-8 rounded-md" />
-          <Skeleton className="size-8 rounded-md" />
-          <Skeleton className="ml-1 h-8 w-14 rounded-md" />
-          <Skeleton className="h-8 w-20 rounded-md" />
+          <div className="grid size-8 place-items-center rounded-lg bg-indigo-50">
+            <Skeleton className="size-4 bg-indigo-100" />
+          </div>
+          <div className="grid size-8 place-items-center rounded-lg">
+            <Skeleton className="size-4" />
+          </div>
+          <div className="grid size-8 place-items-center rounded-lg">
+            <Skeleton className="size-4" />
+          </div>
+          <div className="ml-1 flex h-9 w-14 items-center justify-center rounded-md bg-indigo-600">
+            <Skeleton className="h-3 w-5 bg-indigo-300" />
+          </div>
+          <div className="flex h-9 w-20 items-center justify-center gap-1 rounded-md border border-slate-300 bg-white px-2.5 shadow-sm">
+            <Skeleton className="h-3 w-10" />
+            <Skeleton className="size-3.5" />
+          </div>
         </div>
       </header>
 
-      <div data-preview-viewport className="min-h-0 min-w-0 flex-1 overflow-hidden bg-white">
+      <div
+        data-preview-viewport
+        className="min-h-0 min-w-0 flex-1 overflow-hidden bg-white"
+      >
         <div className="grid h-full min-h-0 w-full min-w-0 place-items-center overflow-hidden">
           <div
             data-preview-frame="desktop"
@@ -45,29 +69,41 @@ export function CoursePreviewSkeleton({ presentation = false }: { presentation?:
               className="h-full min-h-0 w-full min-w-0 overflow-hidden bg-white"
             >
               <div className="h-full overflow-y-auto">
-                <section aria-label="Loading course cover" className="bg-slate-800 px-5 py-12 sm:px-10 sm:py-24">
-                  <div className="mx-auto max-w-5xl">
-                    <div className="mb-6 flex items-center gap-2.5">
-                      <Skeleton className="size-9 rounded-full bg-white/20" />
-                      <Skeleton className="h-4 w-28 bg-white/20" />
+                <section
+                  aria-label="Loading course cover"
+                  className="@container/course-cover"
+                >
+                  <CourseCover
+                    primaryColor={defaultCourseTheme.primaryColor}
+                    accentColor={defaultCourseTheme.accentColor}
+                    className="px-5 py-12 @min-[40rem]/course-cover:px-10 @min-[48rem]/course-cover:py-24"
+                  >
+                    <div className="mx-auto max-w-5xl flex flex-col mt-80">
+                      <div className="mb-6 flex items-center justify-center gap-2.5">
+                        <Skeleton className="size-9 rounded-full bg-white/20" />
+                        <Skeleton className="h-4 w-28 bg-white/20" />
+                      </div>
+                      <Skeleton className="mx-auto h-10 w-3/4 max-w-2xl bg-white/20 sm:h-14" />
+                      <Skeleton className="mx-auto mt-8 h-10 w-36 rounded-full bg-white/20" />
                     </div>
-                    <Skeleton className="h-10 w-3/4 max-w-2xl bg-white/20 sm:h-14" />
-                    <Skeleton className="mt-8 h-10 w-36 rounded-full bg-white/20" />
-                  </div>
+                  </CourseCover>
                 </section>
 
-                <div className="mx-auto max-w-5xl px-5 py-8 sm:px-10 sm:py-12">
-                  <section aria-label="Loading course description" className="mx-auto mb-14 max-w-3xl space-y-3">
+                <div className="mx-auto max-w-5xl px-5 py-12 sm:px-10 sm:py-16">
+                  <section
+                    aria-label="Loading course description"
+                    className="mx-auto mb-14 max-w-3xl space-y-4"
+                  >
                     <Skeleton className="h-4 w-full" />
                     <Skeleton className="h-4 w-11/12" />
                     <Skeleton className="h-4 w-2/3" />
                   </section>
 
                   <section aria-label="Loading course outline" className="mx-auto max-w-3xl">
-                    <div className="mb-5 flex items-end justify-between gap-3 border-b border-slate-200 pb-3">
-                      <div className="space-y-2">
+                    <div className="mb-5 flex flex-wrap items-end justify-between gap-3 border-b border-slate-200 pb-3">
+                      <div>
                         <Skeleton className="h-3 w-24" />
-                        <Skeleton className="h-7 w-44" />
+                        <Skeleton className="mt-1 h-8 w-44" />
                       </div>
                       <Skeleton className="h-4 w-24" />
                     </div>

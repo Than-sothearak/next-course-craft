@@ -3,6 +3,7 @@
 import { type CSSProperties, useMemo, useState } from "react";
 import { Menu, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { contrastTextColor } from "@/lib/color";
 import { defaultCourseNavigationMode } from "@/lib/editor/navigation";
 import { MediaProgressProvider, useMediaProgress } from "@/components/media-progress-context";
 import { SlideProgressReadyContext } from "@/app/courses/[courseId]/_components/slide-presentation/slide-playback-context";
@@ -107,7 +108,11 @@ function CoursePreviewContent({
   const courseTheme = normalizeCourseTheme(initialData.theme);
   const themeStyle = {
     "--course-primary": courseTheme.primaryColor,
+    "--course-primary-contrast": contrastTextColor(courseTheme.primaryColor),
     "--course-accent": courseTheme.accentColor,
+    "--course-theme-primary": courseTheme.primaryColor,
+    "--course-theme-accent": courseTheme.accentColor,
+    "--course-theme-contrast": contrastTextColor(courseTheme.primaryColor),
   } as CSSProperties;
   const sections = useMemo(
     () => [...initialData.sections].sort((a, b) => a.order - b.order),

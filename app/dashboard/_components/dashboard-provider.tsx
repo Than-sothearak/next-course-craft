@@ -34,6 +34,8 @@ type DashboardContextValue = {
   setShowNewFolder: Dispatch<SetStateAction<boolean>>;
   showNewCourse: boolean;
   setShowNewCourse: Dispatch<SetStateAction<boolean>>;
+  generateCourseAfterCreate: boolean;
+  setGenerateCourseAfterCreate: Dispatch<SetStateAction<boolean>>;
   workspaceDialogMode: WorkspaceDialogMode;
   setWorkspaceDialogMode: Dispatch<SetStateAction<WorkspaceDialogMode>>;
 };
@@ -55,6 +57,8 @@ export function DashboardProvider({
   const [busy, setBusy] = useState(false);
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [showNewCourse, setShowNewCourse] = useState(false);
+  const [generateCourseAfterCreate, setGenerateCourseAfterCreate] =
+    useState(false);
   const [workspaceDialogMode, setWorkspaceDialogMode] =
     useState<WorkspaceDialogMode>(null);
   const [navigating, startTransition] = useTransition();
@@ -98,6 +102,8 @@ export function DashboardProvider({
         setShowNewFolder,
         showNewCourse,
         setShowNewCourse,
+        generateCourseAfterCreate,
+        setGenerateCourseAfterCreate,
         workspaceDialogMode,
         setWorkspaceDialogMode,
       }}

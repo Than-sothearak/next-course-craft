@@ -5,6 +5,7 @@ type StandardEditorProps = Pick<
   | "initialData"
   | "focusedLessonId"
   | "focusedBlockId"
+  | "openGenerationOnMount"
   | "authorName"
   | "userName"
   | "permissions"

@@ -28,6 +28,7 @@ type SidebarProps = {
   onToggleFolder: (id: string) => void;
   onNewFolder: () => void;
   onNewCourse: () => void;
+  onGenerateCourse: () => void;
   onWorkspaceChange: (workspaceId: string | null) => void;
   onCreateWorkspace: () => void;
   onManageWorkspace: () => void;
@@ -44,6 +45,7 @@ export function DashboardSidebar({
   onToggleFolder,
   onNewFolder,
   onNewCourse,
+  onGenerateCourse,
   onWorkspaceChange,
   onCreateWorkspace,
   onManageWorkspace,
@@ -52,6 +54,8 @@ export function DashboardSidebar({
   const canCreate =
     Boolean(data.permissions?.includes("courses.create")) &&
     data.workspaceRole !== "viewer";
+  const canGenerate =
+    canCreate && Boolean(data.permissions?.includes("ai.generate"));
   const canManageWorkspace = Boolean(
     data.permissions?.includes("workspaces.manage"),
   );
@@ -155,21 +159,28 @@ export function DashboardSidebar({
         <div className="mt-6 rounded-2xl border border-indigo-100 bg-gradient-to-br from-indigo-50 to-white p-4 lg:mt-auto">
           <Sparkles size={18} className="text-indigo-600" aria-hidden="true" />
           <p className="mt-3 text-sm font-semibold">
-            {canCreate ? "Start with a course" : "Your shared courses"}
+            {canGenerate
+              ? "Generate a course"
+              : canCreate
+                ? "Start with a course"
+                : "Your shared courses"}
           </p>
           <p className="mt-1 text-xs leading-5 text-slate-500">
-            {canCreate
-              ? "Keep each learning project organized in one place."
-              : "Open the courses you own or that have been shared with you."}
+            {canGenerate
+              ? "Turn a topic or source into a structured learning course."
+              : canCreate
+                ? "Keep each learning project organized in one place."
+                : "Open the courses you own or that have been shared with you."}
           </p>
           {canCreate && (
             <Button
               variant="link"
               disabled={disabled || !canCreate}
-              onClick={onNewCourse}
+              onClick={canGenerate ? onGenerateCourse : onNewCourse}
               className="mt-3 text-xs font-semibold text-indigo-700 hover:text-indigo-900 disabled:opacity-40"
             >
-              Create a course <span aria-hidden="true">→</span>
+              {canGenerate ? "Generate course" : "Create a course"}{" "}
+              <span aria-hidden="true">→</span>
             </Button>
           )}
         </div>

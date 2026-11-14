@@ -459,7 +459,7 @@ describe("prebuilt interactive block templates", () => {
       blockPadding: 40,
       data: {
         cardsPerRow: 2,
-        cardStyle: "classic",
+        cardStyle: "realistic",
         cardBackgroundColor: "#ffffff",
         cardTextColor: "#0f172a",
         cards: [{ frontLabel: "Predict", backLabel: "Reveal" }, { frontLabel: "Predict", backLabel: "Reveal" }],

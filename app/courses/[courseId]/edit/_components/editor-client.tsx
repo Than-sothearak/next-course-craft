@@ -27,6 +27,7 @@ export type EditorClientProps = {
   focusedBlockId?: string;
   initialPresentationLessonId?: string;
   initialPresentationBlockId?: string;
+  openGenerationOnMount?: boolean;
   authorName: string;
   userName?: string;
   permissions?: Permission[];
@@ -39,6 +40,7 @@ export function EditorClient({
   focusedBlockId,
   initialPresentationLessonId,
   initialPresentationBlockId,
+  openGenerationOnMount = false,
   authorName,
   userName,
   permissions = [],
@@ -133,7 +135,9 @@ export function EditorClient({
     const nativeNavigation = focusedLessonId && path === editorModeHref(initialData.courseId, "standard");
     if (nativeNavigation || generation.confirmLeave()) openRouteAfterSave(path);
   }
-  const [courseGenerationOpen, setCourseGenerationOpen] = useState(false);
+  const [courseGenerationOpen, setCourseGenerationOpen] = useState(
+    openGenerationOnMount,
+  );
   const activeLesson =
     draft.lessons.find((lesson) => lesson.id === activeLessonId) ?? null;
   useFocusedContentBlock(focusedLessonId, activeLessonId, focusedBlockId);

@@ -4,7 +4,7 @@ import { SlideMasterBackground } from "./slide-master-background";
 import { SlideSurfaceFooter } from "./slide-surface-footer";
 import { SlideHeaderBackground } from "./slide-header-background";
 import { FittedSlideTitle } from "./fitted-slide-title";
-import { backgroundPaint, solidColor } from "@/lib/color";
+import { backgroundPaint, contrastTextColor, solidColor } from "@/lib/color";
 
 export function SlideSurface({ master, appearance, title, titleVisible = true, headerTextStyle, number, total, controls, menuControl, decorative, contentRegion = false, children }: {
   master?: SlideMaster;
@@ -24,7 +24,7 @@ export function SlideSurface({ master, appearance, title, titleVisible = true, h
   const footerHeight = appearance?.hideFooter ? 0 : resolveSlideFooterHeight(design);
   const header = resolveSlideHeaderTypography(design, headerTextStyle);
   return (
-    <div className="relative h-full w-full overflow-hidden" style={{ ...backgroundPaint(design.backgroundColor), color: solidColor(design.textColor), "--course-accent": solidColor(design.accentColor), "--course-primary": solidColor(design.accentColor), "--slide-footer-height": `${footerHeight}px`, ...slideBodyTypographyVariables(design.bodyTypography) } as CSSProperties}>
+    <div className="relative h-full w-full overflow-hidden" style={{ ...backgroundPaint(design.backgroundColor), color: solidColor(design.textColor), "--course-accent": solidColor(design.accentColor), "--course-primary": solidColor(design.accentColor), "--course-primary-contrast": contrastTextColor(design.accentColor), "--slide-footer-height": `${footerHeight}px`, ...slideBodyTypographyVariables(design.bodyTypography) } as CSSProperties}>
       <SlideMasterBackground master={design} />
       {!appearance?.hideHeader && <><SlideHeaderBackground master={design} />
       <header data-slide-header className="absolute left-12 right-12 top-9 min-h-14 overflow-hidden leading-tight tracking-tight" style={slideTypographyStyle(header)}>{typeof title === "string" ? <FittedSlideTitle title={title} visible={titleVisible} fontSize={header.fontSize} textAlign={header.textAlign} /> : title}</header></>}
