@@ -62,6 +62,7 @@ describe("lesson editor back navigation", () => {
         onPreview={vi.fn()}
         onBackToOutline={vi.fn()}
         onBackToCourse={onBackToCourse}
+        onBackToDashboard={vi.fn()}
         onReloadCourse={vi.fn()}
       />,
     ));
@@ -72,5 +73,48 @@ describe("lesson editor back navigation", () => {
 
     act(() => backButton?.click());
     expect(onBackToCourse).toHaveBeenCalledOnce();
+  });
+
+  it("routes the dashboard back control through its save-aware callback", () => {
+    const onBackToDashboard = vi.fn();
+    container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+
+    act(() => root?.render(
+      <EditorTopbar
+        slideCourse
+        isPresentationWorkspace
+        courseId="course-1"
+        courseTitle="Course"
+        hasActiveLesson={false}
+        canManageBlocks={false}
+        saveStatus={<span>Saved</span>}
+        saveState="saved"
+        saveMessage=""
+        onRetrySave={vi.fn()}
+        blockManagerOpen={false}
+        onToggleBlockManager={vi.fn()}
+        theme={defaultCourseTheme}
+        onThemeChange={vi.fn()}
+        navigationMode={defaultCourseNavigationMode}
+        onNavigationModeChange={vi.fn()}
+        canUndo={false}
+        canRedo={false}
+        onUndo={vi.fn()}
+        onRedo={vi.fn()}
+        onPreview={vi.fn()}
+        onBackToOutline={vi.fn()}
+        onBackToCourse={vi.fn()}
+        onBackToDashboard={onBackToDashboard}
+        onReloadCourse={vi.fn()}
+      />,
+    ));
+
+    const backButton = container.querySelector<HTMLButtonElement>('button[aria-label="Back to dashboard"]');
+    expect(backButton).not.toBeNull();
+    expect(container.querySelector('a[aria-label="Back to dashboard"]')).toBeNull();
+    act(() => backButton?.click());
+    expect(onBackToDashboard).toHaveBeenCalledOnce();
   });
 });

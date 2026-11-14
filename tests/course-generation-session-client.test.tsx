@@ -14,7 +14,8 @@ const state: GenerationSessionSnapshot = { id: "session", status: "generating", 
 const editor = editorSnapshotSchema.parse({ title: "Course", description: "Learn HTML", revision: 1, sections: [{ id: "learn", title: "Learn", order: 0 }], lessons: [] });
 const mutation: ComponentProps<typeof CourseGenerationWizard>["runServerMutation"] = (operation) => operation(1);
 let hook: ReturnType<typeof useCourseGenerationSession>, root: Root, container: HTMLDivElement;
-function Harness() { const value = useCourseGenerationSession("course", mutation); useEffect(() => { hook = value; }); return null; }
+const cancelledLessonsRemoved = vi.fn(async () => undefined);
+function Harness() { const value = useCourseGenerationSession("course", mutation, true, cancelledLessonsRemoved); useEffect(() => { hook = value; }); return null; }
 beforeEach(() => { window.localStorage.clear(); vi.clearAllMocks(); vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true); vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(editor)))); container = document.createElement("div"); document.body.append(container); root = createRoot(container); });
 afterEach(() => { act(() => root.unmount()); container.remove(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
@@ -128,12 +129,21 @@ describe("lesson generation coordinator", () => {
     await act(async () => root.render(<Harness />));
     expect(wouldWarnBeforeLeaving()).toBe(true);
     if (status === "cancelled") {
-      vi.mocked(sessionRequest).mockResolvedValue({ ...state, status });
+      vi.mocked(sessionRequest).mockResolvedValue({ session: { ...state, status }, removedLessonIds: [], changed: false });
       await act(async () => hook.cancel());
     } else {
       await act(async () => hook.setSession({ ...state, status }));
     }
     expect(wouldWarnBeforeLeaving()).toBe(false);
+  });
+  it("synchronizes the editor after cancelled placeholders are removed", async () => {
+    vi.mocked(sessionRequest).mockImplementation(async (_courseId, body) => body
+      ? { session: { ...state, status: "cancelled" }, removedLessonIds: ["lesson-1"], changed: true }
+      : state);
+    await act(async () => root.render(<Harness />));
+    await act(async () => hook.cancel());
+    expect(cancelledLessonsRemoved).toHaveBeenCalledExactlyOnceWith(["lesson-1"], true);
+    expect(hook.session!.status).toBe("cancelled");
   });
   it("waits for each database save before starting the next lesson", async () => {
     const actions: string[] = [];

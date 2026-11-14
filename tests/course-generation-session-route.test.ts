@@ -9,20 +9,22 @@ import { courseGenerationInputSchema } from "@/lib/ai/course-generation-schemas"
 import { editorSnapshotSchema } from "@/lib/editor/schemas";
 import { slideMasterSchema } from "@/lib/editor/slide-design";
 import type { GenerationSessionSnapshot } from "@/lib/ai/course-generation-session-schema";
-import { getSession, prepareNextLesson, commitNextLesson, cancelSession } from "@/lib/ai/generation/session-workflow";
+import { getSession, prepareNextLesson, commitNextLesson, cancelSession, cleanupCancelledSessionLessons } from "@/lib/ai/generation/session-workflow";
 import { DashboardError } from "@/lib/dashboard/rules";
+const cache = vi.hoisted(() => ({ revalidatePath: vi.fn() }));
+vi.mock("next/cache", () => cache);
 vi.mock("@/lib/dashboard/http", async (original) => ({ ...await original<typeof import("@/lib/dashboard/http")>(), requireOwnerId: vi.fn(async () => "user") }));
 vi.mock("@/lib/db/mongodb", () => ({ connectToDatabase: vi.fn() }));
 vi.mock("@/lib/workspaces/access", () => ({ resolveCourseAccess: vi.fn(async () => ({ ownerId: "owner" })) }));
 vi.mock("@/lib/auth/authorization", () => ({ requireAIEnabled: vi.fn() }));
 vi.mock("@/lib/ai/generation-lease", async (original) => ({ ...await original<typeof import("@/lib/ai/generation-lease")>(), acquireGenerationLease: vi.fn(async () => ({ courseId: "course", token: "token" })), getGenerationLeaseStatus: vi.fn(), releaseGenerationLease: vi.fn(async () => undefined) }));
 vi.mock("@/lib/editor/services/course", () => ({ getCourseEditor: vi.fn() }));
-vi.mock("@/lib/ai/generation/session-workflow", () => ({ getSession: vi.fn(), planSession: vi.fn(), approveSession: vi.fn(), prepareNextLesson: vi.fn(), commitNextLesson: vi.fn(), cancelSession: vi.fn() }));
+vi.mock("@/lib/ai/generation/session-workflow", () => ({ getSession: vi.fn(), planSession: vi.fn(), approveSession: vi.fn(), prepareNextLesson: vi.fn(), commitNextLesson: vi.fn(), cancelSession: vi.fn(), cleanupCancelledSessionLessons: vi.fn() }));
 const context = { params: Promise.resolve({ courseId: "course" }) };
 const sessionId = "507f1f77bcf86cd799439013";
 const session: GenerationSessionSnapshot = { id: sessionId, status: "generating", input: courseGenerationInputSchema.parse({ prompt: "Teach HTML", audience: "Students", level: "beginner", lessonCount: 2, template: "custom", includeImages: false, courseTitle: "", courseDescription: "" }), outline: { title: "Course", description: "Teach HTML", sections: [{ id: "learn", title: "Learn", lessons: [{ id: "lesson", title: "HTML", objective: "Learn HTML", kind: "learn" }] }] }, completedLessonIds: [], currentLessonId: "lesson", error: null, readyToSave: false };
 const submit = (body: unknown, origin = "http://localhost") => POST(new NextRequest("http://localhost/api/courses/course/generation-session", { method: "POST", headers: { "Content-Type": "application/json", Origin: origin }, body: JSON.stringify(body) }), context);
-beforeEach(() => { vi.clearAllMocks(); vi.mocked(acquireGenerationLease).mockReset().mockResolvedValue({ courseId: "course", token: "00000000-0000-0000-0000-000000000000" }); vi.mocked(getGenerationLeaseStatus).mockResolvedValue({ locked: false, retryAfterMs: 0 }); vi.mocked(resolveCourseAccess).mockResolvedValue({ ownerId: "owner" } as Awaited<ReturnType<typeof resolveCourseAccess>>); });
+beforeEach(() => { vi.clearAllMocks(); vi.mocked(acquireGenerationLease).mockReset().mockResolvedValue({ courseId: "course", token: "00000000-0000-0000-0000-000000000000" }); vi.mocked(getGenerationLeaseStatus).mockResolvedValue({ locked: false, retryAfterMs: 0 }); vi.mocked(resolveCourseAccess).mockResolvedValue({ ownerId: "owner" } as Awaited<ReturnType<typeof resolveCourseAccess>>); vi.mocked(cleanupCancelledSessionLessons).mockResolvedValue({ session: null, discardedLessonIds: [], changed: false }); });
 describe("generation session authorization and mutations", () => {
   it("includes lock status in progress reads so restored clients can wait without POST retries", async () => {
     vi.mocked(getSession).mockResolvedValue(session);
@@ -75,8 +77,12 @@ describe("generation session authorization and mutations", () => {
     expect(prepareNextLesson).not.toHaveBeenCalled(); expect(acquireGenerationLease).not.toHaveBeenCalled();
   });
   it("permits cancellation without submitting provider work", async () => {
-    vi.mocked(cancelSession).mockResolvedValue(null);
-    expect((await submit({ action: "cancel", sessionId })).status).toBe(200);
+    vi.mocked(cancelSession).mockResolvedValue({ session: { ...session, status: "cancelled" }, discardedLessonIds: ["lesson"], changed: true });
+    const response = await submit({ action: "cancel", sessionId });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ session: { ...session, status: "cancelled" }, removedLessonIds: ["lesson"], changed: true });
+    expect(cache.revalidatePath).toHaveBeenCalledWith("/dashboard", "page");
+    expect(cleanupCancelledSessionLessons).not.toHaveBeenCalled();
     expect(cancelSession).toHaveBeenCalledWith({ ownerId: "owner", courseId: "course" }, sessionId);
     expect(requireAIEnabled).not.toHaveBeenCalled(); expect(acquireGenerationLease).not.toHaveBeenCalled();
   });

@@ -89,8 +89,8 @@ try {
   await expect(page.getByRole("dialog")).toBeVisible();
   await page.mouse.click(2, 2);
   await expect(page.getByRole("dialog")).toBeVisible();
-  await expect(page.getByLabel("Generate course card image", { exact: true })).not.toBeChecked();
-  await page.getByLabel("Generate course card image", { exact: true }).check();
+  await expect(page.getByLabel("Generate course cover image", { exact: true })).not.toBeChecked();
+  await page.getByLabel("Generate course cover image", { exact: true }).check();
   await page.getByLabel("What should this course teach?").fill("Teach HTML from the basics with worked examples");
   await page.getByRole("button", { name: "Continue to course details" }).click();
   await page.getByRole("button", { name: "Generate outline", exact: true }).click();

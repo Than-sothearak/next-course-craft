@@ -30,6 +30,7 @@ import { FolderCard } from "./_components/(dashboard_client_components)/folder-c
 import { useDismissDetailsOnOutsideClick } from "@/lib/ui/use-dismiss-details";
 import { WorkspaceManagerDialog } from "./_components/workspace-manager-dialog";
 import { editorModeHref } from "@/lib/editor/course-routes";
+import { consumeDashboardRefreshPending } from "@/lib/editor/dashboard-refresh";
 
 type Props = {
   initialData: DashboardData;
@@ -62,6 +63,11 @@ export default function DashboardClient({
   } = useDashboard();
   const { q: query, status, sort } = filters;
   const queryKey = dashboardQueryKey(filters);
+  const queryKeyRef = useRef(queryKey);
+  useEffect(() => {
+    queryKeyRef.current = queryKey;
+  }, [queryKey]);
+  const serverPropsRef = useRef({ initialData, initialError });
   const [data, setData] = useState(initialData);
   const [folderView, setFolderView] = useState<"grid" | "list">("grid");
   const [loadedQueryKey, setLoadedQueryKey] = useState(queryKey);
@@ -73,6 +79,24 @@ export default function DashboardClient({
     id: string;
     title: string;
   } | null>(null);
+  useEffect(() => {
+    if (consumeDashboardRefreshPending()) router.refresh();
+  }, [router]);
+  // This synchronizes the retained App Router Activity with newly streamed RSC
+  // props after an editor save; a normal mount already initializes this state.
+  useEffect(() => {
+    if (
+      serverPropsRef.current.initialData === initialData &&
+      serverPropsRef.current.initialError === initialError
+    ) return;
+    serverPropsRef.current = { initialData, initialError };
+    ++requestSequence.current;
+    setData(initialData);
+    setNavigation(initialData);
+    setLoadedQueryKey(queryKeyRef.current);
+    setFailedQueryKey(null);
+    setError(initialError);
+  }, [initialData, initialError, setNavigation]);
   useEffect(() => {
     // The streamed server data is already current; fetch only after filters change.
     if (initialError || busy || queryKey === loadedQueryKey) return;

@@ -61,6 +61,7 @@ export function CourseOverviewToolbar({
     <DashboardNavbar
       permissions={globalPermissions}
       userName={userName}
+      onHomeClick={onBack}
       actions={
         <>
           <Button

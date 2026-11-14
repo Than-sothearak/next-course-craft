@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { mergeServerDraft } from "@/lib/editor/merge-server-draft";
+import { markDashboardRefreshPending } from "@/lib/editor/dashboard-refresh";
 import type { EditorSnapshotInput } from "@/lib/editor/schemas";
+import { readResponseJson } from "@/lib/http/read-response-json";
 
 export type Draft = Omit<EditorSnapshotInput, "revision">;
 
@@ -16,6 +18,7 @@ export function useEditorDraft({ initialDraft, initialRevision, courseId, titleV
   const revisionRef = useRef(initialRevision);
 
   const lastSavedRef = useRef(JSON.stringify(initialDraft));
+  const lastSavedDraftRef = useRef(initialDraft);
 
   const saveInFlight = useRef(false);
   const externalSaveInFlight = useRef(false);
@@ -114,19 +117,23 @@ export function useEditorDraft({ initialDraft, initialRevision, courseId, titleV
           body: JSON.stringify({ ...snapshot, revision: revisionRef.current }),
         },
       );
-      const result = await response.json();
+      const result = await readResponseJson<{ revision?: number; error?: string }>(response);
       if (response.status === 409) {
         conflictRef.current = true;
         setSaveState("conflict");
         setSaveMessage(
-          result.error ?? "This course changed elsewhere. Reload to continue.",
+          result?.error ?? "This course changed elsewhere. Reload to continue.",
         );
         return;
       }
       if (!response.ok)
-        throw new Error(result.error ?? "Your changes could not be saved.");
+        throw new Error(result?.error ?? `Your changes could not be saved (request failed with status ${response.status}).`);
+      if (!result || typeof result.revision !== "number")
+        throw new Error("The server returned an empty save response. Your changes may not have been saved.");
       revisionRef.current = result.revision;
       lastSavedRef.current = serialized;
+      lastSavedDraftRef.current = snapshot;
+      markDashboardRefreshPending();
       setHasUnsavedChanges(JSON.stringify(draftRef.current) !== serialized);
       setSaveState("saved");
       const pendingRoute = pendingRouteRef.current;
@@ -159,12 +166,16 @@ export function useEditorDraft({ initialDraft, initialRevision, courseId, titleV
     }
   }
 
-  function adoptServerSnapshot(base: Draft, editor: EditorSnapshotInput) {
+  function adoptServerSnapshot(base: Draft, editor: EditorSnapshotInput, removeLessonIds?: ReadonlySet<string>) {
     const { revision, ...snapshot } = editor;
     const server: Draft = Object.fromEntries(Object.keys(base).map((key) => [key, snapshot[key as keyof typeof snapshot]])) as Draft;
     revisionRef.current = revision;
     lastSavedRef.current = JSON.stringify(server);
-    const next = mergeServerDraft(base, draftRef.current, server);
+    lastSavedDraftRef.current = server;
+    const merged = mergeServerDraft(base, draftRef.current, server);
+    const next = removeLessonIds?.size
+      ? { ...merged, lessons: merged.lessons.filter((lesson) => !removeLessonIds.has(lesson.id)) }
+      : merged;
     draftRef.current = next;
     setDraft(next);
     setHasUnsavedChanges(JSON.stringify(next) !== lastSavedRef.current);
@@ -172,6 +183,21 @@ export function useEditorDraft({ initialDraft, initialRevision, courseId, titleV
     redoRef.current = [];
     setCanUndo(false);
     setCanRedo(false);
+  }
+
+  async function synchronizeServerSnapshot(removeLessonIds: string[], dashboardChanged = true) {
+    while (saveInFlight.current || externalSaveInFlight.current)
+      await new Promise((resolve) => window.setTimeout(resolve, 25));
+    const response = await fetch(`/api/courses/${courseId}/editor`, { cache: "no-store" });
+    const editor = await readResponseJson<EditorSnapshotInput & { error?: string }>(response);
+    if (!response.ok) throw new Error(editor?.error ?? `Could not synchronize the cancelled course lessons (request failed with status ${response.status}).`);
+    if (!editor || typeof editor.revision !== "number")
+      throw new Error("The server returned an empty course response while synchronizing cancelled lessons.");
+    conflictRef.current = false;
+    adoptServerSnapshot(lastSavedDraftRef.current, editor, new Set(removeLessonIds));
+    setSaveState("saved");
+    setSaveMessage("");
+    if (dashboardChanged) markDashboardRefreshPending();
   }
 
   async function runServerMutation<T extends { editor: EditorSnapshotInput }>(operation: (revision: number) => Promise<T>): Promise<T> {
@@ -185,6 +211,7 @@ export function useEditorDraft({ initialDraft, initialRevision, courseId, titleV
     setSaveState("saving");
     try {
       const result = await operation(revisionRef.current);
+      if (result.editor.revision !== revisionRef.current) markDashboardRefreshPending();
       adoptServerSnapshot(base, result.editor);
       setSaveState("saved");
       setSaveMessage("");
@@ -195,7 +222,8 @@ export function useEditorDraft({ initialDraft, initialRevision, courseId, titleV
       let recovered = false;
       try {
         const response = await fetch(`/api/courses/${courseId}/editor`, { cache: "no-store" });
-        if (response.ok) { adoptServerSnapshot(base, await response.json() as EditorSnapshotInput); recovered = true; }
+        const editor = await readResponseJson<EditorSnapshotInput>(response);
+        if (response.ok && editor) { adoptServerSnapshot(base, editor); recovered = true; }
       } catch { /* Keep local changes and require a reload if the server is unreachable. */ }
       if (!recovered) conflictRef.current = true;
       setSaveState(recovered ? "error" : "conflict");
@@ -232,5 +260,5 @@ export function useEditorDraft({ initialDraft, initialRevision, courseId, titleV
     }
   }
 
-  return { runServerMutation, draft, draftRef, pendingRouteRef, canUndo, canRedo, saveState, saveMessage, hasUnsavedChanges, updateDraft, openRouteAfterSave, undo, redo, saveLatest, clearSaveError };
+  return { runServerMutation, synchronizeServerSnapshot, draft, draftRef, pendingRouteRef, canUndo, canRedo, saveState, saveMessage, hasUnsavedChanges, updateDraft, openRouteAfterSave, undo, redo, saveLatest, clearSaveError };
 }

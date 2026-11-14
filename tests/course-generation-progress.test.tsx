@@ -26,20 +26,49 @@ describe("saved lesson progress", () => {
     const onClose = vi.fn();
     const props = { session: { ...session, status: "generating" as const }, running: true, error: "", onRetry: () => {}, onCancel: () => {}, onSelectLesson: () => {}, onClose };
     await act(async () => root.render(<CourseGenerationProgress {...props} />));
+    expect(container.querySelector('[aria-label="Close lesson drafts"]')).toBeNull();
     await act(async () => root.render(<CourseGenerationProgress {...props} session={{ ...session, status }} error="Earlier error" />));
     expect(container.querySelector('[aria-label="Lesson draft generation"]')).not.toBeNull();
     expect(container.textContent).not.toContain("Earlier error");
-    expect(container.querySelector("h2")?.textContent).toBe(status === "completed" ? "Lesson generated" : "Lesson generation cancelled");
+    expect(container.querySelector("h2")?.textContent).toBe(status === "completed" ? "Lesson generation completed" : "Lesson generation cancelled");
+    expect(container.querySelector("h2")?.previousElementSibling?.getAttribute("role")).toBe("img");
+    expect(container.querySelector(`[role="img"][aria-label="${status === "completed" ? "Generation completed" : "Generation cancelled"}"]`)).not.toBeNull();
+    if (status === "completed") {
+      expect(container.querySelector('[aria-label="Generation completed"]')?.className).toContain("text-emerald-600");
+      expect(container.textContent).not.toContain("All lesson drafts are saved");
+      expect(container.querySelector('[role="progressbar"]')).not.toBeNull();
+    } else {
+      expect(container.querySelector('[aria-label="Generation cancelled"]')?.className).toContain("text-rose-600");
+      expect(container.querySelector('[role="status"]')).toBeNull();
+      expect(container.querySelector('[role="progressbar"]')).toBeNull();
+      expect(container.querySelector("details")).toBeNull();
+      expect(container.querySelector("[data-generation-current-lesson]")).toBeNull();
+      expect(container.textContent).toBe("Lesson generation cancelled");
+    }
     expect(container.textContent).not.toContain("Cancel remaining");
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Close lesson drafts"]')!.click());
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("labels an in-progress quiz as quiz generation", async () => {
+    const quizSession = {
+      ...session,
+      currentLessonId: "quiz-0",
+      outline: {
+        ...session.outline,
+        sections: [{ ...session.outline.sections[0], lessons: [{ ...session.outline.sections[0].lessons[0], id: "quiz-0", title: "HTML quiz", kind: "preTest" as const }] }],
+      },
+    };
+    await act(async () => root.render(<CourseGenerationProgress session={quizSession} running error="" onRetry={() => {}} onCancel={() => {}} onSelectLesson={() => {}} />));
+    expect(container.querySelector("h2")?.textContent).toBe("Generating quiz...");
+    expect(container.querySelector("[data-generation-current-lesson]")?.textContent).toContain("Generating quiz 1: HTML quiz");
   });
 
   it("shows only saved lessons as complete, with retry and cancellation controls", async () => {
     const retry = vi.fn(), cancel = vi.fn();
     await act(async () => root.render(<CourseGenerationProgress session={{ ...session, status: "generating", completedLessonIds: ["lesson-0", "lesson-1"], currentLessonId: "lesson-2" }} running={false} error="Provider unavailable" onRetry={retry} onCancel={cancel} onSelectLesson={() => {}} />));
     expect(container.textContent).toContain("2 of 5 lessons generated and saved · 40%");
-    expect(container.querySelector("h2")?.textContent).toBe("Lesson generating...");
+    expect(container.querySelector("h2")?.textContent).toBe("Generating lesson...");
     expect(container.querySelector('[role="progressbar"]')?.getAttribute("aria-valuenow")).toBe("40");
     expect(container.textContent).toContain("Failed");
     expect(container.querySelectorAll('[role="img"][aria-label="Saved"]')).toHaveLength(2);

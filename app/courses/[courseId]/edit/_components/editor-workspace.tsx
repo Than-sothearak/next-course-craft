@@ -285,6 +285,7 @@ export function EditorWorkspace({
           onPreview={openPreview}
           onBackToOutline={() => setActiveLessonId(null)}
           onBackToCourse={backToCourse}
+          onBackToDashboard={navigateBack}
           onReloadCourse={() => window.location.reload()}
         />
       )}

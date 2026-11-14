@@ -4,6 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useEditorDraft, type Draft } from "@/app/courses/[courseId]/edit/_components/_components/use-editor-draft";
 import { changeCourseNavigationMode } from "@/lib/editor/progress-settings";
+import { consumeDashboardRefreshPending } from "@/lib/editor/dashboard-refresh";
 import { blockSchema } from "@/lib/schemas/block";
 
 const initialDraft: Draft = {
@@ -29,6 +30,7 @@ beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   fetchMock = vi.fn(); navigate = vi.fn(); titleValidRef = { current: true };
   vi.stubGlobal("fetch", fetchMock);
+  window.sessionStorage.clear();
   container = document.createElement("div"); document.body.append(container); root = createRoot(container);
   act(() => root.render(<Harness />));
 });
@@ -63,6 +65,38 @@ describe("editor draft persistence", () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({ title: "First edit", revision: 7 });
     expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toMatchObject({ title: "Latest edit", revision: 8 });
     expect(editor.hasUnsavedChanges).toBe(false);
+  });
+
+  it("signals the dashboard only after a successful autosave", async () => {
+    fetchMock.mockResolvedValue(saved(8));
+    act(() => editor.updateDraft((draft) => ({ ...draft, title: "Updated course" })));
+    await act(async () => { await vi.advanceTimersByTimeAsync(700); });
+    expect(consumeDashboardRefreshPending()).toBe(true);
+    expect(consumeDashboardRefreshPending()).toBe(false);
+  });
+
+  it("reconciles cancelled lesson removals before later autosaves", async () => {
+    const pending = { id: "pending", sectionId: "section", title: "Pending", order: 0, icon: "file" as const, lessonType: "content" as const, passingScore: 70, quizQuestions: [], blocks: [] };
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ ...initialDraft, revision: 8 })));
+    act(() => editor.updateDraft((draft) => ({ ...draft, lessons: [pending] })));
+    await act(async () => editor.synchronizeServerSnapshot(["pending"]));
+    expect(editor.draft.lessons).toEqual([]);
+    expect(editor.hasUnsavedChanges).toBe(false);
+
+    fetchMock.mockResolvedValueOnce(saved(9));
+    act(() => editor.updateDraft((draft) => ({ ...draft, title: "After cancellation" })));
+    await act(async () => { await vi.advanceTimersByTimeAsync(700); });
+    const savedSnapshot = JSON.parse(fetchMock.mock.calls[1][1].body);
+    expect(savedSnapshot.revision).toBe(8);
+    expect(savedSnapshot.lessons).toEqual([]);
+  });
+
+  it("reports an empty course response clearly during cancellation sync", async () => {
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 500 }));
+
+    await expect(editor.synchronizeServerSnapshot(["pending"])).rejects.toThrow(
+      "Could not synchronize the cancelled course lessons (request failed with status 500).",
+    );
   });
 
   it("preserves local changes and stops autosave after a revision conflict", async () => {

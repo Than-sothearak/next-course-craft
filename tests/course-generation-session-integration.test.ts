@@ -127,17 +127,17 @@ describe.skipIf(!uri)("incremental course generation in MongoDB", () => {
     expect(approved.session!.outline.sections[0].lessons.map((lesson) => lesson.sourceIndex)).toEqual([2, 1]);
     expect(approved.editor.lessons.map((lesson) => lesson.id)).toEqual(["source-2", "source-1"]);
   });
-  it("prepares the card image with the outline and saves only the dashboard image on approval", async () => {
+  it("applies the generated image to the dashboard card and learner theme cover on approval", async () => {
     const asset = await Asset.create({ ownerId, courseId: scope.courseId, objectKey: randomUUID(), originalName: "cover.jpg", mimeType: "image/jpeg", size: 100, status: "ready" });
-    const cover = courseCoverSchema.parse({ template: "image", imageSrc: `/api/assets/${asset._id}/file`, titleOnly: true });
+    const cover = courseCoverSchema.parse({ template: "image", imageSrc: `/api/assets/${asset._id}/file` });
     vi.mocked(prepareOutlineCover).mockResolvedValueOnce({ generatedCover: true, cover });
     const session = (await planSession(scope, { ...input, generateCoverImage: true }))!;
     expect(session.cover).toEqual(cover);
     expect((await Course.findById(scope.courseId).lean())!.coverImage).toBeNull();
     const approved = await approveSession(scope, session.id, outline, "replace", 0);
-    expect(approved.editor.theme.cover).toBeUndefined();
+    expect(approved.editor.theme.cover).toMatchObject({ template: "image", imageSrc: cover.imageSrc });
     expect((await Course.findById(scope.courseId).lean())!.coverImage).toBe(cover.imageSrc);
-    expect((await getCourseEditor(ownerId, scope.courseId)).theme.cover).toBeUndefined();
+    expect((await getCourseEditor(ownerId, scope.courseId)).theme.cover).toMatchObject({ template: "image", imageSrc: cover.imageSrc });
   });
   it("preserves a course image added by an author while the outline is being reviewed", async () => {
     const cover = courseCoverSchema.parse({ template: "image", imageSrc: `/api/assets/${new Types.ObjectId()}/file`, titleOnly: true });
@@ -159,6 +159,25 @@ describe.skipIf(!uri)("incremental course generation in MongoDB", () => {
     const approved = await approveSession(scope, session.id, outline, "replace", 0);
     expect(approved.editor.theme.cover).toEqual(learnerCover);
     expect((await Course.findById(scope.courseId).lean())!.coverImage).toBe(card.imageSrc);
+  });
+  it("uses the existing dashboard image for the learner cover when cover generation is enabled", async () => {
+    const asset = await Asset.create({ ownerId, courseId: scope.courseId, objectKey: randomUUID(), originalName: "existing-cover.jpg", mimeType: "image/jpeg", size: 100, status: "ready" });
+    const cover = courseCoverSchema.parse({ template: "image", imageSrc: `/api/assets/${asset._id}/file` });
+    await Course.updateOne({ _id: scope.courseId }, { $set: { coverImage: cover.imageSrc } });
+    vi.mocked(prepareOutlineCover).mockResolvedValueOnce({ generatedCover: false, cover });
+    const session = (await planSession(scope, { ...input, generateCoverImage: true }))!;
+    const approved = await approveSession(scope, session.id, outline, "replace", 0);
+    expect(approved.editor.theme.cover).toMatchObject({ template: "image", imageSrc: cover.imageSrc });
+    expect((await Course.findById(scope.courseId).lean())!.coverImage).toBe(cover.imageSrc);
+  });
+  it("fills an image theme cover that was selected without an image and keeps its styling", async () => {
+    const asset = await Asset.create({ ownerId, courseId: scope.courseId, objectKey: randomUUID(), originalName: "cover.jpg", mimeType: "image/jpeg", size: 100, status: "ready" });
+    const cover = courseCoverSchema.parse({ template: "image", imageSrc: `/api/assets/${asset._id}/file` });
+    await Course.updateOne({ _id: scope.courseId }, { $set: { "theme.cover": { template: "image", imageSrc: "", overlayOpacity: 25, imagePosition: "top" } } });
+    vi.mocked(prepareOutlineCover).mockResolvedValueOnce({ generatedCover: true, cover });
+    const session = (await planSession(scope, { ...input, generateCoverImage: true }))!;
+    const approved = await approveSession(scope, session.id, outline, "replace", 0);
+    expect(approved.editor.theme.cover).toMatchObject({ template: "image", imageSrc: cover.imageSrc, overlayOpacity: 25, imagePosition: "top" });
   });
   it("restores the old learner-cover format for previously auto-applied images while retaining the card image", async () => {
     const asset = await Asset.create({ ownerId, courseId: scope.courseId, objectKey: randomUUID(), originalName: "old-generated.jpg", mimeType: "image/jpeg", size: 100, status: "ready", metadata: { purpose: "course-cover" } });
@@ -263,13 +282,37 @@ describe.skipIf(!uri)("incremental course generation in MongoDB", () => {
     await prepareNextLesson(scope, session!.id);
     expect(prepareSessionLesson).toHaveBeenCalledTimes(beforeCalls);
   });
-  it("cancels remaining work while retaining saved lessons and rejects another owner", async () => {
+  it("deletes ungenerated placeholders on cancellation while retaining saved lessons", async () => {
     const { session } = await approved(); await completeNext(session!.id);
     const beforeCalls = vi.mocked(prepareSessionLesson).mock.calls.length;
-    await cancelSession(scope, session!.id); await prepareNextLesson(scope, session!.id);
+    const cancelled = await cancelSession(scope, session!.id);
+    await prepareNextLesson(scope, session!.id);
     expect(prepareSessionLesson).toHaveBeenCalledTimes(beforeCalls);
-    expect((await getSession(scope, session!.id))!.completedLessonIds).toHaveLength(1);
+    expect(cancelled.session!.completedLessonIds).toEqual(["lesson-0"]);
+    expect(cancelled.discardedLessonIds).toEqual(["lesson-1", "lesson-2", "lesson-3", "lesson-4"]);
+    const remaining = await getCourseEditor(ownerId, scope.courseId);
+    expect(remaining.lessons.map((lesson) => lesson.id)).toEqual(["lesson-0"]);
+    expect(await Lesson.countDocuments({ courseId: scope.courseId })).toBe(1);
     await expect(getSession({ ...scope, ownerId: new Types.ObjectId().toString() }, session!.id)).rejects.toThrow("not found");
+  });
+  it("removes the generated section when cancellation leaves no generated lessons", async () => {
+    const { session } = await approved();
+
+    const cancelled = await cancelSession(scope, session!.id);
+    const remaining = await getCourseEditor(ownerId, scope.courseId);
+
+    expect(cancelled.discardedLessonIds).toEqual(["lesson-0", "lesson-1", "lesson-2", "lesson-3", "lesson-4"]);
+    expect(remaining.lessons).toEqual([]);
+    expect(remaining.sections).toHaveLength(1);
+    expect(remaining.sections[0].title).toBe("Getting started");
+    expect(await Lesson.countDocuments({ courseId: scope.courseId })).toBe(0);
+  });
+  it("does not remove existing lessons when an unapproved outline is cancelled", async () => {
+    await Lesson.create({ courseId: scope.courseId, editorId: "lesson-0", sectionId: "original", title: "Existing lesson", order: 0, blocks: [], quizQuestions: [] });
+    const session = (await planSession(scope, input))!;
+    const cancelled = await cancelSession(scope, session.id);
+    expect(cancelled.discardedLessonIds).toEqual([]);
+    expect(await Lesson.countDocuments({ courseId: scope.courseId })).toBe(1);
   });
   it("does not overwrite a pending lesson that an author has filled", async () => {
     const { session, editor } = await approved(); await prepareNextLesson(scope, session!.id);

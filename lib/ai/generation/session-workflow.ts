@@ -10,6 +10,7 @@ import { courseGenerationInputSchema, defaultCourseGenerationModel, type CourseG
 import { courseOutlineSchema, normalizePreLearnPostOutline, type CourseOutline, type GenerationSessionSnapshot } from "../course-generation-session-schema";
 import { getCourseEditor } from "@/lib/editor/services/course";
 import { saveCourseEditor } from "@/lib/editor/services/save";
+import { defaultSection } from "@/lib/editor/services/shared";
 import { editorSnapshotSchema, editorLessonSchema } from "@/lib/editor/schemas";
 import { generationCheckpointPayload, saveGenerationCheckpoint } from "./generation-job-store";
 import { loadGenerationSourceInventory } from "./source-generation-workflow";
@@ -112,13 +113,34 @@ export async function approveSession(scope: Scope, sessionId: string, outline: C
   if (current.revision !== revision) throw new DashboardError("Save or reload your course before approving the outline.", 409);
   const course = await Course.findOne({ _id: scope.courseId, ownerId: scope.ownerId, deletedAt: null }).select("coverImage").lean();
   const cover = courseCoverSchema.safeParse(session.cover);
+  const preparedCover = cover.success && cover.data.imageSrc ? cover.data : undefined;
   const applyCover = Boolean(input.generateCoverImage && session.generatedCover && cover.success && cover.data.imageSrc && !course?.coverImage);
-  const generatedCover = applyCover && cover.success ? cover.data : undefined;
+  const generatedCover = applyCover ? preparedCover : undefined;
+  const coverForTheme = input.generateCoverImage && preparedCover && (generatedCover || preparedCover.imageSrc === course?.coverImage)
+    ? preparedCover
+    : undefined;
+  const existingThemeCover = current.theme.cover;
+  const applyThemeCover = Boolean(coverForTheme && (!existingThemeCover || (existingThemeCover.template === "image" && !existingThemeCover.imageSrc)));
+  const themeCoverToApply = applyThemeCover && coverForTheme
+    ? courseCoverSchema.parse({
+      template: "image",
+      imageSrc: coverForTheme.imageSrc,
+      imageAlt: coverForTheme.imageAlt || existingThemeCover?.imageAlt || "",
+      ...(existingThemeCover?.template === "image" ? {
+        backgroundColor: existingThemeCover.backgroundColor,
+        textColor: existingThemeCover.textColor,
+        alignment: existingThemeCover.alignment,
+        imagePosition: existingThemeCover.imagePosition,
+        overlayOpacity: existingThemeCover.overlayOpacity,
+      } : {}),
+    })
+    : undefined;
   const append = mode === "append";
   const sections = approved.sections.map((section, index) => ({ id: section.id, title: section.title, order: (append ? current.sections.length : 0) + index }));
   const lessons = approved.sections.flatMap((section) => section.lessons.map((lesson, order) => editorLessonSchema.parse({ id: lesson.id, sectionId: section.id, title: lesson.title, order, lessonType: ["preTest", "postTest"].includes(lesson.kind) ? "quiz" : "content", blocks: [] })));
   const snapshot = editorSnapshotSchema.parse({ ...current,
     ...(append ? {} : { title: approved.title, description: approved.description, descriptionHtml: undefined }),
+    ...(themeCoverToApply ? { theme: { ...current.theme, cover: themeCoverToApply } } : {}),
     sections: [...(append ? current.sections : []), ...sections], lessons: [...(append ? current.lessons : []), ...lessons],
   });
   // Persist the approved outline before its course receipt. If a response is
@@ -166,8 +188,56 @@ export async function commitNextLesson(scope: Scope, sessionId: string, revision
   await CourseGenerationSession.updateOne({ _id: session._id, ...scope }, { $set: { error: null } });
   return { session: await getSession(scope, sessionId), editor: await getCourseEditor(scope.ownerId, scope.courseId) };
 }
+
+export async function cleanupCancelledSessionLessons(scope: Scope, sessionId: string) {
+  const session = await ownedSession(scope, sessionId);
+  let state = await getSession(scope, sessionId);
+  if (!state || state.status !== "cancelled") return { session: state, discardedLessonIds: [], changed: false };
+
+  // An outline is only allowed to remove editor lessons after approval created
+  // its course receipt. Cancelling a review must not touch existing lessons.
+  const approved = await Course.exists({ _id: scope.courseId, ownerId: scope.ownerId, deletedAt: null, generationOutlineSessionId: session._id });
+  if (!approved) return { session: state, discardedLessonIds: [], changed: false };
+
+  const outlineLessonIds = state.outline.sections.flatMap((section) => section.lessons.map((lesson) => lesson.id));
+  for (let attempt = 0; attempt < 4; attempt++) {
+    state = await getSession(scope, sessionId);
+    if (!state || state.status !== "cancelled") return { session: state, discardedLessonIds: [], changed: false };
+
+    // Read the course before the receipts. If a commit races cancellation, the
+    // revision-checked save below either preserves that receipt or retries.
+    const current = await getCourseEditor(scope.ownerId, scope.courseId);
+    const saved = await Lesson.find({ courseId: scope.courseId, generationSessionId: session._id, editorId: { $in: outlineLessonIds } }).select("editorId").lean();
+    const savedIds = new Set(saved.map((lesson) => String(lesson.editorId)));
+    const discardedLessonIds = outlineLessonIds.filter((id) => !savedIds.has(id));
+    const discarded = new Set(discardedLessonIds);
+    const lessons = current.lessons.filter((lesson) => !discarded.has(lesson.id));
+    const generatedSectionIds = new Set(state.outline.sections.map((section) => section.id));
+    const sectionsWithLessons = new Set(lessons.map((lesson) => lesson.sectionId));
+    const retainedSections = current.sections.filter((section) =>
+      !generatedSectionIds.has(section.id) || sectionsWithLessons.has(section.id),
+    );
+    // The editor schema requires one section, even when cancellation discards
+    // every generated lesson and its generated sections.
+    const sections = retainedSections.length ? retainedSections : [defaultSection()];
+    const lessonsChanged = lessons.length !== current.lessons.length;
+    const sectionsChanged = sections.length !== current.sections.length
+      || sections.some((section, index) => section.id !== current.sections[index]?.id);
+    if (!lessonsChanged && !sectionsChanged) return { session: state, discardedLessonIds, changed: false };
+
+    try {
+      await saveCourseEditor(scope.ownerId, scope.courseId, { ...current, sections, lessons });
+      return { session: await getSession(scope, sessionId), discardedLessonIds, changed: true };
+    } catch (error) {
+      if (!(error instanceof DashboardError) || error.status !== 409 || attempt === 3) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 40 * (attempt + 1)));
+    }
+  }
+  throw new DashboardError("Could not remove unfinished generation lessons. Try canceling again.", 409);
+}
+
 export async function cancelSession(scope: Scope, sessionId: string) {
-  await ownedSession(scope, sessionId);
+  const session = await ownedSession(scope, sessionId);
   await CourseGenerationSession.updateOne({ _id: sessionId, ...scope, status: { $ne: "completed" } }, { $set: { status: "cancelled", error: null } });
-  return getSession(scope, sessionId);
+  return cleanupCancelledSessionLessons(scope, String(session._id));
 }

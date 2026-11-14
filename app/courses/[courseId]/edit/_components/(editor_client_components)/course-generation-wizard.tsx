@@ -154,7 +154,10 @@ export function CourseGenerationWizard({ open, onClose, courseId, courseTitle, c
     <fieldset disabled={busy || generating} className="min-w-0 space-y-5">
       {step === 0 && <>
         <GenerationPromptInput value={input.prompt} onChange={(prompt) => change("prompt", prompt)} inputRef={promptRef} disabled={busy || generating} />
-        <label className="flex items-center gap-2 text-sm"><Checkbox checked={input.generateCoverImage} onChange={(event) => change("generateCoverImage", event.target.checked)} />Generate course card image</label>
+        <div>
+          <label className="flex items-center gap-2 text-sm"><Checkbox checked={input.generateCoverImage} onChange={(event) => change("generateCoverImage", event.target.checked)} />Generate course cover image</label>
+          <p className="ml-6 mt-1 text-xs text-slate-500">Used on the dashboard card and as the learner cover when no cover is already set.</p>
+        </div>
         <Field label="Source material (optional PDF or PowerPoint)"><Input type="file" accept=".pdf,.pptx" onChange={(event) => { sourceChoiceRef.current = true; window.localStorage.removeItem(`course-generation-source:${courseId}`); setFile(event.target.files?.[0] ?? null); setSource(null); setPlanned(null); setOutline(null); }} /></Field>
         {source?.uncertainSourcePages?.length ? <p role="alert" className="text-sm text-amber-800">Some source content was difficult to read on pages {source.uncertainSourcePages.join(", ")}. Review the source and the generated lessons carefully.</p> : null}
         <p className="text-xs text-slate-500">Upload a PDF or PPTX up to 12 MB, or continue using only your prompt.</p>
@@ -190,7 +193,7 @@ export function CourseGenerationWizard({ open, onClose, courseId, courseTitle, c
         <Field label="Course description"><Textarea value={outline.description} maxLength={5_000} onChange={(event) => editOutline((value) => ({ ...value, description: event.target.value }))} /></Field>
         {outline.sections.map((section, sectionIndex) => <div key={section.id} data-outline-section-id={section.id} className="space-y-3 rounded-xl border border-slate-200 p-4">
           <div className="flex items-center justify-between gap-2">
-          <span className="text-xs text-slate-500">Section {sectionIndex + 1}</span>
+          <span data-outline-section-number className="text-lg font-bold text-slate-900">Section #{sectionIndex + 1}</span>
           {customOutline && <div role="group" aria-label={`Section actions for ${section.title}`} className="flex shrink-0 gap-1">
             <Button variant="ghost" size="icon" aria-label={`Move section ${section.title} up`} disabled={sectionIndex === 0} onClick={() => moveOutlineSection(section.id, -1)}><ArrowUp size={14} /></Button>
             <Button variant="ghost" size="icon" aria-label={`Move section ${section.title} down`} disabled={sectionIndex === outline.sections.length - 1} onClick={() => moveOutlineSection(section.id, 1)}><ArrowDown size={14} /></Button>

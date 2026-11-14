@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import type { ReactNode } from "react";
 import { ArrowLeft, Eye, List, Presentation, Redo2, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -37,6 +36,7 @@ type Props = {
   onPreview: () => void;
   onBackToOutline: () => void;
   onBackToCourse: () => void;
+  onBackToDashboard: () => void;
   onReloadCourse: () => void;
 };
 
@@ -66,6 +66,7 @@ export function EditorTopbar({
   onPreview,
   onBackToOutline,
   onBackToCourse,
+  onBackToDashboard,
   onReloadCourse,
 }: Props) {
   function renderBackControl() {
@@ -105,13 +106,17 @@ export function EditorTopbar({
     }
 
     return (
-      <Link
-        href="/dashboard"
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        onClick={onBackToDashboard}
         aria-label="Back to dashboard"
-        className="grid size-9 shrink-0 place-items-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900"
+        title="Back to dashboard"
+        className="size-9 shrink-0 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-900"
       >
         <ArrowLeft size={18} />
-      </Link>
+      </Button>
     );
   }
 

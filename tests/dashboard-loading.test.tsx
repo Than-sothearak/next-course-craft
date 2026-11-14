@@ -9,8 +9,9 @@ import { DashboardNavigationClient } from "@/app/dashboard/_components/dashboard
 import { roleCeilings } from "@/lib/auth/policy";
 import type { DashboardData, DashboardFilters } from "@/lib/dashboard/types";
 import { dashboardQueryKey } from "@/lib/dashboard/query";
+import { consumeDashboardRefreshPending, markDashboardRefreshPending } from "@/lib/editor/dashboard-refresh";
 
-const router = vi.hoisted(() => ({ push: vi.fn() }));
+const router = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn() }));
 const linkNavigation = vi.hoisted(() => ({ navigate: vi.fn<() => Promise<void>>() }));
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
 vi.mock("@/app/dashboard/actions", () => ({ signOutAction: vi.fn() }));
@@ -64,6 +65,7 @@ describe("dashboard loading and shared controls", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.clearAllMocks();
+    window.sessionStorage.clear();
     linkNavigation.navigate.mockReset().mockResolvedValue(undefined);
     Object.defineProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT", { configurable: true, value: true });
     fetchMock = vi.fn();
@@ -360,6 +362,20 @@ describe("dashboard loading and shared controls", () => {
     expect(link.getAttribute("href")).toBe("/dashboard?workspaceId=workspace-1&q=alpha&status=published&sort=title");
     expect(link.hasAttribute("aria-current")).toBe(false);
     expect(container.querySelector('a[title="Training"]')?.getAttribute("aria-current")).toBe("page");
+  });
+
+  it("refreshes once when returning from a successfully saved course", () => {
+    markDashboardRefreshPending();
+    render();
+    expect(router.refresh).toHaveBeenCalledOnce();
+    expect(consumeDashboardRefreshPending()).toBe(false);
+  });
+
+  it("synchronizes preserved dashboard state when fresh server props arrive", () => {
+    render();
+    render(filters, { ...data, courses: [{ ...data.courses[0], title: "Fresh server title" }] });
+    expect(container.textContent).toContain("Fresh server title");
+    expect(container.textContent).not.toContain("Sample course");
   });
 
   it("keeps nested folder expansion on buttons and renders children as links", () => {

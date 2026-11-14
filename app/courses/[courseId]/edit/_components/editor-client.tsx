@@ -100,6 +100,7 @@ export function EditorClient({
     undo,
     redo,
     saveLatest,
+    synchronizeServerSnapshot,
     clearSaveError,
     runServerMutation,
   } = useEditorDraft({
@@ -120,7 +121,12 @@ export function EditorClient({
       router.push(path);
     },
   });
-  const generation = useCourseGenerationSession(initialData.courseId, runServerMutation, permissions.includes("ai.generate"));
+  const generation = useCourseGenerationSession(
+    initialData.courseId,
+    runServerMutation,
+    permissions.includes("ai.generate"),
+    synchronizeServerSnapshot,
+  );
   function requestRouteAfterSave(path: string) {
     // Returning from a focused lesson performs a full-page navigation, which
     // already uses the native beforeunload warning.
@@ -149,11 +155,7 @@ export function EditorClient({
   }
 
   function navigateBack() {
-    const hasSameOriginHistory = document.referrer.startsWith(
-      window.location.origin,
-    );
-    if (window.history.length > 1 && hasSameOriginHistory) router.back();
-    else if (generation.confirmLeave()) router.push("/dashboard");
+    requestRouteAfterSave("/dashboard");
   }
 
   const courseOperations = useEditorCourseOperations({

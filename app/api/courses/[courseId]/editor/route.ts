@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { connectToDatabase } from "@/lib/db/mongodb";
 import { dashboardErrorResponse, readJson, requireOwnerId } from "@/lib/dashboard/http";
 import { getCourseEditor } from "@/lib/editor/services/course";
@@ -27,7 +28,9 @@ export async function PUT(request: NextRequest, { params }: Context) {
     const { courseId } = await params;
     const { ownerId } = await resolveCourseAccess(userId, courseId, "edit");
     const snapshot = await readJson(request, editorSnapshotSchema);
-    return NextResponse.json(await saveCourseEditor(ownerId, courseId, snapshot));
+    const saved = await saveCourseEditor(ownerId, courseId, snapshot);
+    revalidatePath("/dashboard", "page");
+    return NextResponse.json(saved);
   } catch (error) {
     return dashboardErrorResponse(error);
   }

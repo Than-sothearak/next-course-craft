@@ -92,9 +92,9 @@ describe("AI course review wizard", () => {
     expect(onStarted.mock.invocationCallOrder[0]).toBeLessThan(onClose.mock.invocationCallOrder[0]);
     expect(container.querySelector('[role="alertdialog"]')).toBeNull();
   });
-  it("defaults card-image generation off before Course details and submits the enabled choice", async () => {
+  it("defaults cover-image generation off before Course details and submits the enabled choice", async () => {
     await renderWizard();
-    const label = [...container.querySelectorAll("label")].find((item) => item.textContent === "Generate course card image")!;
+    const label = [...container.querySelectorAll("label")].find((item) => item.textContent === "Generate course cover image")!;
     const checkbox = label.querySelector<HTMLInputElement>('input[type="checkbox"]')!;
     expect(checkbox.checked).toBe(false);
     await act(async () => checkbox.click());
@@ -143,7 +143,10 @@ describe("AI course review wizard", () => {
     await click("Add section");
     const sections = container.querySelectorAll<HTMLElement>("[data-outline-section-id]");
     expect(sections).toHaveLength(2);
+    expect(sections[0].querySelector("[data-outline-section-number]")?.textContent).toBe("Section #1");
+    expect(sections[0].querySelector("[data-outline-section-number]")?.className).toContain("text-lg font-bold");
     const added = sections[1];
+    expect(added.querySelector("[data-outline-section-number]")?.textContent).toBe("Section #2");
     await type(added.querySelector("input")!, "Practice");
     await type([...added.querySelectorAll("label")].find((label) => label.textContent === "Lesson title")!.querySelector("input")!, "Practice task");
     await act(async () => [...added.querySelectorAll("button")].find((button) => button.textContent === "Add lesson")!.click());

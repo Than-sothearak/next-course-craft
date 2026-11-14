@@ -5,8 +5,9 @@ import type { EditorSnapshotInput } from "@/lib/editor/schemas";
 import type { GenerationSessionSnapshot } from "@/lib/ai/course-generation-session-schema";
 import type { useEditorDraft } from "./use-editor-draft";
 import { sessionRequest, SessionRequestError, type SavedSessionResponse } from "../(editor_client_components)/generation-session-request";
+import { readResponseJson } from "@/lib/http/read-response-json";
 
-export function useCourseGenerationSession(courseId: string, runServerMutation: ReturnType<typeof useEditorDraft>["runServerMutation"], enabled = true) {
+export function useCourseGenerationSession(courseId: string, runServerMutation: ReturnType<typeof useEditorDraft>["runServerMutation"], enabled = true, onCancelledLessonsRemoved?: (lessonIds: string[], courseChanged: boolean) => Promise<void>) {
   const [session, setSession] = useState<GenerationSessionSnapshot | null>(null);
   const [running, setRunning] = useState(false);
   const [progressVisible, setProgressVisible] = useState(false);
@@ -46,8 +47,9 @@ export function useCourseGenerationSession(courseId: string, runServerMutation: 
         if (current.error && retry === 0) { setSession(current); setError(current.error); return; }
         const synchronizeEditor = () => mutationRef.current(async () => {
           const response = await fetch(`/api/courses/${courseId}/editor`, { cache: "no-store", signal: controller.signal });
-          if (!response.ok) throw new Error("Could not synchronize saved lessons. Reload before resuming.");
-          return { editor: await response.json() as EditorSnapshotInput };
+          const editor = await readResponseJson<EditorSnapshotInput>(response);
+          if (!response.ok || !editor) throw new Error("Could not synchronize saved lessons. Reload before resuming.");
+          return { editor };
         });
         await synchronizeEditor();
         if (disposed) return;
@@ -110,7 +112,8 @@ export function useCourseGenerationSession(courseId: string, runServerMutation: 
   async function cancel() {
     if (!session) return;
     try {
-      let state = await sessionRequest(courseId, { action: "cancel", sessionId: session.id });
+      const result = await sessionRequest<{ session: GenerationSessionSnapshot | null; removedLessonIds: string[]; changed: boolean }>(courseId, { action: "cancel", sessionId: session.id });
+      let state = result.session;
       // A lesson save already in flight may finish during cancellation. Read
       // its final receipt before showing the cancelled progress count.
       if (activeSaveRef.current) {
@@ -118,6 +121,9 @@ export function useCourseGenerationSession(courseId: string, runServerMutation: 
         state = await sessionRequest(courseId);
       }
       setSession(state); setError("");
+      if (state?.status === "cancelled" && result.removedLessonIds.length) {
+        await onCancelledLessonsRemoved?.(result.removedLessonIds, result.changed);
+      }
     }
     catch (error) { setError(error instanceof Error ? error.message : "Could not cancel generation."); }
   }

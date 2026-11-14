@@ -26,9 +26,9 @@ export async function prepareOutlineCover(ownerId: string, courseId: string, out
     }
   }
   const image = await createGeneratedImageAsset(ownerId, courseId, [
-    `Create a simple landscape 16:9 dashboard course-card image about: ${outline.title}.`,
+    `Create a simple landscape 16:9 course cover image about: ${outline.title}, suitable for both a dashboard card and the learner-facing course introduction.`,
     `Course context: ${outline.description.slice(0, 1_000)}.`,
     "Use a restrained educational illustration with a clear focal subject that is readable at thumbnail size. No text or lettering in the image.",
   ].join(" "), { purpose: "course-cover" });
-  return { generatedCover: true, cover: courseCoverSchema.parse({ template: "image", imageSrc: image.src, imageAlt: `Course card image for ${outline.title}` }) };
+  return { generatedCover: true, cover: courseCoverSchema.parse({ template: "image", imageSrc: image.src, imageAlt: `Course cover image for ${outline.title}` }) };
 }
