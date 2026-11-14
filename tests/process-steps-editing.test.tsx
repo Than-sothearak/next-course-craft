@@ -58,6 +58,21 @@ describe("process step authoring", () => {
       : <div data-popup={mode === "popup" || undefined}><SlideObject block={saved} courseId="course" index={0} total={1} selected onSelect={() => {}} onFrame={() => {}} onChange={setBlock} onEditorFocus={() => {}} /></div>;
   }
 
+  it.each(["standard", "slide", "popup"] as const)("hides slider arrows at the first and last step in %s", async (mode) => {
+    const original = initial();
+    original.data.style = "slider";
+    await act(async () => root.render(<Authoring mode={mode} original={original} />));
+    const arrow = (direction: "previous" | "next") => container.querySelector<HTMLButtonElement>(`[aria-label="Go to ${direction} process step"]`);
+    expect(arrow("previous")).toBeNull();
+    expect(arrow("next")).not.toBeNull();
+    await click("Go to next process step");
+    expect(arrow("next")).toBeNull();
+    expect(arrow("previous")).not.toBeNull();
+    await click("Go to previous process step");
+    expect(arrow("previous")).toBeNull();
+    expect(arrow("next")).not.toBeNull();
+  });
+
   it.each(["standard", "slide", "popup"] as const)("directly edits optional titles, formatted instructions and labels in %s", async (mode) => {
     await act(async () => root.render(<Authoring mode={mode} />));
     act(() => editor("title").editor.commands.setContent("<h3></h3>"));

@@ -188,12 +188,22 @@ try {
   await expect(stepRegion.getByRole("progressbar", { name: "Process step progress" })).toHaveAttribute("aria-valuenow", "50");
   for (const width of [360, 768]) {
     await page.setViewportSize({ width, height: 900 });
-    const card = await stepRegion.locator("article").boundingBox();
+    const card = await stepRegion.locator("[data-process-slider-viewport]").boundingBox();
+    await expect(stepRegion.getByRole("button", { name: "Go to previous process step", exact: true })).toHaveCount(0);
     for (const direction of ["previous", "next"]) {
+      if (direction === "previous") await stepRegion.getByRole("button", { name: "Go to next process step", exact: true }).click();
       const arrow = await stepRegion.getByRole("button", { name: `Go to ${direction} process step`, exact: true }).boundingBox();
-      if (width <= 640) assert.ok(arrow.y >= card.y + card.height - 1, `Slider ${direction} arrow must be below the card on mobile`);
-      else assert.ok(Math.abs(arrow.y + arrow.height / 2 - card.y - card.height / 2) < 2, `Slider ${direction} arrow must be centered against the card at ${width}px`);
+      const currentCard = await stepRegion.locator("article").boundingBox();
+      if (width <= 640) assert.ok(arrow.y >= currentCard.y + currentCard.height - 1, `Slider ${direction} arrow must be below the card on mobile`);
+      else assert.ok(Math.abs(arrow.y + arrow.height / 2 - currentCard.y - currentCard.height / 2) < 2, `Slider ${direction} arrow must be centered against the card at ${width}px`);
       assert.ok(arrow.width >= 44 && arrow.height >= 44, "Slider arrows retain touch target sizes");
+      if (direction === "previous") {
+        await expect(stepRegion.getByRole("button", { name: "Go to next process step", exact: true })).toHaveCount(0);
+        await stepRegion.getByRole("button", { name: "Go to previous process step", exact: true }).click();
+        const firstCard = await stepRegion.locator("[data-process-slider-viewport]").boundingBox();
+        assert.equal(firstCard.x, card.x, "Hiding arrows preserves the card position");
+        assert.equal(firstCard.width, card.width, "Hiding arrows preserves the card width");
+      }
     }
     assert.ok(await stepRegion.evaluate(node => node.scrollWidth <= node.clientWidth + 1), "Slider card must fit narrow screens");
   }
@@ -206,7 +216,7 @@ try {
   await stepRegion.getByRole("button", { name: "Go to next process step", exact: true }).click();
   assert.equal(await stepRegion.locator("[data-process-slide-direction]").evaluate(node => getComputedStyle(node).animationName), "process-slider-from-right");
   await expect(stepRegion.locator("article video")).toBeVisible();
-  await expect(stepRegion.getByRole("button", { name: "Go to next process step", exact: true })).toBeDisabled();
+  await expect(stepRegion.getByRole("button", { name: "Go to next process step", exact: true })).toHaveCount(0);
   await expect(stepRegion.getByRole("progressbar", { name: "Process step progress" })).toHaveAttribute("aria-valuenow", "100");
   await stepRegion.getByRole("button", { name: "Go to previous process step", exact: true }).click();
   assert.equal(await stepRegion.locator("[data-process-slide-direction]").evaluate(node => getComputedStyle(node).animationName), "process-slider-from-left");

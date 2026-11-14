@@ -48,7 +48,7 @@ export function InteractiveProcessSteps({ blockId, steps, style = "cards", accen
       {control.direction === "previous" ? <ChevronLeft size={20} aria-hidden="true" /> : <ChevronRight size={20} aria-hidden="true" />}
       <span className="sr-only">{control.label}</span>
     </Button>;
-    return <section aria-label="Process steps" aria-roledescription="carousel" data-process-style={style} className="@container/process-steps mx-auto w-full min-w-0 max-w-3xl space-y-3" style={colors}
+    return <section aria-label="Process steps" aria-roledescription="carousel" data-process-style={style} className="@container/process-steps mx-auto w-full min-w-0 space-y-3" style={colors}
       onKeyDown={(event) => {
         if (decorative || !(event.target instanceof HTMLElement) || (event.target !== event.currentTarget && event.target.tagName !== "BUTTON")) return;
         if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
@@ -60,13 +60,13 @@ export function InteractiveProcessSteps({ blockId, steps, style = "cards", accen
         <Progress value={((currentIndex + 1) / steps.length) * 100} aria-label="Process step progress" aria-valuetext={`Step ${currentIndex + 1} of ${steps.length}`} className="mx-auto mt-3 min-w-0 max-w-sm [&>div]:[background:var(--process-paint)] [&>div]:motion-reduce:transition-none" />
       </div>
       <div data-process-slider className="process-slider-layout min-w-0">
-        <div data-process-slider-control="previous">{arrow(previous)}</div>
+        <div data-process-slider-control="previous">{!previous.disabled && arrow(previous)}</div>
         <div data-process-slider-viewport className="min-w-0 overflow-hidden rounded-2xl">
           <div key={`${blockId}-${activeStep.id}`} data-process-slide-direction={slideDirection ?? undefined} className={!decorative && slideDirection ? `process-slider-enter-${slideDirection}` : undefined}>
             <ProcessStepCard step={activeStep} index={currentIndex} style={style} showNumbers={false} accentColor={accentColor} presentation={presentation} decorative={decorative} mediaLayout={mediaLayout} renderTitle={renderTitle} renderBody={renderBody} renderMedia={renderMedia} />
           </div>
         </div>
-        <div data-process-slider-control="next">{arrow(next)}</div>
+        <div data-process-slider-control="next">{!next.disabled && arrow(next)}</div>
       </div>
     </section>;
   }

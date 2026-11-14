@@ -457,6 +457,7 @@ export async function toContentBlock(
         block: blockSchema.parse({
           ...base,
           type: "processSteps",
+          width: "full",
           data: { style: "slider", steps },
         }),
         generatedImage: false,

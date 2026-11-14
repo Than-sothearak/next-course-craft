@@ -716,6 +716,7 @@ export function defaultBlockWidth(
 }
 
 export function defaultBlockWidthForBlock(block: ContentBlock): ContentBlock["width"] {
+  if (block.type === "processSteps" && block.data.style === "slider") return "full";
   if (block.type === "image" && block.data.layout === "cover") return "full";
   if (block.type === "divider" && block.data.style === "line") return "full";
   return defaultBlockWidth(block.type);

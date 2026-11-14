@@ -699,6 +699,7 @@ export const blockTemplates: BlockTemplate[] = [
         title: preset.title,
         description: preset.description,
         type: "processSteps",
+        ...(preset.style === "slider" ? { width: "full" as const } : {}),
         processSteps: {
           style: preset.style,
           accentColor: preset.accentColor,

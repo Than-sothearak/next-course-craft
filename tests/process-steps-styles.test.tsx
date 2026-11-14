@@ -11,6 +11,7 @@ import { blockTemplates } from "../app/courses/[courseId]/edit/_components/(edit
 import { createBlocksFromTemplate } from "../app/courses/[courseId]/edit/_components/(editor_client_components)/(block_template_picker_components)/create-blocks-from-template";
 import { TemplatePreview } from "../app/courses/[courseId]/edit/_components/(editor_client_components)/(block_template_picker_components)/template-preview";
 import { parseScorm12Snapshot } from "../lib/scorm12/snapshot";
+import { blockWidthClass } from "../app/courses/[courseId]/preview/_components/(course_preview_components)/preview-utils";
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 
@@ -80,7 +81,7 @@ describe("process-step styles", () => {
       expect(section.children[1].className).toContain("@min-[36rem]/process-steps:grid-cols-");
       expect(section.querySelector("ol")?.className).toContain("@min-[36rem]/process-steps:flex-col");
     }
-    const next = controls.querySelectorAll<HTMLButtonElement>("button")[1];
+    const next = Array.from(controls.querySelectorAll<HTMLButtonElement>("button")).find((button) => button.textContent === "Next step")!;
     act(() => next.click());
     expect(section.querySelector("article")?.textContent).toContain(processStepsSample[0].body);
   });
@@ -97,10 +98,11 @@ describe("process-step styles", () => {
   it("navigates the slider card with side arrows and keyboard without wrapping at either end", () => {
     const onStepInteract = vi.fn();
     act(() => root.render(createElement(InteractiveProcessSteps, { blockId: "slider", steps: processStepsSample, style: "slider", onStepInteract })));
-    const previous = container.querySelector<HTMLButtonElement>('button[title="Previous step"]')!;
+    expect(container.querySelector('button[title="Previous step"]')).toBeNull();
     const next = container.querySelector<HTMLButtonElement>('button[title="Next step"]')!;
-    expect(previous.disabled).toBe(true);
     expect(next.disabled).toBe(false);
+    const section = container.querySelector("section")!;
+    act(() => section.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true })));
     expect(container.querySelector('[aria-roledescription="carousel"]')).not.toBeNull();
     expect(container.textContent).toContain("Step 1 of 3");
     const progress = container.querySelector<HTMLElement>('[role="progressbar"]')!;
@@ -108,17 +110,50 @@ describe("process-step styles", () => {
     expect(Number.parseFloat((progress.firstElementChild as HTMLElement).style.width)).toBeCloseTo(100 / 3);
     act(() => next.click());
     expect(container.querySelector("article")?.textContent).toContain(processStepsSample[1].body);
+    expect(container.querySelector('button[title="Previous step"]')).not.toBeNull();
     act(() => next.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })));
     expect(container.textContent).toContain("Step 3 of 3");
     expect(progress.getAttribute("aria-valuenow")).toBe("100");
     expect((progress.firstElementChild as HTMLElement).style.width).toBe("100%");
-    expect(next.disabled).toBe(true);
+    expect(container.querySelector('button[title="Next step"]')).toBeNull();
+    act(() => section.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true })));
+    expect(container.textContent).toContain("Step 3 of 3");
+    const previous = container.querySelector<HTMLButtonElement>('button[title="Previous step"]')!;
     act(() => previous.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true })));
     expect(container.querySelector("[data-process-slide-direction]")?.getAttribute("data-process-slide-direction")).toBe("previous");
     expect(container.textContent).toContain("Step 2 of 3");
     expect(progress.getAttribute("aria-valuetext")).toBe("Step 2 of 3");
     expect(Number.parseFloat((progress.firstElementChild as HTMLElement).style.width)).toBeCloseTo(200 / 3);
     expect(onStepInteract).toHaveBeenLastCalledWith("step-2");
+    expect(container.querySelector('button[title="Next step"]')).not.toBeNull();
+    act(() => previous.click());
+    expect(container.querySelector('button[title="Previous step"]')).toBeNull();
+    expect(container.textContent).toContain("Step 1 of 3");
+  });
+
+  it("hides both slider arrows for a single step, including custom editor controls", () => {
+    const renderControl = vi.fn(() => createElement("button", {}, "Custom arrow"));
+    act(() => root.render(createElement(InteractiveProcessSteps, {
+      blockId: "single", steps: processStepsSample.slice(0, 1), style: "slider", renderControl,
+    })));
+    expect(container.querySelector("button")).toBeNull();
+    expect(renderControl).not.toHaveBeenCalled();
+    expect(container.textContent).toContain("Step 1 of 1");
+    expect(container.querySelector('[role="progressbar"]')?.getAttribute("aria-valuenow")).toBe("100");
+  });
+
+  it("defaults the slider to L width while honoring custom widths and other process styles", () => {
+    const template = blockTemplates.find((item) => item.id === "interactive-process-steps-slider")!;
+    const slider = blockSchema.parse(createBlocksFromTemplate(template, "wide-slider")[0]);
+    expect(slider).toMatchObject({ width: "full", widthCustom: false });
+    expect(blockWidthClass(slider)).toBe("max-w-[920px]");
+    expect(blockWidthClass({ ...slider, width: "medium" })).toBe("max-w-[920px]");
+    expect(blockWidthClass({ ...slider, width: "medium", widthCustom: true })).toBe("max-w-[720px]");
+    expect(blockWidthClass({ ...slider, width: "small", widthCustom: true })).toBe("max-w-[520px]");
+    const classic = blockSchema.parse({ id: "classic", version: 1, type: "processSteps", data: { steps: processStepsSample } });
+    expect(blockWidthClass(classic)).toBe("max-w-[720px]");
+    act(() => root.render(createElement(InteractiveProcessSteps, { blockId: "wide-slider", steps: processStepsSample, style: "slider" })));
+    expect(container.querySelector("section")?.className).not.toContain("max-w-");
   });
 
   it("places slider media before editable title and body renderers", () => {

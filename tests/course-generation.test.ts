@@ -2113,6 +2113,7 @@ describe("AI course generation contracts", () => {
     ]);
     expect(lessonContentSchema.parse({ schemaVersion: 1, blocks: course.lessons[0].blocks }).blocks).toHaveLength(23);
     const process = course.lessons[0].blocks.find((item) => item.type === "processSteps");
+    expect(process).toMatchObject({ width: "full", widthCustom: false });
     expect(process?.data).toMatchObject({ style: "slider", steps: [{ title: "First", body: "Do this." }, { title: "Next", body: "Then do this." }] });
     const timeline = course.lessons[0].blocks.find((item) => item.type === "timeline");
     expect(timeline).toMatchObject({ type: "timeline", data: { style: "horizontal", items: [{ label: "1980", title: "First" }, { label: "2000", title: "Next" }] } });
