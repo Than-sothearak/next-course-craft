@@ -18,6 +18,8 @@ import { ChartBlockPreview } from "../../../../../preview/chart-block";
 import { GalleryCarousel } from "@/components/gallery-carousel";
 import { PreviewBlock as LearnerBlock } from "../../../../../preview/_components/(course_preview_components)/(lesson_reader_preview_components)/(lesson_blocks_preview_components)/preview-block";
 import { BalloonArcher } from "@/components/balloon-archer";
+import { YouTubeVideoEmbed } from "@/components/youtube-video-embed";
+import { getYouTubeEmbedUrl } from "@/lib/media/youtube";
 
 type PreviewBlock = Exclude<ContentBlock, { type: "heading" | "richText" | "statement" | "lessonMap" }>;
 
@@ -100,6 +102,11 @@ export function ContentBlockPreview({ block, onChange, presentation = false, cou
         controls
         className="aspect-video w-full rounded-xl bg-black"
         src={block.data.src}
+      />
+    ) : getYouTubeEmbedUrl(block.data.src) ? (
+      <YouTubeVideoEmbed
+        url={block.data.src}
+        className="aspect-video w-full rounded-xl bg-black"
       />
     ) : (
       <a

@@ -20,7 +20,7 @@ export function VideoBlockSettings({ setMediaLibraryTarget, block, onChange }: {
         Choose from media library
       </Button>
       <Input
-        aria-label="Video URL"
+        aria-label="Video or YouTube URL"
         type="url"
         value={block.data.src}
         onChange={(event) => {
@@ -28,11 +28,11 @@ export function VideoBlockSettings({ setMediaLibraryTarget, block, onChange }: {
           delete data.mimeType;
           onChange({ ...block, data });
         }}
-        placeholder="Video URL"
+        placeholder="MP4/WebM or YouTube URL"
         className="h-9"
       />
       <p className="text-xs leading-5 text-slate-500">
-        Required video progress is recorded when a browser-playable video file finishes. External video pages open separately and cannot report when playback ends.
+        Paste a YouTube watch, youtu.be, Shorts, or Live link to embed it. Playback completion tracking works for direct video files, not YouTube embeds or other video pages.
       </p>
       <Input
         aria-label="Captions URL (optional)"

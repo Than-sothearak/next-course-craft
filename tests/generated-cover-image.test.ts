@@ -21,11 +21,24 @@ describe("fast generated course cover assets", () => {
     expect(Asset.create).toHaveBeenCalledWith(expect.objectContaining({ ownerId, courseId, mimeType: "image/jpeg", originalName: expect.stringMatching(/\.jpg$/), metadata: expect.objectContaining({ purpose: "course-cover", width: 1280, height: 720 }) }));
     expect(image.src).toMatch(/^\/api\/assets\/[a-f\d]{24}\/file$/);
   });
-  it("keeps existing lesson illustrations square and PNG", async () => {
+  it("generates lesson illustrations in a 16:9 PNG format", async () => {
     output(Buffer.from("iVBORw0KGgo=", "base64"));
     await createGeneratedImageAsset(ownerId, courseId, "Teaching illustration");
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body).tools[0]).toMatchObject({ size: "1024x1024", quality: "low" });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).tools[0]).toMatchObject({ size: "1280x720", quality: "low" });
     expect(storage.upload).toHaveBeenCalledWith(expect.objectContaining({ contentType: "image/png" }));
+    expect(Asset.create).toHaveBeenCalledWith(expect.objectContaining({ metadata: expect.objectContaining({ width: 1280, height: 720 }) }));
+  });
+  it("adds the selected visual treatment to image generation prompts", async () => {
+    output(Buffer.from("iVBORw0KGgo=", "base64"));
+    await createGeneratedImageAsset(ownerId, courseId, "A student learning HTML", { imageStyle: "3dCartoon" });
+    const request = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(request.input).toContain("friendly 3D cartoon style");
+    expect(Asset.create).toHaveBeenCalledWith(expect.objectContaining({ metadata: expect.objectContaining({ imageStyle: "3dCartoon" }) }));
+  });
+  it("uses a bounded custom visual direction in image prompts", async () => {
+    output(Buffer.from("iVBORw0KGgo=", "base64"));
+    await createGeneratedImageAsset(ownerId, courseId, "A student learning HTML", { imageStyle: "custom", customImageStyle: "Warm paper-cut collage" });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).input).toContain("Warm paper-cut collage");
   });
   it("rejects a mismatched image format before storing a cover", async () => {
     output(Buffer.from("iVBORw0KGgo=", "base64"));

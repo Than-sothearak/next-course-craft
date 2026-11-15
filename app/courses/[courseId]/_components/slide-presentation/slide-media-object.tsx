@@ -7,6 +7,8 @@ import { PreviewImage } from "../../preview/preview-image";
 import { SlideMediaPlayer } from "./slide-media-player";
 import { isSlideVideoFile, resolveSlideCrop } from "@/lib/editor/slide-crop";
 import { SlideColorOverlay } from "./slide-color-overlay";
+import { YouTubeVideoEmbed } from "@/components/youtube-video-embed";
+import { getYouTubeEmbedUrl } from "@/lib/media/youtube";
 import type { MediaPlaybackProgress } from "@/lib/export/media-playback";
 
 export function SlideMediaObject({ block, onDimensions, onDurationChange, onVideoEnded, requireFullPlayback = false, trackProgress = false, completed = false, initialProgress, onProgress }: {
@@ -22,6 +24,7 @@ export function SlideMediaObject({ block, onDimensions, onDurationChange, onVide
 }) {
   const dimensions = resolveSlideMedia(block);
   const videoFile = block.type === "video" && isSlideVideoFile(block);
+  const youtubeEmbedUrl = block.type === "video" && !videoFile ? getYouTubeEmbedUrl(block.data.src) : null;
   const imageRatio = block.type === "image" ? block.data.imageAspectRatio : undefined;
   const aspect = imageRatio ? Number(imageRatio.split("/")[0]) / Number(imageRatio.split("/")[1]) : undefined;
   return (
@@ -32,6 +35,8 @@ export function SlideMediaObject({ block, onDimensions, onDurationChange, onVide
         </div>
       ) : videoFile ? (
         <SlideMediaPlayer key={block.data.src} block={block} onDimensions={onDimensions} onDurationChange={onDurationChange} onEnded={onVideoEnded} requireFullPlayback={requireFullPlayback} trackProgress={trackProgress} completed={completed} initialProgress={initialProgress} onProgress={onProgress} />
+      ) : youtubeEmbedUrl ? (
+        <YouTubeVideoEmbed url={block.data.src} className="h-full w-full bg-black" />
       ) : (
         <a href={block.data.src} target="_blank" rel="noreferrer" onClick={onVideoEnded} className="flex h-full w-full items-center justify-center gap-3 bg-slate-950 text-white">
           <CirclePlay size={36} /><span className="text-sm font-medium">Open video</span>

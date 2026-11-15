@@ -32,6 +32,7 @@ type BlockOperations = ReturnType<typeof useEditorBlockOperations>;
 
 type EditorWorkspaceProps = {
   courseId: string;
+  imageGenerationModel: string;
   focusedLessonId?: string;
   initialPresentationBlockId?: string;
   authorName: string;
@@ -81,6 +82,7 @@ type EditorWorkspaceProps = {
 
 export function EditorWorkspace({
   courseId,
+  imageGenerationModel,
   focusedLessonId,
   initialPresentationBlockId,
   authorName,
@@ -590,6 +592,7 @@ export function EditorWorkspace({
       )}
       {courseGenerationOpen && <CourseGenerationWizard
         open={courseGenerationOpen}
+        imageGenerationModel={imageGenerationModel}
         onClose={() => setCourseGenerationOpen(false)}
         courseId={courseId}
         courseTitle={draft.title}

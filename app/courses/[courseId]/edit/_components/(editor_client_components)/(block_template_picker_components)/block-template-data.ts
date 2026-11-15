@@ -423,7 +423,7 @@ export const blockTemplates: BlockTemplate[] = [
     id: "media-video",
     category: "Multimedia",
     title: "Video",
-    description: "Add a video link with a large preview area.",
+    description: "Add a direct video file or embed a YouTube link.",
     type: "video",
     preview: "video",
   },

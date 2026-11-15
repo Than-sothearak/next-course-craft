@@ -144,6 +144,20 @@ describe("course generation structure previews", () => {
     expect(select?.options[0].textContent).toBe("1 lesson");
   });
 
+  it("offers generated image style presets and a custom direction", async () => {
+    const styleField = Array.from(container.querySelectorAll("label")).find((item) => item.textContent?.includes("Generated image style"));
+    const styleSelect = styleField!.querySelector("select")!;
+    expect(styleSelect.value).toBe("auto");
+    expect(Array.from(styleSelect.options, (option) => option.textContent)).toContain("Photorealistic photography");
+    const imageControls = styleSelect.closest('[class*="sm:flex-row"]');
+    expect(imageControls?.contains(container.querySelector('input[type="checkbox"]'))).toBe(true);
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")!.set!.call(styleSelect, "custom");
+      styleSelect.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    expect(Array.from(container.querySelectorAll("label")).some((item) => item.textContent?.includes("Custom style direction"))).toBe(true);
+  });
+
   it("places the source slides upload directly after the prompt and before course settings", () => {
     const prompt = container.querySelector("textarea")!;
     const sourceInput = container.querySelector<HTMLInputElement>('input[aria-label="Upload PDF or PowerPoint source"]')!;

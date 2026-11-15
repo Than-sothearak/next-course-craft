@@ -7,6 +7,7 @@ import {
   imageLayoutSchema,
   timelineStyleSchema,
 } from "../schemas/block";
+import { courseImageStyleSchema } from "./image-style";
 
 const generatedNativeBlockTypes = [
   "heading",
@@ -50,7 +51,7 @@ ACTIVE LEARNING BLOCKS
 - timeline: presents 2–20 ordered historical events, milestones, or phases that are not an instructional procedure. For each event provide an optional short date/period label, a title, and a concise explanation. Use vertical, horizontal, or stacked style. Do not invent dates or chronology; use processSteps for instructions.
 
 VISUAL AND DATA BLOCKS
-- image: one useful generated illustration. Provide imagePrompt and accessible imageAlt. imageLayout may be full, banner, text-left, text-right, text-overlay, card, or cover; title/body are optional accompanying copy.
+- image: one useful generated visual. Provide imagePrompt and accessible imageAlt. imageLayout may be full, banner, text-left, text-right, text-overlay, card, or cover; title/body are optional accompanying copy.
 - gallery: presents 1–8 images. Use galleryImages only with image URLs explicitly present in the source; never invent image URLs.
 - video: embeds a playable direct MP4/WebM source. Use videoSrc only when a direct video URL appears in the source, and provide videoMimeType and captions when available. Never invent a URL.
 - audio: authors upload audio files manually after generation. Do not generate audio blocks or invent audio URLs.
@@ -108,9 +109,15 @@ export const courseGenerationInputSchema = z.object({
   postTestCount: z.number().int().min(1).max(20).default(5),
   includeImages: z.boolean(),
   generateCoverImage: z.boolean().default(false),
+  imageStyle: courseImageStyleSchema.default("auto"),
+  customImageStyle: z.string().trim().max(240).default(""),
   courseTitle: z.string().max(160),
   courseDescription: z.string().max(5_000),
   model: courseGenerationModelSchema.optional(),
+}).superRefine((input, context) => {
+  if ((input.includeImages || input.generateCoverImage) && input.imageStyle === "custom" && !input.customImageStyle) {
+    context.addIssue({ code: "custom", path: ["customImageStyle"], message: "Describe the custom image style." });
+  }
 });
 
 export const generatedSourceInventorySchema = z

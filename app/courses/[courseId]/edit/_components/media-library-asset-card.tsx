@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
-import { FileDown, LoaderCircle, Music2, Trash2 } from "lucide-react";
+import { CirclePlay, FileDown, LoaderCircle, Music2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { mediaFileTypeLabel, type MediaLibraryAsset } from "@/lib/media/library";
 
@@ -21,15 +21,24 @@ function MediaPreview({ asset, onSelect }: { asset: MediaLibraryAsset; onSelect:
 
   if (asset.contentType.startsWith("video/") || asset.contentType.startsWith("audio/")) {
     const video = asset.contentType.startsWith("video/");
-    return <>
-      <div className={`flex aspect-[16/10] min-w-0 flex-col items-center justify-center gap-3 overflow-hidden ${video ? "bg-slate-950" : "bg-slate-100 p-3 text-slate-500"}`}>
-        {video ? <video ref={player => { playerRef.current = player; }} src={asset.fileUrl} controls playsInline preload="none" aria-label={`Preview ${asset.originalName}`} onError={() => setFailed(true)} className="h-full w-full object-contain" />
-          : <><Music2 size={30} aria-hidden="true" /><audio ref={player => { playerRef.current = player; }} src={asset.fileUrl} controls preload="none" aria-label={`Preview ${asset.originalName}`} onError={() => setFailed(true)} className="h-10 w-full min-w-0" /></>}
+    return video ? <>
+      <Button type="button" variant="ghost" onClick={onSelect} aria-label={`Select ${asset.originalName}`} data-media-preview-select className="relative block aspect-[16/10] h-auto w-full overflow-hidden rounded-none bg-slate-950 p-0 hover:bg-slate-950">
+        <video ref={player => { playerRef.current = player; }} src={asset.fileUrl} muted playsInline preload="metadata" tabIndex={-1} aria-hidden="true" onLoadedMetadata={event => { const media = event.currentTarget; if (media.duration > 0) media.currentTime = Math.min(0.1, media.duration / 2); }} onError={() => setFailed(true)} className="h-full w-full object-cover" />
+        <span aria-hidden="true" className="absolute inset-0 grid place-items-center bg-slate-950/10 text-white"><CirclePlay size={34} className="drop-shadow" /></span>
+      </Button>
+      {failed && <p role="status" className="px-3 pt-2 text-xs text-amber-800">This file cannot be previewed in this browser. You can still select it.</p>}
+    </> : <>
+      <Button type="button" variant="ghost" onClick={onSelect} aria-label={`Select ${asset.originalName}`} data-media-preview-select className="flex aspect-[16/10] h-auto w-full flex-col justify-center gap-2 rounded-none bg-slate-100 p-3 text-slate-600 hover:bg-slate-100">
+        <Music2 size={28} aria-hidden="true" />
+        <span className="text-xs font-medium">Select audio</span>
+      </Button>
+      <div className="px-3 pt-2">
+        <audio ref={player => { playerRef.current = player; }} src={asset.fileUrl} controls preload="none" aria-label={`Preview ${asset.originalName}`} onError={() => setFailed(true)} className="h-10 w-full min-w-0" />
       </div>
       {failed && <p role="status" className="px-3 pt-2 text-xs text-amber-800">This file cannot be previewed in this browser. You can still select it.</p>}
     </>;
   }
-  return <Button type="button" variant="ghost" onClick={onSelect} aria-label={`Select ${asset.originalName}`} className="relative block aspect-[16/10] h-auto w-full overflow-hidden rounded-none bg-slate-100 p-0">
+  return <Button type="button" variant="ghost" onClick={onSelect} aria-label={`Select ${asset.originalName}`} data-media-preview-select className="relative block aspect-[16/10] h-auto w-full overflow-hidden rounded-none bg-slate-100 p-0">
     {asset.contentType.startsWith("image/") ? <Image src={asset.fileUrl} alt="" fill unoptimized sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw" className="object-cover" />
       : <span className="grid h-full place-items-center text-slate-500"><FileDown size={30} aria-hidden="true" /></span>}
   </Button>;

@@ -27,23 +27,24 @@ describe("saved lesson progress", () => {
     expect(progressBar.className).toContain("lesson-generation-progress-shimmer");
 
     await act(async () => { vi.advanceTimersByTime(15_000); });
-    expect(progressBar.getAttribute("aria-valuenow")).toBe("3");
-    expect(progressBar.getAttribute("aria-valuetext")).toContain("current lesson estimate: 26%");
+    expect(progressBar.getAttribute("aria-valuenow")).toBe("2");
+    expect(progressBar.getAttribute("aria-valuetext")).toContain("current lesson estimate: 20%");
     await act(async () => { vi.advanceTimersByTime(45_000); });
-    expect(progressBar.getAttribute("aria-valuenow")).toBe("7");
+    expect(progressBar.getAttribute("aria-valuenow")).toBe("5");
+    expect(progressBar.getAttribute("aria-valuetext")).toContain("current lesson estimate: 53%");
     expect(container.querySelector('[role="status"]')?.textContent).toBe("0 of 10 lessons generated and saved · 0%");
     await act(async () => { vi.advanceTimersByTime(60_000); });
-    expect(progressBar.getAttribute("aria-valuenow")).toBe("8");
+    expect(progressBar.getAttribute("aria-valuenow")).toBe("6");
     await act(async () => { vi.advanceTimersByTime(120_000); });
-    expect(progressBar.getAttribute("aria-valuenow")).toBe("8");
+    expect(progressBar.getAttribute("aria-valuenow")).toBe("6");
 
     const nextLesson = { ...tenLessons, completedLessonIds: ["lesson-0"], currentLessonId: "lesson-1" };
     await act(async () => root.render(<CourseGenerationProgress {...props} session={nextLesson} />));
     expect(progressBar.getAttribute("aria-valuenow")).toBe("10");
     await act(async () => { vi.advanceTimersByTime(60_000); });
-    expect(progressBar.getAttribute("aria-valuenow")).toBe("17");
+    expect(progressBar.getAttribute("aria-valuenow")).toBe("15");
     await act(async () => { vi.advanceTimersByTime(60_000); });
-    expect(progressBar.getAttribute("aria-valuenow")).toBe("18");
+    expect(progressBar.getAttribute("aria-valuenow")).toBe("16");
     expect(container.querySelector('[role="status"]')?.textContent).toBe("1 of 10 lessons generated and saved · 10%");
   });
 

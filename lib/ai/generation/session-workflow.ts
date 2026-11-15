@@ -67,7 +67,10 @@ export async function planSession(scope: Scope, input: CourseGenerationInput, so
   const session = await CourseGenerationSession.create({ ...scope, input, ...plan, sourceJobId, expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1_000) });
   if (input.generateCoverImage) {
     try {
-      const cover = await prepareOutlineCover(scope.ownerId, scope.courseId, plan.outline);
+      const cover = await prepareOutlineCover(scope.ownerId, scope.courseId, plan.outline, {
+        imageStyle: input.imageStyle,
+        customImageStyle: input.customImageStyle,
+      });
       await CourseGenerationSession.updateOne({ _id: session._id, ...scope }, { $set: cover });
     } catch (error) {
       await CourseGenerationSession.updateOne({ _id: session._id, ...scope }, { $set: { coverWarning: `The outline is ready, but its cover image could not be prepared. ${error instanceof DashboardError ? error.message : "You can add a cover later."}`.slice(0, 1_000) } });

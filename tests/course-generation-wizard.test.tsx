@@ -20,6 +20,7 @@ const runServerMutation: ComponentProps<typeof CourseGenerationWizard>["runServe
 const renderWizard = (savedSession: GenerationSessionSnapshot | null = null) => act(async () => root.render(<CourseGenerationWizard open onClose={onClose} courseId="course" courseTitle="" courseDescription="" existingLessonCount={0} savedSession={savedSession} runServerMutation={runServerMutation} onStarted={onStarted} />));
 const click = async (text: string) => act(async () => { const button = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes(text)); expect(button).toBeTruthy(); button!.click(); });
 const type = async (element: HTMLInputElement | HTMLTextAreaElement, value: string) => act(async () => { const prototype = element instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype; Object.getOwnPropertyDescriptor(prototype, "value")!.set!.call(element, value); element.dispatchEvent(new Event("input", { bubbles: true })); });
+const select = async (element: HTMLSelectElement, value: string) => act(async () => { Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")!.set!.call(element, value); element.dispatchEvent(new Event("change", { bubbles: true })); });
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value: function (this: HTMLDialogElement) { this.open = true; } });
@@ -83,14 +84,31 @@ describe("AI course review wizard", () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body).action).toBe("plan");
     expect(JSON.parse(fetchMock.mock.calls[0][1].body).input.generateCoverImage).toBe(false);
     expect(onStarted).not.toHaveBeenCalled();
+    const lessonDraftButton = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes("Generate lessons draft"));
+    expect(lessonDraftButton?.textContent?.trim()).toBe("Generate lessons draft");
+    expect([...container.querySelectorAll("button")].some((button) => button.textContent?.includes("Approve outline"))).toBe(false);
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ session: { ...session, status: "generating" }, editor })));
-    await click("Approve outline and generate lessons");
+    await click("Generate lessons draft");
     const request = JSON.parse(fetchMock.mock.calls[1][1].body);
     expect(request).toMatchObject({ action: "approve", revision: 1, mode: "replace", outline: session.outline });
     expect(onStarted).toHaveBeenCalledWith(expect.objectContaining({ status: "generating" }));
     expect(onClose).toHaveBeenCalledOnce();
     expect(onStarted.mock.invocationCallOrder[0]).toBeLessThan(onClose.mock.invocationCallOrder[0]);
     expect(container.querySelector('[role="alertdialog"]')).toBeNull();
+  });
+  it("fills the popup with outline progress while planning is in progress", async () => {
+    await renderWizard();
+    await click("Continue to course details");
+    fetchMock.mockReturnValueOnce(new Promise<Response>(() => {}));
+    await click("Generate outline");
+    const dialog = container.querySelector("dialog")!;
+    expect(dialog.textContent).toContain("Generating your course outline");
+    const steps = dialog.querySelector('[aria-label="Course generation steps"]')!;
+    expect(steps.textContent).toBe("1. Source material2. Course details3. Course outline4. Lesson drafts");
+    expect(steps.querySelector('[aria-current="step"]')?.textContent).toBe("3. Course outline");
+    expect(dialog.querySelector("fieldset")).toBeNull();
+    expect(dialog.querySelector('[aria-label="Generating course outline"]')).toBeTruthy();
+    expect([...dialog.querySelectorAll("button")].some((button) => button.textContent?.includes("Back"))).toBe(false);
   });
   it("uses switch controls for image options and submits the enabled cover choice", async () => {
     await renderWizard();
@@ -102,10 +120,18 @@ describe("AI course review wizard", () => {
     expect(coverLabel.children[1].getAttribute("aria-hidden")).toBe("true");
     expect(coverLabel.children[2].textContent).toBe("Generate course cover image");
     expect(coverSwitch.checked).toBe(false);
+    const coverImageModel = container.querySelector<HTMLSelectElement>('select[aria-label="Image generation model"]')!;
+    expect(coverImageModel.value).toBe("gpt-image-2.5-sunburst");
+    expect(coverImageModel.disabled).toBe(true);
     expect(container.textContent).not.toContain("Used on the dashboard card and as the learner cover");
     await act(async () => coverSwitch.click());
     expect(coverSwitch.checked).toBe(true);
-    expect(container.textContent).toContain("Image generation can take longer.");
+    expect(container.textContent).toContain("Image generation may take longer than a typical response, so wait for the generation to finish.");
+    expect(coverImageModel.value).toBe("gpt-image-2.5-sunburst");
+    expect(coverImageModel.disabled).toBe(true);
+    await act(async () => coverSwitch.click());
+    expect(coverSwitch.checked).toBe(false);
+    expect(container.querySelector('select[aria-label="Image generation model"]')).toBeTruthy();
     await click("Continue to course details");
     const supplementalSwitch = container.querySelector<HTMLInputElement>('[role="switch"][aria-label="Generate supplemental images"]')!;
     const supplementalLabel = supplementalSwitch.closest("label")!;
@@ -114,13 +140,39 @@ describe("AI course review wizard", () => {
     expect(supplementalLabel.children[0]).toBe(supplementalSwitch);
     expect(supplementalLabel.children[1].getAttribute("aria-hidden")).toBe("true");
     expect(supplementalLabel.children[2].textContent).toBe("Generate supplemental images");
-    expect(container.textContent).not.toContain("Image generation can take longer.");
+    const imageModelSelect = container.querySelector<HTMLSelectElement>('select[aria-label="Image generation model"]')!;
+    expect(imageModelSelect.value).toBe("gpt-image-2.5-sunburst");
+    expect(imageModelSelect.disabled).toBe(true);
+    const styleSelect = [...container.querySelectorAll("label")].find((label) => label.textContent?.includes("Generated image style"))!.querySelector("select")!;
+    expect([...styleSelect.options].map((option) => option.textContent)).toContain("3D cartoon");
+    expect(container.textContent).not.toContain("Image generation may take longer than a typical response, so wait for the generation to finish.");
     await act(async () => supplementalSwitch.click());
     expect(supplementalSwitch.checked).toBe(true);
-    expect(container.textContent).toContain("Image generation can take longer.");
-    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ ...session, input: { ...input, includeImages: true, generateCoverImage: true } })));
+    expect(container.textContent).toContain("Image generation may take longer than a typical response, so wait for the generation to finish.");
+    expect(imageModelSelect.value).toBe("gpt-image-2.5-sunburst");
+    expect(imageModelSelect.disabled).toBe(true);
+    expect([...styleSelect.options].map((option) => option.textContent)).toContain("3D cartoon");
+    expect(styleSelect.closest('[class*="sm:flex-row"]')?.contains(supplementalSwitch)).toBe(true);
+    expect(styleSelect.closest('[class*="sm:flex-row"]')?.contains(imageModelSelect)).toBe(true);
+    await act(async () => supplementalSwitch.click());
+    expect(supplementalSwitch.checked).toBe(false);
+    expect(container.querySelector('select[aria-label="Image generation model"]')).toBeTruthy();
+    expect([...container.querySelectorAll("label")].some((label) => label.textContent?.includes("Generated image style"))).toBe(true);
+    expect(container.textContent).not.toContain("Image generation may take longer than a typical response, so wait for the generation to finish.");
+    await act(async () => supplementalSwitch.click());
+    const enabledStyleSelect = [...container.querySelectorAll("label")].find((label) => label.textContent?.includes("Generated image style"))!.querySelector("select")!;
+    await select(enabledStyleSelect, "custom");
+    const styleDialog = [...container.querySelectorAll("dialog")].find((dialog) => dialog.textContent?.includes("Custom image style"))!;
+    const customStyle = [...styleDialog.querySelectorAll("label")].find((label) => label.textContent?.includes("Describe the visual treatment"))!.querySelector("textarea")!;
+    await type(customStyle, "Warm paper-cut collage");
+    await click("Save style");
+    await click("Back");
+    const enabledCoverSwitch = container.querySelector<HTMLInputElement>('[role="switch"][aria-label="Generate course cover image"]')!;
+    await act(async () => enabledCoverSwitch.click());
+    await click("Continue to course details");
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ ...session, input: { ...input, includeImages: true, generateCoverImage: true, imageStyle: "custom", customImageStyle: "Warm paper-cut collage" } })));
     await click("Generate outline");
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body).input).toMatchObject({ includeImages: true, generateCoverImage: true });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).input).toMatchObject({ includeImages: true, generateCoverImage: true, imageStyle: "custom", customImageStyle: "Warm paper-cut collage" });
   });
   it("removes and reorders Custom sections and preserves the reviewed lesson order", async () => {
     const custom: GenerationSessionSnapshot = { ...session, outline: { ...session.outline, sections: [session.outline.sections[0],
@@ -132,7 +184,7 @@ describe("AI course review wizard", () => {
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Move Practice two up"]')!.click());
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Remove section Unused"]')!.click());
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ session: { ...session, status: "generating" }, editor })));
-    await click("Approve outline and generate lessons");
+    await click("Generate lessons draft");
     const approved = JSON.parse(fetchMock.mock.calls[0][1].body).outline;
     expect(approved.sections.map((section: { id: string }) => section.id)).toEqual(["practice", "learn"]);
     expect(approved.sections[0].lessons.map((lesson: { id: string }) => lesson.id)).toEqual(["practice-2", "practice-1"]);
@@ -150,7 +202,7 @@ describe("AI course review wizard", () => {
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Remove HTML 3"]')!.click());
     await click("Add lesson");
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ session: { ...session, status: "generating" }, editor })));
-    await click("Approve outline and generate lessons");
+    await click("Generate lessons draft");
     const approved = JSON.parse(fetchMock.mock.calls[0][1].body).outline.sections[0].lessons;
     expect(approved[1].title).toBe("Corrected title");
     expect(approved.some((lesson: { title: string }) => lesson.title === "HTML 3")).toBe(false);
@@ -169,7 +221,7 @@ describe("AI course review wizard", () => {
     await type([...added.querySelectorAll("label")].find((label) => label.textContent === "Lesson title")!.querySelector("input")!, "Practice task");
     await act(async () => [...added.querySelectorAll("button")].find((button) => button.textContent === "Add lesson")!.click());
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ session: { ...session, status: "generating" }, editor })));
-    await click("Approve outline and generate lessons");
+    await click("Generate lessons draft");
     const approved = JSON.parse(fetchMock.mock.calls[0][1].body).outline;
     expect(approved.sections).toHaveLength(2);
     expect(approved.sections[1].title).toBe("Practice");
@@ -189,7 +241,7 @@ describe("AI course review wizard", () => {
   it("keeps approval available when the outline has a cover warning", async () => {
     await renderWizard({ ...session, coverWarning: "The outline is ready, but the cover could not be generated." });
     expect(container.textContent).toContain("cover could not be generated");
-    expect([...container.querySelectorAll("button")].find((button) => button.textContent?.includes("Approve outline"))!.disabled).toBe(false);
+    expect([...container.querySelectorAll("button")].find((button) => button.textContent?.includes("Generate lessons draft"))!.disabled).toBe(false);
   });
   it("requires a new outline after changing course details", async () => {
     await renderWizard(session);

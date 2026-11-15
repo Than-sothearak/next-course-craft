@@ -10,6 +10,7 @@ import { CourseGenerationProgress } from "./(editor_client_components)/course-ge
 import { useCourseGenerationSession } from "./_components/use-course-generation-session";
 import { useFocusedContentBlock } from "./(editor_client_components)/use-focused-content-block";
 import type { Permission } from "@/lib/auth/policy";
+import { defaultCourseImageGenerationModel } from "@/lib/ai/image-style";
 import { createClientId } from "@/lib/client-id";
 import { editorModeHref } from "@/lib/editor/course-routes";
 import { migrateCoverAudio } from "@/lib/editor/audio-instruction";
@@ -28,6 +29,7 @@ export type EditorClientProps = {
   initialPresentationLessonId?: string;
   initialPresentationBlockId?: string;
   openGenerationOnMount?: boolean;
+  imageGenerationModel?: string;
   authorName: string;
   userName?: string;
   permissions?: Permission[];
@@ -41,6 +43,7 @@ export function EditorClient({
   initialPresentationLessonId,
   initialPresentationBlockId,
   openGenerationOnMount = false,
+  imageGenerationModel = defaultCourseImageGenerationModel,
   authorName,
   userName,
   permissions = [],
@@ -196,6 +199,7 @@ export function EditorClient({
     <CourseNavigationModeContext.Provider value={draft.navigationMode}>
     <EditorWorkspace
       courseId={initialData.courseId}
+      imageGenerationModel={imageGenerationModel}
       focusedLessonId={focusedLessonId}
       initialPresentationBlockId={initialPresentationBlockId}
       authorName={authorName}

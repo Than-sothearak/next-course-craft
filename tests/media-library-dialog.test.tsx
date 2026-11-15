@@ -10,6 +10,7 @@ const assets = [
   { id: "v", originalName: "Zebra.mp4", contentType: "video/mp4", size: 400, fileUrl: "/video.mp4", createdAt: "2026-01-03" },
   { id: "a", originalName: "Alpha.wav", contentType: "audio/wav", size: 200, fileUrl: "/audio.wav", createdAt: "2026-01-02" },
   { id: "t", originalName: "Notes.txt", contentType: "text/plain", size: 100, fileUrl: "/notes.txt", createdAt: "2026-01-01" },
+  { id: "i", originalName: "Diagram.png", contentType: "image/png", size: 300, fileUrl: "/diagram.png", createdAt: "2026-01-04" },
 ];
 
 describe("shared media picker", () => {
@@ -34,29 +35,41 @@ describe("shared media picker", () => {
     } else { field.value = value; field.dispatchEvent(new Event("change", { bubbles: true })); }
   });
 
-  it.each([false, true])("keeps preview controls independent from selection (embedded=%s)", async embedded => {
+  it.each([false, true])("shows a selectable video thumbnail and keeps audio preview controls (embedded=%s)", async embedded => {
     await render(embedded);
     const video = container.querySelector("video")!, audio = container.querySelector("audio")!;
-    expect(video.controls && audio.controls).toBe(true);
-    expect(video.closest("button")).toBeNull(); expect(audio.closest("button")).toBeNull();
-    await act(async () => { playing(video); playing(audio); });
-    expect(video.paused).toBe(true); expect(audio.paused).toBe(false);
+    expect(video.controls).toBe(false); expect(video.preload).toBe("metadata");
+    expect(video.closest("button")?.getAttribute("aria-label")).toBe("Select Zebra.mp4");
+    expect(audio.controls).toBe(true); expect(audio.closest("button")).toBeNull();
+    await act(async () => playing(audio));
+    expect(audio.paused).toBe(false);
     expect(select).not.toHaveBeenCalled(); expect(close).not.toHaveBeenCalled();
-    await click("Use Alpha.wav");
+    await click("Select Zebra.mp4");
     expect(audio.paused).toBe(true);
-    expect(select).toHaveBeenCalledExactlyOnceWith(assets[1]); expect(close).toHaveBeenCalledTimes(1);
+    expect(select).toHaveBeenCalledExactlyOnceWith(assets[0]); expect(close).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([["v", "Zebra.mp4"], ["a", "Alpha.wav"], ["i", "Diagram.png"], ["t", "Notes.txt"]])("selects %s by clicking its media card preview", async (id, name) => {
+    await render();
+    const card = container.querySelector<HTMLElement>(`[data-media-asset-id="${id}"]`)!;
+    const preview = card.querySelector<HTMLButtonElement>("[data-media-preview-select]")!;
+    expect(preview.getAttribute("aria-label")).toBe(`Select ${name}`);
+    await act(async () => preview.click());
+    expect(select).toHaveBeenCalledExactlyOnceWith(assets.find(asset => asset.id === id));
+    expect(close).toHaveBeenCalledTimes(1);
   });
 
   it("pauses a preview when filtered out, externally closed, or unmounted", async () => {
     await render(true);
-    const video = container.querySelector("video")!;
-    await act(async () => playing(video));
-    await setFilter("Filter media by file type", "audio/wav");
-    expect(video.paused).toBe(true);
     const audio = container.querySelector("audio")!;
     await act(async () => playing(audio));
-    await render(true, false);
+    await setFilter("Filter media by file type", "video/mp4");
     expect(audio.paused).toBe(true);
+    await setFilter("Filter media by file type", "audio/wav");
+    const visibleAudio = container.querySelector("audio")!;
+    await act(async () => playing(visibleAudio));
+    await render(true, false);
+    expect(visibleAudio.paused).toBe(true);
     await render(true);
     const reopened = container.querySelector("audio")!;
     await act(async () => playing(reopened));
@@ -66,8 +79,8 @@ describe("shared media picker", () => {
 
   it.each(["header", "footer", "backdrop", "Escape"])("pauses playback when closed using %s", async action => {
     await render();
-    const video = container.querySelector("video")!;
-    await act(async () => playing(video));
+    const audio = container.querySelector("audio")!;
+    await act(async () => playing(audio));
     if (action === "header") await click("Close media library");
     else await act(async () => {
       const backdrop = container.querySelector<HTMLElement>("[data-media-library]")!;
@@ -75,17 +88,17 @@ describe("shared media picker", () => {
       else if (action === "Escape") backdrop.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
       else [...container.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "Close")!.click();
     });
-    expect(video.paused).toBe(true); expect(close).toHaveBeenCalledTimes(1);
+    expect(audio.paused).toBe(true); expect(close).toHaveBeenCalledTimes(1);
   });
 
   it("combines search, file type, sorting, and clear filters without selecting a file", async () => {
     await render();
-    await setFilter("Sort media", "name-asc"); expect(ids()).toEqual(["a", "t", "v"]);
+    await setFilter("Sort media", "name-asc"); expect(ids()).toEqual(["a", "i", "t", "v"]);
     await setFilter("Search media", "ALPHA audio"); expect(ids()).toEqual(["a"]);
     await setFilter("Filter media by file type", "video/mp4"); expect(ids()).toEqual([]);
     expect(container.textContent).toContain("No matching media");
     await act(async () => [...container.querySelectorAll<HTMLButtonElement>("button")].find(button => button.textContent === "Clear filters")!.click());
-    expect(ids()).toEqual(["a", "t", "v"]); expect(select).not.toHaveBeenCalled();
+    expect(ids()).toEqual(["i", "v", "a", "t"]); expect(select).not.toHaveBeenCalled();
   });
 
   it("searches older files loaded from later API pages", async () => {

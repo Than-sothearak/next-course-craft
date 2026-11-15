@@ -6,6 +6,7 @@ type StandardEditorProps = Pick<
   | "focusedLessonId"
   | "focusedBlockId"
   | "openGenerationOnMount"
+  | "imageGenerationModel"
   | "authorName"
   | "userName"
   | "permissions"

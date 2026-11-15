@@ -169,7 +169,7 @@ export function SlideObject({ block, courseId, index, total, master, area: custo
   function start(event: PointerEvent<HTMLElement>, kind: SlideTransformKind, fromHandle = false, handle: SlideResizeHandle = "bottom-right") {
     if (block.type === "flipCard" && !fromHandle) return;
     if (readOnly || suppressTransforms || (!fromHandle && (event.shiftKey || event.ctrlKey || event.metaKey)) || event.button !== 0 || drag.current) return;
-    if (kind === "move" && !fromHandle && (event.target as HTMLElement).closest("button, a, input, textarea, select, audio, video, [contenteditable='true']")) return;
+    if (kind === "move" && !fromHandle && (event.target as HTMLElement).closest("button, a, input, textarea, select, audio, video, iframe, [contenteditable='true']")) return;
     const bounds = event.currentTarget.closest<HTMLElement>("[data-slide-objects]")?.getBoundingClientRect();
     if (!bounds?.width || !bounds.height) return;
     onSelect();

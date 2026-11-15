@@ -544,10 +544,15 @@ describe("AI course generation contracts", () => {
       contentDepth: "detailed",
       interactivity: "high",
       postTestCount: 5,
+      imageStyle: "auto",
+      customImageStyle: "",
     });
     expect(courseGenerationInputSchema.safeParse({ ...input, targetLanguage: "Khmer" }).success).toBe(true);
     expect(courseGenerationInputSchema.safeParse({ ...input, targetLanguage: "French" }).success).toBe(false);
     expect(courseGenerationInputSchema.safeParse({ ...input, slidesPerContent: 501 }).success).toBe(false);
+    expect(courseGenerationInputSchema.safeParse({ ...input, imageStyle: "custom" }).success).toBe(false);
+    expect(courseGenerationInputSchema.safeParse({ ...input, imageStyle: "custom", customImageStyle: "Editorial paper-cut" }).success).toBe(true);
+    expect(courseGenerationInputSchema.safeParse({ ...input, customImageStyle: "x".repeat(241) }).success).toBe(false);
     expect(defaultCourseGenerationModel).toBe("gpt-6-luna");
   });
 
@@ -627,7 +632,7 @@ describe("AI course generation contracts", () => {
       const course = await generateCourseDraft({
         ownerId,
         courseId,
-        input: courseGenerationInputSchema.parse({ ...input, includeImages }),
+        input: courseGenerationInputSchema.parse({ ...input, includeImages, imageStyle: includeImages ? "flatIllustration" : "auto" }),
       });
 
       const flipCard = course.lessons[0].blocks.find((value) => value.type === "flipCard");
@@ -646,6 +651,10 @@ describe("AI course generation contracts", () => {
       expect(fetchMock).toHaveBeenCalledTimes(includeImages ? 6 : 1);
       expect(s3Upload).not.toHaveBeenCalled();
       expect(createdAssets).toHaveLength(includeImages ? 5 : 0);
+      if (includeImages) {
+        expect(JSON.parse(fetchMock.mock.calls[1][1].body).input).toContain("flat vector illustration");
+        expect(createdAssets.every((asset) => asset.metadata.imageStyle === "flatIllustration")).toBe(true);
+      }
       for (const asset of createdAssets) {
         expect(asset).toMatchObject({
           ownerId: new Types.ObjectId(ownerId),

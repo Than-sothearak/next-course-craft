@@ -4,6 +4,7 @@ import { LoadingPage } from "@/components/loading-page";
 import { requirePageUser, requirePageCourseAccess } from "@/lib/auth/pages";
 import { connectToDatabase } from "@/lib/db/mongodb";
 import { DashboardError } from "@/lib/dashboard/rules";
+import { defaultCourseImageGenerationModel } from "@/lib/ai/image-style";
 import {
   courseEditorMode,
   editorModeHref,
@@ -105,6 +106,7 @@ async function EditorPageContent({
     initialData,
     authorName,
     userName: user.name,
+    imageGenerationModel: process.env.OPENAI_IMAGE_MODEL || defaultCourseImageGenerationModel,
     permissions: access.permissions,
     globalPermissions: user.permissions,
     openGenerationOnMount:

@@ -14,6 +14,7 @@ import {
   type GeneratedCourseDraft,
   type SourceGenerationJobSnapshot,
 } from "@/lib/ai/course-generation-schemas";
+import { courseImageStyleOptions, type CourseImageStyle } from "@/lib/ai/image-style";
 
 import { advanceSourceGenerationJobUntil, isMissingGenerationJob, postCourseGenerationForm, postSourceGenerationAction, responseError } from "./(course_generation_dialog_components)/generation-job-request";
 import { GenerationPromptInput, starterGenerationPrompt } from "./(course_generation_dialog_components)/generation-prompt-input";
@@ -287,6 +288,8 @@ export function CourseGenerationDialog({
   const [postTestCount, setPostTestCount] = useState("5");
   const [selectedModel, setSelectedModel] = useState<CourseGenerationModel>(defaultCourseGenerationModel);
   const [includeImages, setIncludeImages] = useState(true);
+  const [imageStyle, setImageStyle] = useState<CourseImageStyle>("auto");
+  const [customImageStyle, setCustomImageStyle] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [generationJobId, setGenerationJobId] = useState<string | null>(null);
   const [sourceJobProgress, setSourceJobProgress] = useState<Pick<SourceGenerationJobSnapshot, "status" | "sourcePageCount" | "completedWorkUnits" | "totalWorkUnits" | "learnProgress"> | null>(null);
@@ -443,6 +446,8 @@ export function CourseGenerationDialog({
     formData.set("interactivity", interactivity);
     if (template === "preLearnPost") formData.set("postTestCount", postTestCount || "5");
     formData.set("includeImages", String(includeImages));
+    formData.set("imageStyle", imageStyle);
+    formData.set("customImageStyle", customImageStyle);
     formData.set("courseTitle", courseTitle);
     formData.set("courseDescription", courseDescription);
     formData.set("model", selectedModel);
@@ -908,13 +913,23 @@ export function CourseGenerationDialog({
               </fieldset>
             )}
 
-            <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-slate-200 p-3 text-sm text-slate-700">
-              <input type="checkbox" checked={includeImages} onChange={(event) => setIncludeImages(event.target.checked)} className="mt-0.5 size-4 accent-indigo-600" />
-              <span>
-                <span className="flex items-center gap-1.5 font-medium"><ImagePlus size={15} className="text-indigo-600" /> Generate up to 8 images automatically</span>
-                <span className="mt-0.5 block text-xs leading-5 text-slate-500">AI adds an image block when a visual helps and saves generated images to this course’s private media storage.</span>
-              </span>
-            </label>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <label className="flex flex-1 cursor-pointer items-start gap-2.5 rounded-lg border border-slate-200 p-3 text-sm text-slate-700">
+                <input type="checkbox" checked={includeImages} onChange={(event) => setIncludeImages(event.target.checked)} className="mt-0.5 size-4 accent-indigo-600" />
+                <span>
+                  <span className="flex items-center gap-1.5 font-medium"><ImagePlus size={15} className="text-indigo-600" /> Generate up to 8 images automatically</span>
+                  <span className="mt-0.5 block text-xs leading-5 text-slate-500">AI adds an image block when a visual helps and saves generated images to this course’s private media storage.</span>
+                </span>
+              </label>
+              {includeImages && <label className="block min-w-0 text-sm font-medium text-slate-700 sm:w-56">Generated image style
+                <Select value={imageStyle} onChange={(event) => setImageStyle(event.target.value as CourseImageStyle)} className="mt-1.5">{courseImageStyleOptions.map((style) => <option key={style.value} value={style.value}>{style.label}</option>)}</Select>
+              </label>}
+            </div>
+            {includeImages && <p className="text-xs text-slate-500">Image generation may take longer than a typical response, so wait for the generation to finish.</p>}
+            {includeImages && imageStyle === "custom" && <label className="block text-sm font-medium text-slate-700">Custom style direction
+              <Input value={customImageStyle} maxLength={240} placeholder="e.g. warm editorial paper-cut illustration" onChange={(event) => setCustomImageStyle(event.target.value)} className="mt-1.5" />
+              <span className="mt-1 block text-xs font-normal leading-5 text-slate-500">Describe the visual treatment for generated images.</span>
+            </label>}
 
             {error && <p role="alert" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">{error}</p>}
             {generationNotice && <p role="status" className="rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2 text-sm text-indigo-800">{generationNotice}</p>}

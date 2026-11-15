@@ -5,8 +5,13 @@ import { DashboardError } from "@/lib/dashboard/rules";
 import { defaultCourseGenerationModel } from "../course-generation-schemas";
 import { activeStorageConfiguration, deleteStoredMedia, storageProvider } from "@/lib/media/service";
 import { providerConnectionError } from "./provider";
+import { courseImageStyleInstruction, defaultCourseImageGenerationModel, type CourseImageStyle } from "../image-style";
 
-export type GeneratedImageOptions = { purpose?: "course-cover" };
+export type GeneratedImageOptions = {
+  purpose?: "course-cover";
+  imageStyle?: CourseImageStyle;
+  customImageStyle?: string;
+};
 
 async function generateImage(prompt: string, options: GeneratedImageOptions) {
   const cover = options.purpose === "course-cover";
@@ -27,12 +32,12 @@ async function generateImage(prompt: string, options: GeneratedImageOptions) {
       body: JSON.stringify({
         model: process.env.OPENAI_TEXT_MODEL || defaultCourseGenerationModel,
         store: false,
-        input: `Create one polished, original educational illustration for a course. ${prompt}. Do not add words, labels, watermarks, logos, or captions to the image. Use a clean, accessible visual style with clear subject separation.`,
+        input: `Create one polished, original educational image for a course. ${prompt}. ${courseImageStyleInstruction(options.imageStyle ?? "auto", options.customImageStyle)} Do not add words, labels, watermarks, logos, or captions to the image. Keep clear subject separation.`,
         tools: [
           {
             type: "image_generation",
-            model: process.env.OPENAI_IMAGE_MODEL || "gpt-image-2.5-sunburst",
-            size: cover ? "1280x720" : "1024x1024",
+            model: process.env.OPENAI_IMAGE_MODEL || defaultCourseImageGenerationModel,
+            size: "1280x720",
             ...(cover ? { output_format: "jpeg", output_compression: 75 } : {}),
             quality: "low",
           },
@@ -155,7 +160,15 @@ async function createGeneratedImageAssetNow(
       size: bytes.length,
       status: "ready",
       checksum,
-      metadata: { source: "ai-course-generation", prompt, ...(options.purpose ? { purpose: options.purpose, width: 1280, height: 720 } : {}) },
+      metadata: {
+        source: "ai-course-generation",
+        prompt,
+        imageStyle: options.imageStyle ?? "auto",
+        ...(options.imageStyle === "custom" && options.customImageStyle ? { customImageStyle: options.customImageStyle } : {}),
+        width: 1280,
+        height: 720,
+        ...(options.purpose ? { purpose: options.purpose } : {}),
+      },
     });
     return { src: `/api/assets/${asset._id}/file`, id: assetIdText };
   } catch {

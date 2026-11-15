@@ -58,6 +58,7 @@ export async function assembleCourseDraft({
                   input.includeImages,
                   khmer,
                   (assetId) => createdAssetIds.push(assetId),
+                  { imageStyle: input.imageStyle, customImageStyle: input.customImageStyle },
                 ),
               ),
             );

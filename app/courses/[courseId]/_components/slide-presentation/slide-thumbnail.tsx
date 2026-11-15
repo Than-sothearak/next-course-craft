@@ -12,6 +12,8 @@ import { slideObjectSurfaceStyle } from "../../preview/_components/(course_previ
 import { SlideSurface } from "./slide-surface";
 import { SlideCoverSurface } from "./slide-cover-surface";
 import { SlideObjectContent } from "./slide-object-content";
+import { CirclePlay } from "lucide-react";
+import { getYouTubeEmbedUrl } from "@/lib/media/youtube";
 import { SlideMediaPlayer } from "./slide-media-player";
 import { croppedMediaStyle, cropViewportStyle, isSlideVideoFile, resolveSlideCrop } from "@/lib/editor/slide-crop";
 import type { SlideAppearance } from "@/lib/editor/slide-design";
@@ -24,6 +26,9 @@ function ThumbnailBlock({ block }: { block: ContentBlock }) {
     const crop = resolveSlideCrop(block);
     const dimensions = resolveSlideMedia(block);
     return <div className="flex h-full w-full items-center justify-center" style={crop ? { containerType: "size" } : undefined}><div className="relative h-full w-full overflow-hidden" style={crop && dimensions ? cropViewportStyle(dimensions, crop) : undefined} data-slide-media-crop={crop ? true : undefined}><video src={block.data.src || undefined} muted playsInline preload="metadata" tabIndex={-1} style={crop ? croppedMediaStyle(crop) : undefined} className="h-full w-full object-contain" />{block.slideMediaOverlay && <SlideColorOverlay {...block.slideMediaOverlay} />}</div></div>;
+  }
+  if (block.type === "video" && getYouTubeEmbedUrl(block.data.src)) {
+    return <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-slate-950 text-white"><CirclePlay size={24} /><span className="text-[10px] font-medium">YouTube video</span></div>;
   }
   if (block.type === "audio") return <SlideMediaPlayer block={block} decorative />;
   return <PreviewBlock block={block} slideLayout authoring decorative device="desktop" orientation="landscape" />;

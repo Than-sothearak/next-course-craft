@@ -10,6 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { createClientId } from "@/lib/client-id";
 import { courseGenerationInputSchema, courseGenerationModelOptions, defaultCourseGenerationModel, type CourseGenerationInput, type SourceGenerationJobSnapshot } from "@/lib/ai/course-generation-schemas";
+import { courseImageStyleOptions, defaultCourseImageGenerationModel } from "@/lib/ai/image-style";
 import { courseOutlineSchema, type CourseOutline, type GenerationSessionSnapshot } from "@/lib/ai/course-generation-session-schema";
 import type { useEditorDraft } from "../_components/use-editor-draft";
 import { GenerationPromptInput, starterGenerationPrompt } from "./(course_generation_dialog_components)/generation-prompt-input";
@@ -37,15 +38,15 @@ function GenerationSwitch({ label, checked, onChange }: {
     <span>{label}</span>
   </label>;
 }
-export function CourseGenerationWizard({ open, onClose, courseId, courseTitle, courseDescription, existingLessonCount, runServerMutation, onStarted, savedSession }: {
-  open: boolean; onClose: () => void; courseId: string; courseTitle: string; courseDescription: string; existingLessonCount: number;
+export function CourseGenerationWizard({ open, onClose, courseId, courseTitle, courseDescription, existingLessonCount, runServerMutation, onStarted, savedSession, imageGenerationModel = defaultCourseImageGenerationModel }: {
+  open: boolean; onClose: () => void; courseId: string; courseTitle: string; courseDescription: string; existingLessonCount: number; imageGenerationModel?: string;
   runServerMutation: ReturnType<typeof useEditorDraft>["runServerMutation"];
   onStarted: (session: GenerationSessionSnapshot) => void; savedSession: GenerationSessionSnapshot | null;
 }) {
   const [closeConfirmationOpen, setCloseConfirmationOpen] = useState(false);
   const closeDescriptionId = useId();
   const [step, setStep] = useState(savedSession?.status === "outline" ? 2 : 0);
-  const [input, setInput] = useState<CourseGenerationInput>(savedSession?.status === "outline" ? savedSession.input : { prompt: starterGenerationPrompt, audience: "", level: "beginner", lessonCount: 5, template: "custom", learnGroupingMode: "smart", slidesPerContent: 5, targetLanguage: "English", contentDepth: "detailed", interactivity: "high", postTestCount: 5, includeImages: false, generateCoverImage: false, courseTitle, courseDescription, model: defaultCourseGenerationModel });
+  const [input, setInput] = useState<CourseGenerationInput>(savedSession?.status === "outline" ? savedSession.input : { prompt: starterGenerationPrompt, audience: "", level: "beginner", lessonCount: 5, template: "custom", learnGroupingMode: "smart", slidesPerContent: 5, targetLanguage: "English", contentDepth: "detailed", interactivity: "high", postTestCount: 5, includeImages: false, generateCoverImage: false, imageStyle: "auto", customImageStyle: "", courseTitle, courseDescription, model: defaultCourseGenerationModel });
   const [file, setFile] = useState<File | null>(null);
   const [source, setSource] = useState<SourceGenerationJobSnapshot | null>(null);
   const [planned, setPlanned] = useState<GenerationSessionSnapshot | null>(savedSession?.status === "outline" ? savedSession : null);
@@ -55,7 +56,10 @@ export function CourseGenerationWizard({ open, onClose, courseId, courseTitle, c
   const [busy, setBusy] = useState(false);
   const [busyLabel, setBusyLabel] = useState("");
   const [error, setError] = useState("");
+  const [customImageStyleDialogOpen, setCustomImageStyleDialogOpen] = useState(false);
+  const [customImageStyleDraft, setCustomImageStyleDraft] = useState(input.customImageStyle);
   const promptRef = useRef<HTMLTextAreaElement>(null);
+  const imageStyleBeforeCustomRef = useRef<CourseGenerationInput["imageStyle"]>("auto");
   const sourceChoiceRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
   useEffect(() => () => abortRef.current?.abort(), []);
@@ -74,6 +78,29 @@ export function CourseGenerationWizard({ open, onClose, courseId, courseTitle, c
   function change<K extends keyof CourseGenerationInput>(key: K, value: CourseGenerationInput[K]) {
     setInput((current) => ({ ...current, [key]: value }));
     setOutline(null); setError("");
+  }
+  function chooseImageStyle(style: CourseGenerationInput["imageStyle"]) {
+    if (style !== "custom") { change("imageStyle", style); return; }
+    imageStyleBeforeCustomRef.current = input.imageStyle === "custom" ? "auto" : input.imageStyle;
+    setCustomImageStyleDraft(input.customImageStyle);
+    change("imageStyle", "custom");
+    setCustomImageStyleDialogOpen(true);
+  }
+  function editCustomImageStyle() {
+    imageStyleBeforeCustomRef.current = input.imageStyle === "custom" ? "auto" : input.imageStyle;
+    setCustomImageStyleDraft(input.customImageStyle);
+    setCustomImageStyleDialogOpen(true);
+  }
+  function closeCustomImageStyleDialog() {
+    setCustomImageStyleDialogOpen(false);
+    if (!input.customImageStyle.trim()) change("imageStyle", imageStyleBeforeCustomRef.current);
+  }
+  function saveCustomImageStyle() {
+    const value = customImageStyleDraft.trim();
+    if (!value) return;
+    change("customImageStyle", value);
+    change("imageStyle", "custom");
+    setCustomImageStyleDialogOpen(false);
   }
   async function work(label: string, task: (signal: AbortSignal) => Promise<void>) {
     const controller = new AbortController(); abortRef.current = controller;
@@ -154,28 +181,42 @@ export function CourseGenerationWizard({ open, onClose, courseId, courseTitle, c
     }) }));
   }
   const generating = savedSession?.status === "generating";
+  const planningOutline = busy && step === 1;
   const customOutline = (planned?.input.template ?? input.template) === "custom";
   const hasSource = Boolean(source || planned?.sourceJobId);
-  return <><Dialog open={open} onClose={requestClose} title="Generate course with AI" busy={busy} closeOnOutsideClick={false} closeOnEscape={false} className="max-w-3xl" footer={<>
+  return <><Dialog open={open} onClose={requestClose} title="Generate course with AI" busy={busy} closeOnOutsideClick={false} closeOnEscape={false} className="max-w-3xl" contentClassName={planningOutline ? "flex min-h-[460px] flex-col p-6" : undefined} footer={planningOutline ? undefined : <>
     {step > 0 && <Button variant="outline" disabled={busy} onClick={() => { setStep(step - 1); setError(""); }}>Back</Button>}
     <Button disabled={busy || generating} onClick={() => void (step === 0 ? prepareSource() : step === 1 ? plan() : approve())}>
-      {busy && <LoaderCircle size={16} className="animate-spin" />}{step === 0 ? "Continue to course details" : step === 1 ? "Generate outline" : "Approve outline and generate lessons"}
+      {busy && <LoaderCircle size={16} className="animate-spin" />}{step === 0 ? "Continue to course details" : step === 1 ? "Generate outline" : "Generate lessons draft"}
     </Button>
   </>}>
     <ol aria-label="Course generation steps" className="mb-6 grid grid-cols-2 gap-2 sm:grid-cols-4">
-      {steps.map((label, index) => <li key={label} aria-current={step === index ? "step" : undefined} className={`rounded-lg border px-3 py-2 text-xs ${step === index ? "border-indigo-400 bg-indigo-50 font-semibold text-indigo-700" : "border-slate-200 text-slate-500"}`}>{index + 1}. {label}</li>)}
+      {steps.map((label, index) => {
+        const activeStep = planningOutline ? 2 : step;
+        return <li key={label} aria-current={activeStep === index ? "step" : undefined} className={`rounded-lg border px-3 py-2 text-xs ${activeStep === index ? "border-indigo-400 bg-indigo-50 font-semibold text-indigo-700" : "border-slate-200 text-slate-500"}`}>{index + 1}. {label}</li>;
+      })}
     </ol>
+    {planningOutline ? <section role="status" aria-live="polite" className="flex flex-1 flex-col items-center justify-center gap-6 py-8 text-center">
+      <div aria-hidden="true" className="flex size-16 items-center justify-center rounded-full bg-indigo-50 text-indigo-600"><LoaderCircle size={30} className="animate-spin" /></div>
+      <div className="space-y-2"><h3 className="text-lg font-semibold text-slate-900">Generating your course outline</h3><p className="max-w-md text-sm text-slate-600">{busyLabel}</p></div>
+      <div className="w-full max-w-sm space-y-2"><Progress aria-label="Generating course outline" /><p className="text-xs text-slate-500">Preparing sections and lesson objectives.</p></div>
+    </section> : <>
     {generating && <p role="status" className="mb-4 text-sm">Lessons are already generating. Close this dialog to view progress in the editor.</p>}
     {error && <p role="alert" className="mb-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
     <fieldset disabled={busy || generating} className="min-w-0 space-y-5">
       {step === 0 && <>
         <GenerationPromptInput value={input.prompt} onChange={(prompt) => change("prompt", prompt)} inputRef={promptRef} disabled={busy || generating} />
-        <GenerationSwitch
-          label="Generate course cover image"
-          checked={input.generateCoverImage}
-          onChange={(checked) => change("generateCoverImage", checked)}
-        />
-        {input.generateCoverImage && <p className="text-xs text-slate-500">Image generation can take longer.</p>}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <GenerationSwitch
+            label="Generate course cover image"
+            checked={input.generateCoverImage}
+            onChange={(checked) => change("generateCoverImage", checked)}
+          />
+          <div className="min-w-0 flex-1 sm:max-w-64">
+            <Field label="Image generation model"><Select aria-label="Image generation model" value={imageGenerationModel} disabled title={imageGenerationModel}><option value={imageGenerationModel}>{imageGenerationModel}</option></Select></Field>
+          </div>
+        </div>
+        {input.generateCoverImage && <p className="text-xs text-slate-500">Image generation may take longer than a typical response, so wait for the generation to finish.</p>}
         <Field label="Source material (optional PDF or PowerPoint)"><Input type="file" accept=".pdf,.pptx" onChange={(event) => { sourceChoiceRef.current = true; window.localStorage.removeItem(`course-generation-source:${courseId}`); setFile(event.target.files?.[0] ?? null); setSource(null); setPlanned(null); setOutline(null); }} /></Field>
         {source?.uncertainSourcePages?.length ? <p role="alert" className="text-sm text-amber-800">Some source content was difficult to read on pages {source.uncertainSourcePages.join(", ")}. Review the source and the generated lessons carefully.</p> : null}
         <p className="text-xs text-slate-500">Upload a PDF or PPTX up to 12 MB, or continue using only your prompt.</p>
@@ -199,12 +240,23 @@ export function CourseGenerationWizard({ open, onClose, courseId, courseTitle, c
           {input.template === "preLearnPost" && <Field label="Post-test questions"><Input type="number" min={1} max={20} value={input.postTestCount} onChange={(event) => change("postTestCount", Number(event.target.value))} /></Field>}
           {source && <><Field label="Source grouping"><Select value={input.learnGroupingMode} onChange={(event) => change("learnGroupingMode", event.target.value as CourseGenerationInput["learnGroupingMode"])}><option value="smart">Smart topics</option><option value="fixed">Fixed page groups</option></Select></Field><Field label="Pages per learning lesson"><Input type="number" min={1} max={500} value={input.slidesPerContent} onChange={(event) => change("slidesPerContent", Number(event.target.value))} /></Field></>}
         </div>
-        <GenerationSwitch
-          label="Generate supplemental images"
-          checked={input.includeImages}
-          onChange={(checked) => change("includeImages", checked)}
-        />
-        {input.includeImages && <p className="text-xs text-slate-500">Image generation can take longer.</p>}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <GenerationSwitch
+            label="Generate supplemental images"
+            checked={input.includeImages}
+            onChange={(checked) => change("includeImages", checked)}
+          />
+          <div className="grid min-w-0 flex-1 gap-3 sm:grid-cols-2">
+            <Field label="Generated image style"><Select value={input.imageStyle} onChange={(event) => chooseImageStyle(event.target.value as CourseGenerationInput["imageStyle"])}>{courseImageStyleOptions.map((style) => <option key={style.value} value={style.value}>{style.label}</option>)}</Select></Field>
+            <Field label="Image generation model"><Select aria-label="Image generation model" value={imageGenerationModel} disabled title={imageGenerationModel}><option value={imageGenerationModel}>{imageGenerationModel}</option></Select></Field>
+          </div>
+        </div>
+        {(input.includeImages || input.generateCoverImage) && <p className="text-xs text-slate-500">Image generation may take longer than a typical response, so wait for the generation to finish.</p>}
+        {input.imageStyle === "custom" && <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="min-w-0 flex-1 truncate text-slate-600">{input.customImageStyle || "Add a visual direction for your custom style."}</span>
+          <Button type="button" variant="outline" size="sm" onClick={editCustomImageStyle}>{input.customImageStyle ? "Edit direction" : "Set direction"}</Button>
+        </div>}
+        {(input.includeImages || input.generateCoverImage) && <p className="text-xs text-slate-500">Applies to generated lesson images and the course cover.</p>}
         {source && <p className="text-xs text-slate-500">Source grouping determines the learning lesson count so every source page is covered.</p>}
       </>}
       {step === 2 && outline && <>
@@ -241,7 +293,15 @@ export function CourseGenerationWizard({ open, onClose, courseId, courseTitle, c
 
     </fieldset>
     {busy && <div role="status" className="mt-5 space-y-2"><p className="text-sm text-slate-600">{busyLabel}</p><Progress aria-label={busyLabel} /></div>}
+    </>}
   </Dialog>
+    <Dialog open={customImageStyleDialogOpen} onClose={closeCustomImageStyleDialog} title="Custom image style" className="max-w-lg" footer={<>
+      <Button type="button" variant="outline" onClick={closeCustomImageStyleDialog}>Cancel</Button>
+      <Button type="button" disabled={!customImageStyleDraft.trim()} onClick={saveCustomImageStyle}>Save style</Button>
+    </>}>
+      <Field label="Describe the visual treatment"><Textarea value={customImageStyleDraft} maxLength={240} rows={4} placeholder="e.g. warm editorial paper-cut illustration" onChange={(event) => setCustomImageStyleDraft(event.target.value)} /></Field>
+      <p className="mt-2 text-xs text-slate-500">This direction is used for generated lesson images and the course cover.</p>
+    </Dialog>
     {closeConfirmationOpen && <Dialog open role="alertdialog" title="Close course outline?" descriptionId={closeDescriptionId} onClose={() => setCloseConfirmationOpen(false)} closeOnOutsideClick={false} footer={<>
       <Button autoFocus onClick={() => setCloseConfirmationOpen(false)}>Continue editing</Button>
       <Button variant="destructive" onClick={() => { setCloseConfirmationOpen(false); onClose(); }}>Close</Button>

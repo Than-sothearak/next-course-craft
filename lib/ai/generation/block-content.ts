@@ -3,7 +3,7 @@ import { blockSchema, type ContentBlock } from "@/lib/schemas/block";
 import type { QuizQuestion } from "@/lib/schemas/quiz";
 import { renderCodeExampleHtml } from "@/lib/editor/code-example";
 import { type GeneratedAssessmentQuestion, type GeneratedCourseDraft, type GeneratedCourseSeed } from "../course-generation-schemas";
-import { createGeneratedImageAsset } from "./images";
+import { createGeneratedImageAsset, type GeneratedImageOptions } from "./images";
 
 function escapeHtml(value: string) {
   return value.replace(
@@ -304,6 +304,7 @@ export async function toContentBlock(
   includeImages: boolean,
   khmer: boolean,
   registerGeneratedAsset: (assetId: string) => void,
+  imageOptions: Pick<GeneratedImageOptions, "imageStyle" | "customImageStyle"> = {},
 ): Promise<{ block: ContentBlock; generatedImage: boolean; assetId?: string }> {
   const id = randomUUID();
   const base = { id, version: 1 as const };
@@ -316,6 +317,7 @@ export async function toContentBlock(
       ownerId,
       courseId,
       seed.imagePrompt.trim(),
+      imageOptions,
     );
     registerGeneratedAsset(generatedImage.id);
     return {
@@ -497,6 +499,7 @@ export async function toContentBlock(
             ownerId,
             courseId,
             prompt.trim(),
+            imageOptions,
           );
           registerGeneratedAsset(generatedImage.id);
           return {
@@ -571,6 +574,7 @@ export async function toContentBlock(
       ownerId,
       courseId,
       seed.imagePrompt.trim(),
+      imageOptions,
     );
     registerGeneratedAsset(generatedImage.id);
     return {

@@ -5,6 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Progress } from "@/components/ui/progress";
 import type { GenerationSessionSnapshot } from "@/lib/ai/course-generation-session-schema";
+
+const simulatedLessonDurationMs = 120_000;
+const simulatedLessonProgressCap = 60;
+
 export function CourseGenerationProgress({ session, running, error, onRetry, onCancel, onSelectLesson, onClose }: {
   session: GenerationSessionSnapshot | null; running: boolean; error: string; onRetry: () => void; onCancel: () => void; onSelectLesson: (id: string) => void; onClose?: () => void;
 }) {
@@ -20,9 +24,8 @@ export function CourseGenerationProgress({ session, running, error, onRetry, onC
     const startedAt = Date.now();
     const timer = window.setInterval(() => {
       const elapsed = Date.now() - startedAt;
-      // Fill 70% of this lesson's share after one minute and cap at 80% after two.
-      const fraction = Math.min(1, elapsed / 120_000);
-      const value = Math.round(80 * (1 - (1 - fraction) ** 3));
+      const fraction = Math.min(1, elapsed / simulatedLessonDurationMs);
+      const value = Math.round(simulatedLessonProgressCap * (1 - (1 - fraction) ** 3));
       setSimulatedProgress({ key: progressKey, value });
       if (fraction >= 1) window.clearInterval(timer);
     }, 1_000);

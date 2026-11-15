@@ -33,6 +33,8 @@ import { blockSurfaceStyle, blockWidthClass } from "../../preview-utils";
 import { AudioInstruction } from "@/app/courses/[courseId]/_components/slide-presentation/audio-instruction";
 import { InteractionButton } from "@/app/courses/[courseId]/_components/slide-presentation/interaction-button";
 import { InteractionPopupContent } from "@/app/courses/[courseId]/_components/slide-presentation/interaction-popup-content";
+import { YouTubeVideoEmbed } from "@/components/youtube-video-embed";
+import { getYouTubeEmbedUrl } from "@/lib/media/youtube";
 import { isInteractionTarget, scopePopupBlocks } from "@/lib/editor/interaction-button";
 import type { PreviewDevice, PreviewOrientation } from "../../preview-types";
 export function PreviewBlock({
@@ -214,6 +216,7 @@ export function PreviewBlock({
     const isVideoFile =
       Boolean(block.data.mimeType) ||
       /\.(mp4|webm|ogg)(?:$|[?#])/i.test(block.data.src);
+    const isYouTubeVideo = !isVideoFile && Boolean(getYouTubeEmbedUrl(block.data.src));
     content = isVideoFile ? (
       <video
         controls
@@ -230,6 +233,11 @@ export function PreviewBlock({
           />
         )}
       </video>
+    ) : isYouTubeVideo ? (
+      <YouTubeVideoEmbed
+        url={block.data.src}
+        className="aspect-video w-full rounded-xl bg-black"
+      />
     ) : (
       <a
         href={block.data.src}
