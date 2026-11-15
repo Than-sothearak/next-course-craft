@@ -29,6 +29,8 @@ describe("direct accordion text formatting", () => {
     }
     await act(async () => root.render(<Authoring />));
     const title = editor("title");
+    expect(title.parentElement?.className).toContain("text-[18px]");
+    expect(title.parentElement?.className).toContain("[overflow-wrap:anywhere]");
     act(() => { title.focus(); title.editor.commands.setContent("<p>Updated section</p>"); title.editor.commands.setTextSelection({ from: 1, to: 8 }); });
     expect(container.querySelector("button [contenteditable='true']")).toBeNull();
     await act(async () => document.querySelector<HTMLButtonElement>('[data-text-selection-popup] [aria-label="Bold"]')!.click());

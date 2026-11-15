@@ -7,9 +7,24 @@ import {
   createCourseThemePreset,
   defaultCourseTheme,
   normalizeCourseTheme,
+  courseTypographyAttributes,
 } from "../lib/editor/theme";
 
 describe("course themes", () => {
+  it("validates optional typography overrides and persists them without changing legacy defaults", () => {
+    const typography = { titleSize: 44, subtitleSize: 28, headingSize: 22, bodySize: 18, titleAlignment: "right" as const, lineHeight: 1.6 };
+    const theme = courseThemeSchema.parse({ ...defaultCourseTheme, typography });
+    expect(normalizeCourseTheme(theme).typography).toEqual(typography);
+    const course = new Course({ ownerId: "507f1f77bcf86cd799439011", title: "Typography", theme });
+    expect(course.validateSync()).toBeUndefined();
+    expect(course.toObject().theme?.typography).toEqual(typography);
+    expect(courseTypographyAttributes(theme)["data-course-typography"]).toBe("title subtitle heading body alignment leading");
+    expect(courseTypographyAttributes(theme).style["--course-body-size"]).toBe("18px");
+    expect(courseTypographyAttributes(defaultCourseTheme)).toEqual({ "data-course-typography": undefined, style: {} });
+    for (const invalid of [{ titleSize: 97 }, { bodySize: 0 }, { subtitleSize: 13.5 }, { lineHeight: 5 }, { titleAlignment: "justify" }, { css: "url(unsafe)" }]) {
+      expect(courseThemeSchema.safeParse({ ...defaultCourseTheme, typography: invalid }).success).toBe(false);
+    }
+  });
   it("defaults older courses to the ocean theme", () => {
     expect(courseThemeSchema.parse({})).toEqual(defaultCourseTheme);
     expect(normalizeCourseTheme(undefined)).toEqual(defaultCourseTheme);

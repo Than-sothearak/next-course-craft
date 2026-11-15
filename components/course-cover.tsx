@@ -1,5 +1,5 @@
 /* eslint-disable @next/next/no-img-element -- Shared by author settings and the static learner export. */
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import {
   normalizeCourseCover,
   type CourseCover,
@@ -29,13 +29,14 @@ export function CourseCover({
       data-course-cover={cover.template}
       className={`relative isolate min-w-0 overflow-hidden ${className}`}
       style={{
+        "--course-title-align": cover.alignment,
         color: cover.textColor,
         textAlign: cover.alignment,
         backgroundColor,
         backgroundImage: gradient
           ? `radial-gradient(ellipse at 100% 0%, color-mix(in srgb, ${accentColor} 25%, transparent), transparent 60%), linear-gradient(135deg, color-mix(in srgb, ${backgroundColor} 72%, #0f172a), color-mix(in srgb, ${backgroundColor} 18%, #020617))`
           : undefined,
-      }}
+      } as CSSProperties}
     >
       {cover.template === "image" && cover.imageSrc && (
         <>

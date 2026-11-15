@@ -178,6 +178,7 @@ export function LessonReaderPreview({
                 <StatementTextPreview
                   tag="h3"
                   text={lesson.title}
+                  courseTextRole="title"
                   html={lesson.titleHtml}
                   className={`font-bold tracking-tight  text-slate-900 ${device === "mobile" ? "text-3xl" : "text-4xl"} [&_h1]:my-0 [&_h1]:text-inherit [&_h1]:font-bold [&_h1]:tracking-tight [&_h2]:my-0 [&_h2]:text-inherit [&_h2]:font-bold [&_h3]:my-0 [&_h3]:text-inherit [&_h3]:font-bold [&_p]:my-0 [&_p]:text-inherit [&_p]:font-bold`}
                 />

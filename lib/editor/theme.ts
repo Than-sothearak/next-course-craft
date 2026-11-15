@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { CSSProperties } from "react";
 import { courseCoverRenderSchema, courseCoverSchema } from "./course-cover";
 
 export const courseThemePresetIds = [
@@ -21,11 +22,22 @@ export const courseThemeFontFamilyIds = [
   "nokora",
 ] as const;
 
+export const courseTypographySchema = z.object({
+  titleSize: z.number().int().min(12).max(96).optional(),
+  subtitleSize: z.number().int().min(12).max(72).optional(),
+  headingSize: z.number().int().min(12).max(64).optional(),
+  bodySize: z.number().int().min(10).max(36).optional(),
+  titleAlignment: z.enum(["left", "center", "right"]).optional(),
+  lineHeight: z.number().min(1).max(2.4).optional(),
+}).strict();
+export type CourseTypography = z.infer<typeof courseTypographySchema>;
+
 export const courseThemeSchema = z.object({
   preset: z.enum(courseThemePresetIds).default("ocean"),
   primaryColor: themeColorSchema.default("#2f5f9f"),
   accentColor: themeColorSchema.default("#ff876c"),
   fontFamily: z.enum(courseThemeFontFamilyIds).default("sans"),
+  typography: courseTypographySchema.optional(),
   cover: courseCoverSchema.optional(),
 }).strict();
 
@@ -73,3 +85,17 @@ export const courseThemeFontFamilies: Record<CourseTheme["fontFamily"], string> 
   "kantumruy-pro": "'Kantumruy Pro', Arial, Helvetica, sans-serif",
   nokora: "Nokora, Georgia, serif",
 };
+
+/** Missing overrides preserve the existing responsive defaults of each text role. */
+export function courseTypographyAttributes(theme: CourseTheme) {
+  const typography = theme.typography ?? {};
+  const style: CSSProperties & Record<string, string | number> = {};
+  const roles: string[] = [];
+  for (const role of ["title", "subtitle", "heading", "body"] as const) {
+    const size = typography[`${role}Size`];
+    if (size !== undefined) { roles.push(role); style[`--course-${role}-size`] = `${size}px`; }
+  }
+  if (typography.titleAlignment) { roles.push("alignment"); style["--course-title-align"] = typography.titleAlignment; }
+  if (typography.lineHeight !== undefined) { roles.push("leading"); style["--course-body-leading"] = typography.lineHeight; }
+  return { "data-course-typography": roles.join(" ") || undefined, style };
+}

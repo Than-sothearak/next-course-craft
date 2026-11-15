@@ -21,7 +21,7 @@ export const courseCoverSchema = z.object({
   template: z.enum(["gradient", "solid", "image", "waves", "geometric", "editorial"]).default("gradient"),
   backgroundColor: color.optional(),
   textColor: color.default("#ffffff"),
-  alignment: z.enum(["left", "center"]).default("center"),
+  alignment: z.enum(["left", "center", "right"]).default("center"),
   imageSrc: imageSource.default(""),
   imageAlt: z.string().max(500).default(""),
   imagePosition: z.enum(["center", "top", "bottom"]).default("center"),

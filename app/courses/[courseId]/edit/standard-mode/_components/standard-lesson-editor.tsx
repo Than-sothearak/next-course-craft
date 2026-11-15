@@ -1,6 +1,8 @@
 "use client";
 
 import { useId } from "react";
+import { backgroundPaint, parseGradient } from "@/lib/color";
+import { contrastTextColor as gradientContrastTextColor } from "@/app/courses/[courseId]/preview/_components/(course_preview_components)/preview-utils";
 import { AnimatePresence } from "framer-motion";
 import {
   DndContext,
@@ -54,6 +56,7 @@ type StandardLessonEditorProps = {
 };
 
 function contrastTextColor(hex: string) {
+  if (parseGradient(hex)) return gradientContrastTextColor(hex);
   const channels = hex
     .match(/[\da-f]{2}/gi)
     ?.map((channel) => Number.parseInt(channel, 16) / 255);
@@ -214,7 +217,7 @@ export function StandardLessonEditor({
                       <div
                         className={`w-full ${block.type === "timeline" ? "timeline-block-surface" : ""}`}
                         style={{
-                          backgroundColor: block.backgroundColor,
+                          ...backgroundPaint(block.backgroundColor),
                           color: contrastTextColor(block.backgroundColor),
                           paddingTop: `${blockPadding}px`,
                           paddingBottom: `${blockPadding}px`,

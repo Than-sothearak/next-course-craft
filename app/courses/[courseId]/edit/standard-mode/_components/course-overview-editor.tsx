@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useContext, useEffect, useRef } from "react";
+import { CourseThemeContext } from "@/lib/editor/course-theme-context";
 import { ChevronDown, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -33,6 +34,7 @@ export function CourseOverviewEditor({
   onAuthorVisibilityChange,
   onDescriptionChange,
 }: CourseOverviewEditorProps) {
+  const theme = useContext(CourseThemeContext);
   const titleRef = useRef<HTMLTextAreaElement>(null);
   const authorInitials =
     authorName
@@ -53,7 +55,7 @@ export function CourseOverviewEditor({
     resize();
     window.addEventListener("resize", resize);
     return () => window.removeEventListener("resize", resize);
-  }, [title]);
+  }, [title, theme.fontFamily, theme.typography?.titleSize]);
 
   return (
     <div className="mb-0">
@@ -62,6 +64,7 @@ export function CourseOverviewEditor({
         <Textarea
           ref={titleRef}
           aria-label="Course title"
+          data-course-text-role="title"
           aria-invalid={!titleValid}
           aria-describedby={!titleValid ? "course-title-error" : undefined}
           rows={1}

@@ -51,6 +51,24 @@ describe("interactive knowledge check", () => {
   });
 });
 
+describe("interactive accordion", () => {
+  it("uses 18px titles and wraps long accordion labels without overlapping the expand control", () => {
+    act(() => root.render(createElement(InteractiveAccordion, {
+      blockId: "accordion-1",
+      layout: "accordion",
+      displayMode: "all",
+      items: [{ id: "long-title", title: "A".repeat(100), body: "Explanation" }],
+    })));
+
+    const trigger = container.querySelector<HTMLButtonElement>('[id="accordion-1-trigger-long-title"]')!;
+    const title = trigger.querySelector<HTMLElement>("[data-block-text-role='title']")!;
+    expect(trigger.className).toContain("text-[18px]");
+    expect(trigger.className).toContain("whitespace-normal");
+    expect(title.className).toContain("[overflow-wrap:anywhere]");
+    expect(trigger.querySelector("svg")?.classList.contains("shrink-0")).toBe(true);
+  });
+});
+
 describe("graphic hotspot mini-game", () => {
   it("disables the radar on an individual game point while keeping it playable", () => {
     const onMarkerInteract = vi.fn();

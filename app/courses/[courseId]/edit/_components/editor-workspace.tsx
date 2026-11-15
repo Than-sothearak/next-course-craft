@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { contrastTextColor } from "@/lib/color";
 import type { Permission } from "@/lib/auth/policy";
 import type { GenerationSessionSnapshot } from "@/lib/ai/course-generation-session-schema";
-import { courseThemeFontFamilies } from "@/lib/editor/theme";
+import { courseThemeFontFamilies, courseTypographyAttributes } from "@/lib/editor/theme";
+import { CourseThemeContext } from "@/lib/editor/course-theme-context";
 import { changeCourseNavigationMode } from "@/lib/editor/progress-settings";
 import { CourseOutline } from "../standard-mode/_components/course-outline";
 import { BlockTemplatePicker } from "./(editor_client_components)/block-template-picker";
@@ -222,6 +223,7 @@ export function EditorWorkspace({
     ? "Finish or cancel lesson generation before publishing."
     : isDraftSaved ? undefined : "Save all course edits before publishing.";
   const courseStyle = {
+    ...courseTypographyAttributes(draft.theme).style,
     "--course-primary": draft.theme.primaryColor,
     "--course-primary-contrast": contrastTextColor(draft.theme.primaryColor),
     "--course-accent": draft.theme.accentColor,
@@ -231,7 +233,9 @@ export function EditorWorkspace({
   } as CSSProperties;
 
   return (
+    <CourseThemeContext.Provider value={draft.theme}>
     <main
+      data-course-typography={slideCourse ? undefined : courseTypographyAttributes(draft.theme)["data-course-typography"]}
       style={courseStyle}
       className={`${isPresentationWorkspace ? "fixed inset-0 flex h-dvh min-h-0 flex-col overflow-hidden" : "min-h-screen"} text-slate-900 ${isCourseOverview || isQuizLesson ? "bg-white" : "bg-slate-100"}`}
     >
@@ -611,5 +615,6 @@ export function EditorWorkspace({
         />
       )}
     </main>
+    </CourseThemeContext.Provider>
   );
 }

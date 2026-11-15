@@ -186,6 +186,17 @@ const CourseThemeSchema = new Schema(
       enum: [...courseThemeFontFamilyIds],
       default: "sans",
     },
+    typography: {
+      type: new Schema({
+        titleSize: { type: Number, min: 12, max: 96, validate: Number.isInteger },
+        subtitleSize: { type: Number, min: 12, max: 72, validate: Number.isInteger },
+        headingSize: { type: Number, min: 12, max: 64, validate: Number.isInteger },
+        bodySize: { type: Number, min: 10, max: 36, validate: Number.isInteger },
+        titleAlignment: { type: String, enum: ["left", "center", "right"] },
+        lineHeight: { type: Number, min: 1, max: 2.4 },
+      }, { _id: false }),
+      default: undefined,
+    },
     cover: {
       type: new Schema(
         {
@@ -214,7 +225,7 @@ const CourseThemeSchema = new Schema(
           },
           alignment: {
             type: String,
-            enum: ["left", "center"],
+            enum: ["left", "center", "right"],
             default: "center",
           },
           imageSrc: { type: String, default: "" },

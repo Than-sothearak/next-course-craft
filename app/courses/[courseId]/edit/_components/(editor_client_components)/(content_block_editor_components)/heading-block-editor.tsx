@@ -51,7 +51,7 @@ export function HeadingBlockEditor({ block, onChange, externalToolbar = false, o
     }
   }, [headingContent, editor]);
 
-  return <div className="relative">
+  return <div className="lesson-rich-text relative" data-course-text-role={block.data.level === 1 ? "title" : block.data.level === 2 ? "subtitle" : "heading"}>
     <EquationDialog editor={editor} />
     <EditorContent editor={editor} aria-label="Edit heading text" className="min-h-10 cursor-text rounded-md [&_.tiptap]:min-h-10 [&_.tiptap]:outline-none [&_.tiptap]:text-inherit [&_.tiptap_*]:text-inherit [&_h1]:text-3xl sm:[&_h1]:text-4xl [&_h1]:font-semibold [&_h1]:tracking-tight [&_h2]:text-2xl sm:[&_h2]:text-2xl [&_h2]:font-bold [&_h2]:tracking-tight [&_h3]:text-xl sm:[&_h3]:text-2xl [&_h3]:font-semibold [&_h3]:tracking-tight [&_p]:text-3xl sm:[&_p]:text-4xl [&_p]:font-semibold" />
     {!externalToolbar && <SelectionTextFormattingPopup editor={editor} />}

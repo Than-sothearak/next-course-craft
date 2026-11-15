@@ -5,8 +5,29 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BlockFormatMenu } from "../app/courses/[courseId]/edit/_components/(editor_client_components)/block-format-menu";
 import type { ContentBlock } from "../lib/schemas/block";
+import { blockSchema } from "../lib/schemas/block";
+import { CourseThemeContext } from "../lib/editor/course-theme-context";
+import { defaultCourseTheme } from "../lib/editor/theme";
+import { blockSurfaceStyle } from "../app/courses/[courseId]/preview/_components/(course_preview_components)/preview-utils";
 
 describe("block format menu", () => {
+  it("uses the current course colors for solid and gradient presets with validated learner surfaces", () => {
+    const block = blockSchema.parse({ id: "theme-block", type: "richText", version: 1, data: { html: "<p>Text</p>" } });
+    const onChange = vi.fn();
+    const render = (primaryColor: string, accentColor: string) => act(() => root.render(createElement(CourseThemeContext.Provider, { value: { ...defaultCourseTheme, primaryColor, accentColor } }, createElement(BlockFormatMenu, { block, onChange }))));
+    render("#123456", "#abcdef");
+    act(() => container.querySelector<HTMLButtonElement>('[aria-label="Format block"]')!.click());
+    act(() => document.querySelector<HTMLButtonElement>('[aria-label="Use theme brand to accent background"]')!.click());
+    const gradient = "linear-gradient(90deg, #123456 0%, #abcdef 100%)";
+    const saved = blockSchema.parse(onChange.mock.lastCall?.[0]);
+    expect(saved.backgroundColor).toBe(gradient);
+    expect(blockSurfaceStyle(saved).backgroundImage).toBe(gradient);
+    expect(blockSurfaceStyle(saved).color).toMatch(/^#(?:111827|ffffff)$/);
+    render("#24734f", "#f2a65a");
+    act(() => document.querySelector<HTMLButtonElement>('[aria-label="Use theme brand background"]')!.click());
+    expect(onChange.mock.lastCall?.[0].backgroundColor).toBe("#24734f");
+    expect(blockSchema.safeParse({ ...block, backgroundColor: "url(javascript:alert(1))" }).success).toBe(false);
+  });
   let container: HTMLDivElement;
   let root: Root;
 
@@ -38,6 +59,10 @@ describe("block format menu", () => {
 
     act(() => root.render(createElement(BlockFormatMenu, { block, onChange })));
     act(() => container.querySelector<HTMLButtonElement>('[aria-label="Format block"]')?.click());
+    const advanced = document.querySelector<HTMLButtonElement>('[aria-label="Toggle Advanced settings"]')!;
+    expect(advanced.getAttribute("aria-expanded")).toBe("false");
+    act(() => advanced.click());
+    expect(advanced.getAttribute("aria-expanded")).toBe("true");
 
     const paddingSelect = document.querySelector<HTMLSelectElement>(
       '[aria-label="Block padding"]',
@@ -61,6 +86,39 @@ describe("block format menu", () => {
       paddingSelect?.dispatchEvent(new Event("change", { bubbles: true }));
     });
     expect(onChange).toHaveBeenCalledWith({ ...block, blockPadding: 80 });
+  });
+
+  it("uses presentation sections and keeps collapse and color drafts independent of saved formatting", () => {
+    const block: ContentBlock = { id: "format", version: 1, type: "heading", width: "medium", widthCustom: false, backgroundColor: "#ffffff", blockPadding: 60, data: { text: "Title", level: 2 } };
+    const onChange = vi.fn();
+    const render = (next = block) => act(() => root.render(createElement(BlockFormatMenu, { block: next, onChange })));
+    render();
+    act(() => container.querySelector<HTMLButtonElement>('[aria-label="Format block"]')!.click());
+    const panel = document.querySelector('[aria-label="Block format settings"][role="dialog"]')!;
+    const click = (label: string) => act(() => panel.querySelector<HTMLButtonElement>(`[aria-label="${label}"]`)!.click());
+    expect([...panel.querySelectorAll('[data-inspector-section]')].map((section) => section.getAttribute("aria-label"))).toEqual(["Layout", "Appearance", "Advanced block format settings"]);
+    click("Hide all Block format settings");
+    expect([...panel.querySelectorAll<HTMLElement>('[data-inspector-section-content]')].every((section) => section.hidden)).toBe(true);
+    click("Show all Block format settings");
+    expect([...panel.querySelectorAll<HTMLElement>('[data-inspector-section-content]')].every((section) => !section.hidden)).toBe(true);
+    expect(onChange).not.toHaveBeenCalled();
+    expect(panel.querySelector('[aria-label="Heading padding"]')).not.toBeNull();
+    expect(panel.querySelector('[data-color-picker]')).not.toBeNull();
+    expect(panel.querySelector('[aria-label="Choose background color gradient"]')).not.toBeNull();
+    const hex = panel.querySelector<HTMLInputElement>('[aria-label="Background color hex code"]')!;
+    const input = (value: string) => act(() => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(hex, value);
+      hex.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    input("#zzzzzz");
+    expect(onChange).not.toHaveBeenCalled();
+    input("123abc");
+    expect(onChange).toHaveBeenLastCalledWith({ ...block, backgroundColor: "#123abc" });
+    render({ ...block, backgroundColor: "#aabbcc" });
+    expect(hex.value).toBe("#aabbcc");
+    act(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+    expect(document.querySelector('[role="dialog"]')).toBeNull();
+    expect(document.activeElement).toBe(container.querySelector('[aria-label="Format block"]'));
   });
 
   it("renders above the icon layer and closes outside the format popup", () => {

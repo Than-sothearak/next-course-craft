@@ -12,12 +12,12 @@ import{PreviewBlock}from'/app/courses/[courseId]/preview/_components/(course_pre
 import{blockTemplates}from'/app/courses/[courseId]/edit/_components/(editor_client_components)/(block_template_picker_components)/block-template-data.ts';
 import{createSlideBlocksFromTemplate}from'/app/courses/[courseId]/edit/_components/(editor_client_components)/(block_template_picker_components)/create-blocks-from-template.ts';
 import{slideFrameStyle}from'/lib/editor/slide-design.ts';import'/app/globals.css';
-function App(){const[zoom,setZoom]=useState(1),[preview,setPreview]=useState(false),[revealed,setRevealed]=useState([]),[stylePicker,setStylePicker]=useState(false),[block,setBlock]=useState(()=>({...createSlideBlocksFromTemplate(blockTemplates.find(t=>t.id==='interactive-reveal'),'cards')[0],slideFrame:{x:10,y:15,width:78,height:65,z:0}}));window.__block=block;window.__setBlock=setBlock;window.__revealed=revealed;
+function App(){const[zoom,setZoom]=useState(1),[preview,setPreview]=useState(false),[revealed,setRevealed]=useState([]),[stylePicker,setStylePicker]=useState(false),[block,setBlock]=useState(()=>{const seed=createSlideBlocksFromTemplate(blockTemplates.find(t=>t.id==='interactive-reveal'),'cards')[0];return {...seed,data:{...seed.data,cards:[...seed.data.cards,{...structuredClone(seed.data.cards[0]),id:'third-fixture-card'}]},slideFrame:{x:10,y:15,width:78,height:65,z:0}}});window.__block=block;window.__setBlock=setBlock;window.__revealed=revealed;
 return <main style={{padding:20}}><nav style={{display:'flex',gap:12,marginBottom:12}}>{[.5,1,1.5].map(z=><button key={z} onClick={()=>setZoom(z)}>Zoom {z}</button>)}<button onClick={()=>setPreview(p=>!p)}>{preview?'Editor':'Learner'}</button></nav>
 <div style={{display:'flex',gap:20,alignItems:'flex-start'}}><div data-slide-stage style={{position:'relative',width:960*zoom,height:540*zoom,flexShrink:0}}><div data-slide-canvas data-slide-objects style={{position:'relative',width:960,height:540,transform:'scale('+zoom+')',transformOrigin:'top left',background:'#e2e8f0'}}>{preview?<div data-learner-object style={{position:'absolute',...slideFrameStyle(block.slideFrame)}}><PreviewBlock block={block} slideLayout device="desktop" orientation="landscape" onInteractiveProgress={id=>setRevealed(ids=>[...new Set([...ids,id])])}/></div>:<SlideObject block={block} courseId="course" index={0} total={1} area={{width:960,height:540}} selected onSelect={()=>{}} onFrame={slideFrame=>setBlock(b=>({...b,slideFrame}))} onChange={setBlock} onEditorFocus={()=>{}}/>}</div></div>
 <aside style={{width:380,maxHeight:720,overflowY:'auto',flexShrink:0}}><ContentBlockEditor block={block} courseId="course" inlineSettings onChange={setBlock} onReplaceTemplate={()=>setStylePicker(true)}/></aside></div><BlockTemplatePicker open={stylePicker} mode="replace" initialCategory="Interactive" onClose={()=>setStylePicker(false)} onSelect={()=>setStylePicker(false)}/></main>};createRoot(document.getElementById('root')).render(<App/>);`;
 
-const vite = await createServer({ configFile: false, root: process.cwd(), cacheDir: "node_modules/.vite-flip-cards-browser", define: { "process.env": JSON.stringify({ NODE_ENV: "development" }) }, resolve: { alias: { "@": process.cwd() } }, esbuild: { jsx: "automatic" }, optimizeDeps: { noDiscovery: true, include: ["react", "react-dom", "react-dom/client", "react/jsx-dev-runtime", "lucide-react", "framer-motion", "zod", "class-variance-authority", "clsx", "tailwind-merge", "next/image", "@tiptap/react", "@tiptap/starter-kit", "@tiptap/extension-placeholder", "@dnd-kit/core", "@dnd-kit/sortable", "@dnd-kit/utilities"] }, server: { host: "127.0.0.1", port: 0, watch: { ignored: ["**/.next/**", "**/test-results/**", "**/public/course-export/**"] } }, plugins: [{ name: "flip-cards-fixture", resolveId: (id) => id === "/__flip-cards.tsx" ? id : null, load: (id) => id === "/__flip-cards.tsx" ? fixture : null, configureServer(server) { server.middlewares.use((request, response, next) => {
+const vite = await createServer({ configFile: false, root: process.cwd(), cacheDir: "node_modules/.vite-flip-cards-browser", define: { "process.env": JSON.stringify({ NODE_ENV: "development" }) }, resolve: { alias: { "@": process.cwd() } }, esbuild: { jsx: "automatic" }, optimizeDeps: { noDiscovery: true, include: ["react", "react-dom", "react-dom/client", "react/jsx-dev-runtime", "lucide-react", "framer-motion", "zod", "class-variance-authority", "clsx", "tailwind-merge", "next/image", "@tiptap/react", "@tiptap/starter-kit", "@tiptap/extension-placeholder", "@tiptap/extension-mathematics", "@tiptap/extension-subscript", "@tiptap/extension-superscript", "@dnd-kit/core", "@dnd-kit/sortable", "@dnd-kit/utilities"] }, server: { host: "127.0.0.1", port: 0, watch: { ignored: ["**/.next/**", "**/test-results/**", "**/public/course-export/**"] } }, plugins: [{ name: "flip-cards-fixture", resolveId: (id) => id === "/__flip-cards.tsx" ? id : null, load: (id) => id === "/__flip-cards.tsx" ? fixture : null, configureServer(server) { server.middlewares.use((request, response, next) => {
   if (request.url === "/__flip-cards") { response.setHeader("Content-Type", "text/html"); response.end('<html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div><script type="module" src="/__flip-cards.tsx"></script></body></html>'); return; }
   if (request.url === "/api/courses/course/assets") { response.setHeader("Content-Type", "application/json"); response.end(JSON.stringify({ assets: [{ id: "aaaaaaaaaaaaaaaaaaaaaaaa", originalName: "Card.png", contentType: "image/png", size: 100, createdAt: "2026-01-01", fileUrl: "/api/assets/aaaaaaaaaaaaaaaaaaaaaaaa/file" }] })); return; }
   if (request.url === "/api/assets/aaaaaaaaaaaaaaaaaaaaaaaa/file") { response.setHeader("Content-Type", "image/svg+xml"); response.end('<svg xmlns="http://www.w3.org/2000/svg" width="320" height="180"><rect width="320" height="180" fill="#2563eb"/></svg>'); return; }
@@ -72,6 +72,7 @@ try {
   await styleDialog.waitFor({ state: 'detached' });
   assert.equal(await page.evaluate(() => JSON.stringify(window.__block)), beforeStylePicker);
   await openCard(1);
+  await details(1).getByRole('tab', { name: 'Back', exact: true }).click();
   await page.getByLabel('Card 2 back text', { exact: true }).fill('Back edited in sidebar');
   await page.getByRole('button', { name: 'Duplicate flip card 2', exact: true }).click();
   await page.waitForFunction(() => window.__block.data.cards.length === 4);
@@ -92,12 +93,13 @@ try {
   await page.keyboard.press('ArrowDown'); await page.waitForTimeout(300);
   await page.keyboard.press('Space');
   await page.waitForFunction((id) => window.__block.data.cards[1].id === id, originalIds[0]);
-  await page.getByLabel('Card background color hex code', { exact: true }).fill('#112233');
+  await page.getByLabel('Master front background color hex code', { exact: true }).fill('#112233');
   await openCard(1);
-  await page.getByLabel('Card 2 background color hex code', { exact: true }).fill('#ff8800');
+  await details(1).getByRole('button', { name: 'Toggle Card appearance settings', exact: true }).click();
+  await page.getByLabel('Card 2 front background color hex code', { exact: true }).fill('#ff8800');
   const secondFace = page.locator('[data-flip-card-id]').nth(1).locator(':scope > span > span').first();
   await expect(secondFace).toHaveCSS('background-color', 'rgb(255, 136, 0)');
-  await page.getByRole('button', { name: 'Use master colors for card 2', exact: true }).click();
+  await page.getByRole('button', { name: 'Use master front colors for card 2', exact: true }).click();
   await expect(secondFace).toHaveCSS('background-color', 'rgb(17, 34, 51)');
   for (const details of await page.locator('[data-flip-card-settings] details').all()) if (await details.getAttribute('open') !== null) await details.locator('summary').click();
   const firstHandle = page.getByRole('button', { name: 'Reorder flip card 1', exact: true }), secondHandle = page.getByRole('button', { name: 'Reorder flip card 2', exact: true });
@@ -108,7 +110,7 @@ try {
   await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 12 }); await page.mouse.up();
   await page.waitForFunction((id) => window.__block.data.cards[0].id === id, originalIds[0]);
   await page.waitForTimeout(100);
-  await page.getByLabel('Card text color hex code', { exact: true }).fill('#ffffff');
+  await page.getByLabel('Master front text color hex code', { exact: true }).fill('#ffffff');
   await page.getByRole('button', { name: 'Learner', exact: true }).click();
   await page.locator('[data-learner-object]').getByRole('button', { name: 'Flip card 1 to reveal the back', exact: true }).click();
   await page.waitForFunction(() => window.__revealed.length === 1);
@@ -117,6 +119,7 @@ try {
   mkdirSync('test-results', { recursive: true }); await page.screenshot({ path: 'test-results/slide-flip-cards-learner.png' });
   await page.getByRole('button', { name: 'Editor', exact: true }).click();
   await openCard(1);
+  await details(1).getByRole('tab', { name: 'Front', exact: true }).click();
   await page.getByLabel('Card 2 front text', { exact: true }).fill('A long explanation. '.repeat(80));
   const textField = page.locator('[data-slide-flip-card-editor] [data-flip-card-id]').nth(1).locator('span.overflow-y-auto').first();
   assert.ok(await textField.evaluate((element) => element.scrollHeight > element.clientHeight));

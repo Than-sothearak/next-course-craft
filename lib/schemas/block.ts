@@ -82,10 +82,7 @@ const base = {
   id: z.string().min(1),
   version: z.literal(1),
   widthCustom: z.boolean().default(false),
-  backgroundColor: z
-    .string()
-    .regex(/^#[\da-fA-F]{6}$/)
-    .default("#ffffff"),
+  backgroundColor: colorValueSchema.default("#ffffff"),
   headingPadding: spacing.optional(),
   slideFrame: slideFrameSchema.optional(),
   slideGroupId: z.string().min(1).max(64).optional(),

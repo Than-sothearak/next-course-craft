@@ -122,9 +122,33 @@ describe("content block settings access", () => {
 
     act(() => document.querySelector<HTMLButtonElement>('[aria-label="Open content settings"]')!.click());
     const toggle = document.querySelector<HTMLInputElement>('[role="switch"][aria-label="Required for progress"]')!;
+    const advanced = document.querySelector<HTMLButtonElement>('[aria-label="Toggle Advanced settings"]')!;
+    expect(advanced.getAttribute("aria-expanded")).toBe("false");
+    act(() => advanced.click());
+    expect(advanced.getAttribute("aria-expanded")).toBe("true");
     expect(toggle.checked).toBe(true);
     act(() => toggle.click());
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ id: "video", requiredForProgress: false }));
+  });
+
+  it("shares presentation section controls without changing content and keeps inline presentation settings intact", () => {
+    const block = blocks.find((block) => block.type === "image")!;
+    const onChange = vi.fn();
+    const props = { block, courseId: "course-1", onChange, onReplaceTemplate: vi.fn() };
+    act(() => root.render(createElement(ContentBlockEditor, props)));
+    act(() => document.querySelector<HTMLButtonElement>('[aria-label="Open content settings"]')!.click());
+    const panel = document.querySelector('[role="dialog"][aria-label="Content settings"]')!;
+    expect(panel.querySelector('[data-settings-panel]')).not.toBeNull();
+    expect(panel.querySelector('[aria-label="Advanced content settings"] button')?.getAttribute("aria-expanded")).toBe("false");
+    act(() => panel.querySelector<HTMLButtonElement>('[aria-label="Show all Content settings"]')!.click());
+    expect([...panel.querySelectorAll<HTMLElement>('[data-inspector-section-content]')].every((section) => !section.hidden)).toBe(true);
+    act(() => panel.querySelector<HTMLButtonElement>('[aria-label="Hide all Content settings"]')!.click());
+    expect([...panel.querySelectorAll<HTMLElement>('[data-inspector-section-content]')].every((section) => section.hidden)).toBe(true);
+    expect(onChange).not.toHaveBeenCalled();
+    act(() => root.render(createElement(ContentBlockEditor, { ...props, inlineSettings: true })));
+    expect(container.querySelector('[data-settings-panel]')).toBeNull();
+    expect(container.querySelector('[aria-label="Image layout"]')).not.toBeNull();
+    expect([...container.querySelectorAll('button')].some((button) => button.textContent?.includes("Change block style"))).toBe(true);
   });
 
   it("opens the style replacement action from a block's own settings", () => {
@@ -263,6 +287,37 @@ describe("content block settings access", () => {
     expect(onChange.mock.lastCall?.[0]).toMatchObject({
       data: { cards: [{ front: { type: "image", src: "https://placehold.co/800x520?text=Add+an+image" } }] },
     });
+  });
+
+  it("switches flip-card sides by keyboard without losing edits or changing data just by opening controls", () => {
+    const onChange = vi.fn();
+    function Editor() {
+      const [block, setBlock] = useState<ContentBlock>(blocks.find((block) => block.type === "flipCard")!);
+      return createElement(ContentBlockEditor, { block, courseId: "course", onChange: (next) => { onChange(next); setBlock(next); } });
+    }
+    act(() => root.render(createElement(Editor)));
+    act(() => document.querySelector<HTMLButtonElement>('[aria-label="Open content settings"]')!.click());
+    const card = document.querySelector('[data-flip-card-settings="card-a"]')!;
+    const tab = (side: string) => [...card.querySelectorAll<HTMLButtonElement>('[role="tab"]')].find((button) => button.textContent === side)!;
+    const panel = (side: string) => document.getElementById(tab(side).getAttribute("aria-controls")!)!;
+    expect(panel("Front").hidden).toBe(false);
+    expect(panel("Back").hidden).toBe(true);
+    act(() => tab("Front").dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true })));
+    expect(document.activeElement).toBe(tab("Back"));
+    expect(panel("Back").hidden).toBe(false);
+    expect(card.querySelectorAll('[role="tab"][tabindex="0"]')).toHaveLength(1);
+    expect(onChange).not.toHaveBeenCalled();
+    const input = card.querySelector<HTMLTextAreaElement>('[aria-label="Card 1 back text"]')!;
+    act(() => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(input, "New explanation");
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    act(() => tab("Back").dispatchEvent(new KeyboardEvent("keydown", { key: "Home", bubbles: true })));
+    expect(document.activeElement).toBe(tab("Front"));
+    expect(card.querySelector<HTMLTextAreaElement>('[aria-label="Card 1 front text"]')!.value).toBe("Prompt");
+    act(() => tab("Back").click());
+    expect(input.value).toBe("New explanation");
+    expect(onChange.mock.lastCall?.[0]).toMatchObject({ data: { cards: [{ front: { text: "Prompt" }, back: { text: "New explanation" } }] } });
   });
 
   it("edits accordion sections and changes between accordion and tabs", () => {

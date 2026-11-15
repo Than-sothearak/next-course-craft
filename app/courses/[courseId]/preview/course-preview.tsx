@@ -16,6 +16,7 @@ import {
 } from "@/lib/export/progress";
 import {
   courseThemeFontFamilies,
+  courseTypographyAttributes,
   normalizeCourseTheme,
 } from "@/lib/editor/theme";
 import { LessonMenu } from "./_components/(course_preview_components)/lesson-menu";
@@ -107,6 +108,7 @@ function CoursePreviewContent({
 
   const courseTheme = normalizeCourseTheme(initialData.theme);
   const themeStyle = {
+    ...courseTypographyAttributes(courseTheme).style,
     "--course-primary": courseTheme.primaryColor,
     "--course-primary-contrast": contrastTextColor(courseTheme.primaryColor),
     "--course-accent": courseTheme.accentColor,
@@ -401,6 +403,7 @@ function CoursePreviewContent({
 
   return (
     <main
+      data-course-typography={courseTypographyAttributes(courseTheme)["data-course-typography"]}
       style={themeStyle}
       className="flex h-dvh min-h-0 w-full min-w-0 flex-col overflow-hidden bg-slate-100 text-slate-900"
     >

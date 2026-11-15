@@ -1,5 +1,11 @@
 # Delivery roadmap
 
+Requested theme/settings extension: theme-color and gradient block background presets; consistent Course theme sections with Advanced default typography (title/subtitle/heading/body sizes, title alignment and line spacing), and improved cover alignment controls. This extends the existing themes and block-editor slice with validated optional fields, normal save/undo behavior and shared static rendering; existing formatting and Presentation master typography remain authoritative.
+
+Requested flip-card settings redesign: readable numbered card headers, separate card actions, Front/Back tabs, labeled content fields, and shared collapsible appearance/grid settings across Standard, Presentation and popup editing. Existing card content, media, colors, ordering and persistence remain in the current block-editor slice.
+
+Requested Standard settings consistency: reorganize existing block content and format options with the shared Presentation section controls, compact styling, matching popup widths, and collapsed Advanced settings. Keep current content, progress, spacing, colors and save behavior; no additional settings capabilities or phase expansion.
+
 Requested interactive mobile typography: scrolling interactive blocks use maximum 18px titles and 14px body text on phone-sized screens, including custom inline sizes and revealed explanations. Smaller text, desktop formatting, ordinary lesson text and quiz-specific typography retain their existing behavior.
 
 Requested Timeline block: editable event labels, titles and formatted text with centered vertical, horizontal and stacked-card layouts. Three templates and shared settings support entry addition/removal/reordering, course theme inheritance and layout changes that retain content. Standard lessons, presentation slides, popup mini slides, snapshots, duplication, PDF and static HTML/SCORM reuse the existing single-app block pipeline. AI generation uses Timeline only for source-supported chronology; the block remains informational and adds no completion behavior.

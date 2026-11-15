@@ -57,6 +57,7 @@ export function CourseOverviewPreview({
           <StatementTextPreview
             tag="h3"
             text={initialData.title}
+            courseTextRole="title"
             className="mx-auto text-3xl font-bold tracking-tight text-inherit @min-[40rem]/course-cover:text-4xl @min-[56rem]/course-cover:text-6xl [&_h1]:my-0 [&_h1]:text-inherit [&_h1]:font-bold [&_h1]:tracking-tight [&_h2]:my-0 [&_h2]:text-inherit [&_h2]:font-bold [&_h2]:tracking-tight [&_h3]:my-0 [&_h3]:text-inherit [&_h3]:font-bold [&_p]:my-0 [&_p]:text-inherit [&_p]:font-bold"
           />
           {lessons.length > 0 && (

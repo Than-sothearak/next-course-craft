@@ -15,6 +15,7 @@ export function StatementTextPreview({
   className,
   inheritColor = false,
   matchEditorSpacing = false,
+  courseTextRole,
 }: {
   html?: string;
   text: string;
@@ -22,6 +23,7 @@ export function StatementTextPreview({
   className: string;
   inheritColor?: boolean;
   matchEditorSpacing?: boolean;
+  courseTextRole?: "title" | "subtitle" | "heading";
 }) {
   const content = html ?? `<${tag}>${escapeHtml(text)}</${tag}>`;
   const editor = useEditor({
@@ -44,5 +46,5 @@ export function StatementTextPreview({
     });
   }, [className, content, editor]);
 
-  return <EditorContent editor={editor} data-block-text-role={tag === "h3" ? "title" : "body"} style={inheritColor ? { color: "inherit" } : undefined} className={`lesson-rich-text ${className} [&_.tiptap]:m-0 [&_.tiptap]:outline-none [&_.tiptap_*]:text-inherit ${matchEditorSpacing ? "[&_.tiptap_p]:my-2" : "[&_.tiptap_h1]:my-0 [&_.tiptap_h2]:my-0 [&_.tiptap_h3]:my-0 [&_.tiptap_p]:my-0"}`} />;
+  return <EditorContent editor={editor} data-course-text-role={courseTextRole} data-block-text-role={tag === "h3" ? "title" : "body"} style={inheritColor ? { color: "inherit" } : undefined} className={`lesson-rich-text ${className} [&_.tiptap]:m-0 [&_.tiptap]:outline-none [&_.tiptap_*]:text-inherit ${matchEditorSpacing ? "[&_.tiptap_p]:my-2" : "[&_.tiptap_h1]:my-0 [&_.tiptap_h2]:my-0 [&_.tiptap_h3]:my-0 [&_.tiptap_p]:my-0"}`} />;
 }

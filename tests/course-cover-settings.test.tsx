@@ -37,7 +37,7 @@ describe("course cover settings", () => {
     act(() => document.querySelector<HTMLButtonElement>('[aria-label="Pick image for course"]')!.click());
     expect(latest.cover).toMatchObject({ template: "image", imageSrc: "/api/assets/123456789012345678901234/file", imageAlt: "Course landscape" });
     select("Cover image position", "bottom");
-    select("Cover title alignment", "left");
+    click("Cover title alignment: Left");
     expect(latest.cover).toMatchObject({ imagePosition: "bottom", alignment: "left" });
     expect(container.querySelector('[aria-label="Course cover preview"] img')?.getAttribute("src")).toBe(latest.cover?.imageSrc);
     act(() => Array.from(container.querySelectorAll("button")).find((button) => button.textContent === "Remove image")!.click());
@@ -46,12 +46,30 @@ describe("course cover settings", () => {
 
   it("preserves the cover when changing palettes and resets with the theme", () => {
     click("Use Waves cover");
-    select("Cover title alignment", "left");
+    click("Cover title alignment: Left");
     click("Use Forest theme");
     expect(latest.cover).toMatchObject({ template: "waves", alignment: "left" });
     expect(latest.primaryColor).toBe("#24734f");
     act(() => Array.from(container.querySelectorAll("button")).find((button) => button.textContent?.trim() === "Reset")!.click());
     expect(latest).toEqual(defaultCourseTheme);
+  });
+
+  it("edits default typography and right alignment while retaining them across palette changes", () => {
+    click("Toggle Advanced settings");
+    for (const [label, value] of [["Default title size", "44"], ["Default subtitle size", "28"], ["Default heading size", "22"], ["Default normal text size", "18"], ["Default text line spacing", "1.6"]]) {
+      const input = container.querySelector<HTMLInputElement>(`[aria-label="${label}"]`)!;
+      act(() => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value); input.dispatchEvent(new Event("input", { bubbles: true })); });
+    }
+    click("Default title alignment: Right");
+    click("Cover title alignment: Right");
+    click("Use Forest theme");
+    expect(latest.typography).toEqual({ titleSize: 44, subtitleSize: 28, headingSize: 22, bodySize: 18, titleAlignment: "right", lineHeight: 1.6 });
+    expect(latest.cover?.alignment).toBe("right");
+    expect(container.querySelector('[aria-label="Course cover preview"] [data-course-cover]')?.getAttribute("style")).toContain("text-align: right");
+    expect(container.querySelector('[data-settings-panel-header] [aria-label="Show all Course theme settings"]')).not.toBeNull();
+    act(() => [...container.querySelectorAll('button')].find((button) => button.textContent === "Restore default typography")!.click());
+    expect(latest.typography).toBeUndefined();
+    expect(latest.cover?.alignment).toBe("right");
   });
 
   it("offers Khmer typefaces and previews the selected Khmer font", () => {

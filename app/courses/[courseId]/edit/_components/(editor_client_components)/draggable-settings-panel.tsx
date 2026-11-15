@@ -11,12 +11,14 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { GripVertical } from "lucide-react";
+import { SettingsSectionActions, SettingsSectionsProvider } from "@/components/ui/settings-section";
 
 type FloatingPosition = { left: number; top: number };
 
 export function DraggableSettingsPanel({
   id,
   title,
+  settingsLabel,
   side,
   anchorRef,
   panelClassName = "w-[min(380px,calc(100vw-2rem))]",
@@ -25,6 +27,7 @@ export function DraggableSettingsPanel({
 }: {
   id: string;
   title: string;
+  settingsLabel: string;
   side: "left" | "right";
   anchorRef?: RefObject<HTMLElement | null>;
   panelClassName?: string;
@@ -120,6 +123,7 @@ export function DraggableSettingsPanel({
       : { right: "24px", top: "50%", transform: "translateY(-50%)" };
 
   return createPortal(
+    <SettingsSectionsProvider>
     <section
       ref={panelRef}
       id={id}
@@ -133,6 +137,7 @@ export function DraggableSettingsPanel({
       }}
       className={`flex max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white text-slate-700 shadow-2xl ${panelClassName}`}
     >
+      <div data-settings-panel-header className="flex shrink-0 flex-wrap items-center justify-between gap-x-2 gap-y-1 border-b border-slate-200 bg-slate-50 px-3 py-1">
       <div
         aria-label={`Move ${title} popup`}
         role="group"
@@ -143,15 +148,18 @@ export function DraggableSettingsPanel({
         onPointerUp={stopDrag}
         onPointerCancel={stopDrag}
         onKeyDown={moveWithKeyboard}
-        className="flex min-h-11 shrink-0 touch-none cursor-grab items-center gap-2 border-b border-slate-200 bg-slate-50 px-3.5 text-xs font-semibold text-slate-600 active:cursor-grabbing"
+        className="flex min-h-9 min-w-0 flex-1 basis-[140px] touch-none cursor-grab items-center gap-2 text-xs font-semibold text-slate-600 active:cursor-grabbing"
       >
-        <GripVertical size={15} aria-hidden="true" className="text-slate-400" />
+        <GripVertical size={15} aria-hidden="true" className="shrink-0 text-slate-400" />
         <span>{title}</span>
+      </div>
+      <div className="ml-auto"><SettingsSectionActions label={settingsLabel} /></div>
       </div>
       <div className={`min-h-0 overflow-y-auto overscroll-contain p-4 ${bodyClassName}`}>
         {children}
       </div>
-    </section>,
+    </section>
+    </SettingsSectionsProvider>,
     document.body,
   );
 }

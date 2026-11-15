@@ -12,7 +12,7 @@ function SortableCard({ id, index, disabled, keyboardActive, onKeyDown, children
   const { setNodeRef, setActivatorNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({ id, disabled });
   return <div ref={setNodeRef} data-flip-card-settings={id} className={`relative min-w-0 ${isDragging ? "z-20 opacity-70" : ""}`} style={{ transform: CSS.Transform.toString(transform), transition }}>
     {children}
-    <Button ref={setActivatorNodeRef} type="button" variant="ghost" size="icon" className="absolute left-1 top-1 size-7 touch-none text-slate-500" disabled={disabled} {...attributes} {...listeners} aria-pressed={keyboardActive || isDragging} onKeyDown={onKeyDown} aria-label={`Reorder flip card ${index + 1}`} title="Drag to reorder card"><GripVertical size={14} /></Button>
+    <Button ref={setActivatorNodeRef} type="button" variant="ghost" size="icon" className="absolute left-1 top-3.5 size-7 touch-none text-slate-500" disabled={disabled} {...attributes} {...listeners} aria-pressed={keyboardActive || isDragging} onKeyDown={onKeyDown} aria-label={`Reorder flip card ${index + 1}`} title="Drag to reorder card"><GripVertical size={14} aria-hidden="true" /></Button>
   </div>;
 }
 

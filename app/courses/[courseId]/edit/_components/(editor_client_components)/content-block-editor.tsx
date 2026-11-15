@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { LayoutGrid, Settings2 } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { LayoutGrid, Settings2, SlidersHorizontal } from "lucide-react";
 import type { ContentBlock } from "@/lib/schemas/block";
 import { Button } from "@/components/ui/button";
+import { SettingsPanelContent, SettingsSection } from "@/components/ui/settings-section";
 import { HeadingBlockEditor } from "./(content_block_editor_components)/heading-block-editor";
 import { RichTextBlockEditor } from "./(content_block_editor_components)/rich-text-block-editor";
 import { StatementContentEditor } from "./(content_block_editor_components)/statement-content-editor";
@@ -218,14 +219,30 @@ export function ContentBlockEditor({
         <DraggableSettingsPanel
           id={settingsPanelId}
           title="Content settings"
+          settingsLabel="Content"
           side="left"
           anchorRef={settingsButtonRef}
-          panelClassName="w-[min(280px,calc(100vw-3rem))]"
+          panelClassName="w-[min(380px,calc(100vw-3rem))]"
         >
-          {replaceTemplateAction()}
+          {standardSettingsContent(<p className="leading-5 text-slate-500">Edit text directly in the lesson. Select text to format it.</p>)}
         </DraggableSettingsPanel>
       )
     );
+  }
+
+  function standardSettingsContent(content: ReactNode) {
+    const hasProgressRequirement = getInteractiveBlockProgressIds(block, lessonBlocks).length > 0 ||
+      (block.type === "divider" && block.data.style === "continue");
+    return <SettingsPanelContent>
+      <SettingsSection title="Content & interaction" icon={SlidersHorizontal}>{content}</SettingsSection>
+      {(onReplaceTemplate || hasProgressRequirement) && <SettingsSection title="Advanced" label="Advanced content settings" icon={Settings2} defaultOpen={false}>
+        {replaceTemplateAction()}
+        {hasProgressRequirement && <section className="space-y-2" aria-label="Lesson completion settings">
+          <h3 className="text-xs font-semibold text-slate-700">Navigation & progress</h3>
+          <BlockProgressControls block={block} lessonBlocks={lessonBlocks} onChange={onChange} />
+        </section>}
+      </SettingsSection>}
+    </SettingsPanelContent>;
   }
 
   if (block.type === "heading")
@@ -270,11 +287,8 @@ export function ContentBlockEditor({
     );
 
   const preview = <ContentBlockPreview block={block} courseId={courseId} onChange={onChange} />;
-  const hasProgressRequirement =
-    getInteractiveBlockProgressIds(block, lessonBlocks).length > 0 ||
-    (block.type === "divider" && block.data.style === "continue");
   const settingsContent = <>
-    {replaceTemplateAction()}
+    {inlineSettings && replaceTemplateAction()}
     {block.type === "link" && <LinkBlockSettings block={block} onChange={onChange} />}
     {block.type === "chart" && <ChartBlockSettings block={block} onChange={onChange} />}
     {block.type === "image" && <ImageBlockSettings block={block} onChange={onChange} setMediaLibraryTarget={setMediaLibraryTarget} />}
@@ -295,10 +309,6 @@ export function ContentBlockEditor({
     {block.type === "interactionButton" && <InteractionButtonSettings block={block} courseId={courseId} lessonBlocks={lessonBlocks} sections={sections} lessons={lessons} onChange={onChange} />}
     {block.type === "knowledgeCheck" && <KnowledgeCheckBlockSettings block={block} onChange={onChange} />}
     {block.type === "survey" && <SurveyBlockSettings block={block} onChange={onChange} />}
-    {!inlineSettings && hasProgressRequirement && <section className="space-y-2 border-t border-slate-200 pt-3" aria-label="Lesson completion settings">
-      <h3 className="text-xs font-semibold text-slate-700">Lesson completion</h3>
-      <BlockProgressControls block={block} lessonBlocks={lessonBlocks} onChange={onChange} />
-    </section>}
   </>;
 
   return (
@@ -310,11 +320,12 @@ export function ContentBlockEditor({
         <DraggableSettingsPanel
           id={settingsPanelId}
           title="Content settings"
+          settingsLabel="Content"
           side="left"
           anchorRef={settingsButtonRef}
           panelClassName="w-[min(380px,calc(100vw-3rem))]"
         >
-          {settingsContent}
+          {standardSettingsContent(settingsContent)}
         </DraggableSettingsPanel>
       )}
       <MediaLibraryDialog

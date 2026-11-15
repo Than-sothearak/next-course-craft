@@ -138,6 +138,7 @@ export function PreviewBlock({
       <StatementTextPreview
         tag="h3"
         text={block.data.text}
+        courseTextRole={block.data.level === 1 ? "title" : block.data.level === 2 ? "subtitle" : "heading"}
         html={block.data.html}
         className="text-3xl [&_h1]:text-4xl [&_h2]:text-2xl [&_h3]:text-2xl [&_p]:text-3xl font-semibold tracking-tight [&_h1]:my-0 [&_h2]:my-0 [&_h3]:my-0 [&_p]:my-0 [&_p]:font-semibold [&_h2]:font-bold"
       />
