@@ -6,7 +6,7 @@ import { CourseGenerationProgress } from "@/app/courses/[courseId]/edit/_compone
 import type { GenerationSessionSnapshot } from "@/lib/ai/course-generation-session-schema";
 const session: GenerationSessionSnapshot = {
   id: "session", status: "generating", error: null, readyToSave: false, completedLessonIds: [], currentLessonId: "lesson-0",
-  input: { prompt: "Teach HTML", audience: "Students", level: "beginner", lessonCount: 5, template: "custom", learnGroupingMode: "smart", slidesPerContent: 5, targetLanguage: "English", contentDepth: "detailed", interactivity: "high", postTestCount: 5, includeImages: false, generateCoverImage: false, courseTitle: "", courseDescription: "" },
+  input: { prompt: "Teach HTML", audience: "Students", level: "beginner", lessonCount: 5, template: "custom", learnGroupingMode: "smart", slidesPerContent: 5, targetLanguage: "English", contentDepth: "detailed", interactivity: "high", postTestCount: 5, includeImages: false, generateCoverImage: false, imageStyle: "auto", customImageStyle: "", courseTitle: "", courseDescription: "" },
   outline: { title: "HTML", description: "Learn HTML", sections: [{ id: "learn", title: "Learn", lessons: Array.from({ length: 5 }, (_, index) => ({ id: `lesson-${index}`, title: `HTML ${index + 1}`, objective: "Learn HTML", kind: "learn" })) }] },
 };
 let container: HTMLDivElement, root: Root;
