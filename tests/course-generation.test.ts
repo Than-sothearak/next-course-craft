@@ -546,12 +546,17 @@ describe("AI course generation contracts", () => {
       postTestCount: 5,
       imageStyle: "auto",
       customImageStyle: "",
+      coverImageStyle: "auto",
+      coverCustomImageStyle: "",
     });
     expect(courseGenerationInputSchema.safeParse({ ...input, targetLanguage: "Khmer" }).success).toBe(true);
     expect(courseGenerationInputSchema.safeParse({ ...input, targetLanguage: "French" }).success).toBe(false);
     expect(courseGenerationInputSchema.safeParse({ ...input, slidesPerContent: 501 }).success).toBe(false);
     expect(courseGenerationInputSchema.safeParse({ ...input, imageStyle: "custom" }).success).toBe(false);
     expect(courseGenerationInputSchema.safeParse({ ...input, imageStyle: "custom", customImageStyle: "Editorial paper-cut" }).success).toBe(true);
+    expect(courseGenerationInputSchema.safeParse({ ...input, imageStyle: "flatIllustration", generateCoverImage: true, coverImageStyle: "custom" }).success).toBe(false);
+    expect(courseGenerationInputSchema.safeParse({ ...input, imageStyle: "flatIllustration", customImageStyle: "Lesson art", generateCoverImage: true, coverImageStyle: "custom", coverCustomImageStyle: "Cover photo collage" }).success).toBe(true);
+    expect(courseGenerationInputSchema.parse({ ...input, imageStyle: "photorealistic" }).coverImageStyle).toBe("photorealistic");
     expect(courseGenerationInputSchema.safeParse({ ...input, customImageStyle: "x".repeat(241) }).success).toBe(false);
     expect(defaultCourseGenerationModel).toBe("gpt-6-luna");
   });

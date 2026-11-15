@@ -110,7 +110,7 @@ describe("AI course review wizard", () => {
     expect(dialog.querySelector('[aria-label="Generating course outline"]')).toBeTruthy();
     expect([...dialog.querySelectorAll("button")].some((button) => button.textContent?.includes("Back"))).toBe(false);
   });
-  it("uses switch controls for image options and submits the enabled cover choice", async () => {
+  it("keeps the course cover image style separate from supplemental lesson images", async () => {
     await renderWizard();
     const coverSwitch = container.querySelector<HTMLInputElement>('[role="switch"][aria-label="Generate course cover image"]')!;
     const coverLabel = coverSwitch.closest("label")!;
@@ -120,6 +120,8 @@ describe("AI course review wizard", () => {
     expect(coverLabel.children[1].getAttribute("aria-hidden")).toBe("true");
     expect(coverLabel.children[2].textContent).toBe("Generate course cover image");
     expect(coverSwitch.checked).toBe(false);
+    const coverStyle = container.querySelector<HTMLSelectElement>('select[aria-label="Course cover image style"]')!;
+    expect(coverStyle).toBeTruthy();
     const coverImageModel = container.querySelector<HTMLSelectElement>('select[aria-label="Image generation model"]')!;
     expect(coverImageModel.value).toBe("gpt-image-2.5-sunburst");
     expect(coverImageModel.disabled).toBe(true);
@@ -129,9 +131,11 @@ describe("AI course review wizard", () => {
     expect(container.textContent).toContain("Image generation may take longer than a typical response, so wait for the generation to finish.");
     expect(coverImageModel.value).toBe("gpt-image-2.5-sunburst");
     expect(coverImageModel.disabled).toBe(true);
-    await act(async () => coverSwitch.click());
-    expect(coverSwitch.checked).toBe(false);
-    expect(container.querySelector('select[aria-label="Image generation model"]')).toBeTruthy();
+    await select(coverStyle, "custom");
+    await click("Set cover direction");
+    const coverStyleDialog = [...container.querySelectorAll("dialog")].find((dialog) => dialog.textContent?.includes("Describe the visual treatment"))!;
+    await type(coverStyleDialog.querySelector("textarea")!, "Editorial cover art");
+    await click("Save style");
     await click("Continue to course details");
     const supplementalSwitch = container.querySelector<HTMLInputElement>('[role="switch"][aria-label="Generate supplemental images"]')!;
     const supplementalLabel = supplementalSwitch.closest("label")!;
@@ -143,9 +147,8 @@ describe("AI course review wizard", () => {
     const imageModelSelect = container.querySelector<HTMLSelectElement>('select[aria-label="Image generation model"]')!;
     expect(imageModelSelect.value).toBe("gpt-image-2.5-sunburst");
     expect(imageModelSelect.disabled).toBe(true);
-    const styleSelect = [...container.querySelectorAll("label")].find((label) => label.textContent?.includes("Generated image style"))!.querySelector("select")!;
+    const styleSelect = container.querySelector<HTMLSelectElement>('select[aria-label="Generated image style"]')!;
     expect([...styleSelect.options].map((option) => option.textContent)).toContain("3D cartoon");
-    expect(container.textContent).not.toContain("Image generation may take longer than a typical response, so wait for the generation to finish.");
     await act(async () => supplementalSwitch.click());
     expect(supplementalSwitch.checked).toBe(true);
     expect(container.textContent).toContain("Image generation may take longer than a typical response, so wait for the generation to finish.");
@@ -154,25 +157,22 @@ describe("AI course review wizard", () => {
     expect([...styleSelect.options].map((option) => option.textContent)).toContain("3D cartoon");
     expect(styleSelect.closest('[class*="sm:flex-row"]')?.contains(supplementalSwitch)).toBe(true);
     expect(styleSelect.closest('[class*="sm:flex-row"]')?.contains(imageModelSelect)).toBe(true);
-    await act(async () => supplementalSwitch.click());
-    expect(supplementalSwitch.checked).toBe(false);
-    expect(container.querySelector('select[aria-label="Image generation model"]')).toBeTruthy();
-    expect([...container.querySelectorAll("label")].some((label) => label.textContent?.includes("Generated image style"))).toBe(true);
-    expect(container.textContent).not.toContain("Image generation may take longer than a typical response, so wait for the generation to finish.");
-    await act(async () => supplementalSwitch.click());
-    const enabledStyleSelect = [...container.querySelectorAll("label")].find((label) => label.textContent?.includes("Generated image style"))!.querySelector("select")!;
-    await select(enabledStyleSelect, "custom");
-    const styleDialog = [...container.querySelectorAll("dialog")].find((dialog) => dialog.textContent?.includes("Custom image style"))!;
-    const customStyle = [...styleDialog.querySelectorAll("label")].find((label) => label.textContent?.includes("Describe the visual treatment"))!.querySelector("textarea")!;
-    await type(customStyle, "Warm paper-cut collage");
+    await select(styleSelect, "custom");
+    await click("Set direction");
+    const lessonStyleDialog = [...container.querySelectorAll("dialog")].find((dialog) => dialog.textContent?.includes("Describe the visual treatment"))!;
+    await type(lessonStyleDialog.querySelector("textarea")!, "Warm paper-cut lesson illustrations");
     await click("Save style");
-    await click("Back");
-    const enabledCoverSwitch = container.querySelector<HTMLInputElement>('[role="switch"][aria-label="Generate course cover image"]')!;
-    await act(async () => enabledCoverSwitch.click());
-    await click("Continue to course details");
-    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ ...session, input: { ...input, includeImages: true, generateCoverImage: true, imageStyle: "custom", customImageStyle: "Warm paper-cut collage" } })));
+    expect(container.textContent).not.toContain("Applies to generated lesson images. Set the course cover style on the Source material step.");
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ ...session, input: { ...input, includeImages: true, generateCoverImage: true, imageStyle: "custom", customImageStyle: "Warm paper-cut lesson illustrations", coverImageStyle: "custom", coverCustomImageStyle: "Editorial cover art" } })));
     await click("Generate outline");
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body).input).toMatchObject({ includeImages: true, generateCoverImage: true, imageStyle: "custom", customImageStyle: "Warm paper-cut collage" });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).input).toMatchObject({
+      includeImages: true,
+      generateCoverImage: true,
+      imageStyle: "custom",
+      customImageStyle: "Warm paper-cut lesson illustrations",
+      coverImageStyle: "custom",
+      coverCustomImageStyle: "Editorial cover art",
+    });
   });
   it("removes and reorders Custom sections and preserves the reviewed lesson order", async () => {
     const custom: GenerationSessionSnapshot = { ...session, outline: { ...session.outline, sections: [session.outline.sections[0],

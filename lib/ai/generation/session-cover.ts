@@ -12,7 +12,7 @@ export async function prepareOutlineCover(
   ownerId: string,
   courseId: string,
   outline: CourseOutline,
-  imageStyle: Pick<CourseGenerationInput, "imageStyle" | "customImageStyle"> = { imageStyle: "auto", customImageStyle: "" },
+  coverImageStyle: Pick<CourseGenerationInput, "coverImageStyle" | "coverCustomImageStyle"> = { coverImageStyle: "auto", coverCustomImageStyle: "" },
 ) {
   const course = await Course.findOne({ _id: courseId, ownerId, deletedAt: null }).select("coverImage").lean();
   if (!course) throw new DashboardError("Course not found.", 404);
@@ -26,8 +26,8 @@ export async function prepareOutlineCover(
   const saved = courseCoverSchema.safeParse(previous?.cover);
   const previousInput = courseGenerationInputSchema.safeParse(previous?.input);
   const sameImageStyle = previousInput.success
-    && previousInput.data.imageStyle === imageStyle.imageStyle
-    && previousInput.data.customImageStyle === imageStyle.customImageStyle;
+    && previousInput.data.coverImageStyle === coverImageStyle.coverImageStyle
+    && previousInput.data.coverCustomImageStyle === coverImageStyle.coverCustomImageStyle;
   if (saved.success && saved.data.imageSrc && sameImageStyle) {
     try {
       await assertCourseCoverAsset(ownerId, courseId, saved.data);
@@ -40,6 +40,10 @@ export async function prepareOutlineCover(
     `Create a simple landscape 16:9 course cover image about: ${outline.title}, suitable for both a dashboard card and the learner-facing course introduction.`,
     `Course context: ${outline.description.slice(0, 1_000)}.`,
     "Use a clear focal subject that is readable at thumbnail size. No text or lettering in the image.",
-  ].join(" "), { purpose: "course-cover", ...imageStyle });
+  ].join(" "), {
+    purpose: "course-cover",
+    imageStyle: coverImageStyle.coverImageStyle,
+    customImageStyle: coverImageStyle.coverCustomImageStyle,
+  });
   return { generatedCover: true, cover: courseCoverSchema.parse({ template: "image", imageSrc: image.src, imageAlt: `Course cover image for ${outline.title}` }) };
 }

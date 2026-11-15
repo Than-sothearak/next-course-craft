@@ -31,7 +31,7 @@ describe("course cover preparation during outline generation", () => {
     expect(createGeneratedImageAsset).toHaveBeenCalledWith(ownerId, courseId, expect.stringContaining("HTML basics"), { purpose: "course-cover", imageStyle: "auto", customImageStyle: "" });
   });
   it("passes a selected visual style to the generated course cover", async () => {
-    await prepareOutlineCover(ownerId, courseId, outline, { imageStyle: "photorealistic", customImageStyle: "" });
+    await prepareOutlineCover(ownerId, courseId, outline, { coverImageStyle: "photorealistic", coverCustomImageStyle: "" });
     expect(createGeneratedImageAsset).toHaveBeenCalledWith(ownerId, courseId, expect.stringContaining("HTML basics"), expect.objectContaining({ purpose: "course-cover", imageStyle: "photorealistic" }));
   });
   it("can generate a missing card image independently of an existing learner cover", async () => {
@@ -54,9 +54,20 @@ describe("course cover preparation during outline generation", () => {
   });
   it("prepares a replacement cover when the selected style changes", async () => {
     vi.mocked(CourseGenerationSession.findOne).mockReturnValue({ sort: async () => ({ cover, input: defaultInput }) } as never);
-    await prepareOutlineCover(ownerId, courseId, outline, { imageStyle: "photorealistic", customImageStyle: "" });
+    await prepareOutlineCover(ownerId, courseId, outline, { coverImageStyle: "photorealistic", coverCustomImageStyle: "" });
     expect(createGeneratedImageAsset).toHaveBeenCalledOnce();
     expect(createGeneratedImageAsset).toHaveBeenCalledWith(ownerId, courseId, expect.stringContaining("HTML basics"), expect.objectContaining({ imageStyle: "photorealistic" }));
+  });
+  it("reuses a cover when only the lesson image style differs", async () => {
+    const previousInput = courseGenerationInputSchema.parse({
+      ...defaultInput,
+      imageStyle: "flatIllustration",
+      coverImageStyle: "photorealistic",
+    });
+    vi.mocked(CourseGenerationSession.findOne).mockReturnValue({ sort: async () => ({ cover, input: previousInput }) } as never);
+    await prepareOutlineCover(ownerId, courseId, outline, { coverImageStyle: "photorealistic", coverCustomImageStyle: "" });
+    expect(assertCourseCoverAsset).toHaveBeenCalledWith(ownerId, courseId, cover);
+    expect(createGeneratedImageAsset).not.toHaveBeenCalled();
   });
   it("regenerates a missing prior asset instead of reusing a broken cover", async () => {
     vi.mocked(CourseGenerationSession.findOne).mockReturnValue({ sort: async () => ({ cover }) } as never);

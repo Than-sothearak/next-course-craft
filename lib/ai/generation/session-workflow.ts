@@ -68,8 +68,8 @@ export async function planSession(scope: Scope, input: CourseGenerationInput, so
   if (input.generateCoverImage) {
     try {
       const cover = await prepareOutlineCover(scope.ownerId, scope.courseId, plan.outline, {
-        imageStyle: input.imageStyle,
-        customImageStyle: input.customImageStyle,
+        coverImageStyle: input.coverImageStyle,
+        coverCustomImageStyle: input.coverCustomImageStyle,
       });
       await CourseGenerationSession.updateOne({ _id: session._id, ...scope }, { $set: cover });
     } catch (error) {

@@ -93,7 +93,7 @@ export const courseGenerationModelOptions: {
   { value: "gpt-6-luna", label: "GPT-6 Luna", description: "Efficient" },
 ];
 
-export const courseGenerationInputSchema = z.object({
+const courseGenerationInputBaseSchema = z.object({
   prompt: z.string().max(5_000),
   audience: z.string().max(300),
   level: z.enum(["beginner", "intermediate", "advanced"]),
@@ -111,14 +111,29 @@ export const courseGenerationInputSchema = z.object({
   generateCoverImage: z.boolean().default(false),
   imageStyle: courseImageStyleSchema.default("auto"),
   customImageStyle: z.string().trim().max(240).default(""),
+  coverImageStyle: courseImageStyleSchema.optional(),
+  coverCustomImageStyle: z.string().trim().max(240).optional(),
   courseTitle: z.string().max(160),
   courseDescription: z.string().max(5_000),
   model: courseGenerationModelSchema.optional(),
-}).superRefine((input, context) => {
-  if ((input.includeImages || input.generateCoverImage) && input.imageStyle === "custom" && !input.customImageStyle) {
-    context.addIssue({ code: "custom", path: ["customImageStyle"], message: "Describe the custom image style." });
-  }
 });
+
+export const courseGenerationInputSchema = courseGenerationInputBaseSchema
+  .transform((input) => ({
+    ...input,
+    // Older saved sessions and clients used the lesson-image style for covers.
+    // Preserve that choice when the new independent cover fields are absent.
+    coverImageStyle: input.coverImageStyle ?? input.imageStyle,
+    coverCustomImageStyle: input.coverCustomImageStyle ?? input.customImageStyle,
+  }))
+  .superRefine((input, context) => {
+    if (input.includeImages && input.imageStyle === "custom" && !input.customImageStyle) {
+      context.addIssue({ code: "custom", path: ["customImageStyle"], message: "Describe the custom image style." });
+    }
+    if (input.generateCoverImage && input.coverImageStyle === "custom" && !input.coverCustomImageStyle) {
+      context.addIssue({ code: "custom", path: ["coverCustomImageStyle"], message: "Describe the custom cover image style." });
+    }
+  });
 
 export const generatedSourceInventorySchema = z
   .object({

@@ -139,6 +139,20 @@ describe.skipIf(!uri)("incremental course generation in MongoDB", () => {
     expect((await Course.findById(scope.courseId).lean())!.coverImage).toBe(cover.imageSrc);
     expect((await getCourseEditor(ownerId, scope.courseId)).theme.cover).toMatchObject({ template: "image", imageSrc: cover.imageSrc });
   });
+  it("uses the independent cover image style when planning a generated cover", async () => {
+    const styledInput = courseGenerationInputSchema.parse({
+      ...input,
+      includeImages: true,
+      generateCoverImage: true,
+      imageStyle: "flatIllustration",
+      coverImageStyle: "photorealistic",
+    });
+    await planSession(scope, styledInput);
+    expect(prepareOutlineCover).toHaveBeenCalledWith(ownerId, scope.courseId, outline, {
+      coverImageStyle: "photorealistic",
+      coverCustomImageStyle: "",
+    });
+  });
   it("preserves a course image added by an author while the outline is being reviewed", async () => {
     const cover = courseCoverSchema.parse({ template: "image", imageSrc: `/api/assets/${new Types.ObjectId()}/file`, titleOnly: true });
     vi.mocked(prepareOutlineCover).mockResolvedValueOnce({ generatedCover: true, cover });
