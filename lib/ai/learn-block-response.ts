@@ -24,6 +24,74 @@ const fieldsByType = {
   chart: ["chartType", "chartDescription", "chartColor", "chartFields"],
 } as const satisfies Record<BlockType, readonly string[]>;
 
+const nullBlockFieldDefaults: Record<string, unknown> = {
+  title: "",
+  body: "",
+  bullets: [],
+  style: "tip",
+  headingLevel: 2,
+  question: "",
+  options: [],
+  correctOptionIndex: 0,
+  correctFeedback: "",
+  incorrectFeedback: "",
+  minLabel: "",
+  maxLabel: "",
+  steps: [],
+  timelineStyle: "vertical",
+  timelineItems: [],
+  cards: [],
+  layout: "accordion",
+  displayMode: "all",
+  imageAlt: "",
+  imagePrompt: "",
+  imageLayout: "full",
+  imageTitle: "",
+  imageBody: "",
+  galleryImages: [],
+  videoSrc: "",
+  videoMimeType: "",
+  videoCaptions: "",
+  linkUrl: "",
+  linkLabel: "",
+  linkDescription: "",
+  dividerStyle: "continue",
+  dividerLabel: "Continue",
+  dividerCompletionType: "none",
+  markers: [],
+  markerColor: "",
+  textColor: "",
+  radarColor: "",
+  chartType: "bar",
+  chartDescription: "",
+  chartColor: "#4f46e5",
+  chartFields: [],
+  front: "",
+  back: "",
+  frontImagePrompt: "",
+  frontImageAlt: "",
+  backImagePrompt: "",
+  backImageAlt: "",
+  label: "",
+  description: "",
+  color: "",
+  src: "",
+  alt: "",
+  explanation: "",
+};
+
+function normalizeNullBlockFields(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(normalizeNullBlockFields);
+  if (!value || typeof value !== "object") return value;
+
+  return Object.fromEntries(Object.entries(value).map(([key, entry]) => [
+    key,
+    entry === null && Object.hasOwn(nullBlockFieldDefaults, key)
+      ? Array.isArray(nullBlockFieldDefaults[key]) ? [] : nullBlockFieldDefaults[key]
+      : normalizeNullBlockFields(entry),
+  ]));
+}
+
 export function createLearnBlockResponseSchema(properties: Record<string, object>) {
   return {
     anyOf: generatedBlockTypeValues.map((type) => {
@@ -49,7 +117,7 @@ export function expandLearnBlockResponse(value: unknown): unknown {
     ...result,
     blocks: result.blocks.map((block: unknown) => {
       if (!block || typeof block !== "object" || Array.isArray(block)) return block;
-      return {
+      return normalizeNullBlockFields({
         title: "",
         body: "",
         bullets: [],
@@ -61,7 +129,7 @@ export function expandLearnBlockResponse(value: unknown): unknown {
         imageAlt: "",
         imagePrompt: "",
         ...block,
-      };
+      });
     }),
   };
 }

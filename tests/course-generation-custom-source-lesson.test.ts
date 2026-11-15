@@ -4,6 +4,7 @@ import { prepareSessionLesson } from "@/lib/ai/generation/session-lesson";
 import { generateCourseSeed } from "@/lib/ai/generation/direct-course-workflow";
 import { generateLearnContentItem } from "@/lib/ai/generation/source-generation-content";
 import { assembleCourseDraft } from "@/lib/ai/generation/course-draft-assembler";
+import { generationCheckpointPayload } from "@/lib/ai/generation/generation-job-store";
 import { courseGenerationInputSchema, generatedSourceInventorySchema } from "@/lib/ai/course-generation-schemas";
 import type { CourseOutline } from "@/lib/ai/course-generation-session-schema";
 vi.mock("@/lib/ai/generation/direct-course-workflow", () => ({ generateCourseSeed: vi.fn() }));
@@ -11,8 +12,12 @@ vi.mock("@/lib/ai/generation/source-generation-content", () => ({ generateLearnC
 vi.mock("@/lib/ai/generation/course-draft-assembler", () => ({ assembleCourseDraft: vi.fn() }));
 vi.mock("@/lib/ai/generation/generation-job-store", () => ({ generationCheckpointPayload: vi.fn(async () => null), saveGenerationCheckpoint: vi.fn(), saveLearnWorkCheckpoint: vi.fn() }));
 describe("added Custom lessons with source material", () => {
-  it("generates a supplemental lesson from its objective without reassigning original source pages", async () => {
-    const input = courseGenerationInputSchema.parse({ prompt: "Teach HTML", audience: "Students", level: "beginner", lessonCount: 1, template: "custom", includeImages: false, courseTitle: "", courseDescription: "" });
+  it.each([false, true])("generates a supplemental lesson while recovering null image checkpoint fields: %s", async (savedImageCheckpoint) => {
+    const input = courseGenerationInputSchema.parse({ prompt: "Teach HTML", audience: "Students", level: "beginner", lessonCount: 1, template: "custom", includeImages: savedImageCheckpoint, courseTitle: "", courseDescription: "" });
+    if (savedImageCheckpoint) vi.mocked(generationCheckpointPayload).mockResolvedValueOnce({
+      title: "Original source lesson", objective: "Learn HTML", summary: "HTML source context",
+      blocks: [{ type: "image", title: null, body: null, imagePrompt: "An HTML document diagram", imageAlt: null, imageTitle: null, imageBody: null }],
+    } as never);
     const outline: CourseOutline = { title: "Course", description: "Description", sections: [{ id: "source", title: "Source", lessons: [{ id: "original", title: "Original source lesson", objective: "Learn HTML", kind: "learn", sourceIndex: 0 }] }, { id: "practice", title: "Practice", lessons: [{ id: "added", title: "Practice HTML", objective: "Build a page", kind: "learn" }] }] };
     vi.mocked(generateCourseSeed).mockResolvedValue({ title: "Course", description: "Description", sections: [{ title: "Practice", lessons: [{ title: "Practice HTML", objective: "Build a page", blocks: [] }] }], lessonOverview: [], keyTerms: [], preTest: [], postTest: [], lessonSummary: "Practice recap", nextLesson: "Next topic" });
     vi.mocked(assembleCourseDraft).mockResolvedValue({ title: "Course", description: "Description", sections: [{ id: "converted", title: "Practice", order: 0 }], lessons: [{ id: "converted", title: "Practice HTML", sectionId: "converted", order: 0, icon: "book", lessonType: "content", quizQuestions: [], blocks: [] }], template: "custom", learningLessonCount: 1, generatedImageCount: 0 });

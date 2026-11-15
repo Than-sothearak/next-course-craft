@@ -31,7 +31,13 @@ export const courseCoverSchema = z.object({
 export type CourseCover = z.infer<typeof courseCoverSchema>;
 export const defaultCourseCover: CourseCover = courseCoverSchema.parse({});
 
+// Standalone HTML resolves packaged media to browser object URLs at runtime.
+// Keep these temporary URLs out of the persisted course schema.
+export const courseCoverRenderSchema = courseCoverSchema.extend({
+  imageSrc: imageSource.or(z.string().url().startsWith("blob:")).default(""),
+});
+
 export function normalizeCourseCover(cover: unknown): CourseCover {
-  const parsed = courseCoverSchema.safeParse(cover);
+  const parsed = courseCoverRenderSchema.safeParse(cover);
   return parsed.success ? parsed.data : { ...defaultCourseCover };
 }

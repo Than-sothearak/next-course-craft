@@ -7,7 +7,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CourseCardImagePreview } from "@/components/course-card-image-preview";
 import { Progress } from "@/components/ui/progress";
 import { createClientId } from "@/lib/client-id";
 import { courseGenerationInputSchema, courseGenerationModelOptions, defaultCourseGenerationModel, type CourseGenerationInput, type SourceGenerationJobSnapshot } from "@/lib/ai/course-generation-schemas";
@@ -26,8 +25,7 @@ function GenerationSwitch({ label, checked, onChange }: {
   checked: boolean;
   onChange: (checked: boolean) => void;
 }) {
-  return <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-slate-200 px-3.5 py-3 text-sm font-medium text-slate-700 transition-colors hover:border-indigo-300 hover:bg-indigo-50/40 has-[:checked]:border-indigo-300 has-[:checked]:bg-indigo-50/60">
-    <span>{label}</span>
+  return <label className="inline-flex w-fit max-w-full cursor-pointer items-center gap-2 rounded-xl border border-slate-200 px-3.5 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:border-indigo-300 hover:bg-indigo-50/40 has-[:checked]:border-indigo-300 has-[:checked]:bg-indigo-50/60">
     <Checkbox
       role="switch"
       aria-label={label}
@@ -36,6 +34,7 @@ function GenerationSwitch({ label, checked, onChange }: {
       className="peer sr-only"
     />
     <span aria-hidden="true" className="relative h-5 w-9 shrink-0 rounded-full bg-slate-200 transition-colors after:absolute after:left-0.5 after:top-0.5 after:size-4 after:rounded-full after:bg-white after:shadow-sm after:transition-transform peer-checked:bg-indigo-600 peer-checked:after:translate-x-4 peer-focus-visible:ring-2 peer-focus-visible:ring-indigo-500 peer-focus-visible:ring-offset-2" />
+    <span>{label}</span>
   </label>;
 }
 export function CourseGenerationWizard({ open, onClose, courseId, courseTitle, courseDescription, existingLessonCount, runServerMutation, onStarted, savedSession }: {
@@ -176,6 +175,7 @@ export function CourseGenerationWizard({ open, onClose, courseId, courseTitle, c
           checked={input.generateCoverImage}
           onChange={(checked) => change("generateCoverImage", checked)}
         />
+        {input.generateCoverImage && <p className="text-xs text-slate-500">Image generation can take longer.</p>}
         <Field label="Source material (optional PDF or PowerPoint)"><Input type="file" accept=".pdf,.pptx" onChange={(event) => { sourceChoiceRef.current = true; window.localStorage.removeItem(`course-generation-source:${courseId}`); setFile(event.target.files?.[0] ?? null); setSource(null); setPlanned(null); setOutline(null); }} /></Field>
         {source?.uncertainSourcePages?.length ? <p role="alert" className="text-sm text-amber-800">Some source content was difficult to read on pages {source.uncertainSourcePages.join(", ")}. Review the source and the generated lessons carefully.</p> : null}
         <p className="text-xs text-slate-500">Upload a PDF or PPTX up to 12 MB, or continue using only your prompt.</p>
@@ -204,12 +204,12 @@ export function CourseGenerationWizard({ open, onClose, courseId, courseTitle, c
           checked={input.includeImages}
           onChange={(checked) => change("includeImages", checked)}
         />
+        {input.includeImages && <p className="text-xs text-slate-500">Image generation can take longer.</p>}
         {source && <p className="text-xs text-slate-500">Source grouping determines the learning lesson count so every source page is covered.</p>}
       </>}
       {step === 2 && outline && <>
         <p className="text-sm text-slate-600">Review and correct the outline before lesson writing begins. Approval saves this outline and opens lesson drafts in the course editor.</p>
         {customOutline && <Button variant="outline" size="sm" disabled={outline.sections.length >= 10 || outline.sections.flatMap((section) => section.lessons).length >= 20} onClick={addOutlineSection}><Plus size={14} />Add section</Button>}
-        {planned?.cover?.imageSrc && <CourseCardImagePreview imageSrc={planned.cover.imageSrc} imageAlt={planned.cover.imageAlt} title={outline.title} />}
         {planned?.coverWarning && <p role="status" className="rounded-lg bg-amber-50 p-3 text-sm text-amber-800">{planned.coverWarning}</p>}
         <Field label="Course title"><Input value={outline.title} maxLength={160} onChange={(event) => editOutline((value) => ({ ...value, title: event.target.value }))} /></Field>
         <Field label="Course description"><Textarea value={outline.description} maxLength={5_000} onChange={(event) => editOutline((value) => ({ ...value, description: event.target.value }))} /></Field>

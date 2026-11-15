@@ -11,10 +11,42 @@ const session: GenerationSessionSnapshot = {
 };
 let container: HTMLDivElement, root: Root;
 beforeEach(() => { vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true); container = document.createElement("div"); document.body.append(container); root = createRoot(container); });
-afterEach(() => { act(() => root.unmount()); container.remove(); vi.unstubAllGlobals(); });
+afterEach(() => { act(() => root.unmount()); container.remove(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 const click = async (text: string) => act(async () => { const button = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes(text)); expect(button).toBeTruthy(); button!.click(); });
 
 describe("saved lesson progress", () => {
+  it("estimates the active lesson inside the single shimmering course bar", async () => {
+    vi.useFakeTimers();
+    const tenLessons = { ...session, outline: { ...session.outline, sections: [{ ...session.outline.sections[0], lessons: Array.from({ length: 10 }, (_, index) => ({ ...session.outline.sections[0].lessons[0], id: `lesson-${index}` })) }] } };
+    const props = { session: tenLessons, running: true, error: "", onRetry: () => {}, onCancel: () => {}, onSelectLesson: () => {} };
+    await act(async () => root.render(<CourseGenerationProgress {...props} />));
+    const progressBar = container.querySelector<HTMLElement>('[role="progressbar"]')!;
+    expect(container.querySelectorAll('[role="progressbar"]')).toHaveLength(1);
+    expect(progressBar.getAttribute("aria-label")).toBe("Estimated course generation progress");
+    expect(progressBar.getAttribute("aria-valuenow")).toBe("0");
+    expect(progressBar.className).toContain("lesson-generation-progress-shimmer");
+
+    await act(async () => { vi.advanceTimersByTime(15_000); });
+    expect(progressBar.getAttribute("aria-valuenow")).toBe("3");
+    expect(progressBar.getAttribute("aria-valuetext")).toContain("current lesson estimate: 26%");
+    await act(async () => { vi.advanceTimersByTime(45_000); });
+    expect(progressBar.getAttribute("aria-valuenow")).toBe("7");
+    expect(container.querySelector('[role="status"]')?.textContent).toBe("0 of 10 lessons generated and saved · 0%");
+    await act(async () => { vi.advanceTimersByTime(60_000); });
+    expect(progressBar.getAttribute("aria-valuenow")).toBe("8");
+    await act(async () => { vi.advanceTimersByTime(120_000); });
+    expect(progressBar.getAttribute("aria-valuenow")).toBe("8");
+
+    const nextLesson = { ...tenLessons, completedLessonIds: ["lesson-0"], currentLessonId: "lesson-1" };
+    await act(async () => root.render(<CourseGenerationProgress {...props} session={nextLesson} />));
+    expect(progressBar.getAttribute("aria-valuenow")).toBe("10");
+    await act(async () => { vi.advanceTimersByTime(60_000); });
+    expect(progressBar.getAttribute("aria-valuenow")).toBe("17");
+    await act(async () => { vi.advanceTimersByTime(60_000); });
+    expect(progressBar.getAttribute("aria-valuenow")).toBe("18");
+    expect(container.querySelector('[role="status"]')?.textContent).toBe("1 of 10 lessons generated and saved · 10%");
+  });
+
   it("shows waiting for existing work without treating lock contention as a failed lesson", async () => {
     await act(async () => root.render(<CourseGenerationProgress session={{ ...session, completedLessonIds: ["lesson-0"], currentLessonId: "lesson-1", lease: { locked: true, retryAfterMs: 2_000 } }} running error="" onRetry={() => {}} onCancel={() => {}} onSelectLesson={() => {}} />));
     expect(container.textContent).toContain("Waiting for ongoing generation of lesson 2: HTML 2");

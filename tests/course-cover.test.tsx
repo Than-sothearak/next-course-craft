@@ -49,10 +49,23 @@ describe("course cover templates", () => {
     expect(html).not.toContain("<img");
   });
 
-  it.each(["./media/123456789012345678901234.png", "data:image/png;base64,aGVsbG8="])("keeps rewritten offline image sources: %s", (imageSrc) => {
+  it.each(["./media/123456789012345678901234.png", "data:image/png;base64,aGVsbG8=", "blob:null/4328d98e-a963-4d70-9341-d4f8a8f06e6c"])("keeps rewritten offline image sources: %s", (imageSrc) => {
     const theme = normalizeCourseTheme({ ...defaultCourseTheme, cover: { template: "image", imageSrc } });
     expect(theme.cover?.imageSrc).toBe(imageSrc);
     expect(renderToStaticMarkup(<CourseCover cover={theme.cover} primaryColor={theme.primaryColor} accentColor={theme.accentColor}>Title</CourseCover>)).toContain(`src="${imageSrc}"`);
+  });
+
+  it("renders the exported theme cover after embedded media resolves to an object URL", () => {
+    const imageSrc = "blob:null/4328d98e-a963-4d70-9341-d4f8a8f06e6c";
+    const theme = { ...defaultCourseTheme, primaryColor: "#123456", cover: { ...defaultCourseCover, template: "image" as const, imageSrc, imageAlt: "Exported cover" } };
+    const snapshot = parseScorm12Snapshot(base);
+    const html = renderToStaticMarkup(createElement(CoursePreview, { initialData: { ...snapshot, courseId: "course", theme }, authorName: "Author", standalone: true }));
+    expect(html).toContain('data-course-cover="image"');
+    expect(html).toContain(`src="${imageSrc}"`);
+    expect(html).toContain('alt="Exported cover"');
+    expect(html).toContain("background-color:#123456");
+    expect(courseThemeSchema.safeParse(theme).success).toBe(false);
+    expect(courseCoverSchema.safeParse(theme.cover).success).toBe(false);
   });
 
   it.each([

@@ -46,8 +46,19 @@
 .process-slider-enter-previous { animation: process-slider-from-left 280ms ease-out both; }
 @keyframes process-slider-from-right { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 @keyframes process-slider-from-left { from { transform: translateX(-100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+.lesson-generation-progress-shimmer > div { position: relative; overflow: hidden; }
+.lesson-generation-progress-shimmer > div::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(105deg, transparent 25%, rgb(255 255 255 / 0.06) 40%, rgb(255 255 255 / 0.24) 50%, rgb(255 255 255 / 0.06) 60%, transparent 75%);
+  transform: translateX(-100%);
+  animation: lesson-generation-progress-shine 3.6s ease-in-out infinite;
+}
+@keyframes lesson-generation-progress-shine { to { transform: translateX(100%); } }
 @media (prefers-reduced-motion: reduce) {
   .process-slider-enter-next, .process-slider-enter-previous { animation: none; }
+  .lesson-generation-progress-shimmer > div::after { animation: none; transform: translateX(0); opacity: 0.35; }
 }
 
 [data-quiz-container] { container-type: inline-size; container-name: quiz; }

@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useState } from "react";
 import { Check, LoaderCircle, Sparkles, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -7,11 +8,35 @@ import type { GenerationSessionSnapshot } from "@/lib/ai/course-generation-sessi
 export function CourseGenerationProgress({ session, running, error, onRetry, onCancel, onSelectLesson, onClose }: {
   session: GenerationSessionSnapshot | null; running: boolean; error: string; onRetry: () => void; onCancel: () => void; onSelectLesson: (id: string) => void; onClose?: () => void;
 }) {
+  const [simulatedProgress, setSimulatedProgress] = useState<{ key: string; value: number } | null>(null);
+  const activeGeneration = Boolean(session?.status === "generating" && session.currentLessonId && running && !error);
+  const progressKey = session?.currentLessonId ? `${session.id}:${session.currentLessonId}` : "";
+  const currentLessonProgress = activeGeneration && progressKey
+    ? simulatedProgress?.key === progressKey ? simulatedProgress.value : 0
+    : 0;
+  useEffect(() => {
+    if (!activeGeneration || !progressKey) return;
+
+    const startedAt = Date.now();
+    const timer = window.setInterval(() => {
+      const elapsed = Date.now() - startedAt;
+      // Fill 70% of this lesson's share after one minute and cap at 80% after two.
+      const fraction = Math.min(1, elapsed / 120_000);
+      const value = Math.round(80 * (1 - (1 - fraction) ** 3));
+      setSimulatedProgress({ key: progressKey, value });
+      if (fraction >= 1) window.clearInterval(timer);
+    }, 1_000);
+    return () => window.clearInterval(timer);
+  }, [activeGeneration, progressKey]);
+
   const panelClassName = "fixed bottom-4 left-4 z-40 max-h-[calc(100dvh-2rem)] w-[22rem] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl border border-indigo-200 bg-white p-4 shadow-xl";
   if (!session || session.status === "outline") return error ? <div className={panelClassName}><div className="flex items-start justify-between gap-3"><p role="alert" className="text-sm text-rose-700">{error}</p>{onClose && <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close lesson drafts"><X size={16} /></Button>}</div></div> : null;
   const lessons = session.outline.sections.flatMap((section) => section.lessons);
   const complete = session.completedLessonIds.length;
   const percentage = Math.round(complete / lessons.length * 100);
+  const displayedPercentage = activeGeneration
+    ? Math.round((complete + currentLessonProgress / 100) / lessons.length * 100)
+    : percentage;
   const current = lessons.find((lesson) => lesson.id === session.currentLessonId);
   const currentIsQuiz = current?.kind === "preTest" || current?.kind === "postTest";
   const currentType = currentIsQuiz ? "quiz" : "lesson";
@@ -37,7 +62,14 @@ export function CourseGenerationProgress({ session, running, error, onRetry, onC
       <div className="flex flex-wrap items-center justify-between gap-3"><div>
         <p role="status" aria-live="polite" className="mt-1 text-sm text-slate-600">{complete} of {lessons.length} lessons generated and saved · {percentage}%</p>
       </div><div className="flex gap-2">{error && session.status === "generating" && <Button size="sm" variant="outline" onClick={onRetry}>Retry / resume</Button>}{session.status === "generating" && <Button size="sm" variant="outline" onClick={onCancel}>Cancel remaining</Button>}</div></div>
-      <Progress value={percentage} aria-label="Lessons saved to database" className="mt-3" />
+      <Progress
+        value={displayedPercentage}
+        aria-label={activeGeneration ? "Estimated course generation progress" : "Lessons saved to database"}
+        aria-valuetext={activeGeneration
+          ? `${displayedPercentage}% estimated course progress; current lesson estimate: ${currentLessonProgress}%; ${complete} of ${lessons.length} lessons saved.`
+          : `${percentage}% of lessons saved.`}
+        className={activeGeneration ? "mt-3 lesson-generation-progress-shimmer" : "mt-3"}
+      />
       {!completed && <p className="mt-2 flex min-w-0 items-center gap-1 text-xs text-slate-600">{running && <LoaderCircle size={12} className="shrink-0 animate-spin" />}<span data-generation-current-lesson title={activity} className="min-w-0 flex-1 truncate">{activity}</span></p>}
       {error && session.status === "generating" && <p role="alert" className="mt-2 text-sm text-rose-700">{error}</p>}
       <details className="mt-3 text-xs"><summary className="cursor-pointer text-slate-600">Lesson status</summary><ol className="mt-2 max-h-44 space-y-1 overflow-y-auto">{lessons.map((lesson) => <li key={lesson.id} className="flex items-center justify-between gap-3">{!session.completedLessonIds.includes(lesson.id) ? <div className="min-w-0 flex-1 py-1" aria-label="Lesson draft loading"><Skeleton className="h-3 w-3/4" /></div> : <Button variant="ghost" size="sm" className="h-auto min-w-0 justify-start truncate px-1 text-xs" onClick={() => onSelectLesson(lesson.id)}>{lesson.title}</Button>}{session.completedLessonIds.includes(lesson.id) ? <span role="img" aria-label="Saved" title="Saved" className="shrink-0 text-emerald-600"><Check size={16} aria-hidden="true" /></span> : <span className="shrink-0 text-slate-500">{lesson.id === session.currentLessonId ? error ? "Failed" : "Generating" : "Pending"}</span>}</li>)}</ol></details>

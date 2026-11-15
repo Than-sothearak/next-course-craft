@@ -48,6 +48,37 @@ describe("compact Learn block responses", () => {
     expect(generatedBlockSeedSchema.safeParse(expanded.blocks[0]).success).toBe(false);
   });
 
+  it("normalizes null generated block fields before schema validation", () => {
+    const expanded = expandCourseBlockResponse({ sections: [{ lessons: [{ blocks: [{
+      type: "image",
+      sourceElementIds: [],
+      title: null,
+      body: null,
+      imagePrompt: "A diagram that explains the concept.",
+      imageAlt: null,
+      imageLayout: null,
+      imageTitle: null,
+      imageBody: null,
+      videoSrc: null,
+      linkLabel: null,
+      cards: [{ front: null, back: "Answer", frontImagePrompt: null, frontImageAlt: null, backImagePrompt: null, backImageAlt: null }],
+    }] }] }] }) as { sections: { lessons: { blocks: unknown[] }[] }[] };
+    const parsed = generatedBlockSeedSchema.parse(expanded.sections[0].lessons[0].blocks[0]);
+
+    expect(parsed).toMatchObject({
+      title: "",
+      body: "",
+      imagePrompt: "A diagram that explains the concept.",
+      imageAlt: "",
+      imageLayout: "full",
+      imageTitle: "",
+      imageBody: "",
+      videoSrc: "",
+      linkLabel: "",
+      cards: [{ front: "", back: "Answer", frontImagePrompt: "", frontImageAlt: "", backImagePrompt: "", backImageAlt: "" }],
+    });
+  });
+
   it("preserves text fallbacks alongside image prompts on both flip-card faces", () => {
     const card = {
       front: "Flexbox container",

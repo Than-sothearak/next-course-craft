@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { courseCoverSchema } from "./course-cover";
+import { courseCoverRenderSchema, courseCoverSchema } from "./course-cover";
 
 export const courseThemePresetIds = [
   "ocean",
@@ -57,8 +57,10 @@ export function createCourseThemePreset(preset: (typeof courseThemePresets)[numb
   });
 }
 
+const courseThemeRenderSchema = courseThemeSchema.extend({ cover: courseCoverRenderSchema.optional() });
+
 export function normalizeCourseTheme(theme: unknown): CourseTheme {
-  const parsed = courseThemeSchema.safeParse(theme ?? {});
+  const parsed = courseThemeRenderSchema.safeParse(theme ?? {});
   return parsed.success ? parsed.data : { ...defaultCourseTheme };
 }
 

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { expandLearnBlockResponse } from "../learn-block-response";
 import { DashboardError } from "@/lib/dashboard/rules";
 import { editorLessonSchema } from "@/lib/editor/schemas";
 import type { CourseGenerationInput, GeneratedSourceInventory, GeneratedCourseSeed } from "../course-generation-schemas";
@@ -24,7 +25,7 @@ export async function prepareSessionLesson({ job, input, model, outline, item, i
   const previous: z.infer<typeof generatedLearnItemSchema>[] = [];
   for (const lesson of learnItems.filter((lesson) => lesson.id !== item.id)) {
     const stored = await generationCheckpointPayload(job, "sessionSeed", lesson.id);
-    if (stored) previous.push(generatedLearnItemSchema.parse(stored));
+    if (stored) previous.push(generatedLearnItemSchema.parse(expandLearnBlockResponse(stored)));
   }
   const plan: SourceCoursePlan = {
     title: outline.title, description: outline.description, objectives: learnItems.map((lesson) => lesson.objective),
@@ -41,7 +42,7 @@ export async function prepareSessionLesson({ job, input, model, outline, item, i
         pages, savedWork: await generationCheckpointPayload(job, "learnWork", item.id),
         loadPart: async (key) => {
           const part = await generationCheckpointPayload(job, "sessionPart", `${item.id}:${key}`);
-          return part == null ? null : generatedLearnItemSchema.parse(part);
+          return part == null ? null : generatedLearnItemSchema.parse(expandLearnBlockResponse(part));
         },
         savePart: (key, result) => saveGenerationCheckpoint(job, "sessionPart", `${item.id}:${key}`, result),
         saveWork: (work) => saveLearnWorkCheckpoint(job, item.id, work),

@@ -2,6 +2,7 @@ import { Types, type FilterQuery, type UpdateQuery } from "mongoose";
 import { GenerationJob } from "@/models/GenerationJob";
 import { GenerationCheckpoint } from "@/models/GenerationCheckpoint";
 import type { SourceLearnWork } from "../source-learn-work";
+import { checkpointPayloadForStorage, restoreGenerationImageFields } from "./checkpoint-payload";
 
 type GenerationJobFilter = FilterQuery<Record<string, unknown>>;
 type GenerationJobUpdate = UpdateQuery<Record<string, unknown>>;
@@ -60,7 +61,7 @@ export async function saveGenerationCheckpoint(
         courseId: job.courseId,
         stage,
         unitKey,
-        payload,
+        payload: checkpointPayloadForStorage(payload),
         expiresAt: job.expiresAt,
       },
     },
@@ -76,7 +77,7 @@ export async function saveLearnWorkCheckpoint(
   await GenerationCheckpoint.updateOne(
     { jobId: job._id, ownerId: job.ownerId, courseId: job.courseId, stage: "learnWork", unitKey },
     {
-      $set: { payload, expiresAt: job.expiresAt },
+      $set: { payload: checkpointPayloadForStorage(payload), expiresAt: job.expiresAt },
       $setOnInsert: { jobId: job._id, ownerId: job.ownerId, courseId: job.courseId, stage: "learnWork", unitKey },
     },
     { upsert: true },
@@ -95,5 +96,5 @@ export async function generationCheckpointPayload(
     stage,
     unitKey,
   }).lean() as { payload?: unknown } | null;
-  return checkpoint?.payload ?? null;
+  return checkpoint?.payload == null ? null : restoreGenerationImageFields(checkpoint.payload);
 }

@@ -95,15 +95,32 @@ describe("AI course review wizard", () => {
   it("uses switch controls for image options and submits the enabled cover choice", async () => {
     await renderWizard();
     const coverSwitch = container.querySelector<HTMLInputElement>('[role="switch"][aria-label="Generate course cover image"]')!;
+    const coverLabel = coverSwitch.closest("label")!;
+    expect(coverLabel.className).toContain("inline-flex w-fit");
+    expect(coverLabel.classList.contains("w-full")).toBe(false);
+    expect(coverLabel.children[0]).toBe(coverSwitch);
+    expect(coverLabel.children[1].getAttribute("aria-hidden")).toBe("true");
+    expect(coverLabel.children[2].textContent).toBe("Generate course cover image");
     expect(coverSwitch.checked).toBe(false);
     expect(container.textContent).not.toContain("Used on the dashboard card and as the learner cover");
     await act(async () => coverSwitch.click());
     expect(coverSwitch.checked).toBe(true);
+    expect(container.textContent).toContain("Image generation can take longer.");
     await click("Continue to course details");
-    expect(container.querySelector('[role="switch"][aria-label="Generate supplemental images"]')).not.toBeNull();
-    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ ...session, input: { ...input, generateCoverImage: true } })));
+    const supplementalSwitch = container.querySelector<HTMLInputElement>('[role="switch"][aria-label="Generate supplemental images"]')!;
+    const supplementalLabel = supplementalSwitch.closest("label")!;
+    expect(supplementalLabel.className).toContain("inline-flex w-fit");
+    expect(supplementalLabel.classList.contains("w-full")).toBe(false);
+    expect(supplementalLabel.children[0]).toBe(supplementalSwitch);
+    expect(supplementalLabel.children[1].getAttribute("aria-hidden")).toBe("true");
+    expect(supplementalLabel.children[2].textContent).toBe("Generate supplemental images");
+    expect(container.textContent).not.toContain("Image generation can take longer.");
+    await act(async () => supplementalSwitch.click());
+    expect(supplementalSwitch.checked).toBe(true);
+    expect(container.textContent).toContain("Image generation can take longer.");
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ ...session, input: { ...input, includeImages: true, generateCoverImage: true } })));
     await click("Generate outline");
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body).input.generateCoverImage).toBe(true);
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).input).toMatchObject({ includeImages: true, generateCoverImage: true });
   });
   it("removes and reorders Custom sections and preserves the reviewed lesson order", async () => {
     const custom: GenerationSessionSnapshot = { ...session, outline: { ...session.outline, sections: [session.outline.sections[0],
@@ -161,14 +178,12 @@ describe("AI course review wizard", () => {
     expect(new Set(ids).size).toBe(7);
   });
 
-  it("previews the prepared course-card image with the editable title below it", async () => {
+  it("does not show a generated cover preview in the outline review", async () => {
     await renderWizard({ ...session, cover: courseCoverSchema.parse({ template: "image", imageSrc: "/api/assets/507f1f77bcf86cd799439014/file", titleOnly: true }) });
-    const preview = container.querySelector('[aria-label="Course card image preview"]')!;
-    expect(preview.querySelector("img")?.classList.contains("aspect-video")).toBe(true);
-    expect(preview.textContent).toBe("HTML course");
+    expect(container.querySelector('[aria-label="Course card image preview"]')).toBeNull();
     const title = [...container.querySelectorAll("label")].find((label) => label.textContent === "Course title")!.querySelector("input")!;
     await type(title, "Updated course title");
-    expect(preview.textContent).toBe("Updated course title");
+    expect(title.value).toBe("Updated course title");
     expect(fetchMock).not.toHaveBeenCalled();
   });
   it("keeps approval available when the outline has a cover warning", async () => {
