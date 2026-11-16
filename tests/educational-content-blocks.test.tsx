@@ -10,9 +10,6 @@ import { reflowLongParagraphs } from "@/lib/editor/reflow-long-paragraphs";
 import { blockTemplates } from "@/app/courses/[courseId]/edit/_components/(editor_client_components)/(block_template_picker_components)/block-template-data";
 import { createBlocksFromTemplate } from "@/app/courses/[courseId]/edit/_components/(editor_client_components)/(block_template_picker_components)/create-blocks-from-template";
 import { TemplatePreview } from "@/app/courses/[courseId]/edit/_components/(editor_client_components)/(block_template_picker_components)/template-preview";
-import { EducationalFormula } from "@/components/educational-formula";
-import { EducationalTable } from "@/components/educational-table";
-import { EducationalChecklist } from "@/components/educational-checklist";
 import { PreviewBlock } from "@/app/courses/[courseId]/preview/_components/(course_preview_components)/(lesson_reader_preview_components)/(lesson_blocks_preview_components)/preview-block";
 import { BlockTemplatePicker } from "@/app/courses/[courseId]/edit/_components/(editor_client_components)/block-template-picker";
 
@@ -22,6 +19,8 @@ const originalGlobals = {
   NodeFilter: globalThis.NodeFilter,
 };
 
+// This project uses jsdom at runtime without installing its optional type package.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { JSDOM } = require("jsdom") as {
   JSDOM: new () => { window: { DOMParser: typeof DOMParser; document: Document; NodeFilter: typeof NodeFilter } };
 };

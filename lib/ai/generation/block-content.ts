@@ -321,7 +321,6 @@ export function addCustomTemplateFirstLessonActivities(
     blocks: [...lesson.blocks],
   }));
   const firstSectionId = sections[0]?.id;
-  const lastSectionId = sections.at(-1)?.id;
   const firstLesson = orderedLessons.find(
     (lesson) => lesson.sectionId === firstSectionId,
   );
