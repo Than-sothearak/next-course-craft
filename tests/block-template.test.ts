@@ -279,7 +279,7 @@ describe("prebuilt lesson link templates", () => {
 });
 
 describe("prebuilt lesson list templates", () => {
-  it("uses a vector check icon and a consistent card treatment for checklist previews", () => {
+  it("uses a vector check icon and an unboxed divider list for checklist previews", () => {
     const listPreview = renderToStaticMarkup(createElement(ListTemplatePreview, { style: "check" }));
     const nativePreview = renderToStaticMarkup(createElement(EducationalChecklist, { title: "Key points", items: ["Review the example"] }));
 
@@ -287,7 +287,10 @@ describe("prebuilt lesson list templates", () => {
     expect(listPreview).toContain('aria-hidden="true"');
     expect(listPreview).toContain("rounded-xl border");
     expect(nativePreview).toContain("<svg");
-    expect(nativePreview).toContain("rounded-lg border");
+    expect(nativePreview).toContain("divide-y divide-slate-200/80");
+    expect(nativePreview).toContain("rounded-full");
+    expect(nativePreview).toContain("var(--course-primary");
+    expect(nativePreview).not.toContain("rounded-lg border");
     expect(nativePreview).not.toContain("âœ");
   });
 
@@ -444,10 +447,12 @@ describe("prebuilt interactive block templates", () => {
       "interactive-balloon-archer",
       "interactive-button",
       "interactive-reveal",
+      "language-vocabulary-cards",
       "interactive-accordion",
       "interactive-tabs",
       "interactive-labeled-graphic",
       "interactive-process-steps",
+      "science-experiment-protocol",
       "interactive-sequence-data",
       "interactive-sequence-it",
       "interactive-sequence-agriculture",
@@ -466,7 +471,7 @@ describe("prebuilt interactive block templates", () => {
       }),
     );
 
-    expect(interactiveTemplates.filter((item) => item.type === "flipCard")).toHaveLength(1);
+    expect(interactiveTemplates.filter((item) => item.type === "flipCard")).toHaveLength(2);
     expect(insertedById.get("interactive-reveal")).toMatchObject({
       type: "flipCard",
       width: "medium",
@@ -544,14 +549,15 @@ describe("prebuilt interactive block templates", () => {
     const flipCardTemplates = blockTemplates.filter(
       (item) => item.category === "Interactive" && item.type === "flipCard",
     );
-    expect(flipCardTemplates.map((item) => item.id)).toEqual(["interactive-reveal"]);
+    expect(flipCardTemplates.map((item) => item.id)).toEqual(["interactive-reveal", "language-vocabulary-cards"]);
 
+    const template = flipCardTemplates.find((item) => item.id === "interactive-reveal")!;
     const markup = renderToStaticMarkup(
-      createElement(TemplatePreview, { template: flipCardTemplates[0] }),
+      createElement(TemplatePreview, { template }),
     );
     expect(markup.match(/data-template-preview-card=/g)).toHaveLength(2);
-    expect(flipCardTemplates[0].flipCard?.cards).toHaveLength(2);
-    const inserted = createBlocksFromTemplate(flipCardTemplates[0], "flip-card")[0];
+    expect(template.flipCard?.cards).toHaveLength(2);
+    const inserted = createBlocksFromTemplate(template, "flip-card")[0];
     expect(inserted.type === "flipCard" && inserted.data.cards).toHaveLength(2);
   });
 

@@ -18,8 +18,24 @@ const examples = {
   flipCard: { cards: [{ front: "Flexbox", back: "A layout system", frontImagePrompt: "", frontImageAlt: "", backImagePrompt: "", backImageAlt: "" }] },
   accordion: { steps: [{ title: "Block", body: "Uses block layout." }, { title: "Flex", body: "Uses flex layout." }], layout: "tabs", displayMode: "all" },
   labeledGraphic: { imagePrompt: "A diagram of the main axis", imageAlt: "Main axis diagram", markers: [{ label: "Main axis", description: "The direction of item flow.", x: 50, y: 50, color: "" }], markerColor: "", textColor: "", radarColor: "" },
-  processSteps: { steps: [{ title: "Select", body: "Select the container." }, { title: "Apply", body: "Apply display: flex." }] },
+  processSteps: { activityMode: "guided", steps: [{ title: "Select", body: "Select the container." }, { title: "Apply", body: "Apply display: flex." }] },
   timeline: { timelineStyle: "vertical", timelineItems: [{ label: "1990", title: "First event", body: "The beginning." }, { label: "2000", title: "Next event", body: "A later milestone." }] },
+  conceptMap: {
+    conceptMapCentralConcept: "Flexbox",
+    conceptMapCentralExplanation: "A one-dimensional layout model.",
+    conceptMapBranches: [
+      { relationship: "controls", concept: "Main axis", explanation: "Sets the primary flow direction." },
+      { relationship: "aligns", concept: "Cross axis", explanation: "Runs perpendicular to the main axis." },
+    ],
+  },
+  databaseSchema: {
+    databaseDescription: "A customer places orders.",
+    databaseEntities: [
+      { name: "Customer", description: "", fields: [{ name: "id", type: "uuid", nullable: false, keyType: "primary" }] },
+      { name: "Order", description: "", fields: [{ name: "customer_id", type: "uuid", nullable: false, keyType: "foreign" }] },
+    ],
+    databaseRelationships: [{ fromEntity: "Customer", fromField: "id", toEntity: "Order", toField: "customer_id", label: "places", cardinality: "one-to-many" }],
+  },
   chart: { title: "Sizes", chartType: "bar", chartDescription: "Source size values.", chartColor: "#4f46e5", chartFields: [{ label: "First", value: 16 }] },
   formula: { formulaLatex: "E=mc^2", formulaExplanation: "Energy equals mass times light speed squared.", formulaVariables: [{ symbol: "E", explanation: "Energy" }] },
   table: { tableCaption: "Compare layouts", tableColumns: ["Type", "Use"], tableRows: [["Flex", "One dimension"]] },
@@ -79,6 +95,20 @@ describe("compact Learn block responses", () => {
       videoSrc: "",
       linkLabel: "",
       cards: [{ front: "", back: "Answer", frontImagePrompt: "", frontImageAlt: "", backImagePrompt: "", backImageAlt: "" }],
+    });
+  });
+
+  it("normalizes nullable database-field attributes to their neutral seed values", () => {
+    const expanded = expandLearnBlockResponse({ blocks: [{
+      type: "databaseSchema",
+      title: "Orders",
+      databaseEntities: [{ name: "Order", description: "", fields: [{ name: "order_id", type: "uuid", nullable: null, keyType: null }] }],
+      databaseRelationships: null,
+    }] }) as { blocks: { databaseEntities: { fields: { nullable: boolean; keyType: string }[] }[]; databaseRelationships: unknown[] }[] };
+
+    expect(expanded.blocks[0]).toMatchObject({
+      databaseEntities: [{ fields: [{ nullable: false, keyType: "" }] }],
+      databaseRelationships: [],
     });
   });
 

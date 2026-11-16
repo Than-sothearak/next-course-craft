@@ -22,8 +22,10 @@ const fieldsByType = {
   flipCard: ["cards"],
   accordion: ["steps", "layout", "displayMode"],
   labeledGraphic: ["imagePrompt", "imageAlt", "markers", "markerColor", "textColor", "radarColor"],
-  processSteps: ["steps"],
+  conceptMap: ["conceptMapCentralConcept", "conceptMapCentralExplanation", "conceptMapBranches"],
+  processSteps: ["steps", "activityMode"],
   timeline: ["timelineStyle", "timelineItems"],
+  databaseSchema: ["databaseDescription", "databaseEntities", "databaseRelationships"],
   chart: ["chartType", "chartDescription", "chartColor", "chartFields"],
 } as const satisfies Record<BlockType, readonly string[]>;
 
@@ -88,6 +90,15 @@ const nullBlockFieldDefaults: Record<string, unknown> = {
   tableColumns: [],
   tableRows: [],
   checklistItems: [],
+  activityMode: "guided",
+  conceptMapCentralConcept: "",
+  conceptMapCentralExplanation: "",
+  conceptMapBranches: [],
+  databaseDescription: "",
+  databaseEntities: [],
+  databaseRelationships: [],
+  nullable: false,
+  keyType: "",
 };
 
 function normalizeNullBlockFields(value: unknown): unknown {

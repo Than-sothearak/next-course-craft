@@ -18,6 +18,7 @@ import { SlideMediaObject } from "@/app/courses/[courseId]/_components/slide-pre
 import { SlideGallery } from "@/app/courses/[courseId]/_components/slide-presentation/slide-gallery";
 import { GalleryCarousel } from "@/components/gallery-carousel";
 import { TimelineBlock } from "@/components/timeline-block";
+import { DatabaseSchema } from "@/components/database-schema";
 import { BalloonArcher } from "@/components/balloon-archer";
 import { PeelToReveal } from "@/components/physics-interaction/peel-to-reveal";
 import { HangingRopeCards } from "@/components/physics-interaction/hanging-rope-cards";
@@ -28,7 +29,7 @@ import { StatementBlockPreview } from "../../../../../edit/_components/statement
 import { StatementTextPreview } from "../../../../../edit/_components/statement-text-preview";
 import { ChartBlockPreview } from "../../../../chart-block";
 import { InteractiveLessonMap } from "@/components/lesson-map";
-import { getInteractiveItemProgressId } from "@/lib/export/progress";
+import { getInteractiveItemProgressId, getProcessOrderingProgressId } from "@/lib/export/progress";
 import { blockSurfaceStyle, blockWidthClass } from "../../preview-utils";
 import { AudioInstruction } from "@/app/courses/[courseId]/_components/slide-presentation/audio-instruction";
 import { InteractionButton } from "@/app/courses/[courseId]/_components/slide-presentation/interaction-button";
@@ -38,6 +39,7 @@ import { getYouTubeEmbedUrl } from "@/lib/media/youtube";
 import { EducationalFormula } from "@/components/educational-formula";
 import { EducationalTable } from "@/components/educational-table";
 import { EducationalChecklist } from "@/components/educational-checklist";
+import { ConceptMap } from "@/components/concept-map";
 import { isInteractionTarget, scopePopupBlocks } from "@/lib/editor/interaction-button";
 import type { PreviewDevice, PreviewOrientation } from "../../preview-types";
 export function PreviewBlock({
@@ -134,7 +136,11 @@ export function PreviewBlock({
   if (slideLayout && block.type === "audio") return <SlideMediaPlayer key={block.data.src} block={block} {...tracking} requireFullPlayback={requireFullPlayback} decorative={decorative} onDurationChange={onMediaDurationChange} onEnded={() => onInteractiveProgress?.(`${block.id}:listened`)} />;
 
   let content: ReactNode;
-  if (block.type === "timeline") {
+  if (block.type === "databaseSchema") {
+    content = <DatabaseSchema data={block.data} />;
+  } else if (block.type === "conceptMap") {
+    content = <ConceptMap data={block.data} />;
+  } else if (block.type === "timeline") {
     content = <TimelineBlock data={block.data} decorative={decorative} />;
   } else if (block.type === "heading") {
     content = (
@@ -333,11 +339,16 @@ export function PreviewBlock({
   } else if (block.type === "processSteps") {
     content = (
       <InteractiveProcessSteps
+        key={`${block.id}:${block.data.activityMode ?? "guided"}:${block.data.steps.map((step) => step.id).join("|")}`}
         blockId={block.id}
         presentation={slideLayout}
         decorative={decorative}
         steps={block.data.steps}
         style={block.data.style}
+        activityMode={block.data.activityMode}
+        authoring={authoring}
+        orderingCompleted={block.data.activityMode === "ordering" && Boolean(interactedContentIds?.has(getProcessOrderingProgressId(block.id, block.data.steps)))}
+        onActivityComplete={() => onInteractiveProgress?.(getProcessOrderingProgressId(block.id, block.data.steps))}
         accentColor={block.data.accentColor}
         showNumbers={block.data.showNumbers}
         previousLabel={block.data.previousLabel}

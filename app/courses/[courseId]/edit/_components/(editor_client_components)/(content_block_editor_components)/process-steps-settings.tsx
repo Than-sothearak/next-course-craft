@@ -5,7 +5,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { defaultCourseTheme } from "@/lib/editor/theme";
 import { normalizeHexColor } from "@/lib/editor/text-format";
 
-import { Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { createClientId } from "@/lib/client-id";
 import { Input } from "@/components/ui/input";
@@ -20,8 +20,24 @@ type ProcessBlock = Extract<ContentBlock, { type: "processSteps" }>;
 
 export function ProcessStepsSettings({ block, onChange, courseId }: { block: ProcessBlock; onChange: (block: ContentBlock) => void; courseId?: string }) {
   const update = (data: Partial<ProcessBlock["data"]>) => onChange({ ...block, data: { ...block.data, ...data } });
+  const moveStep = (index: number, offset: -1 | 1) => {
+    const target = index + offset;
+    if (target < 0 || target >= block.data.steps.length) return;
+    const steps = [...block.data.steps];
+    const [step] = steps.splice(index, 1);
+    steps.splice(target, 0, step);
+    update({ steps });
+  };
   return (
     <div className="space-y-3">
+      <label className="block space-y-1 text-xs font-medium text-slate-600">
+        <span>Learner activity</span>
+        <Select aria-label="Process step activity" value={block.data.activityMode ?? "guided"} onChange={(event) => update({ activityMode: event.target.value as NonNullable<ProcessBlock["data"]["activityMode"]> })}>
+          <option value="guided">Guided sequence</option>
+          <option value="ordering">Order the steps</option>
+        </Select>
+      </label>
+      {block.data.activityMode === "ordering" && <p className="text-xs leading-5 text-slate-500">Learners receive a shuffled sequence and arrange it. Put the steps below in the correct order.</p>}
       <label className="block space-y-1 text-xs font-medium text-slate-600">
         <span>Step style</span>
         <Select aria-label="Process step style" value={block.data.style ?? "cards"} onChange={(event) => update({ style: event.target.value as ProcessStepsStyle })}>
@@ -47,14 +63,22 @@ export function ProcessStepsSettings({ block, onChange, courseId }: { block: Pro
           <option value="hide">Hide numbers</option>
         </Select>
       </label>
-      <label className="block space-y-1 text-xs font-medium text-slate-600"><span>Previous button</span><Input aria-label="Process previous button label" value={block.data.previousLabel ?? "Previous step"} maxLength={120} onChange={(event) => update({ previousLabel: event.target.value })} /></label>
-      <label className="block space-y-1 text-xs font-medium text-slate-600"><span>Next button</span><Input aria-label="Process next button label" value={block.data.nextLabel ?? "Next step"} maxLength={120} onChange={(event) => update({ nextLabel: event.target.value })} /></label>
+      {block.data.activityMode !== "ordering" && <>
+        <label className="block space-y-1 text-xs font-medium text-slate-600"><span>Previous button</span><Input aria-label="Process previous button label" value={block.data.previousLabel ?? "Previous step"} maxLength={120} onChange={(event) => update({ previousLabel: event.target.value })} /></label>
+        <label className="block space-y-1 text-xs font-medium text-slate-600"><span>Next button</span><Input aria-label="Process next button label" value={block.data.nextLabel ?? "Next step"} maxLength={120} onChange={(event) => update({ nextLabel: event.target.value })} /></label>
+      </>}
       <ProcessMediaLayoutSettings value={block.data.mediaLayout} onChange={(mediaLayout) => update({ mediaLayout })} />
       {block.data.steps.map((step, index) => (
         <div key={step.id} className="space-y-2 rounded-lg border border-slate-200 p-2.5">
           <div className="flex items-center justify-between gap-2">
             <span className="text-xs font-medium text-slate-500">Step {index + 1}</span>
-            {block.data.steps.length > 2 && <Button type="button" variant="ghost" size="icon" aria-label={`Delete process step ${index + 1}`} onClick={() => update({ steps: block.data.steps.filter((entry) => entry.id !== step.id) })} className="size-8 text-slate-400 hover:text-rose-600"><Trash2 size={14} /></Button>}
+            <div className="flex items-center gap-1">
+              {block.data.activityMode === "ordering" && <>
+                <Button type="button" variant="ghost" size="icon" aria-label={`Move process step ${index + 1} up`} disabled={index === 0} onClick={() => moveStep(index, -1)} className="size-8"><ArrowUp size={14} /></Button>
+                <Button type="button" variant="ghost" size="icon" aria-label={`Move process step ${index + 1} down`} disabled={index === block.data.steps.length - 1} onClick={() => moveStep(index, 1)} className="size-8"><ArrowDown size={14} /></Button>
+              </>}
+              {block.data.steps.length > 2 && <Button type="button" variant="ghost" size="icon" aria-label={`Delete process step ${index + 1}`} onClick={() => update({ steps: block.data.steps.filter((entry) => entry.id !== step.id) })} className="size-8 text-slate-400 hover:text-rose-600"><Trash2 size={14} /></Button>}
+            </div>
           </div>
           <Input aria-label={`Process step ${index + 1} title`} value={step.title} maxLength={160} onChange={(event) => update({ steps: block.data.steps.map((entry) => entry.id === step.id ? { ...entry, title: event.target.value, titleHtml: undefined } : entry) })} placeholder="Step title (optional)" className="h-9" />
           <Textarea aria-label={`Process step ${index + 1} instructions`} value={step.body} maxLength={5000} onChange={(event) => update({ steps: block.data.steps.map((entry) => entry.id === step.id ? { ...entry, body: event.target.value, bodyHtml: undefined } : entry) })} placeholder="Instructions for this step" className="min-h-16 resize-y" />

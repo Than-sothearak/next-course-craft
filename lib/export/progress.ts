@@ -28,6 +28,13 @@ export function getInteractiveItemProgressId(
   return `${blockId}:${kind}:${itemId}`;
 }
 
+export function getProcessOrderingProgressId(
+  blockId: string,
+  steps: readonly { id: string }[],
+) {
+  return `${blockId}:ordered:${JSON.stringify(steps.map((step) => step.id))}`;
+}
+
 export function getInteractiveBlockProgressIds(block: ContentBlock, lessonBlocks?: readonly ContentBlock[]): string[] {
   switch (block.type) {
     case "hangingRopeCards":
@@ -51,6 +58,8 @@ export function getInteractiveBlockProgressIds(block: ContentBlock, lessonBlocks
     case "balloonArcher":
       return block.data.balloons.map((balloon) => getInteractiveItemProgressId(block.id, "balloon", balloon.id));
     case "processSteps":
+      if (block.data.activityMode === "ordering")
+        return [getProcessOrderingProgressId(block.id, block.data.steps)];
       return block.data.steps.map((step) =>
         getInteractiveItemProgressId(block.id, "step", step.id),
       );
@@ -81,6 +90,7 @@ export function getInitiallyViewedInteractionIds(
         : [];
     }
     if (block.type === "processSteps") {
+      if (block.data.activityMode === "ordering") return [];
       const firstStep = block.data.steps[0];
       return firstStep
         ? [getInteractiveItemProgressId(block.id, "step", firstStep.id)]

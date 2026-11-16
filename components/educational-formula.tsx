@@ -1,4 +1,5 @@
 import "katex/dist/katex.min.css";
+import { useId } from "react";
 import { previewEquation } from "@/lib/editor/text-equation";
 
 type FormulaData = {
@@ -10,18 +11,20 @@ type FormulaData = {
 
 export function EducationalFormula({ data }: { data: FormulaData }) {
   const equation = previewEquation(data.latex, true);
+  const titleId = useId();
+  const explanationId = useId();
   return (
-    <section className="min-w-0 space-y-3" aria-label={data.title || "Formula"}>
-      {data.title && <h3 className="text-lg font-semibold leading-snug text-slate-900">{data.title}</h3>}
+    <section className="min-w-0 space-y-3" aria-label={data.title ? undefined : "Formula"} aria-labelledby={data.title ? titleId : undefined}>
+      {data.title && <h3 id={titleId} className="text-lg font-semibold leading-snug text-slate-900">{data.title}</h3>}
       <div className="overflow-x-auto rounded-xl bg-slate-50 px-4 py-5 text-center text-slate-900 sm:px-6 [&_.katex-display]:my-0 [&_.katex-display]:min-w-max">
         {equation.error ? (
           <code className="whitespace-pre-wrap break-words text-sm">{data.latex}</code>
         ) : (
-          <div role="math" aria-label={data.latex} dangerouslySetInnerHTML={{ __html: equation.html }} />
+          <div role="math" aria-describedby={data.explanation ? explanationId : undefined} dangerouslySetInnerHTML={{ __html: equation.html }} />
         )}
       </div>
       {equation.error && <p role="status" className="text-sm text-amber-800">This equation could not be rendered. The original notation is shown above.</p>}
-      {data.explanation && <p className="text-sm leading-6 text-slate-700">{data.explanation}</p>}
+      {data.explanation && <p id={explanationId} className="text-sm leading-6 text-slate-700">{data.explanation}</p>}
       {!!data.variables.length && (
         <dl className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,3fr)]">
           {data.variables.map((variable, index) => (

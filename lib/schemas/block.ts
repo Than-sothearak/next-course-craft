@@ -38,12 +38,18 @@ export const blockTypes = [
   "flipCard",
   "accordion",
   "labeledGraphic",
+  "conceptMap",
+  "databaseSchema",
   "processSteps",
   "timeline",
   "chart",
 ] as const;
 export const statementStyleSchema = z.enum([
   "key",
+  "alert",
+  "danger",
+  "info",
+  "success",
   "tip",
   "warning",
   "centered",
@@ -509,8 +515,66 @@ export const timelineBlockSchema = z.object({
   }),
 });
 
+export const conceptMapBlockSchema = z.object({
+  ...blockBase("medium", 40),
+  type: z.literal("conceptMap"),
+  data: z.object({
+    title: z.string().max(160).default(""),
+    centralConcept: z.string().trim().min(1).max(160),
+    centralExplanation: z.string().max(1_000).default(""),
+    branches: z.array(z.object({
+      id: z.string().min(1).max(64),
+      relationship: z.string().trim().min(1).max(80),
+      concept: z.string().trim().min(1).max(160),
+      explanation: z.string().max(1_000).default(""),
+    })).min(2).max(12).refine((branches) => new Set(branches.map((branch) => branch.id)).size === branches.length, "Concept map branches must have unique IDs."),
+  }),
+});
+
+export const databaseSchemaBlockSchema = z.object({
+  ...blockBase("medium", 40),
+  type: z.literal("databaseSchema"),
+  data: z.object({
+    title: z.string().max(160).default(""),
+    description: z.string().max(1_000).default(""),
+    entities: z.array(z.object({
+      id: z.string().min(1).max(64),
+      name: z.string().trim().min(1).max(100),
+      description: z.string().max(500).default(""),
+      fields: z.array(z.object({
+        id: z.string().min(1).max(64),
+        name: z.string().trim().min(1).max(100),
+        type: z.string().trim().min(1).max(80),
+        nullable: z.boolean().default(false),
+        keyType: z.enum(["primary", "foreign", "unique"]).optional(),
+      })).min(1).max(20).refine((fields) => new Set(fields.map((field) => field.id)).size === fields.length, "Database fields must have unique IDs within an entity."),
+    })).min(2).max(8).refine((entities) => new Set(entities.map((entity) => entity.id)).size === entities.length, "Database entities must have unique IDs."),
+    relationships: z.array(z.object({
+      id: z.string().min(1).max(64),
+      fromEntityId: z.string().min(1).max(64),
+      fromFieldId: z.string().min(1).max(64),
+      toEntityId: z.string().min(1).max(64),
+      toFieldId: z.string().min(1).max(64),
+      label: z.string().trim().min(1).max(120),
+      cardinality: z.enum(["one-to-one", "one-to-many", "many-to-one", "many-to-many"]),
+    })).max(16).default([]).refine((relationships) => new Set(relationships.map((relationship) => relationship.id)).size === relationships.length, "Database relationships must have unique IDs."),
+  }).superRefine((data, context) => {
+    const entities = new Map(data.entities.map((entity) => [entity.id, entity]));
+    data.relationships.forEach((relationship, index) => {
+      const from = entities.get(relationship.fromEntityId);
+      const to = entities.get(relationship.toEntityId);
+      if (!from) context.addIssue({ code: "custom", path: ["relationships", index, "fromEntityId"], message: "Relationship source entity does not exist." });
+      else if (!from.fields.some((field) => field.id === relationship.fromFieldId)) context.addIssue({ code: "custom", path: ["relationships", index, "fromFieldId"], message: "Relationship source field does not exist in its entity." });
+      if (!to) context.addIssue({ code: "custom", path: ["relationships", index, "toEntityId"], message: "Relationship target entity does not exist." });
+      else if (!to.fields.some((field) => field.id === relationship.toFieldId)) context.addIssue({ code: "custom", path: ["relationships", index, "toFieldId"], message: "Relationship target field does not exist in its entity." });
+    });
+  }),
+});
+
 export const processStepsStyleSchema = z.enum(["cards", "numbered", "timeline", "spotlight", "minimal", "slider"]);
 export type ProcessStepsStyle = z.infer<typeof processStepsStyleSchema>;
+export const processStepsActivityModeSchema = z.enum(["guided", "ordering"]);
+export type ProcessStepsActivityMode = z.infer<typeof processStepsActivityModeSchema>;
 export const processStepMediaSchema = z.object({
   src: z.string().regex(/^\/api\/assets\/[a-f\d]{24}\/file$/i),
   fileName: z.string().max(255),
@@ -529,6 +593,7 @@ export const processStepsBlockSchema = z.object({
   type: z.literal("processSteps"),
   data: z.object({
     style: processStepsStyleSchema.optional(),
+    activityMode: processStepsActivityModeSchema.optional(),
     accentColor: colorValueSchema.optional(),
     showNumbers: z.boolean().optional(),
     previousLabel: z.string().max(120).optional(),
@@ -611,7 +676,7 @@ export const statementBlockSchema = z.object({
   ...blockBase("medium", 40),
   type: z.literal("statement"),
   data: z.object({
-    style: statementStyleSchema,
+    style: statementStyleSchema.default("key"),
     title: z.string().max(500),
     body: z.string().max(5_000),
     titleHtml: z.string().max(100_000).optional(),
@@ -670,6 +735,8 @@ const plainContentBlockSchema = z.discriminatedUnion("type", [
   flipCardBlockSchema,
   accordionBlockSchema,
   labeledGraphicBlockSchema,
+  conceptMapBlockSchema,
+  databaseSchemaBlockSchema,
   processStepsBlockSchema,
   timelineBlockSchema,
   lessonMapBlockSchema,
@@ -749,7 +816,7 @@ export function defaultBlockWidth(
   if (type === "heading" || type === "richText" || type === "statement" || type === "peelToReveal") return "medium";
   if (type === "image" || type === "video" || type === "audio" || type === "gallery") return "medium";
   if (type === "labeledGraphic" || type === "lessonMap" || type === "balloonArcher" || type === "hangingRopeCards") return "full";
-  if (type === "accordion" || type === "processSteps" || type === "chart" || type === "checklist" || type === "formula" || type === "table" || type === "flipCard" || type === "timeline") return "medium";
+  if (type === "accordion" || type === "processSteps" || type === "conceptMap" || type === "databaseSchema" || type === "chart" || type === "checklist" || type === "formula" || type === "table" || type === "flipCard" || type === "timeline") return "medium";
   return "small";
 }
 

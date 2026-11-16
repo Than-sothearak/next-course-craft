@@ -60,7 +60,7 @@ function block(type: GenerationBlockType = "text"): {
   body: string;
   codeExample: { template: CodeExampleTemplate; language: CodeLanguage; explanation: string } | null;
   bullets: string[];
-  style: "tip";
+  style: "info";
   headingLevel: number;
   question: string;
   options: string[];
@@ -70,6 +70,7 @@ function block(type: GenerationBlockType = "text"): {
   minLabel: string;
   maxLabel: string;
   steps: { title: string; body: string }[];
+  activityMode: "guided" | "ordering";
   timelineStyle: "vertical" | "horizontal" | "stacked";
   timelineItems: { label: string; title: string; body: string }[];
   cards: {
@@ -112,6 +113,23 @@ function block(type: GenerationBlockType = "text"): {
   tableColumns: string[];
   tableRows: string[][];
   checklistItems: string[];
+  conceptMapCentralConcept: string;
+  conceptMapCentralExplanation: string;
+  conceptMapBranches: { relationship: string; concept: string; explanation: string }[];
+  databaseDescription: string;
+  databaseEntities: {
+    name: string;
+    description: string;
+    fields: { name: string; type: string; nullable: boolean; keyType: "" | "primary" | "foreign" | "unique" }[];
+  }[];
+  databaseRelationships: {
+    fromEntity: string;
+    fromField: string;
+    toEntity: string;
+    toField: string;
+    label: string;
+    cardinality: "one-to-one" | "one-to-many" | "many-to-one" | "many-to-many";
+  }[];
 } {
   return {
     type,
@@ -119,7 +137,7 @@ function block(type: GenerationBlockType = "text"): {
     body: "Read the full message before choosing a response.",
     codeExample: null,
     bullets: [],
-    style: "tip",
+    style: "info",
     headingLevel: 2,
     question: "What should you do first?",
     options: ["Read the request", "Close the ticket"],
@@ -129,6 +147,7 @@ function block(type: GenerationBlockType = "text"): {
     minLabel: "Not confident",
     maxLabel: "Very confident",
     steps: [],
+    activityMode: "guided",
     timelineStyle: "vertical",
     timelineItems: [],
     cards: [],
@@ -164,6 +183,12 @@ function block(type: GenerationBlockType = "text"): {
     tableColumns: [],
     tableRows: [],
     checklistItems: [],
+    conceptMapCentralConcept: "",
+    conceptMapCentralExplanation: "",
+    conceptMapBranches: [],
+    databaseDescription: "",
+    databaseEntities: [],
+    databaseRelationships: [],
   };
 }
 
@@ -794,8 +819,8 @@ describe("AI course generation contracts", () => {
         () => {},
       );
 
-    const richText = await convert("richText", { title: "**Core idea**", body: "Use ==the signal==.", bullets: ["Keep the **evidence** visible."] });
-    expect(richText.block).toMatchObject({ type: "richText", data: { html: '<h3><strong>Core idea</strong></h3><p>Use <span data-generated-emphasis="true" style="background-color: #fef08a">the signal</span>.</p><ul><li><p>Keep the <strong>evidence</strong> visible.</p></li></ul>' } });
+    const richText = await convert("richText", { title: "**Core idea**", body: "Use ==the signal== and `the central idea`.", bullets: ["Keep the **evidence** visible."] });
+    expect(richText.block).toMatchObject({ type: "richText", data: { html: '<h3><strong>Core idea</strong></h3><p>Use <span data-generated-emphasis="true" style="background-color: #fef08a">the signal</span> and <span data-generated-emphasis="true" style="background-color: #fef08a">the central idea</span>.</p><ul><li><p>Keep the <strong>evidence</strong> visible.</p></li></ul>' } });
 
     const heading = await convert("heading", { title: "**Important heading**", body: "" });
     expect(heading.block).toMatchObject({ type: "heading", data: { text: "Important heading", html: '<h2><strong>Important heading</strong></h2>' } });
@@ -1287,7 +1312,7 @@ describe("AI course generation contracts", () => {
     expect(learnCalls.every((call) => call.input[1].content[0].text.includes("Write learner-facing content in Khmer"))).toBe(true);
 
     const requests = fetchMock.mock.calls.map(([, call]) => JSON.parse(call.body as string));
-    const khmerStyle = "natural, contemporary Khmer, with the clear and respectful tone a Cambodian teacher would use with learners.";
+    const khmerStyle = "natural Khmer with the clear, respectful voice of an experienced Cambodian teacher.";
     const learnerStages = requests.filter((request) => [
       "course_source_plan",
       "course_pre_activities",
@@ -1299,13 +1324,13 @@ describe("AI course generation contracts", () => {
       request.input[1].content.map((part: { text?: string }) => part.text ?? "").join("\n").includes(khmerStyle),
     )).toBe(true);
     expect(learnerStages.every((request) =>
-      request.input[1].content.map((part: { text?: string }) => part.text ?? "").join("\n").includes("Avoid word-for-word translation"),
+      request.input[1].content.map((part: { text?: string }) => part.text ?? "").join("\n").includes("do not translate English sentence structures word for word"),
     )).toBe(true);
     expect(learnerStages.every((request) =>
-      request.input[1].content.map((part: { text?: string }) => part.text ?? "").join("\n").includes("write “Lab” as “Lab”"),
+      request.input[1].content.map((part: { text?: string }) => part.text ?? "").join("\n").includes("keep HTML, CSS, JavaScript, Flexbox, API, variable, and algorithm in English"),
     )).toBe(true);
     expect(learnerStages.every((request) =>
-      request.input[1].content.map((part: { text?: string }) => part.text ?? "").join("\n").includes("do not translate or transliterate them into Khmer"),
+      request.input[1].content.map((part: { text?: string }) => part.text ?? "").join("\n").includes("Do not translate or transliterate them, and do not replace them with a Khmer technical equivalent"),
     )).toBe(true);
   });
 
@@ -1886,7 +1911,7 @@ describe("AI course generation contracts", () => {
     expect(courseRequest).toBeTruthy();
     const learnDeveloperPrompt = courseRequest.input[0].content as string;
     const lessonPrompt = courseRequest.input[1].content[0].text as string;
-    expect(learnDeveloperPrompt.length).toBeLessThan(1_000);
+    expect(learnDeveloperPrompt.length).toBeLessThan(1_500);
     expect(learnDeveloperPrompt).toContain("timeline orders historical events");
     expect(learnDeveloperPrompt).toMatch(/map every sourceElementId to a block/i);
     expect(learnDeveloperPrompt).toContain("Avoid duplicate facts");

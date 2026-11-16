@@ -5,6 +5,7 @@ import { AnimatePresence, motion, useIsPresent, useReducedMotion } from "framer-
 import { ChevronDown, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ContentBlock } from "@/lib/schemas/block";
+import { hasInlineCodeTerms } from "@/lib/editor/inline-formatting";
 import { StatementTextPreview } from "@/app/courses/[courseId]/edit/_components/statement-text-preview";
 
 type AccordionItem = Extract<ContentBlock, { type: "accordion" }>["data"]["items"][number];
@@ -36,12 +37,12 @@ export function InteractiveAccordion({ blockId, layout, displayMode, items, onIt
   const [expandedItemIds, setExpandedItemIds] = useState<Set<string>>(() => new Set(items[0] ? [items[0].id] : []));
   const activeItem = items.find((item) => item.id === activeItemId) ?? items[0];
   function body(item: AccordionItem, index: number) {
-    return renderBody ? renderBody(item, index) : item.bodyHtml !== undefined
+    return renderBody ? renderBody(item, index) : item.bodyHtml !== undefined || hasInlineCodeTerms(item.body)
       ? <StatementTextPreview tag="p" text={item.body} html={item.bodyHtml} className="prose max-w-none text-base leading-6" />
       : <div className="whitespace-pre-wrap">{item.body || "Add an explanation for this section."}</div>;
   }
   function title(item: AccordionItem) {
-    return item.titleHtml !== undefined ? <StatementTextPreview tag="h3" text={item.title} html={item.titleHtml} className="text-[18px] font-semibold [overflow-wrap:anywhere]" /> : <span data-block-text-role="title" className={layout === "accordion" ? "[overflow-wrap:anywhere]" : undefined}>{item.title || (layout === "tabs" ? "Untitled tab" : "Untitled section")}</span>;
+    return item.titleHtml !== undefined || hasInlineCodeTerms(item.title) ? <StatementTextPreview tag="h3" text={item.title} html={item.titleHtml} className="text-[18px] font-semibold [overflow-wrap:anywhere]" /> : <span data-block-text-role="title" className={layout === "accordion" ? "[overflow-wrap:anywhere]" : undefined}>{item.title || (layout === "tabs" ? "Untitled tab" : "Untitled section")}</span>;
   }
   function openTab(id: string) { setActiveItemId(id); onItemInteract?.(id); }
 

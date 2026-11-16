@@ -27,7 +27,7 @@ export function ProcessStepsBlockEditor({ block, courseId, onChange, onEditorFoc
     onChange({ ...block, data: { ...block.data, steps: block.data.steps.map((step) => step.id === id ? { ...step, ...patch } : step) } });
   }
   return <div data-process-steps-editor className="min-w-0">
-    <InteractiveProcessSteps blockId={block.id} {...block.data}
+    <InteractiveProcessSteps key={`${block.id}:${block.data.activityMode ?? "guided"}:${block.data.steps.map((step) => step.id).join("|")}`} blockId={block.id} {...block.data} authoring
       renderTitle={(step, index) => <StatementTextEditor id={`${block.id}-${step.id}-title`} label={`Edit process step ${index + 1} title`} tag="h3" html={step.titleHtml} text={step.title} maxLength={160} placeholder="Step title (optional)" onEditorFocus={onEditorFocus} onChange={(html, text) => update(step.id, { title: text, titleHtml: html })} className="text-[20px] font-semibold" />}
       renderBody={(step, index) => <StatementTextEditor id={`${block.id}-${step.id}-body`} label={`Edit process step ${index + 1} instructions`} tag="p" html={step.bodyHtml ?? plainInstructionsHtml(step.body)} text={step.body} maxLength={5000} multiline placeholder="Add instructions. Select text to format or add a link." onEditorFocus={onEditorFocus} onChange={(html, text) => update(step.id, { body: text, bodyHtml: html })} className="lesson-rich-text text-base leading-6" />}
       renderMedia={(step, index) => <div className="space-y-3">

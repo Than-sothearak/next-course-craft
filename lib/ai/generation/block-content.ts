@@ -84,6 +84,12 @@ export function needsContinueAfter(
     ...block.tableColumns,
     ...block.tableRows.flat(),
     ...block.checklistItems,
+    block.conceptMapCentralConcept,
+    block.conceptMapCentralExplanation,
+    ...block.conceptMapBranches.flatMap((branch) => [branch.relationship, branch.concept, branch.explanation]),
+    block.databaseDescription,
+    ...block.databaseEntities.flatMap((entity) => [entity.name, entity.description, ...entity.fields.flatMap((field) => [field.name, field.type, field.keyType])]),
+    ...block.databaseRelationships.flatMap((relationship) => [relationship.fromEntity, relationship.fromField, relationship.toEntity, relationship.toField, relationship.label, relationship.cardinality]),
   ].join("").length;
   return contentLength >= 850 || block.steps.length >= 6 || block.timelineItems.length >= 6 || block.chartFields.length >= 12;
 }
@@ -313,7 +319,7 @@ export function addCustomTemplateFirstLessonActivities(
 ) {
   const labels = khmer
     ? {
-        description: "ការពិពណ៌នាវគ្គសិក្ស",
+        description: "ការពិពណ៌នាវគ្គសិក្សា",
         overview: "ទិដ្ឋភាពទូទៅនៃមេរៀន",
         objective: "គោលបំណងមេរៀន",
         keyword: "ពាក្យគន្លឹះ",
@@ -623,7 +629,7 @@ export async function toContentBlock(
           ...base,
           type: "processSteps",
           width: "full",
-          data: { style: "slider", steps },
+          data: { style: "slider", activityMode: seed.activityMode, steps },
         }),
         generatedImage: false,
       };
@@ -651,6 +657,27 @@ export async function toContentBlock(
         generatedImage: false,
       };
     }
+  }
+  if (seed.type === "conceptMap") {
+    return {
+      block: blockSchema.parse({
+        ...base,
+        type: "conceptMap",
+        width: "full",
+        data: {
+          title: plainText(seed.title),
+          centralConcept: plainText(seed.conceptMapCentralConcept),
+          centralExplanation: plainText(seed.conceptMapCentralExplanation),
+          branches: seed.conceptMapBranches.map((branch) => ({
+            id: randomUUID(),
+            relationship: plainText(branch.relationship),
+            concept: plainText(branch.concept),
+            explanation: plainText(branch.explanation),
+          })),
+        },
+      }),
+      generatedImage: false,
+    };
   }
   if (seed.type === "flipCard") {
     const cards = [];
@@ -781,6 +808,53 @@ export async function toContentBlock(
           description: seed.chartDescription.trim(),
           color: seed.chartColor,
           fields: seed.chartFields.map((field) => ({ id: randomUUID(), ...field })),
+        },
+      }),
+      generatedImage: false,
+    };
+  }
+  if (seed.type === "databaseSchema") {
+    const normalizeName = (value: string) => value.trim().normalize("NFKC").toLocaleLowerCase();
+    const entities = seed.databaseEntities.map((entity) => ({
+      id: randomUUID(),
+      name: plainText(entity.name),
+      description: plainText(entity.description),
+      fields: entity.fields.map((field) => ({
+        id: randomUUID(),
+        name: plainText(field.name),
+        type: plainText(field.type),
+        nullable: field.nullable,
+        ...(field.keyType ? { keyType: field.keyType } : {}),
+      })),
+    }));
+    const entityByName = new Map(entities.map((entity) => [normalizeName(entity.name), entity]));
+    const relationships = seed.databaseRelationships.map((relationship) => {
+      const fromEntity = entityByName.get(normalizeName(relationship.fromEntity));
+      const toEntity = entityByName.get(normalizeName(relationship.toEntity));
+      const fromField = fromEntity?.fields.find((field) => normalizeName(field.name) === normalizeName(relationship.fromField));
+      const toField = toEntity?.fields.find((field) => normalizeName(field.name) === normalizeName(relationship.toField));
+      if (!fromEntity || !toEntity || !fromField || !toField)
+        throw new Error("Database schema relationship references a missing source entity or field.");
+      return {
+        id: randomUUID(),
+        fromEntityId: fromEntity.id,
+        fromFieldId: fromField.id,
+        toEntityId: toEntity.id,
+        toFieldId: toField.id,
+        label: plainText(relationship.label),
+        cardinality: relationship.cardinality,
+      };
+    });
+    return {
+      block: blockSchema.parse({
+        ...base,
+        type: "databaseSchema",
+        width: "full",
+        data: {
+          title: plainText(seed.title),
+          description: plainText(seed.databaseDescription),
+          entities,
+          relationships,
         },
       }),
       generatedImage: false,

@@ -30,6 +30,7 @@ export const blockCategories = [
   "Knowledge check",
   "Survey",
   "Chart",
+  "Diagram",
   "Formula",
   "Table",
   "Checklist",
@@ -76,12 +77,20 @@ export type BlockTemplate = {
   formula?: Extract<ContentBlock, { type: "formula" }>["data"];
   table?: Extract<ContentBlock, { type: "table" }>["data"];
   checklist?: Extract<ContentBlock, { type: "checklist" }>["data"];
+  conceptMap?: Extract<ContentBlock, { type: "conceptMap" }>["data"];
+  databaseSchema?: Extract<ContentBlock, { type: "databaseSchema" }>["data"];
 };
 
 export const blockTemplates: BlockTemplate[] = [
   { id: "formula-equation", category: "Formula", title: "Formula", description: "Show an equation with an explanation of each variable.", type: "formula", formula: { title: "", latex: "E = mc^2", explanation: "Explain what this relationship describes.", variables: [{ symbol: "E", explanation: "Energy" }, { symbol: "m", explanation: "Mass" }, { symbol: "c", explanation: "Speed of light" }] }, preview: "formula", standardOnly: true },
   { id: "table-comparison", category: "Table", title: "Comparison table", description: "Compare concepts in a responsive, readable table.", type: "table", table: { caption: "", columns: ["Concept", "Description"], rows: [["Add a concept", "Add its explanation"]] }, preview: "table", standardOnly: true },
   { id: "learning-checklist", category: "Checklist", title: "Review checklist", description: "Present key requirements or assumptions for learners to review.", type: "checklist", checklist: { title: "Key points", items: ["Add a requirement or key point"] }, preview: "native-checklist", standardOnly: true },
+  { id: "concept-map-core", category: "Diagram", title: "Concept map", description: "Show a central idea and the labeled relationships that connect related concepts.", type: "conceptMap", conceptMap: { title: "How the ideas connect", centralConcept: "Central concept", centralExplanation: "Explain the main idea.", branches: [{ id: "concept-branch-1", relationship: "includes", concept: "Related concept 1", explanation: "Explain this connection." }, { id: "concept-branch-2", relationship: "depends on", concept: "Related concept 2", explanation: "Explain this connection." }] }, preview: "concept-map", standardOnly: true },
+  { id: "database-schema-users-orders", category: "Diagram", title: "Database schema", description: "Map entities, fields, keys, and cardinality for a relational database.", type: "databaseSchema", databaseSchema: { title: "Users and orders", description: "Orders belong to users, and each order has its own primary key.", entities: [
+    { id: "users", name: "Users", description: "People with an account.", fields: [{ id: "users-id", name: "id", type: "uuid", nullable: false, keyType: "primary" }, { id: "users-email", name: "email", type: "varchar(255)", nullable: false, keyType: "unique" }] },
+    { id: "orders", name: "Orders", description: "Purchases made by users.", fields: [{ id: "orders-id", name: "id", type: "uuid", nullable: false, keyType: "primary" }, { id: "orders-user-id", name: "user_id", type: "uuid", nullable: false, keyType: "foreign" }, { id: "orders-total", name: "total", type: "decimal(10,2)", nullable: false }] },
+  ], relationships: [{ id: "orders-user", fromEntityId: "orders", fromFieldId: "orders-user-id", toEntityId: "users", toFieldId: "users-id", label: "belongs to", cardinality: "many-to-one" }] }, preview: "database-schema", standardOnly: true },
+  { id: "formula-ohms-law", category: "Formula", title: "Equation breakdown: Ohm's law", description: "Explain the relationship between voltage, current, and resistance.", type: "formula", formula: { title: "Ohm's law", latex: "V = I \\times R", explanation: "Voltage across a component equals the current through it multiplied by its resistance.", variables: [{ symbol: "V", explanation: "Voltage, measured in volts" }, { symbol: "I", explanation: "Electric current, measured in amperes" }, { symbol: "R", explanation: "Electrical resistance, measured in ohms" }] }, preview: "formula", standardOnly: true },
   ...timelinePresets.map((preset): BlockTemplate => ({ id: `interactive-timeline-${preset.style}`, category: "Interactive", title: preset.title, description: preset.description, type: "timeline", timeline: { style: preset.style, items: timelineSample.map((item) => ({ ...item })) }, preview: "timeline" })),
   { id: "interactive-hanging-rope-cards", category: "Interactive", title: "Hanging Rope Cards", description: "Stretch and sway hanging cards. Pull to a glowing point to discover content.", type: "hangingRopeCards", preview: "hanging-rope-cards" },
   { id: "interactive-peel-to-reveal", category: "Interactive", title: "Peel to Reveal", description: "Peel a curled paper corner to uncover text, images, video, or audio.", type: "peelToReveal", preview: "peel-to-reveal" },
@@ -172,6 +181,58 @@ export const blockTemplates: BlockTemplate[] = [
       body: "Practice helps turn a new idea into a lasting skill.",
     },
     preview: "statement-key",
+  },
+  {
+    id: "statement-alert",
+    category: "Statement",
+    title: "Alert",
+    description: "Bring a general notice that needs attention into focus.",
+    type: "statement",
+    statement: {
+      style: "alert",
+      title: "Important notice",
+      body: "Read the full instructions before continuing.",
+    },
+    preview: "statement-alert",
+  },
+  {
+    id: "statement-danger",
+    category: "Statement",
+    title: "Danger",
+    description: "Warn learners about a clear risk or harmful outcome.",
+    type: "statement",
+    statement: {
+      style: "danger",
+      title: "Potential risk",
+      body: "This action permanently deletes the saved records.",
+    },
+    preview: "statement-danger",
+  },
+  {
+    id: "statement-info",
+    category: "Statement",
+    title: "Info",
+    description: "Add neutral context or clarification beside the lesson.",
+    type: "statement",
+    statement: {
+      style: "info",
+      title: "Good to know",
+      body: "This setting applies to new projects only.",
+    },
+    preview: "statement-info",
+  },
+  {
+    id: "statement-success",
+    category: "Statement",
+    title: "Success",
+    description: "Confirm a positive outcome or completed goal.",
+    type: "statement",
+    statement: {
+      style: "success",
+      title: "Setup complete",
+      body: "The workspace is ready for the next step.",
+    },
+    preview: "statement-success",
   },
   {
     id: "statement-tip",
@@ -532,6 +593,23 @@ export const blockTemplates: BlockTemplate[] = [
     preview: "flip-card",
   },
   {
+    id: "language-vocabulary-cards",
+    category: "Interactive",
+    title: "Vocabulary cards",
+    description: "Practice recalling a word before revealing its learner-written meaning or translation.",
+    type: "flipCard",
+    flipCard: {
+      cardsPerRow: 2,
+      cards: [
+        { id: "vocabulary-observe", frontLabel: "Word", front: { type: "text", text: "Observe" }, backLabel: "Meaning", back: { type: "text", text: "To notice something carefully, using attention or the senses." } },
+        { id: "vocabulary-evidence", frontLabel: "Word", front: { type: "text", text: "Evidence" }, backLabel: "Meaning", back: { type: "text", text: "Information or observations that support a conclusion." } },
+        { id: "vocabulary-infer", frontLabel: "Word", front: { type: "text", text: "Infer" }, backLabel: "Meaning", back: { type: "text", text: "To reach a conclusion using evidence and reasoning." } },
+      ],
+    },
+    preview: "flip-card",
+    standardOnly: true,
+  },
+  {
     id: "interactive-accordion",
     category: "Interactive",
     title: "Accordion explanations",
@@ -651,6 +729,27 @@ export const blockTemplates: BlockTemplate[] = [
       ],
     },
     preview: "process-steps",
+  },
+  {
+    id: "science-experiment-protocol",
+    category: "Interactive",
+    title: "Experiment protocol",
+    description: "Use the existing guided process block to plan a fair investigation and record evidence.",
+    type: "processSteps",
+    processSteps: {
+      style: "numbered",
+      activityMode: "guided",
+      showNumbers: true,
+      steps: [
+        { id: "experiment-question", title: "Ask a testable question", body: "State what you want to investigate and identify the outcome you can observe or measure." },
+        { id: "experiment-prediction", title: "Make a prediction", body: "Predict what will happen and explain the scientific idea behind your prediction." },
+        { id: "experiment-fair-test", title: "Plan a fair test", body: "Choose what to change, what to measure, and which conditions to keep the same." },
+        { id: "experiment-observe", title: "Record observations", body: "Follow the agreed procedure and record observations without changing the results." },
+        { id: "experiment-conclusion", title: "Use evidence to conclude", body: "Compare the observations with the prediction and explain what the evidence supports." },
+      ],
+    },
+    preview: "process-steps",
+    standardOnly: true,
   },
   {
     id: "interactive-sequence-data",

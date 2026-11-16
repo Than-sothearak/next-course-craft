@@ -95,9 +95,12 @@ function blockTitle(block: ContentBlock) {
   if (block.type === "formula") return block.data.title.trim() || "Formula";
   if (block.type === "table") return block.data.caption.trim() || "Table";
   if (block.type === "checklist") return block.data.title.trim() || "Checklist";
+  if (block.type === "conceptMap") return block.data.title.trim() || block.data.centralConcept.trim() || "Concept map";
+  if (block.type === "databaseSchema") return block.data.title.trim() || block.data.entities[0]?.name.trim() || "Database schema";
   if (block.type === "attachment") return block.data.fileName.trim() || "File attachment";
   if (block.type === "knowledgeCheck") return block.data.question.trim() || "Knowledge check";
-  return block.data.question.trim() || "Survey";
+  if (block.type === "survey") return block.data.question.trim() || "Survey";
+  return "Block";
 }
 
 export function BlockManagerSidebar({

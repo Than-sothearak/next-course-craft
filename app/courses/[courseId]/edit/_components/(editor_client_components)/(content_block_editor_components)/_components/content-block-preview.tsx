@@ -23,6 +23,8 @@ import { getYouTubeEmbedUrl } from "@/lib/media/youtube";
 import { EducationalFormula } from "@/components/educational-formula";
 import { EducationalTable } from "@/components/educational-table";
 import { EducationalChecklist } from "@/components/educational-checklist";
+import { ConceptMap } from "@/components/concept-map";
+import { DatabaseSchema } from "@/components/database-schema";
 
 type PreviewBlock = Exclude<ContentBlock, { type: "heading" | "richText" | "statement" | "lessonMap" }>;
 
@@ -43,6 +45,10 @@ export function ContentBlockPreview({ block, onChange, presentation = false, cou
     <EducationalTable data={block.data} />
   ) : block.type === "checklist" ? (
     <EducationalChecklist title={block.data.title} items={block.data.items} />
+  ) : block.type === "conceptMap" ? (
+    <ConceptMap data={block.data} />
+  ) : block.type === "databaseSchema" ? (
+    <DatabaseSchema data={block.data} />
   ) : block.type === "image" ? (
     <ImageBlockLayout
       layout={block.data.layout}

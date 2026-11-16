@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { duplicateLessonContent, moveLessonToSection } from "../lib/editor/course-content";
 import { editorSnapshotSchema } from "../lib/editor/schemas";
+import { blockSchema } from "../lib/schemas/block";
 
 const course = editorSnapshotSchema.parse({ title: "Course", description: "", revision: 2,
   sections: [{ id: "a", title: "First", order: 0 }, { id: "b", title: "Second", order: 1 }, { id: "c", title: "Empty", order: 2 }],
@@ -50,5 +51,16 @@ describe("course content organization", () => {
     expect(copy.quizQuestions[0].id).not.toBe("question");
     expect(editorSnapshotSchema.safeParse({ ...course, lessons: [{ ...copy, order: 0 }] }).success).toBe(true);
     expect(source.quizQuestions[0].correctChoiceIds).toEqual(["correct"]);
+  });
+
+  it("duplicates concept maps with independent branch IDs", () => {
+    const source = { ...course.lessons[0], blocks: [blockSchema.parse({ id: "map", version: 1, type: "conceptMap", data: { centralConcept: "Water cycle", branches: [{ id: "evaporation", relationship: "changes into", concept: "Vapor" }, { id: "condensation", relationship: "forms", concept: "Clouds" }] } })] };
+    let id = 0;
+    const copy = duplicateLessonContent(source, () => `copy-${++id}`);
+    const originalMap = source.blocks[0];
+    const duplicateMap = copy.blocks[0];
+    if (originalMap.type !== "conceptMap" || duplicateMap.type !== "conceptMap") throw new Error("Expected concept maps");
+    expect(duplicateMap.data.branches.map((branch) => branch.id)).not.toEqual(originalMap.data.branches.map((branch) => branch.id));
+    expect(new Set(duplicateMap.data.branches.map((branch) => branch.id)).size).toBe(2);
   });
 });

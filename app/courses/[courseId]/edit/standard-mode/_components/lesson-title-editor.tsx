@@ -5,9 +5,11 @@ import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import { textEditorExtensions } from "@/app/courses/[courseId]/edit/_components/(editor_client_components)/(text_editing_components)/text-formatting-toolbar";
 import { EquationDialog } from "@/app/courses/[courseId]/edit/_components/(editor_client_components)/(text_editing_components)/equation-dialog";
 import { SelectionTextFormattingPopup } from "@/app/courses/[courseId]/edit/_components/(editor_client_components)/(text_editing_components)/selection-text-formatting-popup";
+import { highlightInlineCodeTermsInHtml } from "@/lib/editor/inline-formatting";
 
 function titleContent(title: string, html?: string) {
-  return html ?? `<h1>${title.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")}</h1>`;
+  const source = html ?? `<h1>${title.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")}</h1>`;
+  return highlightInlineCodeTermsInHtml(source);
 }
 
 function titleError(editor: Editor | null, allowEmpty: boolean) {

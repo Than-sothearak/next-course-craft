@@ -38,6 +38,8 @@ function survey(prompt: string) {
 describe("generated lesson depth and course activity limits", () => {
   it("requires multiple developed teaching blocks and applies the selected depth", () => {
     expect(lessonDepthIssues(explanations(), input)).toEqual([]);
+    expect(lessonDesignInstruction(input)).toContain("Use bullets only for unordered groups");
+    expect(lessonDesignInstruction(input)).toContain("use processSteps for actions whose order matters");
     expect(lessonDepthIssues(explanations(4), { ...input, contentDepth: "concise" })).toEqual([]);
     expect(lessonDepthIssues(explanations(4), input).some((issue) => issue.includes("distinct teaching blocks"))).toBe(true);
     expect(lessonDepthIssues(explanations(), { ...input, contentDepth: "veryDetailed" }).length).toBeGreaterThan(0);

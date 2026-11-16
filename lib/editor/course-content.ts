@@ -1,4 +1,5 @@
 import type { EditorSnapshotInput } from "./schemas";
+import { remapDatabaseSchemaIds } from "./database-schema";
 
 type CourseContent = Pick<EditorSnapshotInput, "sections" | "lessons">;
 type Lesson = EditorSnapshotInput["lessons"][number];
@@ -11,6 +12,8 @@ export function duplicateLessonBlocks(blocks: Lesson["blocks"], createId: () => 
     const id = ids.get(block.id)!;
     if (block.type === "flipCard") return { ...block, id, data: { ...block.data, cards: block.data.cards.map((card) => ({ ...card, id: createId() })) } };
     if (block.type === "timeline") return { ...block, id, data: { ...block.data, items: block.data.items.map((item) => ({ ...item, id: createId() })) } };
+    if (block.type === "conceptMap") return { ...block, id, data: { ...block.data, branches: block.data.branches.map((branch) => ({ ...branch, id: createId() })) } };
+    if (block.type === "databaseSchema") return { ...block, id, data: remapDatabaseSchemaIds(block.data, createId) };
     if (block.type === "hangingRopeCards") return { ...block, id, data: { ...block.data, cards: block.data.cards.map((card) => ({ ...card, id: createId(), blocks: card.blocks.map((content) => ({ ...content, id: createId() })) })) } };
     if (block.type === "peelToReveal") return { ...block, id, data: { ...block.data, blocks: block.data.blocks.map((content) => ({ ...content, id: createId() })) } };
     if (block.type !== "interactionButton") return { ...block, id };

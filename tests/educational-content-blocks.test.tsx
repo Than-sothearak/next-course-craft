@@ -12,6 +12,8 @@ import { createBlocksFromTemplate } from "@/app/courses/[courseId]/edit/_compone
 import { TemplatePreview } from "@/app/courses/[courseId]/edit/_components/(editor_client_components)/(block_template_picker_components)/template-preview";
 import { PreviewBlock } from "@/app/courses/[courseId]/preview/_components/(course_preview_components)/(lesson_reader_preview_components)/(lesson_blocks_preview_components)/preview-block";
 import { BlockTemplatePicker } from "@/app/courses/[courseId]/edit/_components/(editor_client_components)/block-template-picker";
+import { ContentBlockPreview } from "@/app/courses/[courseId]/edit/_components/(editor_client_components)/(content_block_editor_components)/_components/content-block-preview";
+import { getHandoutBlockText } from "@/lib/pdf/content";
 
 const originalGlobals = {
   DOMParser: globalThis.DOMParser,
@@ -47,6 +49,7 @@ describe("Standard educational content blocks", () => {
     expect(blockSchema.parse({ id: "table", version: 1, type: "table", data: { columns: ["Name", "Value"], rows: [["A", "1"]] } }).type).toBe("table");
     expect(blockSchema.parse({ id: "checklist", version: 1, type: "checklist", data: { items: ["Review the result"] } }).type).toBe("checklist");
     expect(blockSchema.safeParse({ id: "bad-table", version: 1, type: "table", data: { columns: ["Name", "Value"], rows: [["A"]] } }).success).toBe(false);
+    expect(blockSchema.parse({ id: "concept-map", version: 1, type: "conceptMap", data: { centralConcept: "Water cycle", branches: [{ id: "evaporation", relationship: "changes into", concept: "Water vapor" }, { id: "condensation", relationship: "forms", concept: "Clouds" }] } })).toMatchObject({ type: "conceptMap", width: "medium", data: { centralConcept: "Water cycle", branches: [{ relationship: "changes into" }, { concept: "Clouds" }] } });
   });
 
   it("converts generated formula, table, and checklist seeds into native saved blocks", async () => {
@@ -81,6 +84,26 @@ describe("Standard educational content blocks", () => {
     expect(standardPicker).toContain(">Checklist</button>");
   });
 
+  it("inserts, previews, renders and exports labeled concept relationships", () => {
+    const template = blockTemplates.find((item) => item.type === "conceptMap")!;
+    expect(template.standardOnly).toBe(true);
+    const [inserted] = createBlocksFromTemplate(template, "concept-map");
+    const block = blockSchema.parse(inserted);
+    if (block.type !== "conceptMap") throw new Error("Expected a concept map block");
+    expect(block).toMatchObject({ type: "conceptMap", data: { centralConcept: "Central concept", branches: [{ relationship: "includes" }, { relationship: "depends on" }] } });
+    expect(new Set(block.data.branches.map((branch) => branch.id))).toHaveProperty("size", 2);
+    const learnerMarkup = renderToStaticMarkup(createElement(PreviewBlock, { block, device: "mobile", orientation: "portrait" }));
+    const authorMarkup = renderToStaticMarkup(createElement(ContentBlockPreview, { block, onChange: () => {} }));
+    const pickerMarkup = renderToStaticMarkup(createElement(TemplatePreview, { template }));
+    expect(learnerMarkup).toContain('data-concept-map="true"');
+    expect(learnerMarkup).toContain("Central concept");
+    expect(learnerMarkup).toContain("depends on");
+    expect(learnerMarkup).toContain('aria-label="Concepts related to Central concept"');
+    expect(authorMarkup).toContain("depends on");
+    expect(pickerMarkup).toContain("How the ideas connect");
+    expect(getHandoutBlockText(block)).toContain("depends on Related concept 2: Explain this connection.");
+  });
+
   it("renders formulas, semantic mobile table labels, and a non-interactive checklist in learner preview", () => {
     const formula = blockSchema.parse({ id: "formula-preview", version: 1, type: "formula", data: { title: "Energy", latex: "E=mc^2", explanation: "Mass and speed determine energy.", variables: [{ symbol: "m", explanation: "Mass" }] } });
     const table = blockSchema.parse({ id: "table-preview", version: 1, type: "table", data: { columns: ["Concept", "Meaning"], rows: [["Mass", "Amount of matter"]] } });
@@ -89,11 +112,20 @@ describe("Standard educational content blocks", () => {
     const tableMarkup = renderToStaticMarkup(createElement(PreviewBlock, { block: table, device: "mobile", orientation: "portrait" }));
     const checklistMarkup = renderToStaticMarkup(createElement(PreviewBlock, { block: checklist, device: "mobile", orientation: "portrait" }));
     expect(mathMarkup).toContain('role="math"');
+    expect(mathMarkup).toContain("katex-mathml");
+    expect(mathMarkup).toMatch(/<section[^>]*aria-labelledby=/);
+    expect(mathMarkup).toContain('aria-describedby="');
     expect(mathMarkup).toContain("Mass and speed determine energy.");
     expect(tableMarkup).toContain('scope="col"');
+    expect(tableMarkup).toContain("<caption");
+    expect(tableMarkup).toMatch(/<td[^>]*headers="[^"]+-column-0"/);
+    expect(tableMarkup).toContain('aria-hidden="true"');
+    expect(tableMarkup).toContain("sr-only");
     expect(tableMarkup).toContain("sm:hidden");
     expect(tableMarkup).toContain("Concept");
-    expect(checklistMarkup).toContain('aria-label="Review"');
+    expect(checklistMarkup).toMatch(/<section[^>]*aria-labelledby=/);
+    expect(checklistMarkup).toContain("Review</h3>");
+    expect(checklistMarkup).not.toContain("shadow-sm");
     expect(checklistMarkup).not.toContain('type="checkbox"');
   });
 

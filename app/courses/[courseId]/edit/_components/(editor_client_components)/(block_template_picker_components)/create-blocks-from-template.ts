@@ -8,6 +8,8 @@ import {
   balloonArcherBlockSchema,
   peelToRevealBlockSchema,
   hangingRopeCardsBlockSchema,
+  conceptMapBlockSchema,
+  databaseSchemaBlockSchema,
 } from "@/lib/schemas/block";
 import type { BlockTemplate } from "./block-template-data";
 import { resolveSlideTextLayout } from "@/lib/editor/slide-design";
@@ -15,6 +17,7 @@ import { defaultSlideAudioSize } from "@/lib/editor/slide-audio";
 import { defaultFlipCardLayout } from "@/lib/editor/flip-cards";
 import type { CourseNavigationMode } from "@/lib/editor/navigation";
 import { initializeBlockProgress } from "@/lib/editor/progress-settings";
+import { remapDatabaseSchemaIds } from "@/lib/editor/database-schema";
 
 /** Slide insertion defaults stay separate from the normal lesson templates. */
 export function createSlideBlocksFromTemplate(template: BlockTemplate, id: string, courseTargets?: Parameters<typeof createBlocksFromTemplate>[2]): ContentBlock[] {
@@ -154,6 +157,22 @@ function buildBlocksFromTemplate(
         `Process steps template "${template.id}" is missing its content.`,
       );
     return [{ ...base, type: "processSteps", data: template.processSteps }];
+  }
+  if (template.type === "conceptMap") {
+    if (!template.conceptMap) throw new Error(`Concept map template "${template.id}" is missing its content.`);
+    return [conceptMapBlockSchema.parse({
+      ...base,
+      type: "conceptMap",
+      data: { ...structuredClone(template.conceptMap), branches: template.conceptMap.branches.map((branch) => ({ ...branch, id: createClientId() })) },
+    })];
+  }
+  if (template.type === "databaseSchema") {
+    if (!template.databaseSchema) throw new Error(`Database schema template "${template.id}" is missing its content.`);
+    return [databaseSchemaBlockSchema.parse({
+      ...base,
+      type: "databaseSchema",
+      data: remapDatabaseSchemaIds(template.databaseSchema, createClientId),
+    })];
   }
   if (template.type === "timeline") {
     if (!template.timeline) throw new Error(`Timeline template "${template.id}" is missing its content.`);

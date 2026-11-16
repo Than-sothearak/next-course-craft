@@ -422,7 +422,7 @@ video[data-slide-media-player]::-webkit-media-controls-enclosure {
 .lesson-rich-text li > p { margin-block: 0; }
 .lesson-rich-text .tiptap a { color: var(--course-primary, #2f5f9f); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 0.16em; }
 .lesson-rich-text .tiptap a:hover { text-decoration-thickness: 2px; }
-.lesson-rich-text [data-generated-emphasis="true"] { border-radius: 0.2em; background: color-mix(in srgb, var(--course-primary, #2f5f9f) 18%, white) !important; color: inherit; padding-inline: 0.12em; }
+.lesson-rich-text [data-generated-emphasis="true"] { border-radius: 0.28em; background: color-mix(in srgb, var(--course-primary, #2f5f9f) 18%, white) !important; color: inherit; padding: 0.06em 0.2em; }
 [data-preview-screen] .lesson-rich-text { min-width: 0; overflow-wrap: anywhere; }
 [data-preview-screen] .lesson-rich-text .tiptap table { display: block; max-width: 100%; overflow-x: auto; }
 .lesson-rich-text:not([data-course-text-role="title"]) .tiptap :is(h1, h2, h3, h4, h5, h6) { margin-block: 0 0.75rem; font-weight: 700; line-height: 1.3; }
@@ -510,7 +510,7 @@ video[data-slide-media-player]::-webkit-media-controls-enclosure {
 .lesson-rich-text .tiptap pre::after {
   position: absolute;
   top: 0.7rem;
-  right: 1rem;
+  right: 5.25rem;
   color: var(--code-muted);
   content: "CODE";
   font-family: Arial, Helvetica, sans-serif;
@@ -530,6 +530,10 @@ video[data-slide-media-player]::-webkit-media-controls-enclosure {
 }
 .lesson-rich-text .tiptap pre[data-code-language]::after { content: attr(data-code-language); text-transform: uppercase; }
 .lesson-rich-text .tiptap pre[data-code-language="auto"]::after { content: "CODE"; }
+.lesson-rich-text .tiptap pre .cc-code-copy-button { position: absolute; z-index: 2; top: 0.4rem; right: 0.65rem; border: 1px solid color-mix(in srgb, var(--code-muted) 35%, transparent); border-radius: 0.375rem; background: color-mix(in srgb, var(--code-background) 88%, white); padding: 0.2rem 0.55rem; color: var(--code-text); font: 600 0.6875rem/1.4 ui-sans-serif, system-ui, sans-serif; cursor: pointer; }
+.lesson-rich-text .tiptap pre .cc-code-copy-button:hover:not(:disabled) { border-color: color-mix(in srgb, var(--course-primary, #2f5f9f) 60%, var(--code-muted)); }
+.lesson-rich-text .tiptap pre .cc-code-copy-button:focus-visible { outline: 2px solid var(--course-primary, #2f5f9f); outline-offset: 2px; }
+.lesson-rich-text .tiptap pre .cc-code-copy-button:disabled { cursor: wait; opacity: 0.75; }
 .lesson-rich-text .tiptap pre .cc-code-token-comment { color: var(--code-comment); font-style: italic; }
 .lesson-rich-text .tiptap pre .cc-code-token-keyword { color: var(--code-keyword); }
 .lesson-rich-text .tiptap pre .cc-code-token-string { color: var(--code-string); }
@@ -544,7 +548,7 @@ video[data-slide-media-player]::-webkit-media-controls-enclosure {
 @media (max-width: 640px) {
   .lesson-rich-text .tiptap pre { padding-inline: 0.875rem; font-size: 0.75rem; }
   .lesson-rich-text .tiptap pre::before { background-position: 0.875rem 0.85rem, 1.875rem 0.85rem, 2.875rem 0.85rem; }
-  .lesson-rich-text .tiptap pre::after { right: 0.875rem; }
+  .lesson-rich-text .tiptap pre::after { right: 5rem; }
 }
 @media (prefers-reduced-motion: reduce) {
   .dialog-backdrop-in, .dialog-panel-in, .course-learn-enter, .lesson-block-enter, .lesson-list-enter ul > li, .lesson-list-enter ol > li { animation: none; }

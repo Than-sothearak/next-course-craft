@@ -27,6 +27,7 @@ import { LabeledGraphicBlockSettings } from "./(content_block_editor_components)
 import { ProcessStepsBlockSettings } from "./(content_block_editor_components)/_components/block-settings/process-steps-block-settings";
 import { KnowledgeCheckBlockSettings } from "./(content_block_editor_components)/_components/block-settings/knowledge-check-block-settings";
 import { SurveyBlockSettings } from "./(content_block_editor_components)/_components/block-settings/survey-block-settings";
+import { StatementBlockSettings } from "./(content_block_editor_components)/_components/block-settings/statement-block-settings";
 import { ContentBlockPreview } from "./(content_block_editor_components)/_components/content-block-preview";
 import { AudioInstructionSettings } from "./audio-instruction-settings";
 import { InteractionButtonSettings } from "./interaction-button-settings";
@@ -37,6 +38,8 @@ import { BlockProgressControls } from "@/components/block-progress-controls";
 import { TimelineBlockSettings } from "./(content_block_editor_components)/timeline-block-editor";
 import { getInteractiveBlockProgressIds } from "@/lib/export/progress";
 import { FormulaBlockEditor, TableBlockEditor, ChecklistBlockEditor } from "./(content_block_editor_components)/structured-block-editors";
+import { ConceptMapBlockEditor } from "./(content_block_editor_components)/concept-map-block-editor";
+import { DatabaseSchemaBlockEditor } from "./(content_block_editor_components)/database-schema-block-editor";
 
 export function ContentBlockEditor({
   block,
@@ -214,7 +217,10 @@ export function ContentBlockEditor({
   }
 
   function styleSettingsPanel() {
-    if (inlineSettings) return <div className="space-y-3">{replaceTemplateAction()}</div>;
+    const contentSettings = block.type === "statement"
+      ? <StatementBlockSettings block={block} onChange={onChange} />
+      : <p className="leading-5 text-slate-500">Edit text directly in the lesson. Select text to format it.</p>;
+    if (inlineSettings) return <div className="space-y-3">{replaceTemplateAction()}{contentSettings}</div>;
     return (
       editing && (
         <DraggableSettingsPanel
@@ -225,7 +231,7 @@ export function ContentBlockEditor({
           anchorRef={settingsButtonRef}
           panelClassName="w-[min(380px,calc(100vw-3rem))]"
         >
-          {standardSettingsContent(<p className="leading-5 text-slate-500">Edit text directly in the lesson. Select text to format it.</p>)}
+          {standardSettingsContent(contentSettings)}
         </DraggableSettingsPanel>
       )
     );
@@ -296,6 +302,8 @@ export function ContentBlockEditor({
     {block.type === "formula" && <FormulaBlockEditor block={block} onChange={onChange} />}
     {block.type === "table" && <TableBlockEditor block={block} onChange={onChange} />}
     {block.type === "checklist" && <ChecklistBlockEditor block={block} onChange={onChange} />}
+    {block.type === "conceptMap" && <ConceptMapBlockEditor block={block} onChange={onChange} />}
+    {block.type === "databaseSchema" && <DatabaseSchemaBlockEditor block={block} onChange={onChange} />}
     {block.type === "image" && <ImageBlockSettings block={block} onChange={onChange} setMediaLibraryTarget={setMediaLibraryTarget} />}
     {block.type === "gallery" && <GalleryBlockSettings block={block} setSelectedGalleryImageIndex={setSelectedGalleryImageIndex} setMediaLibraryTarget={setMediaLibraryTarget} onChange={onChange} />}
     {block.type === "video" && <VideoBlockSettings setMediaLibraryTarget={setMediaLibraryTarget} block={block} onChange={onChange} />}
@@ -319,7 +327,7 @@ export function ContentBlockEditor({
   return (
     <div className="group relative">
       {!inlineSettings && settingsButton()}
-      {(!inlineSettings || (block.type !== "flipCard" && block.type !== "accordion" && block.type !== "processSteps" && block.type !== "timeline")) && <div className="block w-full rounded-md text-left">{preview}</div>}
+      {(!inlineSettings || (block.type !== "flipCard" && block.type !== "accordion" && block.type !== "processSteps" && block.type !== "timeline" && block.type !== "conceptMap" && block.type !== "databaseSchema")) && <div className="block w-full rounded-md text-left">{preview}</div>}
       {inlineSettings && <div className="mt-3 space-y-3">{settingsContent}</div>}
       {!inlineSettings && editing && (
         <DraggableSettingsPanel

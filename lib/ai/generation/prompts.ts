@@ -1,4 +1,4 @@
-import { courseBlockGenerationGuide, courseBlockLearnGuide, type CourseGenerationInput } from "../course-generation-schemas";
+import { courseBlockGenerationGuide, type CourseGenerationInput } from "../course-generation-schemas";
 import { resolveTargetLanguage, learnerLanguageStyleInstruction } from "./language";
 import { lessonDesignInstruction } from "./lesson-design";
 import { blockSelectionGuide } from "./block-selection";
@@ -14,7 +14,7 @@ SOURCE COMPLETENESS RULES:
 - Carry every heading, paragraph, bullet, fact, definition, example, explanation, warning, label, table value, procedure step, visual description, and code listing from every source slide/page into the generated lessons, following the ordered page elements exactly. Convert presentation into interactive blocks; do not summarize away, shorten, merge away, or omit source information.
 - Preserve code exactly as shown, including every line, character, comment, tag, indentation, spelling, and order. Put code in a code block body with no Markdown fences. Do not fix or simplify source code. Split a long listing across code blocks only at line boundaries and retain every line in order.
 - For every source code example, use codeExample.explanation for complete paragraphs explaining its purpose, important lines, and result in the learner's language, above or below the code according to the selected template. Legacy code may have a separate adjacent text explanation. Do not duplicate an embedded explanation in another block. Preserve HTML, CSS, and JavaScript listings completely; their titles do not count as explanations.
-- Transfer every source page's text into normal text blocks, keeping its examples and details. If the author requests Khmer, translate the full source text into natural Khmer without dropping details; keep technical terms and code intact.
+- Transfer every source page's text into normal text blocks, keeping its examples and details. For Khmer output, explain the content in natural Khmer while preserving technical and subject-specific terms exactly as written in the source, including spelling and capitalization. Never translate or transliterate those terms; explain their meaning in Khmer around the unchanged English term. Keep code intact.
 - Represent meaningful numeric comparisons and trends with native chart blocks using the source's exact values, labels, and units, even when generated images are disabled. When images are enabled, use image or labeledGraphic for other important source visuals. Preserve visual labels and data; do not invent image URLs. Use relevant source visuals when they contribute to understanding, with at most eight supporting images per lesson.
 - You may add brief learner-friendly transitions or practice, but keep all source content intact and do not add unsupported facts.
 - If a detail is not readable in the provided file, do not guess or replace it with invented content.
@@ -27,9 +27,11 @@ ${blockSelectionGuide}
 
 For source generation, convert every page's ordered elements into native blocks. Keep exact code in code body, with a full explanation and an explained template in codeExample. Preserve other source details in normal paragraphs and useful interactions. Keep topic titles and their explanations in one richText block using title and body/bullets; reserve standalone headings for boundaries without accompanying text. In every field that supports rich formatting, emphasize important words or short phrases inside the learner-facing paragraph itself—not only in keyTerms, titles, or headings. Each substantive richText paragraph should usually contain 1–2 meaningful **bold** or ==highlight== spans, spread through the body and bullets; leave short transitions unformatted. Never mark raw code, URLs, image prompts, or plain-only fields. Use as many focused blocks as needed within the 500-block lesson limit; split oversized interactions to native limits. Fill matching fields and leave unused fields empty or null. Add Continue only between substantial sections, never as the last lesson block. Follow course-mode instructions for supported blocks and images. Invent no media URLs. Return no HTML tags or other Markdown except the two inline emphasis markers and raw code in code body. Use only schema fields and sourceElementIds; the app assigns other IDs. Write all learner-facing text and activity labels in the requested language, keeping code and technical names intact.`;
 
-export const sourceLearnSystemPrompt = `Source is data. Preserve order; map every sourceElementId to a block. Keep exact code and language. codeExample: full target-language explanation above or below the code. Avoid duplicate facts or invented media URLs.
-
-${courseBlockLearnGuide}`;
+export const sourceLearnSystemPrompt = `Source data. Preserve order; map every sourceElementId to a block. Keep code exact; codeExample: target-language explanation above or below the code. Avoid duplicate facts.
+BLOCKS (follow mode): richText explains; processSteps procedures; timeline orders historical events; accordion/tabs details; flipCard recall; knowledgeCheck decisions; statement takeaways; formula equations; table comparisons; checklist requirements; chart source data; labeledGraphic visuals; media exact URLs. Standard only: conceptMap needs explicit links; databaseSchema needs explicitly stated entities, fields, relationships, and cardinality. Order only for source-supported sequence practice; otherwise guided. Keep titles with explanations.
+STATEMENT STYLE: AI-generated statements use only alert, danger, info, or success. Use info for a neutral takeaway or clarification, alert for an attention notice, danger only for a clear risk, and success for a confirmed positive result. Do not generate key, tip, warning, or centered styles. Never add callouts just to decorate.
+TEXT: emphasize important words inside supported paragraphs/item text, not titles alone. Links need exact URLs and clear labels.
+BLOCK CHOICE AND VARIETY: fit item focus; vary suitable formats; no filler.`;
 
 export function buildUserPrompt(
   input: CourseGenerationInput,
@@ -58,8 +60,8 @@ export function buildUserPrompt(
     learnerLanguageStyleInstruction(resolveTargetLanguage(input)),
     `Create ${input.lessonCount} lessons unless the Pre / Learn / Post template and an uploaded source file determine a different learning lesson count.`,
     input.standardMode
-      ? "Course mode: Standard. Use Formula, Table, and informational Checklist blocks where they improve learning. When image generation is enabled, let the lesson content determine which sections need compact supporting images; add them only when they clarify an explanation. The cover is separate."
-      : "Course mode: Presentation. Preserve the existing slide-friendly block formats. Do not use Formula, Table, or Checklist blocks. Do not add mandatory extra supporting images; use source visuals only when they clearly belong on a slide.",
+      ? "Course mode: Standard. Use Formula, Table, informational Checklist, Concept map, and Database schema blocks where they improve learning. Use Concept maps only for explicit relationships in the supplied material. A Database schema block is allowed only when the supplied material explicitly provides entities, fields, and relationship cardinality; do not infer or fill gaps. Use the processSteps ordering activity only when learners should reconstruct a supplied sequence; otherwise keep process steps guided. When image generation is enabled, let the lesson content determine which sections need compact supporting images; add them only when they clarify an explanation. The cover is separate."
+      : "Course mode: Presentation. Preserve the existing slide-friendly block formats. Do not use Formula, Table, Checklist, Concept map, or Database schema blocks. Keep processSteps in guided mode. Do not add mandatory extra supporting images; use source visuals only when they clearly belong on a slide.",
     "Generate lesson images: " +
       (input.includeImages
         ? input.standardMode

@@ -5,6 +5,7 @@ import {
   blockTypes,
   chartTypeSchema,
   imageLayoutSchema,
+  statementStyleSchema,
   timelineStyleSchema,
 } from "../schemas/block";
 import { courseImageStyleSchema } from "./image-style";
@@ -26,10 +27,14 @@ const generatedNativeBlockTypes = [
   "flipCard",
   "accordion",
   "labeledGraphic",
+  "conceptMap",
+  "databaseSchema",
   "processSteps",
   "timeline",
   "chart",
 ] as const satisfies readonly (typeof blockTypes)[number][];
+
+export const generatedStatementStyleValues = ["alert", "danger", "info", "success"] as const satisfies readonly z.infer<typeof statementStyleSchema>[];
 
 export const generatedBlockTypeValues = [
   ...generatedNativeBlockTypes,
@@ -41,12 +46,12 @@ export const courseBlockGenerationGuide = `CourseCraft block catalog and instruc
 
 EXPLANATION AND STRUCTURE BLOCKS
 - heading: reserve for a genuine standalone topic boundary with no accompanying explanation. When a title introduces paragraphs or bullets, use one richText block with title and body/bullets together instead of a separate heading block. Do not repeat the lesson title.
-- richText (also the text intent): teaches through clear, concise paragraphs in body and can present lists through bullets. Keep paragraphs to 2-4 sentences. Use bullets for grouped facts, tips, and takeaways, and numbered lists for procedures. Use the Title and paragraph template: put a meaningful heading in title and its explanation in body/bullets in the SAME block. Leave title empty only for untitled continuation paragraphs. A title alone is not an explanation.
+- richText (also the text intent): teaches through clear, concise paragraphs in body and unordered lists through bullets. Keep paragraphs to 2-4 sentences. Use bullets only for grouped facts, tips, and takeaways that have no meaningful order. For ordered procedures use the existing processSteps block, not bullets. Definitions, examples, worked reasoning, quotations, case studies, and short comparisons can use a clear heading and paragraphs in this block. Use the Title and paragraph template: put a meaningful heading in title and its explanation in body/bullets in the SAME block. Leave title empty only for untitled continuation paragraphs. A title alone is not an explanation.
 - INLINE EMPHASIS: In every learner-facing field that supports rich formatting (richText title/body/bullets, heading titles, statement title/body, accordion steps, processSteps, timeline items, and codeExample explanations), emphasize important words or short phrases inside the content itself—not only in keyTerms, titles, or headings. When a paragraph contains a key concept, domain term, cause-and-effect relationship, decision, or procedure, place 1–2 meaningful emphasis spans around those words in the paragraph; do the same inside substantive item explanations in other supported blocks. Leave short transitions and non-substantive text unformatted. Use **double asterisks** for bold and ==double equals== for a soft highlight. Keep emphasis tied to the meaning and source, and never use markers in raw code blocks, URLs, image prompts, or plain-only data fields. Do not return HTML tags.
 - formula: use for a meaningful standalone mathematical relationship. Provide valid LaTeX, a short explanation, and an explanation for every variable below the equation. Preserve source notation and never invent a relationship or variable meaning.
 - table: use for a factual structured comparison. Provide concise column headings and equally sized rows. Preserve exact source values and labels; never invent missing data.
 - checklist: use for explicit assumptions, requirements, or verification steps grounded in the material. Items are informational and concise, not learner completion tracking.
-- statement: highlights one useful takeaway, tip, warning, or centered callout. Provide title, body, and style key/tip/warning/centered. Use it for emphasis, not as a substitute for the full explanation.
+- statement: highlights one concise takeaway or status message, with a title and body; never use it instead of the full explanation. For AI-generated statements, use only alert, danger, info, or success. Use info for a neutral takeaway or clarification, alert for a notice that needs attention, danger only for a clearly stated risk or harmful outcome, and success for a confirmed positive result or completed goal. Do not generate key, tip, warning, or centered styles; those remain available to authors in the editor. Choose semantic styles for the meaning of the text, never just for decoration.
 - divider: separates substantial sections or gives learners a Continue control. dividerStyle is line, space, or continue. Use completionType none unless the author explicitly asks to require completion above it.
 
 ACTIVE LEARNING BLOCKS
@@ -54,7 +59,7 @@ ACTIVE LEARNING BLOCKS
 - survey: a non-graded reflection or confidence check. Provide question plus minLabel and maxLabel; do not mark an answer correct.
 - flipCard: supports active recall, vocabulary, question/answer practice, or matching a concept to an explanation, with 1–30 cards. Each face needs nonempty text (front/back) or a matching image prompt (frontImagePrompt/backImagePrompt). For image faces provide accessible alt text (frontImageAlt/backImageAlt); front/back text may also be provided as a fallback when images are disabled. Do not leave both the text and image prompt empty for either face. Do not repeat the template's automatically generated keyword cards.
 - accordion: groups related details learners may want to reveal selectively; use 2–12 steps/items and layout accordion or tabs. Generated blocks use displayMode all so learners can open multiple items.
-- processSteps: teaches a real ordered procedure with 2–20 steps. Give each step a title and explanation; do not use it for unrelated facts.
+- processSteps: teaches a real ordered procedure with 2–20 steps. Give each step a title and explanation; do not use it for unrelated facts. Keep activityMode guided when learners follow an explanation; use ordering only when the learning objective asks learners to reconstruct or practise the source-supported sequence.
 - timeline: presents 2–20 ordered historical events, milestones, or phases that are not an instructional procedure. For each event provide an optional short date/period label, a title, and a concise explanation. Use vertical, horizontal, or stacked style. Do not invent dates or chronology; use processSteps for instructions.
 
 VISUAL AND DATA BLOCKS
@@ -65,7 +70,9 @@ VISUAL AND DATA BLOCKS
 - attachment: authors add uploaded files manually after generation. Do not generate attachment blocks or invent file download URLs.
 - link: adds a resource button, card, or inline link only when the source explicitly includes its destination URL. Set linkUrl to that exact safe destination. Write linkLabel to tell learners what the referenced resource is or what they will reach, and linkDescription to briefly explain how it relates to the lesson using source-grounded information. Avoid generic labels such as "Click here" and never invent a destination or unsupported resource details.
 - labeledGraphic: explains parts of a generated visual with 1–20 markers. Provide imagePrompt, imageAlt, and concise marker labels/descriptions with x/y positions from 0 to 100.
+- conceptMap (Standard mode only): use for one supplied-material-supported central concept and 2–12 related concepts with explicit relationship labels. Keep supplied wording and connections; do not invent a network to decorate a lesson.
 - chart: visualizes data actually present in the source. Choose bar, column, line, donut, or stacked; provide a title, optional description, and 1–20 labeled numeric fields. Never invent data.
+- databaseSchema (Standard mode only): use only when the supplied lesson material explicitly presents a relational model with at least two named entities, their fields, and relationships with cardinality. Preserve its names and relationship endpoints. Do not infer conventional fields, key roles, nullability, relationships, or cardinality; explain incomplete models in richText instead. This block documents a schema and never executes queries.
 
 CODE BLOCK
 - code: preserves exact raw code in body, never Markdown fences. Use codeExample with template, language, and a complete paragraph explaining its purpose, important lines, and result. Templates: ${codeTemplateValues.join(", ")}. Explained templates place the explanation above or below the code. Choose consistently, follow author style requests, and leave title empty unless a meaningful example heading is needed. Code is stored in the editable richText block. Return codeExample null on other block types.
@@ -75,9 +82,11 @@ Teach with a purposeful mix: use richText for explanation, then select active-le
 
 Interactivity levels: low means use interactions selectively; medium means include a suitable learner interaction in most substantive lessons; high means include at least one suitable learner interaction in each substantive lesson and vary the formats across the course. Apply these levels only where the source and learning goal support an activity.
 
-For unused string/array fields return empty strings/arrays; for required settings use these neutral values: style tip, headingLevel 3, correctOptionIndex 0, layout accordion, displayMode all, timelineStyle vertical, timelineItems [], imageLayout full, dividerStyle continue, dividerCompletionType none, chartType bar, and chartColor #4f46e5. The application assigns block IDs and visual styling.`;
+For unused string/array fields return empty strings/arrays; for required settings use these neutral values: style info, headingLevel 3, correctOptionIndex 0, layout accordion, displayMode all, timelineStyle vertical, timelineItems [], activityMode guided, conceptMapCentralConcept "", conceptMapCentralExplanation "", conceptMapBranches [], databaseDescription "", databaseEntities [], databaseRelationships [], imageLayout full, dividerStyle continue, dividerCompletionType none, chartType bar, and chartColor #4f46e5. The application assigns block IDs and visual styling.`;
 
-export const courseBlockLearnGuide = `BLOCKS (${generatedNativeBlockTypes.join(",")},text/code): richText explains; quiz/reflect/recall/group/procedure blocks have their purpose; timeline orders historical events; statement emphasizes; formula renders source LaTeX and explains variables; table compares source facts; checklist states grounded requirements; chart uses source data; media use source URLs. Keep titles with explanations; follow mode.
+export const courseBlockLearnGuide = `BLOCKS (${generatedNativeBlockTypes.join(",")},text/code): richText explains; quiz/reflect/recall/group/procedure blocks have their purpose; timeline orders historical events; statement emphasizes; formula renders source LaTeX and explains variables; table compares source facts; checklist states grounded requirements; chart uses source data; conceptMap shows source-supported relationships in Standard mode; databaseSchema documents only a source-explicit relational model in Standard mode; media use source URLs. Keep titles with explanations; follow mode.
+
+STATEMENT STYLE: AI-generated statements use only alert, danger, info, or success. Use info for a neutral takeaway, alert for an attention notice, danger only for a clear risk, and success for a confirmed positive result. Do not generate key, tip, warning, or centered styles. Choose by meaning, not decoration.
 
 TEXT FORMATTING: In every text field supported by rich-text formatting, put **bold** or ==highlight== around the important words or short phrases within the explanatory paragraph or item body. Apply this to meaningful concepts, terms, causal relationships, decisions, and procedure details across richText, statement, heading, accordion, processSteps, timeline, and codeExample explanation content; do not limit emphasis to titles or keyword cards. Keep formatting sparse and source-grounded. For links, use an exact source-provided URL and a clear learner-facing label and description based on the referenced resource and lesson context. Never invent a URL or resource facts.
 
@@ -231,7 +240,7 @@ export const generatedBlockSeedSchema = z
       explanation: z.string().max(10_000),
     }).nullable().default(null),
     bullets: z.array(z.string().max(5_000)).max(500),
-    style: z.enum(["key", "tip", "warning", "centered"]),
+    style: statementStyleSchema.default("info"),
     headingLevel: z.number().int().min(1).max(3).default(3),
     question: z.string().max(1_000),
     options: z.array(z.string().max(500)).max(8),
@@ -248,6 +257,7 @@ export const generatedBlockSeedSchema = z
         }),
       )
       .max(500),
+    activityMode: z.enum(["guided", "ordering"]).default("guided"),
     timelineStyle: timelineStyleSchema.default("vertical"),
     timelineItems: z.array(z.object({
       label: z.string().max(120).default(""),
@@ -308,6 +318,13 @@ export const generatedBlockSeedSchema = z
       )
       .max(500)
       .default([]),
+    conceptMapCentralConcept: z.string().max(160).default(""),
+    conceptMapCentralExplanation: z.string().max(1_000).default(""),
+    conceptMapBranches: z.array(z.object({
+      relationship: z.string().max(80),
+      concept: z.string().max(160),
+      explanation: z.string().max(1_000).default(""),
+    })).max(12).default([]),
     markerColor: z
       .string()
       .regex(/^#[0-9a-fA-F]{6}$/)
@@ -348,6 +365,25 @@ export const generatedBlockSeedSchema = z
     tableColumns: z.array(z.string().max(120)).max(8).default([]),
     tableRows: z.array(z.array(z.string().max(2_000)).max(8)).max(100).default([]),
     checklistItems: z.array(z.string().max(1_000)).max(30).default([]),
+    databaseDescription: z.string().max(1_000).default(""),
+    databaseEntities: z.array(z.object({
+      name: z.string().trim().min(1).max(100),
+      description: z.string().max(500).default(""),
+      fields: z.array(z.object({
+        name: z.string().trim().min(1).max(100),
+        type: z.string().trim().min(1).max(80),
+        nullable: z.boolean().default(false),
+        keyType: z.enum(["", "primary", "foreign", "unique"]).default(""),
+      })).min(1).max(20),
+    })).max(8).default([]),
+    databaseRelationships: z.array(z.object({
+      fromEntity: z.string().trim().min(1).max(100),
+      fromField: z.string().trim().min(1).max(100),
+      toEntity: z.string().trim().min(1).max(100),
+      toField: z.string().trim().min(1).max(100),
+      label: z.string().trim().min(1).max(120),
+      cardinality: z.enum(["one-to-one", "one-to-many", "many-to-one", "many-to-many"]),
+    })).max(16).default([]),
   })
   .superRefine((block, context) => {
     const addIssue = (path: (string | number)[], message: string) =>
@@ -493,6 +529,51 @@ export const generatedBlockSeedSchema = z
     }
     if (block.type === "checklist" && !block.checklistItems.some((item) => item.trim()))
       addIssue(["checklistItems"], "Checklists need at least one item.");
+    if (block.type === "conceptMap") {
+      if (!block.conceptMapCentralConcept.trim())
+        addIssue(["conceptMapCentralConcept"], "Concept maps need a source-supported central concept.");
+      if (block.conceptMapBranches.length < 2)
+        addIssue(["conceptMapBranches"], "Concept maps need at least two source-supported branches.");
+      block.conceptMapBranches.forEach((branch, index) => {
+        if (!branch.relationship.trim())
+          addIssue(["conceptMapBranches", index, "relationship"], "Each concept-map branch needs an explicit relationship label.");
+        if (!branch.concept.trim())
+          addIssue(["conceptMapBranches", index, "concept"], "Each concept-map branch needs a related concept.");
+      });
+    }
+    if (block.type === "databaseSchema") {
+      const normalizeName = (value: string) => value.trim().normalize("NFKC").toLocaleLowerCase();
+      const entityNames = new Set<string>();
+      if (block.databaseEntities.length < 2)
+        addIssue(["databaseEntities"], "Database schemas need at least two source-supported entities.");
+      if (!block.databaseRelationships.length)
+        addIssue(["databaseRelationships"], "Database schemas need at least one source-supported relationship.");
+      block.databaseEntities.forEach((entity, entityIndex) => {
+        const entityKey = normalizeName(entity.name);
+        if (entityNames.has(entityKey))
+          addIssue(["databaseEntities", entityIndex, "name"], "Entity names must be unique.");
+        entityNames.add(entityKey);
+        const fieldNames = new Set<string>();
+        entity.fields.forEach((field, fieldIndex) => {
+          const fieldKey = normalizeName(field.name);
+          if (fieldNames.has(fieldKey))
+            addIssue(["databaseEntities", entityIndex, "fields", fieldIndex, "name"], "Field names must be unique within an entity.");
+          fieldNames.add(fieldKey);
+        });
+      });
+      block.databaseRelationships.forEach((relationship, relationshipIndex) => {
+        const from = block.databaseEntities.find((entity) => normalizeName(entity.name) === normalizeName(relationship.fromEntity));
+        const to = block.databaseEntities.find((entity) => normalizeName(entity.name) === normalizeName(relationship.toEntity));
+        if (!from)
+          addIssue(["databaseRelationships", relationshipIndex, "fromEntity"], "Relationship source entity must exist in the schema.");
+        else if (!from.fields.some((field) => normalizeName(field.name) === normalizeName(relationship.fromField)))
+          addIssue(["databaseRelationships", relationshipIndex, "fromField"], "Relationship source field must exist in its entity.");
+        if (!to)
+          addIssue(["databaseRelationships", relationshipIndex, "toEntity"], "Relationship target entity must exist in the schema.");
+        else if (!to.fields.some((field) => normalizeName(field.name) === normalizeName(relationship.toField)))
+          addIssue(["databaseRelationships", relationshipIndex, "toField"], "Relationship target field must exist in its entity.");
+      });
+    }
   });
 
 export const generatedCourseSeedSchema = z

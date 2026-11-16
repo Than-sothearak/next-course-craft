@@ -2,7 +2,7 @@
 
 import type { ContentBlock } from "@/lib/schemas/block";
 import type { Editor } from "@tiptap/react";
-import { statementStyles } from "../../statement-block-preview";
+import { statementStyles, StatementBlockSurface } from "../../statement-block-preview";
 import { StatementTextEditor } from "../(text_editing_components)/statement-text-editor";
 
 type StatementBlock = Extract<ContentBlock, { type: "statement" }>;
@@ -24,7 +24,7 @@ export function StatementContentEditor({
 }) {
   const classes = statementStyles[block.data.style];
 
-  return <div className={classes.container} style={slideLayout ? { backgroundColor: "transparent", color: "inherit", padding: 0 } : undefined}>
+  return <StatementBlockSurface style={block.data.style} transparentSurface={slideLayout}>
     <StatementTextEditor
       id={`${block.id}-title`}
       label="Statement title"
@@ -51,5 +51,5 @@ export function StatementContentEditor({
       standardMode={standardMode && !slideLayout}
       onChange={(bodyHtml, body) => onChange({ ...block, data: { ...block.data, bodyHtml, body: body.slice(0, 5_000) } })}
     />
-  </div>;
+  </StatementBlockSurface>;
 }

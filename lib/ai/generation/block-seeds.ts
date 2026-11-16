@@ -105,7 +105,7 @@ function emptyBlockSeed(
     title: "",
     body: "",
     bullets: [],
-    style: "tip",
+    style: "info",
     headingLevel: 3,
     question: "",
     options: [],

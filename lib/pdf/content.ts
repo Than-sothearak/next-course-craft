@@ -132,6 +132,29 @@ export function getHandoutBlockText(block: ContentBlock): string[] {
         `Graphic: ${block.data.alt}`,
         ...block.data.markers.map((marker, index) => `${index + 1}. ${marker.label}: ${marker.description}`),
       ];
+    case "conceptMap":
+      return [
+        block.data.title,
+        `Central concept: ${block.data.centralConcept}`,
+        block.data.centralExplanation,
+        ...block.data.branches.map((branch) => `${branch.relationship} ${branch.concept}${branch.explanation ? `: ${branch.explanation}` : ""}`),
+      ].filter(Boolean);
+    case "databaseSchema":
+      return [
+        block.data.title,
+        block.data.description,
+        ...block.data.entities.flatMap((entity) => [
+          `${entity.name}${entity.description ? `: ${entity.description}` : ""}`,
+          ...entity.fields.map((field) => `${field.name}: ${field.type}${field.keyType ? ` (${field.keyType} key)` : ""}${field.nullable ? " (may be empty)" : ""}`),
+        ]),
+        ...block.data.relationships.map((relationship) => {
+          const fromEntity = block.data.entities.find((entity) => entity.id === relationship.fromEntityId)!;
+          const toEntity = block.data.entities.find((entity) => entity.id === relationship.toEntityId)!;
+          const fromField = fromEntity.fields.find((field) => field.id === relationship.fromFieldId)!;
+          const toField = toEntity.fields.find((field) => field.id === relationship.toFieldId)!;
+          return `${fromEntity.name}.${fromField.name} ${relationship.label} ${toEntity.name}.${toField.name} (${relationship.cardinality})`;
+        }),
+      ].filter(Boolean);
     case "processSteps":
       return block.data.steps.flatMap((step, index) => [`Step ${index + 1}${step.title.trim() ? `: ${htmlToHandoutText(step.titleHtml ?? step.title)}` : ""}`, htmlToHandoutText(step.bodyHtml ?? step.body), step.media ? `File: ${step.media.fileName}` : "", step.attachment ? `File: ${step.attachment.fileName}` : ""]).filter(Boolean);
     case "peelToReveal":

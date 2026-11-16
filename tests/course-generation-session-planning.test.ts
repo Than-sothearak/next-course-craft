@@ -16,6 +16,15 @@ describe("reviewable outline planning", () => {
     expect(outline.sections[0].lessons.every((lesson) => !("blocks" in lesson))).toBe(true);
     expect(vi.mocked(requestStructuredJson).mock.calls[0][0].developerPrompt).toContain("Do not write lesson content");
   });
+  it("uses the requested Khmer language and terminology rules when planning an outline", async () => {
+    const requestedInKhmer = { ...input, prompt: "Write this course in Khmer." };
+    await planGenerationSession(requestedInKhmer, "test-model");
+
+    const request = vi.mocked(requestStructuredJson).mock.calls[0][0];
+    expect(request.developerPrompt).toContain("Technical and subject-specific terms must remain in English");
+    expect(request.developerPrompt).toContain("Do not translate or transliterate them");
+    expect(request.content[0].text).toContain('"targetLanguage":"Khmer"');
+  });
   it("rejects an incorrect lesson count instead of approving it silently", async () => {
     await expect(planGenerationSession({ ...input, lessonCount: 3 }, "test-model")).rejects.toThrow("incorrect lesson count");
   });

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { courseGenerationInputSchema, generatedBlockSeedSchema } from "../lib/ai/course-generation-schemas";
 import { expandLearnBlockResponse } from "../lib/ai/learn-block-response";
-import { previousBlockMixInstruction } from "../lib/ai/generation/block-selection";
+import { blockSelectionGuide, previousBlockMixInstruction } from "../lib/ai/generation/block-selection";
 import { buildUserPrompt, courseSystemPrompt } from "../lib/ai/generation/prompts";
 
 function block(value: object) {
@@ -28,14 +28,27 @@ describe("course block selection guidance", () => {
     expect(input.standardMode).toBe(true);
     expect(prompt).toContain("Course mode: Standard");
     expect(prompt).toContain("let the lesson content determine which sections need compact supporting images");
-    expect(prompt).toContain("Formula, Table, and informational Checklist blocks");
+    expect(prompt).toContain("Use Formula, Table, informational Checklist, Concept map, and Database schema blocks");
+    expect(prompt).toContain("Use the processSteps ordering activity only when learners should reconstruct a supplied sequence");
+  });
+
+  it("preserves list meaning and selects existing blocks for different subjects", () => {
+    expect(blockSelectionGuide).toContain("richText bullets render as an unordered list");
+    expect(blockSelectionGuide).toContain("Use processSteps for procedures or actions whose order matters");
+    expect(blockSelectionGuide).toContain("programming examples use code with a complete explanation");
+    expect(blockSelectionGuide).toContain("Math uses formula for relationships stated in the supplied material");
+    expect(blockSelectionGuide).toContain("use conceptMap in Standard mode for a central concept and explicit relationships in the supplied material");
+    expect(blockSelectionGuide).toContain("select the ordering activity only when learners should reconstruct or practise a source-supported sequence");
+    expect(blockSelectionGuide).toContain("databaseSchema only in Standard mode when the supplied material names at least two entities and their fields");
+    expect(blockSelectionGuide).toContain("Concept maps and DatabaseSchema are static teaching diagrams, not interactive systems");
+    expect(blockSelectionGuide).toContain("choose only block types in the supplied schema");
   });
 
   it("keeps Presentation generation slide-friendly and skips Standard-only additions", () => {
     const input = courseGenerationInputSchema.parse({ prompt: "Teach the topic.", audience: "Learners", level: "beginner", lessonCount: 1, template: "custom", standardMode: false, includeImages: true, courseTitle: "Course", courseDescription: "Description" });
     const prompt = buildUserPrompt(input, false);
     expect(prompt).toContain("Course mode: Presentation");
-    expect(prompt).toContain("Do not use Formula, Table, or Checklist blocks");
+    expect(prompt).toContain("Do not use Formula, Table, Checklist, Concept map, or Database schema blocks");
     expect(prompt).not.toContain("let the lesson content determine which sections need compact supporting images");
   });
 

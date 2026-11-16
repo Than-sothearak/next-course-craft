@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { codeLanguageValues, codeTemplateValues } from "@/lib/editor/code-example";
-import { generatedBlockSeedSchema, generatedAssessmentQuestionSchema, generatedBlockTypeValues } from "../course-generation-schemas";
+import { generatedBlockSeedSchema, generatedAssessmentQuestionSchema, generatedBlockTypeValues, generatedStatementStyleValues } from "../course-generation-schemas";
 import { createLearnBlockResponseSchema } from "../learn-block-response";
 
 const assessmentResponseSchema = {
@@ -123,6 +123,7 @@ export const courseResponseSchema = {
                       "options",
                       "correctOptionIndex",
                       "steps",
+                      "activityMode",
                       "timelineStyle",
                       "timelineItems",
                       "cards",
@@ -149,6 +150,9 @@ export const courseResponseSchema = {
                       "dividerLabel",
                       "dividerCompletionType",
                       "markers",
+                      "conceptMapCentralConcept",
+                      "conceptMapCentralExplanation",
+                      "conceptMapBranches",
                       "markerColor",
                       "textColor",
                       "radarColor",
@@ -163,6 +167,9 @@ export const courseResponseSchema = {
                       "tableColumns",
                       "tableRows",
                       "checklistItems",
+                      "databaseDescription",
+                      "databaseEntities",
+                      "databaseRelationships",
                     ],
                     properties: {
                       sourceElementIds: { type: "array", items: { type: "string" } },
@@ -185,7 +192,8 @@ export const courseResponseSchema = {
                       bullets: { type: "array", items: { type: "string" } },
                       style: {
                         type: "string",
-                        enum: ["key", "tip", "warning", "centered"],
+                        enum: generatedStatementStyleValues,
+                        description: "For AI-generated statements, choose only alert, danger, info, or success. Use info for a neutral takeaway or clarification, alert for a notice, danger only for a clear risk, and success for a confirmed positive result. Do not use key, tip, warning, or centered styles.",
                       },
                       question: { type: "string" },
                       options: { type: "array", items: { type: "string" } },
@@ -202,6 +210,7 @@ export const courseResponseSchema = {
                           },
                         },
                       },
+                      activityMode: { type: "string", enum: ["guided", "ordering"], description: "For processSteps, use ordering only when learners should reconstruct or practise the stated order; otherwise use guided. Use guided for other block types." },
                       timelineStyle: { type: "string", enum: ["vertical", "horizontal", "stacked"] },
                       timelineItems: {
                         type: "array",
@@ -277,6 +286,22 @@ export const courseResponseSchema = {
                           },
                         },
                       },
+                      conceptMapCentralConcept: { type: "string", description: "Source-supported central concept for a Standard mode conceptMap; empty for other block types." },
+                      conceptMapCentralExplanation: { type: "string" },
+                      conceptMapBranches: {
+                        type: "array",
+                        description: "Source-supported concept relationships for a Standard mode conceptMap; empty for other block types.",
+                        items: {
+                          type: "object",
+                          additionalProperties: false,
+                          required: ["relationship", "concept", "explanation"],
+                          properties: {
+                            relationship: { type: "string" },
+                            concept: { type: "string" },
+                            explanation: { type: "string" },
+                          },
+                        },
+                      },
                       markerColor: { type: "string" },
                       textColor: { type: "string" },
                       radarColor: { type: "string" },
@@ -307,6 +332,51 @@ export const courseResponseSchema = {
                       tableColumns: { type: "array", items: { type: "string" } },
                       tableRows: { type: "array", items: { type: "array", items: { type: "string" } } },
                       checklistItems: { type: "array", items: { type: "string" } },
+                      databaseDescription: { type: "string", description: "A short source-grounded description of this relational model; leave empty when unused." },
+                      databaseEntities: {
+                        type: "array",
+                        description: "Use only for a source-explicit relational model. Leave empty on all other block types.",
+                        items: {
+                          type: "object",
+                          additionalProperties: false,
+                          required: ["name", "description", "fields"],
+                          properties: {
+                            name: { type: "string" },
+                            description: { type: "string" },
+                            fields: {
+                              type: "array",
+                              items: {
+                                type: "object",
+                                additionalProperties: false,
+                                required: ["name", "type", "nullable", "keyType"],
+                                properties: {
+                                  name: { type: "string" },
+                                  type: { type: "string" },
+                                  nullable: { type: "boolean", description: "Use true only when the source explicitly marks the field nullable; otherwise false." },
+                                  keyType: { type: "string", enum: ["", "primary", "foreign", "unique"], description: "Set a key role only when the source explicitly identifies it." },
+                                },
+                              },
+                            },
+                          },
+                        },
+                      },
+                      databaseRelationships: {
+                        type: "array",
+                        description: "Use only source-stated relationships and cardinality; leave empty when unused.",
+                        items: {
+                          type: "object",
+                          additionalProperties: false,
+                          required: ["fromEntity", "fromField", "toEntity", "toField", "label", "cardinality"],
+                          properties: {
+                            fromEntity: { type: "string" },
+                            fromField: { type: "string" },
+                            toEntity: { type: "string" },
+                            toField: { type: "string" },
+                            label: { type: "string" },
+                            cardinality: { type: "string", enum: ["one-to-one", "one-to-many", "many-to-one", "many-to-many"] },
+                          },
+                        },
+                      },
                     },
                   },
                 },

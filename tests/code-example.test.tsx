@@ -75,6 +75,29 @@ describe("editable code example templates", () => {
     expect(reconstructed + code.slice(offset)).toBe(code);
   });
 
+  it("offers an accessible copy action without adding controls to saved rich text", async () => {
+    const sourceCode = 'const greeting = "Hello";\nconsole.log(greeting);';
+    const originalClipboard = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText } });
+    try {
+      const editor = makeEditor(renderCodeExampleHtml({ code: sourceCode, language: "javascript" }));
+      const button = editor.view.dom.querySelector<HTMLButtonElement>("button[data-code-copy]");
+      expect(button?.getAttribute("aria-label")).toBe("Copy code");
+      expect(button?.textContent).toBe("Copy");
+      await act(async () => {
+        button?.click();
+        await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith(sourceCode));
+      });
+      expect(button?.textContent).toBe("Copied");
+      expect(button?.getAttribute("aria-label")).toBe("Code copied");
+      expect(editor.getHTML()).not.toContain("data-code-copy");
+    } finally {
+      if (originalClipboard) Object.defineProperty(navigator, "clipboard", originalClipboard);
+      else Reflect.deleteProperty(navigator, "clipboard");
+    }
+  });
+
   it("lets authors change the theme without losing paragraphs or code", async () => {
     const container = document.createElement("div");
     document.body.append(container);

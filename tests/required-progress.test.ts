@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { blockSchema } from "@/lib/schemas/block";
 import { editorSnapshotSchema } from "@/lib/editor/schemas";
 import { parseScorm12Snapshot } from "@/lib/scorm12/snapshot";
-import { getInitiallyViewedInteractionIds, getInteractiveBlockProgressIds, getPendingFlipCardIds, getPendingInteractiveProgressIds, getPendingRequiredContinueDividerIds, getRestrictedLessonProgress } from "@/lib/export/progress";
+import { getInitiallyViewedInteractionIds, getInteractiveBlockProgressIds, getPendingFlipCardIds, getPendingInteractiveProgressIds, getPendingRequiredContinueDividerIds, getProcessOrderingProgressId, getRestrictedLessonProgress } from "@/lib/export/progress";
 import { mediaProgressSource } from "@/lib/export/media-playback";
 
 const fixtures = [
@@ -17,6 +17,19 @@ const fixtures = [
 ];
 
 describe("optional progress activities", () => {
+  it("tracks an ordering challenge only after the correct sequence is submitted", () => {
+    const block = blockSchema.parse({ id: "order", version: 1, type: "processSteps", data: { activityMode: "ordering", steps: [{ id: "prepare", title: "Prepare", body: "First" }, { id: "plant", title: "Plant", body: "Next" }, { id: "harvest", title: "Harvest", body: "Last" }] } });
+    if (block.type !== "processSteps") throw new Error("Expected process steps");
+    const id = getProcessOrderingProgressId(block.id, block.data.steps);
+    expect(getInteractiveBlockProgressIds(block)).toEqual([id]);
+    expect(getInitiallyViewedInteractionIds([block])).toEqual([]);
+    expect(getPendingInteractiveProgressIds([block], new Set())).toEqual([id]);
+    expect(getRestrictedLessonProgress(100, [block], new Set())).toBe(50);
+    expect(getPendingInteractiveProgressIds([block], new Set([id]))).toEqual([]);
+    expect(getRestrictedLessonProgress(100, [block], new Set([id]))).toBe(100);
+    expect(getProcessOrderingProgressId(block.id, [...block.data.steps].reverse())).not.toBe(id);
+  });
+
   it.each(["audio", "video"])("combines Standard reading with ten verified %s checkpoints without completing the activity", (type) => {
     const src = "/api/assets/aaaaaaaaaaaaaaaaaaaaaaaa/file";
     const block = blockSchema.parse({ id: "media", type, version: 1, data: { src, mimeType: type === "video" ? "video/mp4" : "audio/mpeg" } });

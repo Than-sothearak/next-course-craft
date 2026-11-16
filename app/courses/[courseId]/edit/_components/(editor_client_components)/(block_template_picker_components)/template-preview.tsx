@@ -18,6 +18,8 @@ import { InteractionIcon } from "@/components/interaction-icon";
 import { EducationalFormula } from "@/components/educational-formula";
 import { EducationalTable } from "@/components/educational-table";
 import { EducationalChecklist } from "@/components/educational-checklist";
+import { ConceptMap } from "@/components/concept-map";
+import { DatabaseSchema } from "@/components/database-schema";
 
 export function TemplatePreview({ template }: { template: BlockTemplate }) {
   if (template.type === "timeline" && template.timeline) return <TimelineTemplatePreview style={template.timeline.style} />;
@@ -37,6 +39,10 @@ export function TemplatePreview({ template }: { template: BlockTemplate }) {
     return <LabeledGraphicTemplatePreview data={template.labeledGraphic} />;
   if (template.type === "lessonMap" && template.lessonMap)
     return <LessonMapTemplateThumbnail template={template.lessonMap.template} className="aspect-[18/11] w-full" />;
+  if (template.type === "conceptMap" && template.conceptMap)
+    return <ConceptMap data={template.conceptMap} />;
+  if (template.type === "databaseSchema" && template.databaseSchema)
+    return <DatabaseSchema data={template.databaseSchema} />;
   if (template.type === "processSteps" && template.processSteps)
     return <ProcessStepsTemplatePreview data={template.processSteps} />;
   if (template.type === "chart" && template.chart)
