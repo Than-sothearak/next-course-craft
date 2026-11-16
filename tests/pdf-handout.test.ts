@@ -46,6 +46,15 @@ describe("PDF handout content", () => {
     ]);
   });
 
+  it("includes the full formula, variable notes, table rows, and checklist in handouts", () => {
+    const formula = blockSchema.parse({ id: "formula", version: 1, type: "formula", data: { title: "Energy", latex: "E=mc^2", explanation: "Mass and speed determine energy.", variables: [{ symbol: "m", explanation: "Mass" }] } });
+    const table = blockSchema.parse({ id: "table", version: 1, type: "table", data: { caption: "Comparison", columns: ["Concept", "Meaning"], rows: [["Mass", "Amount of matter"]] } });
+    const checklist = blockSchema.parse({ id: "checklist", version: 1, type: "checklist", data: { title: "Review", items: ["Check the units"] } });
+    expect(getHandoutBlockText(formula)).toEqual(["Energy", "Formula: E=mc^2", "Mass and speed determine energy.", "m: Mass"]);
+    expect(getHandoutBlockText(table)).toEqual(["Comparison", "Concept | Meaning", "Mass | Amount of matter"]);
+    expect(getHandoutBlockText(checklist)).toEqual(["Review", "- Check the units"]);
+  });
+
   it("keeps literal comparisons in legacy plain accordion titles", () => {
     const block = blockSchema.parse({ id: "comparisons", type: "accordion", version: 1, data: { items: [
       { id: "one", title: "Compare x < y > z", body: "A plain explanation" },

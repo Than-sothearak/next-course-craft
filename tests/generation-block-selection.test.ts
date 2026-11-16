@@ -22,6 +22,23 @@ describe("course block selection guidance", () => {
     expect(courseSystemPrompt).toContain("A topic about data alone is not a dataset");
   });
 
+  it("uses structured blocks and lets Standard lesson content choose supporting images", () => {
+    const input = courseGenerationInputSchema.parse({ prompt: "Teach the topic.", audience: "Learners", level: "beginner", lessonCount: 1, template: "custom", includeImages: true, courseTitle: "Course", courseDescription: "Description" });
+    const prompt = buildUserPrompt(input, false);
+    expect(input.standardMode).toBe(true);
+    expect(prompt).toContain("Course mode: Standard");
+    expect(prompt).toContain("let the lesson content determine which sections need compact supporting images");
+    expect(prompt).toContain("Formula, Table, and informational Checklist blocks");
+  });
+
+  it("keeps Presentation generation slide-friendly and skips Standard-only additions", () => {
+    const input = courseGenerationInputSchema.parse({ prompt: "Teach the topic.", audience: "Learners", level: "beginner", lessonCount: 1, template: "custom", standardMode: false, includeImages: true, courseTitle: "Course", courseDescription: "Description" });
+    const prompt = buildUserPrompt(input, false);
+    expect(prompt).toContain("Course mode: Presentation");
+    expect(prompt).toContain("Do not use Formula, Table, or Checklist blocks");
+    expect(prompt).not.toContain("let the lesson content determine which sections need compact supporting images");
+  });
+
   it("shares the actual prior format mix without copying authored content", () => {
     const steps = [{ title: "First", body: "An authored detail." }, { title: "Second", body: "Another detail." }];
     const prompt = previousBlockMixInstruction([

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlignLeft, BarChart3, CheckCircle2, Code2, FileDown, FilePlus2, Image as ImageIcon, Images, Link2, List, Minus, Quote, RotateCcw, Type, Video, X } from "lucide-react";
+import { AlignLeft, BarChart3, CheckCircle2, Code2, FileDown, FilePlus2, Image as ImageIcon, Images, Link2, List, Minus, Quote, RotateCcw, Type, Video, X, Sigma, Table2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { blockCategories, blockTemplates, type BlockCategory, type BlockTemplate } from "./(block_template_picker_components)/block-template-data";
@@ -21,6 +21,9 @@ const categoryIcons = {
   "Knowledge check": CheckCircle2,
   Survey: CheckCircle2,
   Chart: BarChart3,
+  Formula: Sigma,
+  Table: Table2,
+  Checklist: CheckCircle2,
   Divider: Minus,
   Blank: FilePlus2,
   Code: Code2,
@@ -33,6 +36,7 @@ export function BlockTemplatePicker({
   initialCategory = "Text",
   mode = "add",
   nativeDialog = false,
+  standardOnly = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -40,6 +44,7 @@ export function BlockTemplatePicker({
   initialCategory?: BlockCategory;
   mode?: "add" | "replace";
   nativeDialog?: boolean;
+  standardOnly?: boolean;
 }) {
   const [category, setCategory] = useState<BlockCategory>(initialCategory);
 
@@ -54,15 +59,18 @@ export function BlockTemplatePicker({
 
   if (!open) return null;
   const visibleTemplates = blockTemplates.filter(
-    (template) => template.category === category,
+    (template) => template.category === category && (!template.standardOnly || standardOnly),
   );
+  const visibleCategories = standardOnly
+    ? blockCategories
+    : blockCategories.filter((item) => !blockTemplates.some((template) => template.category === item && template.standardOnly));
 
   const pickerContent = <div className="grid min-h-0 flex-1 sm:grid-cols-[190px_minmax(0,1fr)]">
           <nav
             aria-label="Block categories"
             className="flex gap-1 overflow-x-auto border-b border-slate-100 p-2 sm:flex-col sm:overflow-y-auto sm:border-b-0 sm:border-r sm:p-3"
           >
-            {blockCategories.map((item) => {
+            {visibleCategories.map((item) => {
               const Icon = categoryIcons[item];
               return (
                 <button

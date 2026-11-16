@@ -106,7 +106,7 @@ function emptyBlockSeed(
     body: "",
     bullets: [],
     style: "tip",
-    headingLevel: 2,
+    headingLevel: 3,
     question: "",
     options: [],
     correctOptionIndex: 0,

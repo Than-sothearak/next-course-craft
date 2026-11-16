@@ -44,7 +44,7 @@ export async function assembleCourseDraft({
     knowledgeCheck: reservedKnowledgeChecks ?? (input.template === "custom" && includeCourseActivities ? 1 : 0),
   });
   if (sourceInventory && input.includeImages)
-    addSourceVisualBlocks(seed, sourceInventory);
+    addSourceVisualBlocks(seed, sourceInventory, input.standardMode);
   const targetLanguage = sourcePlan?.targetLanguage ?? resolveTargetLanguage(input);
   const khmer = courseUsesKhmer(targetLanguage);
   let sections: GeneratedCourseDraft["sections"] = [];
@@ -64,9 +64,16 @@ export async function assembleCourseDraft({
             logGenerationProgress({ status: "IN PROGRESS", task: lessonTask, courseId, current: lessonNumber, total: totalLessonCount });
             const lessonId = randomUUID();
             const lessonBlocks = splitGeneratedBlockSeeds(lessonSeed.blocks);
+            const supportingImageCount = lessonBlocks.filter((block) => block.type === "image" && block.imagePrompt.trim()).length;
+            let supportingImageIndex = 0;
             const convertedBlocks = await Promise.allSettled(
-              lessonBlocks.map((blockSeed) =>
-                toContentBlock(
+              lessonBlocks.map((blockSeed) => {
+                const imageTask = input.includeImages && blockSeed.type === "image" && blockSeed.imagePrompt.trim()
+                  ? `Generate supporting image ${++supportingImageIndex} of ${supportingImageCount} for lesson ${lessonNumber} of ${totalLessonCount}`
+                  : null;
+                if (imageTask)
+                  logGenerationProgress({ status: "IN PROGRESS", task: imageTask, courseId, current: lessonNumber, total: totalLessonCount });
+                const conversion = toContentBlock(
                   blockSeed,
                   ownerId,
                   courseId,
@@ -74,8 +81,17 @@ export async function assembleCourseDraft({
                   khmer,
                   (assetId) => createdAssetIds.push(assetId),
                   { imageStyle: input.imageStyle, customImageStyle: input.customImageStyle },
-                ),
-              ),
+                );
+                return imageTask
+                  ? conversion.then((result) => {
+                    logGenerationProgress({ status: "DONE", task: imageTask, courseId, current: lessonNumber, total: totalLessonCount });
+                    return result;
+                  }, (error: unknown) => {
+                    logGenerationProgress({ status: "FAILED", task: imageTask, courseId, current: lessonNumber, total: totalLessonCount });
+                    throw error;
+                  })
+                  : conversion;
+              }),
             );
             const failure = convertedBlocks.find(
               (result) => result.status === "rejected",
@@ -136,7 +152,11 @@ export async function assembleCourseDraft({
               courseId,
               current: lessonNumber,
               total: totalLessonCount,
-              detail: input.includeImages ? "Lesson content and cover image are ready" : "Lesson content is ready",
+              detail: input.includeImages
+                ? supportingImageCount
+                  ? "Lesson content, cover, and selected supporting images are ready"
+                  : "Lesson content and cover are ready"
+                : "Lesson content is ready",
             });
             return {
               lesson: {

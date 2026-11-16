@@ -588,6 +588,7 @@ export function EditorWorkspace({
       {templatePicker && (
         <BlockTemplatePicker
           open
+          standardOnly={!slideCourse}
           initialCategory={templatePicker.category}
           mode={templatePicker.mode}
           onClose={() => setTemplatePicker(null)}
@@ -596,6 +597,7 @@ export function EditorWorkspace({
       )}
       {courseGenerationOpen && <CourseGenerationWizard
         open={courseGenerationOpen}
+        standardMode={!slideCourse}
         imageGenerationModel={imageGenerationModel}
         onClose={() => setCourseGenerationOpen(false)}
         courseId={courseId}

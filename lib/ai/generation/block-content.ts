@@ -67,6 +67,13 @@ export function needsContinueAfter(
     ...block.timelineItems.flatMap((item) => [item.label, item.title, item.body]),
     ...block.cards.flatMap((card) => [card.front, card.back]),
     ...block.chartFields.map((field) => field.label),
+    block.formulaLatex,
+    block.formulaExplanation,
+    ...block.formulaVariables.flatMap((variable) => [variable.symbol, variable.explanation]),
+    block.tableCaption,
+    ...block.tableColumns,
+    ...block.tableRows.flat(),
+    ...block.checklistItems,
   ].join("").length;
   return contentLength >= 850 || block.steps.length >= 6 || block.timelineItems.length >= 6 || block.chartFields.length >= 12;
 }
@@ -216,7 +223,7 @@ export function buildPreLearnPostActivities(
     id: randomUUID(),
     version: 1,
     type: "flipCard",
-    width: "full",
+    width: "medium",
     data: {
       cards: seed.keyTerms.map(({ term, definition }) => ({
         id: randomUUID(),
@@ -340,7 +347,7 @@ export function addCustomTemplateFirstLessonActivities(
       id: randomUUID(),
       version: 1,
       type: "flipCard",
-      width: "full",
+      width: "medium",
       data: {
         cards: seed.keyTerms.map(({ term, definition }) => ({
           id: randomUUID(),
@@ -415,6 +422,36 @@ export async function toContentBlock(
 ): Promise<{ block: ContentBlock; generatedImage: boolean; assetId?: string }> {
   const id = randomUUID();
   const base = { id, version: 1 as const };
+  if (seed.type === "formula") {
+    return {
+      block: blockSchema.parse({ ...base, type: "formula", width: "medium", data: {
+        title: seed.title.trim(),
+        latex: seed.formulaLatex.trim(),
+        explanation: seed.formulaExplanation.trim(),
+        variables: seed.formulaVariables.map(({ symbol, explanation }) => ({ symbol: symbol.trim(), explanation: explanation.trim() })),
+      } }),
+      generatedImage: false,
+    };
+  }
+  if (seed.type === "table") {
+    return {
+      block: blockSchema.parse({ ...base, type: "table", width: "medium", data: {
+        caption: seed.tableCaption.trim(),
+        columns: seed.tableColumns.map((column) => column.trim()),
+        rows: seed.tableRows.map((row) => row.map((cell) => cell.trim())),
+      } }),
+      generatedImage: false,
+    };
+  }
+  if (seed.type === "checklist") {
+    return {
+      block: blockSchema.parse({ ...base, type: "checklist", data: {
+        title: seed.title.trim(),
+        items: seed.checklistItems.map((item) => item.trim()).filter(Boolean),
+      } }),
+      generatedImage: false,
+    };
+  }
   if (
     seed.type === "image" &&
     includeImages &&
@@ -431,7 +468,8 @@ export async function toContentBlock(
       block: blockSchema.parse({
         ...base,
         type: "image",
-        width: "medium",
+        width: "small",
+        blockPadding: 16,
         data: {
           src: generatedImage.src,
           alt:
@@ -634,7 +672,7 @@ export async function toContentBlock(
         block: blockSchema.parse({
           ...base,
           type: "flipCard",
-          width: "full",
+          width: "medium",
           data: { cards },
         }),
         generatedImage: false,

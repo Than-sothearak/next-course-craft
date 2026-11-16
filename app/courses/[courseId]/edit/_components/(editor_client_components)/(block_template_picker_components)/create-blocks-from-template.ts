@@ -164,6 +164,18 @@ function buildBlocksFromTemplate(
       throw new Error(`Chart template "${template.id}" is missing its data.`);
     return [{ ...base, type: "chart", data: template.chart }];
   }
+  if (template.type === "formula") {
+    if (!template.formula) throw new Error(`Formula template "${template.id}" is missing its content.`);
+    return [{ ...base, type: "formula", data: template.formula }];
+  }
+  if (template.type === "table") {
+    if (!template.table) throw new Error(`Table template "${template.id}" is missing its content.`);
+    return [{ ...base, type: "table", data: template.table }];
+  }
+  if (template.type === "checklist") {
+    if (!template.checklist) throw new Error(`Checklist template "${template.id}" is missing its content.`);
+    return [{ ...base, type: "checklist", data: template.checklist }];
+  }
   if (template.type === "link") {
     if (!template.link)
       throw new Error(`Link template "${template.id}" is missing its content.`);

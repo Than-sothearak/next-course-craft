@@ -105,6 +105,13 @@ function block(type: GenerationBlockType = "text"): {
   chartDescription: string;
   chartColor: string;
   chartFields: { label: string; value: number }[];
+  formulaLatex: string;
+  formulaExplanation: string;
+  formulaVariables: { symbol: string; explanation: string }[];
+  tableCaption: string;
+  tableColumns: string[];
+  tableRows: string[][];
+  checklistItems: string[];
 } {
   return {
     type,
@@ -150,6 +157,13 @@ function block(type: GenerationBlockType = "text"): {
     chartDescription: "",
     chartColor: "#4f46e5",
     chartFields: [],
+    formulaLatex: "",
+    formulaExplanation: "",
+    formulaVariables: [],
+    tableCaption: "",
+    tableColumns: [],
+    tableRows: [],
+    checklistItems: [],
   };
 }
 
@@ -648,6 +662,7 @@ describe("AI course generation contracts", () => {
       const flipCard = course.lessons[0].blocks.find((value) => value.type === "flipCard" && value.data.cards.length === 4);
       expect(flipCard?.type).toBe("flipCard");
       if (flipCard?.type !== "flipCard") throw new Error("Expected generated flip cards.");
+      expect(flipCard.width).toBe("medium");
       expect(flipCard.data.cards).toHaveLength(4);
       for (const [index, card] of flipCard.data.cards.entries()) {
         expect(card.front).toEqual(includeImages
@@ -657,7 +672,10 @@ describe("AI course generation contracts", () => {
           ? { type: "image", src: expect.stringMatching(/^\/api\/assets\/[a-f0-9]{24}\/file$/), alt: cards[index].backImageAlt }
           : { type: "text", text: cards[index].back });
       }
-    expect(course.generatedImageCount).toBe(includeImages ? 10 : 0);
+      const supportingImages = course.lessons.flatMap((lesson) => lesson.blocks.filter((value) => value.type === "image" && value.data.layout !== "cover"));
+      expect(supportingImages).toHaveLength(0);
+      expect(supportingImages.every((image) => image.width === "small" && image.blockPadding === 16)).toBe(true);
+      expect(course.generatedImageCount).toBe(includeImages ? 10 : 0);
       expect(fetchMock).toHaveBeenCalledTimes(includeImages ? 11 : 1);
       expect(s3Upload).not.toHaveBeenCalled();
       expect(createdAssets).toHaveLength(includeImages ? 10 : 0);
@@ -1708,8 +1726,11 @@ describe("AI course generation contracts", () => {
     ]);
   });
 
-  it("limits generated AI images to eight per course", () => {
+  it("limits Standard generated supporting images to eight per lesson", () => {
     expect(generatedCourseSeedSchema.safeParse(seed(Array.from({ length: 9 }, () => block("image")))).success).toBe(false);
+    const course = seed(Array.from({ length: 8 }, () => block("image")), {}, 2);
+    course.sections[0].lessons[1].blocks = Array.from({ length: 8 }, () => block("image"));
+    expect(generatedCourseSeedSchema.safeParse(course).success).toBe(true);
   });
 
   it("removes a stored image when the owner-scoped asset record cannot be created", async () => {
@@ -1735,7 +1756,7 @@ describe("AI course generation contracts", () => {
     await expect(generateCourseDraft({
       ownerId: "507f1f77bcf86cd799439011",
       courseId: "507f1f77bcf86cd799439012",
-      input: courseGenerationInputSchema.parse({ ...input, lessonCount: 1, includeImages: true }),
+      input: courseGenerationInputSchema.parse({ ...input, lessonCount: 1, standardMode: false, includeImages: true }),
     })).rejects.toThrow("could not be saved to course media storage");
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -1775,6 +1796,22 @@ describe("AI course generation contracts", () => {
       type: "image",
       imagePrompt: expect.stringContaining("source page 2"),
     });
+  });
+
+  it("keeps Presentation source-image enrichment at the existing eight-image course cap", () => {
+    const pageCount = 10;
+    const courseSeed = generatedCourseSeedSchema.parse(seed([block(), block()], {
+      lessonOverview: Array.from({ length: pageCount }, (_, index) => ({ focus: `Section ${index + 1}`, slideRange: `${index + 1}-${index + 1}` })),
+    }, pageCount));
+    const inventory = generatedSourceInventorySchema.parse({
+      sourcePageCount: pageCount,
+      pages: Array.from({ length: pageCount }, (_, index) => ({
+        pageNumber: index + 1,
+        elements: [{ kind: "visual", content: `Diagram ${index + 1}.`, visualKind: "diagram", visibleText: "" }],
+      })),
+    });
+    addSourceVisualBlocks(courseSeed, inventory, false);
+    expect(courseSeed.sections[0].lessons.flatMap((lesson) => lesson.blocks).filter((item) => item.type === "image")).toHaveLength(8);
   });
 
   it("transcribes PDF pages in order and carries their exact code into the lesson", async () => {

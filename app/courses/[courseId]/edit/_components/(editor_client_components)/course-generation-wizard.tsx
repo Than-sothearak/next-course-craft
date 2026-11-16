@@ -38,15 +38,16 @@ function GenerationSwitch({ label, checked, onChange }: {
     <span>{label}</span>
   </label>;
 }
-export function CourseGenerationWizard({ open, onClose, courseId, courseTitle, courseDescription, existingLessonCount, runServerMutation, onStarted, savedSession, imageGenerationModel = defaultCourseImageGenerationModel }: {
+export function CourseGenerationWizard({ open, onClose, courseId, courseTitle, courseDescription, existingLessonCount, runServerMutation, onStarted, savedSession, standardMode = true, imageGenerationModel = defaultCourseImageGenerationModel }: {
   open: boolean; onClose: () => void; courseId: string; courseTitle: string; courseDescription: string; existingLessonCount: number; imageGenerationModel?: string;
+  standardMode?: boolean;
   runServerMutation: ReturnType<typeof useEditorDraft>["runServerMutation"];
   onStarted: (session: GenerationSessionSnapshot) => void; savedSession: GenerationSessionSnapshot | null;
 }) {
   const [closeConfirmationOpen, setCloseConfirmationOpen] = useState(false);
   const closeDescriptionId = useId();
   const [step, setStep] = useState(savedSession?.status === "outline" ? 2 : 0);
-  const [input, setInput] = useState<CourseGenerationInput>(savedSession?.status === "outline" ? savedSession.input : { prompt: starterGenerationPrompt, audience: "", level: "beginner", lessonCount: 5, template: "custom", learnGroupingMode: "smart", slidesPerContent: 5, targetLanguage: "English", contentDepth: "detailed", interactivity: "high", postTestCount: 5, includeImages: false, generateCoverImage: false, imageStyle: "auto", customImageStyle: "", coverImageStyle: "auto", coverCustomImageStyle: "", courseTitle, courseDescription, model: defaultCourseGenerationModel });
+  const [input, setInput] = useState<CourseGenerationInput>(savedSession?.status === "outline" ? savedSession.input : { prompt: starterGenerationPrompt, audience: "", level: "beginner", lessonCount: 5, template: "custom", learnGroupingMode: "smart", slidesPerContent: 5, targetLanguage: "English", contentDepth: "detailed", interactivity: "high", postTestCount: 5, standardMode, includeImages: false, generateCoverImage: false, imageStyle: "auto", customImageStyle: "", coverImageStyle: "auto", coverCustomImageStyle: "", courseTitle, courseDescription, model: defaultCourseGenerationModel });
   const [file, setFile] = useState<File | null>(null);
   const [source, setSource] = useState<SourceGenerationJobSnapshot | null>(null);
   const [planned, setPlanned] = useState<GenerationSessionSnapshot | null>(savedSession?.status === "outline" ? savedSession : null);

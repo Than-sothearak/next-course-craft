@@ -3,7 +3,7 @@ import { generatedBlockSeedSchema, generatedBlockTypeValues } from "../lib/ai/co
 import { createLearnBlockResponseSchema, expandCourseBlockResponse, expandLearnBlockResponse } from "../lib/ai/learn-block-response";
 
 const examples = {
-  heading: { title: "Layout", body: "", headingLevel: 2 },
+  heading: { title: "Layout", body: "", headingLevel: 3 },
   richText: { body: "A full paragraph explanation.", bullets: [] },
   text: { body: "Another full explanation.", bullets: ["An original detail."] },
   code: { body: "display: flex;", codeExample: { template: "paper-explained-above", language: "css", explanation: "This rule enables flexbox layout." } },
@@ -21,6 +21,9 @@ const examples = {
   processSteps: { steps: [{ title: "Select", body: "Select the container." }, { title: "Apply", body: "Apply display: flex." }] },
   timeline: { timelineStyle: "vertical", timelineItems: [{ label: "1990", title: "First event", body: "The beginning." }, { label: "2000", title: "Next event", body: "A later milestone." }] },
   chart: { title: "Sizes", chartType: "bar", chartDescription: "Source size values.", chartColor: "#4f46e5", chartFields: [{ label: "First", value: 16 }] },
+  formula: { formulaLatex: "E=mc^2", formulaExplanation: "Energy equals mass times light speed squared.", formulaVariables: [{ symbol: "E", explanation: "Energy" }] },
+  table: { tableCaption: "Compare layouts", tableColumns: ["Type", "Use"], tableRows: [["Flex", "One dimension"]] },
+  checklist: { checklistItems: ["Check the main axis"] },
 } satisfies Record<(typeof generatedBlockTypeValues)[number], object>;
 
 describe("compact Learn block responses", () => {

@@ -274,8 +274,11 @@ describe("content block dimensions", () => {
     expect(blockWidthClass({ ...block, width: "full", widthCustom: true })).toBe("max-w-[920px]");
   });
 
-  it("keeps the existing defaults for interactive blocks", () => {
-    const flipCard = blockSchema.parse({
+  it("defaults Formula, Table, Flip Card, and Timeline blocks to M", () => {
+    const blocks = [
+      blockSchema.parse({ id: "formula-a", version: 1, type: "formula", data: { latex: "x=1" } }),
+      blockSchema.parse({ id: "table-a", version: 1, type: "table", data: { columns: ["Name"], rows: [["Ada"]] } }),
+      blockSchema.parse({
       id: "flip-card-a",
       version: 1,
       type: "flipCard",
@@ -288,9 +291,14 @@ describe("content block dimensions", () => {
           back: { type: "text", text: "Explanation" },
         }],
       },
-    });
-    expect(flipCard).toMatchObject({ width: "full", blockPadding: 40 });
-    expect(defaultBlockWidth("flipCard")).toBe("full");
+      }),
+      blockSchema.parse({ id: "timeline-a", version: 1, type: "timeline", data: { items: [{ id: "event-a", title: "Event" }] } }),
+    ];
+    for (const block of blocks) {
+      expect(block).toMatchObject({ width: "medium", widthCustom: false, blockPadding: 40 });
+      expect(defaultBlockWidth(block.type)).toBe("medium");
+      expect(blockWidthClass(block)).toBe("max-w-[720px]");
+    }
   });
 });
 

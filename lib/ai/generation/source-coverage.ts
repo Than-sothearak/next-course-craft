@@ -146,6 +146,13 @@ function generatedBlockSearchText(block: z.infer<typeof generatedBlockSeedSchema
     block.title,
     block.body,
     block.codeExample?.explanation ?? "",
+    block.formulaLatex,
+    block.formulaExplanation,
+    ...block.formulaVariables.flatMap((variable) => [variable.symbol, variable.explanation]),
+    block.tableCaption,
+    ...block.tableColumns,
+    ...block.tableRows.flat(),
+    ...block.checklistItems,
     ...block.bullets,
     block.question,
     ...block.options,
@@ -179,27 +186,22 @@ function sourceTextSignalsPreserved(source: string, generated: string) {
 export function addSourceVisualBlocks(
   seed: GeneratedCourseSeed,
   sourceInventory: GeneratedSourceInventory,
+  perLessonLimit = true,
 ) {
   for (const page of sourceInventory.pages)
     page.elements.forEach((element, index) => {
       if (!element.sourceElementId) element.sourceElementId = `p${page.pageNumber}-e${index + 1}`;
     });
   const lessons = seed.sections.flatMap((section) => section.lessons);
-  let imageCount = seed.sections.reduce(
-    (total, section) => total + section.lessons.reduce(
-      (lessonTotal, lesson) => lessonTotal + lesson.blocks.reduce((blockTotal, block) => {
+  const imageCounts = lessons.map((lesson) => lesson.blocks.reduce((blockTotal, block) => {
         if ((block.type === "image" || block.type === "labeledGraphic") && block.imagePrompt.trim())
           return blockTotal + 1;
         if (block.type === "flipCard")
           return blockTotal + block.cards.reduce((cardTotal, card) =>
             cardTotal + Number(Boolean(card.frontImagePrompt.trim())) + Number(Boolean(card.backImagePrompt.trim())), 0);
         return blockTotal;
-      }, 0),
-      0,
-    ),
-    0,
-  );
-  if (imageCount >= 8) return;
+      }, 0));
+  let totalImageCount = imageCounts.reduce((total, count) => total + count, 0);
 
   for (const page of sourceInventory.pages) {
     const lessonIndex = seed.lessonOverview.findIndex((row) => {
@@ -207,14 +209,15 @@ export function addSourceVisualBlocks(
       return Boolean(match && page.pageNumber >= Number(match[1]) && page.pageNumber <= Number(match[2]));
     });
     const lesson = lessons[lessonIndex];
-    if (!lesson) continue;
+    if (!lesson || imageCounts[lessonIndex] >= 8 || (!perLessonLimit && totalImageCount >= 8)) continue;
 
     for (const element of page.elements) {
       if (
         element.kind !== "visual" ||
         !["diagram", "screenshot", "photo", "illustration"].includes(element.visualKind) ||
         !element.content.trim() ||
-        imageCount >= 8
+        imageCounts[lessonIndex] >= 8 ||
+        (!perLessonLimit && totalImageCount >= 8)
       ) continue;
       const sourceElementId = element.sourceElementId;
       const matchingBlockIndex = lesson.blocks.findIndex((block) =>
@@ -236,8 +239,8 @@ export function addSourceVisualBlocks(
       });
       const insertAt = matchingBlockIndex >= 0 ? matchingBlockIndex + 1 : lesson.blocks.length;
       lesson.blocks.splice(insertAt, 0, imageBlock);
-      imageCount += 1;
+      imageCounts[lessonIndex] += 1;
+      totalImageCount += 1;
     }
-    if (imageCount >= 8) break;
   }
 }

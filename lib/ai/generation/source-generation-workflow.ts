@@ -383,7 +383,9 @@ export async function advanceSourceGenerationJob({
           } | null;
           if (completed) completedItems.push(completed.lesson);
         }
-        const imagesRemaining = Math.max(0, (input.includeImages ? 8 : 0) - countGeneratedImagePrompts(completedItems));
+        const imagesRemaining = input.standardMode
+          ? (input.includeImages ? 8 : 0)
+          : Math.max(0, (input.includeImages ? 8 : 0) - countGeneratedImagePrompts(completedItems));
         const unitKey = String(job.learnCursor).padStart(3, "0");
         const pages = inventory.pages.filter((page) => page.pageNumber >= item.startPage && page.pageNumber <= item.endPage);
         const work = await advanceSourceLearnWork({
@@ -408,7 +410,7 @@ export async function advanceSourceGenerationJob({
             const generatedItem = await generateLearnContentItem({
               input, model, plan, item: partItem,
               inventory: { ...inventory, pages: partPages },
-              imagesRemaining: Math.max(0, imagesRemaining - countGeneratedImagePrompts(completedParts.map((part) => part.lesson))),
+              imagesRemaining: Math.max(0, imagesRemaining - countGeneratedImagePrompts(input.standardMode ? completedParts.map((part) => part.lesson) : [...completedItems, ...completedParts.map((part) => part.lesson)])),
               previousLearningBlocks: [...completedItems, ...completedParts.map((part) => part.lesson)].flatMap((lesson) => lesson.blocks),
             });
             if (!generatedItem.lesson)

@@ -23,7 +23,7 @@ export function SlideTextObjectEditor({ block, onChange, onEditorFocus }: {
       {block.type === "heading" ? (
         <HeadingBlockEditor block={block} onChange={onChange} externalToolbar onEditorFocus={onEditorFocus} />
       ) : block.type === "richText" ? (
-        <RichTextBlockEditor block={block} onChange={(html) => onChange({ ...block, data: { html } })} externalToolbar onEditorFocus={onEditorFocus} />
+        <RichTextBlockEditor block={block} onChange={(html) => onChange({ ...block, data: { html } })} externalToolbar onEditorFocus={onEditorFocus} standardMode={false} />
       ) : (
         <StatementContentEditor block={block} onChange={onChange} externalToolbar slideLayout onEditorFocus={onEditorFocus} />
       )}

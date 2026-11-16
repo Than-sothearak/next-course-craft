@@ -47,6 +47,9 @@ function blockTypeLabel(block: ContentBlock) {
   if (block.type === "hangingRopeCards") return "Hanging Rope Cards";
   if (block.type === "lessonMap") return "Lesson Map";
   if (block.type === "chart") return "Chart";
+  if (block.type === "formula") return "Formula";
+  if (block.type === "table") return "Table";
+  if (block.type === "checklist") return "Checklist";
   if (block.type === "knowledgeCheck") return "Knowledge check";
   return "Survey";
 }
@@ -89,6 +92,9 @@ function blockTitle(block: ContentBlock) {
   if (block.type === "hangingRopeCards") return block.data.title.trim() || "Hanging Rope Cards";
   if (block.type === "lessonMap") return `${block.data.checkpoints.length} map checkpoint${block.data.checkpoints.length === 1 ? "" : "s"}`;
   if (block.type === "chart") return block.data.title.trim() || "Chart";
+  if (block.type === "formula") return block.data.title.trim() || "Formula";
+  if (block.type === "table") return block.data.caption.trim() || "Table";
+  if (block.type === "checklist") return block.data.title.trim() || "Checklist";
   if (block.type === "attachment") return block.data.fileName.trim() || "File attachment";
   if (block.type === "knowledgeCheck") return block.data.question.trim() || "Knowledge check";
   return block.data.question.trim() || "Survey";

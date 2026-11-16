@@ -58,7 +58,7 @@ export async function prepareSessionLesson({ job, input, model, outline, item, i
         generatePart: async (partPages, completed) => {
           const result = await generateLearnContentItem({ input, model, plan, inventory: { ...inventory, pages: partPages },
             item: { ...source, startPage: partPages[0].pageNumber, endPage: partPages.at(-1)!.pageNumber, sourceElementIds: partPages.flatMap((page) => page.elements.map((element) => element.sourceElementId)) },
-            imagesRemaining: Math.max(0, 8 - countGeneratedImagePrompts([...previous, ...completed])), previousLearningBlocks: [...previousBlocks, ...completed.flatMap((lesson) => lesson.blocks)],
+            imagesRemaining: Math.max(0, (input.includeImages ? 8 : 0) - countGeneratedImagePrompts(input.standardMode ? completed : [...previous, ...completed])), previousLearningBlocks: [...previousBlocks, ...completed.flatMap((lesson) => lesson.blocks)],
           });
           if (!result.lesson || result.coverageIssues.length) throw new DashboardError(`Lesson needs source corrections: ${result.coverageIssues.join("; ").slice(0, 1_000)}`, 422);
           return result.lesson;
@@ -66,6 +66,8 @@ export async function prepareSessionLesson({ job, input, model, outline, item, i
       });
       if (!work.results) return null;
       const lesson = generatedLearnItemSchema.parse({ title: item.title, objective: item.objective, summary: work.results.map((part) => part.summary).join("\n\n").slice(0, 5_000), blocks: work.results.flatMap((part) => part.blocks) });
+      if (!input.standardMode && countGeneratedImagePrompts([...previous, lesson]) > 8)
+        throw new DashboardError("Presentation mode supports at most eight generated images across the course.", 422);
       await saveGenerationCheckpoint(job, "sessionSeed", item.id, lesson);
       let activities = { keyTerms: [], preTest: [] } as { keyTerms: GeneratedCourseSeed["keyTerms"]; preTest: GeneratedCourseSeed["preTest"] };
       if (isFirstCustomLesson) {
@@ -80,12 +82,14 @@ export async function prepareSessionLesson({ job, input, model, outline, item, i
     } else {
       const usage = learningActivityUsage(previousBlocks);
       seed = await generateCourseSeed({ ...input, template: "custom", lessonCount: 1, courseTitle: outline.title, courseDescription: outline.description,
-        prompt: `${input.prompt}\n${inventory ? `Supplemental lesson context from the source: ${inventory.summary}. The original source groups are covered separately.` : ""}\nApproved outline: ${JSON.stringify(outline)}\nGenerate only lesson: ${item.title}. Objective: ${item.objective}. Do not generate other lessons. Remaining activity budget: ${Math.max(0, 2 - usage.knowledgeCheck - Number(input.template === "custom"))} knowledge checks and ${Math.max(0, 1 - usage.survey)} surveys. The custom template reserves one knowledge check for the first lesson's quick quiz. Avoid repeating: ${JSON.stringify(usage.questions)}. Generate at most ${Math.max(0, 8 - countGeneratedImagePrompts(previous))} images.`,
+        prompt: `${input.prompt}\n${inventory ? `Supplemental lesson context from the source: ${inventory.summary}. The original source groups are covered separately.` : ""}\nApproved outline: ${JSON.stringify(outline)}\nGenerate only lesson: ${item.title}. Objective: ${item.objective}. Do not generate other lessons. Remaining activity budget: ${Math.max(0, 2 - usage.knowledgeCheck - Number(input.template === "custom"))} knowledge checks and ${Math.max(0, 1 - usage.survey)} surveys. The custom template reserves one knowledge check for the first lesson's quick quiz. Avoid repeating: ${JSON.stringify(usage.questions)}.`,
       }, model, { includeCustomFirstLessonActivities: isFirstCustomLesson });
       seed = { ...seed, lessonOverview: isFirstCustomLesson ? customLessonOverview.map(({ focus, slideRange }) => ({ focus, slideRange })) : [], keyTerms: isFirstCustomLesson ? seed.keyTerms : [], preTest: isFirstCustomLesson ? seed.preTest : [] };
-      const lesson = seed.sections[0].lessons[0];
+      const lesson = { ...seed.sections[0].lessons[0], summary: seed.lessonSummary };
       const issues = learningActivityIssues([...previousBlocks, ...lesson.blocks], [], input.template === "custom" ? { knowledgeCheck: 1 } : {});
-      if (countGeneratedImagePrompts([...previous, { ...lesson, summary: seed.lessonSummary }]) > 8) issues.push("A course can contain at most eight generated images.");
+      if (input.standardMode && input.includeImages && countGeneratedImagePrompts([lesson]) > 8) issues.push("A lesson can contain at most eight generated supporting images.");
+      if (!input.standardMode && countGeneratedImagePrompts([...previous, { ...lesson, summary: seed.lessonSummary }]) > 8) issues.push("Presentation mode supports at most eight generated images across the course.");
+      if (!input.standardMode && lesson.blocks.some((block) => ["formula", "table", "checklist"].includes(block.type))) issues.push("Presentation mode cannot use Standard-only Formula, Table, or Checklist blocks.");
       if (issues.length) throw new DashboardError(issues.join(" "), 422);
       await saveGenerationCheckpoint(job, "sessionSeed", item.id, { ...lesson, summary: seed.lessonSummary });
     }

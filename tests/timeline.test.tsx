@@ -22,6 +22,7 @@ const initial = (style: Block["data"]["style"] = "vertical") => timelineBlockSch
 describe("timeline blocks", () => {
   it("validates bounded entries, layouts, IDs, colors and formatted text", () => {
     const block = initial();
+    expect(block.width).toBe("medium");
     expect(blockSchema.parse(block)).toEqual(block);
     expect(timelineBlockSchema.safeParse({ ...block, data: { ...block.data, items: [] } }).success).toBe(false);
     expect(timelineBlockSchema.safeParse({ ...block, data: { ...block.data, items: Array(21).fill(block.data.items[0]) } }).success).toBe(false);

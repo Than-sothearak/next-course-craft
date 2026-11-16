@@ -15,6 +15,9 @@ import { CodeTemplatePreview } from "./(template_preview_components)/code-templa
 import { CourseLinkBlock } from "@/components/course-link-block";
 import { LessonMapTemplateThumbnail } from "@/components/lesson-map";
 import { InteractionIcon } from "@/components/interaction-icon";
+import { EducationalFormula } from "@/components/educational-formula";
+import { EducationalTable } from "@/components/educational-table";
+import { EducationalChecklist } from "@/components/educational-checklist";
 
 export function TemplatePreview({ template }: { template: BlockTemplate }) {
   if (template.type === "timeline" && template.timeline) return <TimelineTemplatePreview style={template.timeline.style} />;
@@ -38,6 +41,12 @@ export function TemplatePreview({ template }: { template: BlockTemplate }) {
     return <ProcessStepsTemplatePreview data={template.processSteps} />;
   if (template.type === "chart" && template.chart)
     return <ChartBlockPreview data={template.chart} />;
+  if (template.type === "formula" && template.formula)
+    return <EducationalFormula data={template.formula} />;
+  if (template.type === "table" && template.table)
+    return <EducationalTable data={template.table} />;
+  if (template.type === "checklist" && template.checklist)
+    return <EducationalChecklist title={template.checklist.title} items={template.checklist.items} />;
   if (template.type === "link" && template.link)
     return <CourseLinkBlock data={template.link} interactive={false} />;
   if (kind === "knowledge")

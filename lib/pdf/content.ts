@@ -152,6 +152,17 @@ export function getHandoutBlockText(block: ContentBlock): string[] {
         block.data.description,
         ...block.data.fields.map((field) => `${field.label}: ${field.value}`),
       ].filter(Boolean);
+    case "formula":
+      return [
+        block.data.title,
+        `Formula: ${block.data.latex}`,
+        block.data.explanation,
+        ...block.data.variables.map((variable) => `${variable.symbol}: ${variable.explanation}`),
+      ].filter(Boolean);
+    case "table":
+      return [block.data.caption, block.data.columns.join(" | "), ...block.data.rows.map((row) => row.join(" | "))].filter(Boolean);
+    case "checklist":
+      return [block.data.title, ...block.data.items.map((item) => `- ${item}`)].filter(Boolean);
   }
 }
 

@@ -171,7 +171,13 @@ export async function generateLearnContentItem({
       `Additional author instructions: ${input.prompt || "None"}.`,
       `Assigned page range: ${item.startPage}-${item.endPage}. These are the only source pages for this item. Preserve their order.`,
       "Cover every meaningful source element in order, without dropping details. Map every sourceElementId at least once. Keep a topic title and its normal paragraph explanation together in one richText block using title and body/bullets (Title and paragraph template), with all source heading and explanation IDs on that block. Do not split the title into a separate heading block. Leave title empty only for untitled continuation paragraphs. Keep exact code in its own code block and use codeExample for a template, language, and explanation above or below it; avoid duplicating that explanation in another block. Avoid filler and unsupported elaboration.",
-      `Use at most ${Math.max(0, imagesRemaining)} generated images across the course, only when they clarify source material; never present them as original source images.`,
+      input.includeImages
+        ? input.standardMode
+          ? `Use at most ${Math.max(0, imagesRemaining)} generated supporting images for this lesson, only where a visual clarifies source material; never present them as original source images. Choose the sections that benefit from a visual and place each image beside its explanation. Use imageLayout full; the app displays these at compact width. The cover is separate.`
+          : `Use at most ${Math.max(0, imagesRemaining)} generated images across the course, only for source visuals that clearly belong on a slide; never present them as original source images. Keep visuals slide-friendly. The cover is generated separately.`
+        : "Do not request generated images. Preserve source visuals with appropriate native blocks and text.",
+      !input.standardMode ? "Presentation mode: do not use Formula, Table, or Checklist blocks. Use the existing slide-friendly block formats." : "",
+      !input.standardMode ? "Keep source diagrams and tables faithful, using text, labeled graphics, or charts in the existing presentation style." : "",
       "Return a specific, source-grounded summary of what this item teaches, without generic filler.",
       retryFeedback,
       `Source pages and element IDs:\n${sourceText}`,
@@ -211,6 +217,9 @@ export async function generateLearnContentItem({
     const designIssues = [
       ...lessonDepthIssues(parsed.data.blocks, input, pages),
       ...learningActivityIssues(parsed.data.blocks, previousLearningBlocks, input.template === "custom" ? { knowledgeCheck: 1 } : {}),
+      ...(!input.standardMode && parsed.data.blocks.some((block) => ["formula", "table", "checklist"].includes(block.type))
+        ? ["Presentation mode cannot use Standard-only Formula, Table, or Checklist blocks."]
+        : []),
     ];
     if (designIssues.length) {
       finalIssues = designIssues;
@@ -336,7 +345,6 @@ export async function generateSourceCourseSeed(
     : { keyTerms: [], preTest: [] };
   const learnItems: z.infer<typeof generatedLearnItemSchema>[] = [];
   const coverageIssuesByItem: string[][] = [];
-  let remainingImages = input.includeImages ? 8 : 0;
   for (const item of plan.items) {
     const generated = await generateLearnContentItem({
       input,
@@ -344,7 +352,9 @@ export async function generateSourceCourseSeed(
       plan,
       item,
       inventory,
-      imagesRemaining: remainingImages,
+      imagesRemaining: input.standardMode
+        ? (input.includeImages ? 8 : 0)
+        : Math.max(0, (input.includeImages ? 8 : 0) - countGeneratedImagePrompts(learnItems)),
       previousLearningBlocks: learnItems.flatMap((lesson) => lesson.blocks),
     });
     if (!generated.lesson)
@@ -354,7 +364,6 @@ export async function generateSourceCourseSeed(
       );
     learnItems.push(generated.lesson);
     coverageIssuesByItem.push(generated.coverageIssues);
-    remainingImages = Math.max(0, remainingImages - countGeneratedImagePrompts([generated.lesson]));
   }
   const postActivities = input.template === "preLearnPost"
     ? await generatePostActivities(
@@ -369,6 +378,8 @@ export async function generateSourceCourseSeed(
         lessonSummary: learnItems.map((item) => item.summary).join("\n\n"),
         nextLesson: "",
       };
+  if (!input.standardMode && countGeneratedImagePrompts(learnItems) > 8)
+    throw new DashboardError("Presentation mode supports at most eight generated images across the course.", 422);
   return buildSourceCourseSeed(input, plan, preActivities, learnItems, coverageIssuesByItem, postActivities);
 }
 

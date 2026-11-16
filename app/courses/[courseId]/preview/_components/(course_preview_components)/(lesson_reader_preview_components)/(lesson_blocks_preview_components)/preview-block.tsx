@@ -35,6 +35,9 @@ import { InteractionButton } from "@/app/courses/[courseId]/_components/slide-pr
 import { InteractionPopupContent } from "@/app/courses/[courseId]/_components/slide-presentation/interaction-popup-content";
 import { YouTubeVideoEmbed } from "@/components/youtube-video-embed";
 import { getYouTubeEmbedUrl } from "@/lib/media/youtube";
+import { EducationalFormula } from "@/components/educational-formula";
+import { EducationalTable } from "@/components/educational-table";
+import { EducationalChecklist } from "@/components/educational-checklist";
 import { isInteractionTarget, scopePopupBlocks } from "@/lib/editor/interaction-button";
 import type { PreviewDevice, PreviewOrientation } from "../../preview-types";
 export function PreviewBlock({
@@ -140,6 +143,7 @@ export function PreviewBlock({
         text={block.data.text}
         courseTextRole={block.data.level === 1 ? "title" : block.data.level === 2 ? "subtitle" : "heading"}
         html={block.data.html}
+        standardMode={!slideLayout}
         className="text-3xl [&_h1]:text-4xl sm:[&_h1]:text-5xl [&_h2]:text-3xl sm:[&_h2]:text-4xl [&_h3]:text-2xl sm:[&_h3]:text-3xl [&_h4]:text-xl sm:[&_h4]:text-2xl [&_h5]:text-lg sm:[&_h5]:text-xl [&_h6]:text-base sm:[&_h6]:text-lg [&_p]:text-3xl font-semibold tracking-tight [&_h1]:my-0 [&_h2]:my-0 [&_h3]:my-0 [&_h4]:my-0 [&_h5]:my-0 [&_h6]:my-0 [&_p]:my-0 [&_p]:font-semibold [&_h2]:font-bold"
       />
     );
@@ -168,10 +172,17 @@ export function PreviewBlock({
         body={block.data.body}
         titleHtml={block.data.titleHtml}
         bodyHtml={block.data.bodyHtml}
+        standardMode={!slideLayout}
       />
     );
   } else if (block.type === "chart") {
     content = <ChartBlockPreview data={block.data} />;
+  } else if (block.type === "formula") {
+    content = <EducationalFormula data={block.data} />;
+  } else if (block.type === "table") {
+    content = <EducationalTable data={block.data} />;
+  } else if (block.type === "checklist") {
+    content = <EducationalChecklist title={block.data.title} items={block.data.items} />;
   } else if (block.type === "image") {
     const imageLayout = block.data.layout ?? "full";
     const imageClassName = imageLayout === "full"

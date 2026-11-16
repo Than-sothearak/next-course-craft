@@ -30,6 +30,9 @@ export const blockCategories = [
   "Knowledge check",
   "Survey",
   "Chart",
+  "Formula",
+  "Table",
+  "Checklist",
   "Divider",
   "Blank",
   "Code",
@@ -69,9 +72,16 @@ export type BlockTemplate = {
   imageBody?: string;
   width?: ContentBlock["width"];
   preview: string;
+  standardOnly?: boolean;
+  formula?: Extract<ContentBlock, { type: "formula" }>["data"];
+  table?: Extract<ContentBlock, { type: "table" }>["data"];
+  checklist?: Extract<ContentBlock, { type: "checklist" }>["data"];
 };
 
 export const blockTemplates: BlockTemplate[] = [
+  { id: "formula-equation", category: "Formula", title: "Formula", description: "Show an equation with an explanation of each variable.", type: "formula", formula: { title: "", latex: "E = mc^2", explanation: "Explain what this relationship describes.", variables: [{ symbol: "E", explanation: "Energy" }, { symbol: "m", explanation: "Mass" }, { symbol: "c", explanation: "Speed of light" }] }, preview: "formula", standardOnly: true },
+  { id: "table-comparison", category: "Table", title: "Comparison table", description: "Compare concepts in a responsive, readable table.", type: "table", table: { caption: "", columns: ["Concept", "Description"], rows: [["Add a concept", "Add its explanation"]] }, preview: "table", standardOnly: true },
+  { id: "learning-checklist", category: "Checklist", title: "Review checklist", description: "Present key requirements or assumptions for learners to review.", type: "checklist", checklist: { title: "Key points", items: ["Add a requirement or key point"] }, preview: "native-checklist", standardOnly: true },
   ...timelinePresets.map((preset): BlockTemplate => ({ id: `interactive-timeline-${preset.style}`, category: "Interactive", title: preset.title, description: preset.description, type: "timeline", timeline: { style: preset.style, items: timelineSample.map((item) => ({ ...item })) }, preview: "timeline" })),
   { id: "interactive-hanging-rope-cards", category: "Interactive", title: "Hanging Rope Cards", description: "Stretch and sway hanging cards. Pull to a glowing point to discover content.", type: "hangingRopeCards", preview: "hanging-rope-cards" },
   { id: "interactive-peel-to-reveal", category: "Interactive", title: "Peel to Reveal", description: "Peel a curled paper corner to uncover text, images, video, or audio.", type: "peelToReveal", preview: "peel-to-reveal" },

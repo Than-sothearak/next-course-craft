@@ -12,12 +12,14 @@ export function StatementContentEditor({
   onChange,
   externalToolbar,
   slideLayout = false,
+  standardMode = !slideLayout,
   onEditorFocus,
 }: {
   block: StatementBlock;
   onChange: (block: StatementBlock) => void;
   externalToolbar?: boolean;
   slideLayout?: boolean;
+  standardMode?: boolean;
   onEditorFocus?: (editor: Editor) => void;
 }) {
   const classes = statementStyles[block.data.style];
@@ -33,6 +35,7 @@ export function StatementContentEditor({
       inheritColor
       onEditorFocus={onEditorFocus}
       className={classes.title}
+      standardMode={standardMode && !slideLayout}
       onChange={(titleHtml, title) => onChange({ ...block, data: { ...block.data, titleHtml, title: title.slice(0, 500) } })}
     />
     <StatementTextEditor
@@ -45,6 +48,7 @@ export function StatementContentEditor({
       inheritColor
       onEditorFocus={onEditorFocus}
       className={classes.body}
+      standardMode={standardMode && !slideLayout}
       onChange={(bodyHtml, body) => onChange({ ...block, data: { ...block.data, bodyHtml, body: body.slice(0, 5_000) } })}
     />
   </div>;

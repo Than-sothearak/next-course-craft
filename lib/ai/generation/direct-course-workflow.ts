@@ -77,7 +77,17 @@ function courseSeedValidationIssues(seed: GeneratedCourseSeed, input: CourseGene
   seed.sections.forEach((section, sectionIndex) => section.lessons.forEach((lesson, lessonIndex) => {
     for (const message of lessonDepthIssues(lesson.blocks, input))
       issues.push({ path: `sections.${sectionIndex}.lessons.${lessonIndex}.blocks`, code: "custom", message });
+    if (!input.standardMode && lesson.blocks.some((block) => ["formula", "table", "checklist"].includes(block.type)))
+      issues.push({ path: `sections.${sectionIndex}.lessons.${lessonIndex}.blocks`, code: "custom", message: "Presentation mode cannot use Standard-only Formula, Table, or Checklist blocks." });
   }));
+  if (!input.standardMode) {
+    const generatedImages = seed.sections.flatMap((section) => section.lessons).reduce((total, lesson) => total + lesson.blocks.reduce((count, block) => {
+      if ((block.type === "image" || block.type === "labeledGraphic") && block.imagePrompt.trim()) return count + 1;
+      if (block.type === "flipCard") return count + block.cards.reduce((cardCount, card) => cardCount + Number(Boolean(card.frontImagePrompt.trim())) + Number(Boolean(card.backImagePrompt.trim())), 0);
+      return count;
+    }, 0), 0);
+    if (generatedImages > 8) issues.push({ path: "sections", code: "custom", message: "Presentation mode supports at most eight generated images across the course." });
+  }
   for (const message of learningActivityIssues(
     seed.sections.flatMap((section) => section.lessons.flatMap((lesson) => lesson.blocks)),
     [],

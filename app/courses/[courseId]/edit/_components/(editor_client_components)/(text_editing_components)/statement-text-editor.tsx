@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import Placeholder from "@tiptap/extension-placeholder";
 import { textEditorExtensions, richTextEditorExtensions } from "./text-formatting-toolbar";
 import { textLengthLimit } from "@/lib/editor/text-length-limit";
 import { EquationDialog } from "./equation-dialog";
 import { SelectionTextFormattingPopup } from "./selection-text-formatting-popup";
+import { reflowLongParagraphs } from "@/lib/editor/reflow-long-paragraphs";
 
 function escapeHtml(value: string) {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
@@ -25,6 +26,7 @@ export function StatementTextEditor({
   multiline = false,
   maxLength,
   onEditorFocus,
+  standardMode = false,
   onChange,
 }: {
   id: string;
@@ -39,8 +41,12 @@ export function StatementTextEditor({
   multiline?: boolean;
   maxLength?: number;
   onEditorFocus?: (editor: Editor) => void;
+  standardMode?: boolean;
   onChange: (html: string, text: string) => void;
 }) {
+  const sourceContent = html ?? `<${tag}>${escapeHtml(text)}</${tag}>`;
+  const content = standardMode && tag === "p" ? reflowLongParagraphs(sourceContent) : sourceContent;
+  const observedContent = useRef(sourceContent);
   const extensions = useMemo(
     () => [
       ...(multiline ? richTextEditorExtensions : textEditorExtensions),
@@ -51,11 +57,15 @@ export function StatementTextEditor({
   );
   const editor = useEditor({
     extensions,
-    content: html ?? `<${tag}>${escapeHtml(text)}</${tag}>`,
+    content,
     immediatelyRender: false,
     editorProps: { attributes: { role: "textbox", "aria-label": label, "aria-multiline": String(multiline) } },
     onFocus: ({ editor: activeEditor }) => onEditorFocus?.(activeEditor),
-    onUpdate: ({ editor: activeEditor }) => onChange(activeEditor.getHTML(), activeEditor.getText()),
+    onUpdate: ({ editor: activeEditor }) => {
+      const nextHtml = activeEditor.getHTML();
+      observedContent.current = nextHtml;
+      onChange(nextHtml, activeEditor.getText());
+    },
   }, [id, extensions]);
 
   useEffect(() => {
@@ -66,9 +76,10 @@ export function StatementTextEditor({
   }, [editor, label, multiline]);
 
   useEffect(() => {
-    const content = html ?? `<${tag}>${escapeHtml(text)}</${tag}>`;
-    if (editor && editor.getHTML() !== content) editor.commands.setContent(content, { emitUpdate: false });
-  }, [editor, html, tag, text]);
+    if (!editor || observedContent.current === sourceContent) return;
+    if (editor.getHTML() !== content) editor.commands.setContent(content, { emitUpdate: false });
+    observedContent.current = sourceContent;
+  }, [editor, content, sourceContent]);
 
   return <div className="relative min-w-0">
     <EquationDialog editor={editor} />
@@ -76,7 +87,7 @@ export function StatementTextEditor({
       editor={editor}
       aria-label={label}
       style={inheritColor ? { color: "inherit" } : undefined}
-      className={`min-h-6 cursor-text text-slate-800 [&_.tiptap]:m-0 [&_.tiptap]:min-h-6 [&_.tiptap]:outline-none [&_.tiptap_*]:text-inherit [&_.tiptap_h1]:my-0 [&_.tiptap_h2]:my-0 [&_.tiptap_h3]:my-0 [&_.tiptap_p]:my-0 ${placeholder ? "course-description-editor" : ""} ${className}`}
+      className={`min-h-6 cursor-text text-slate-800 [&_.tiptap]:m-0 [&_.tiptap]:min-h-6 [&_.tiptap]:outline-none [&_.tiptap_*]:text-inherit [&_.tiptap_h1]:my-0 [&_.tiptap_h2]:my-0 [&_.tiptap_h3]:my-0 [&_.tiptap_p]:my-0 ${standardMode ? "[&_strong]:text-[var(--course-primary,#2f5f9f)]" : ""} ${placeholder ? "course-description-editor" : ""} ${className}`}
     />
     {!externalToolbar && <SelectionTextFormattingPopup editor={editor} />}
   </div>;

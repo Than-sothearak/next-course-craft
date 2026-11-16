@@ -455,7 +455,7 @@ describe("prebuilt interactive block templates", () => {
     expect(interactiveTemplates.filter((item) => item.type === "flipCard")).toHaveLength(1);
     expect(insertedById.get("interactive-reveal")).toMatchObject({
       type: "flipCard",
-      width: "full",
+      width: "medium",
       blockPadding: 40,
       data: {
         cardsPerRow: 2,

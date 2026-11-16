@@ -12,6 +12,9 @@ import { courseImageStyleSchema } from "./image-style";
 const generatedNativeBlockTypes = [
   "heading",
   "richText",
+  "formula",
+  "table",
+  "checklist",
   "image",
   "gallery",
   "video",
@@ -38,7 +41,10 @@ export const courseBlockGenerationGuide = `CourseCraft block catalog and instruc
 
 EXPLANATION AND STRUCTURE BLOCKS
 - heading: reserve for a genuine standalone topic boundary with no accompanying explanation. When a title introduces paragraphs or bullets, use one richText block with title and body/bullets together instead of a separate heading block. Do not repeat the lesson title.
-- richText (also the text intent): teaches through clear, concise paragraphs in body and can present lists through bullets. Keep paragraphs short (usually 1-3 sentences). Use bullets for grouped facts, tips, and takeaways, and numbered lists for procedures. Use the Title and paragraph template: put a meaningful heading in title and its explanation in body/bullets in the SAME block. Leave title empty only for untitled continuation paragraphs. A title alone is not an explanation.
+- richText (also the text intent): teaches through clear, concise paragraphs in body and can present lists through bullets. Keep paragraphs to 2-4 sentences. Use bullets for grouped facts, tips, and takeaways, and numbered lists for procedures. Use the Title and paragraph template: put a meaningful heading in title and its explanation in body/bullets in the SAME block. Leave title empty only for untitled continuation paragraphs. A title alone is not an explanation.
+- formula: use for a meaningful standalone mathematical relationship. Provide valid LaTeX, a short explanation, and an explanation for every variable below the equation. Preserve source notation and never invent a relationship or variable meaning.
+- table: use for a factual structured comparison. Provide concise column headings and equally sized rows. Preserve exact source values and labels; never invent missing data.
+- checklist: use for explicit assumptions, requirements, or verification steps grounded in the material. Items are informational and concise, not learner completion tracking.
 - statement: highlights one useful takeaway, tip, warning, or centered callout. Provide title, body, and style key/tip/warning/centered. Use it for emphasis, not as a substitute for the full explanation.
 - divider: separates substantial sections or gives learners a Continue control. dividerStyle is line, space, or continue. Use completionType none unless the author explicitly asks to require completion above it.
 
@@ -51,7 +57,7 @@ ACTIVE LEARNING BLOCKS
 - timeline: presents 2–20 ordered historical events, milestones, or phases that are not an instructional procedure. For each event provide an optional short date/period label, a title, and a concise explanation. Use vertical, horizontal, or stacked style. Do not invent dates or chronology; use processSteps for instructions.
 
 VISUAL AND DATA BLOCKS
-- image: one useful generated supporting visual. Provide imagePrompt and accessible imageAlt. imageLayout may be full, banner, text-left, text-right, text-overlay, card, or cover; title/body are optional accompanying copy. The application adds a separate full-width lesson cover automatically when generated images are enabled. AI returns a 1536x512 WebP source, displayed in a 1200x312 cover frame.
+- image: one useful generated supporting visual. Provide imagePrompt and accessible imageAlt. The application adds a separate full-width lesson cover when generated images are enabled. The cover uses a 1536x512 WebP source in a 1200x312 frame; course-mode instructions determine the supporting-image layout.
 - gallery: presents 1–8 images. Use galleryImages only with image URLs explicitly present in the source; never invent image URLs.
 - video: embeds a playable direct MP4/WebM source. Use videoSrc only when a direct video URL appears in the source, and provide videoMimeType and captions when available. Never invent a URL.
 - audio: authors upload audio files manually after generation. Do not generate audio blocks or invent audio URLs.
@@ -64,13 +70,15 @@ CODE BLOCK
 - code: preserves exact raw code in body, never Markdown fences. Use codeExample with template, language, and a complete paragraph explaining its purpose, important lines, and result. Templates: ${codeTemplateValues.join(", ")}. Explained templates place the explanation above or below the code. Choose consistently, follow author style requests, and leave title empty unless a meaningful example heading is needed. Code is stored in the editable richText block. Return codeExample null on other block types.
 
 BLOCK CHOICE AND VARIETY
-Teach with a purposeful mix: use richText for explanation, then select active-learning, visual, or data blocks when they help learners recall, decide, reflect, compare, follow a procedure, understand historical chronology, or interpret information. Prefer concise paragraphs, scannable lists, and helpful supporting visuals when they explain the subject clearly. For substantive lessons, include an appropriate learner-active block when the material supports one. Vary suitable interaction types across lessons instead of repeating the same interaction pattern throughout the course. Respect the requested interactivity level. Keep explanations alongside activities, preserve all meaningful source details, and never force an unsuitable interaction or invent facts, data, or media.
+Teach with a purposeful mix: use richText for explanation, then select active-learning, visual, or data blocks when they help learners recall, decide, reflect, compare, follow a procedure, understand historical chronology, or interpret information. Prefer concise 2-4 sentence paragraphs, scannable lists, and helpful supporting visuals when they explain the subject clearly. For substantive lessons, include an appropriate learner-active block when the material supports one. Vary suitable interaction types across lessons instead of repeating the same interaction pattern throughout the course. Respect the requested interactivity level. Keep explanations alongside activities, preserve all meaningful source details, and never force an unsuitable interaction or invent facts, data, or media.
 
 Interactivity levels: low means use interactions selectively; medium means include a suitable learner interaction in most substantive lessons; high means include at least one suitable learner interaction in each substantive lesson and vary the formats across the course. Apply these levels only where the source and learning goal support an activity.
 
-For unused string/array fields return empty strings/arrays; for required settings use these neutral values: style tip, headingLevel 2, correctOptionIndex 0, layout accordion, displayMode all, timelineStyle vertical, timelineItems [], imageLayout full, dividerStyle continue, dividerCompletionType none, chartType bar, and chartColor #4f46e5. The application assigns block IDs and visual styling.`;
+For unused string/array fields return empty strings/arrays; for required settings use these neutral values: style tip, headingLevel 3, correctOptionIndex 0, layout accordion, displayMode all, timelineStyle vertical, timelineItems [], imageLayout full, dividerStyle continue, dividerCompletionType none, chartType bar, and chartColor #4f46e5. The application assigns block IDs and visual styling.`;
 
-export const courseBlockLearnGuide = `BLOCKS (${generatedNativeBlockTypes.join(", ")}, text/code): richText explains; knowledgeCheck quizzes; survey reflects; flipCard recalls; accordion groups; processSteps teach procedures; timeline orders historical events; statement highlights; chart uses supplied data; gallery/video/link use source media. Keep a title and its explanation together in one richText block. BLOCK CHOICE AND VARIETY: high, one suitable interaction per substantive lesson; medium, most; low, selective. Vary; no filler or invented data/media.`;
+export const courseBlockLearnGuide = `BLOCKS (${generatedNativeBlockTypes.join(",")},text/code): richText explains; quiz/reflect/recall/group/procedure blocks have their purpose; timeline orders historical events; statement emphasizes; formula renders source LaTeX and explains variables; table compares source facts; checklist states grounded requirements; chart uses source data; media use source URLs. Keep titles with explanations; follow mode.
+
+BLOCK CHOICE AND VARIETY: choose by purpose; high, one interaction per lesson; medium, most; low, selective. Vary; no filler or invented data/media.`;
 
 export const courseGenerationModelValues = [
   "gpt-6-astra",
@@ -107,6 +115,7 @@ const courseGenerationInputBaseSchema = z.object({
     .default("detailed"),
   interactivity: z.enum(["low", "medium", "high"]).default("high"),
   postTestCount: z.number().int().min(1).max(20).default(5),
+  standardMode: z.boolean().default(true),
   includeImages: z.boolean(),
   generateCoverImage: z.boolean().default(false),
   imageStyle: courseImageStyleSchema.default("auto"),
@@ -220,7 +229,7 @@ export const generatedBlockSeedSchema = z
     }).nullable().default(null),
     bullets: z.array(z.string().max(5_000)).max(500),
     style: z.enum(["key", "tip", "warning", "centered"]),
-    headingLevel: z.number().int().min(1).max(3).default(2),
+    headingLevel: z.number().int().min(1).max(3).default(3),
     question: z.string().max(1_000),
     options: z.array(z.string().max(500)).max(8),
     correctOptionIndex: z.number().int().min(0).max(7),
@@ -326,6 +335,16 @@ export const generatedBlockSeedSchema = z
       )
       .max(500)
       .default([]),
+    formulaLatex: z.string().max(5_000).default(""),
+    formulaExplanation: z.string().max(5_000).default(""),
+    formulaVariables: z.array(z.object({
+      symbol: z.string().max(80),
+      explanation: z.string().max(500),
+    })).max(30).default([]),
+    tableCaption: z.string().max(500).default(""),
+    tableColumns: z.array(z.string().max(120)).max(8).default([]),
+    tableRows: z.array(z.array(z.string().max(2_000)).max(8)).max(100).default([]),
+    checklistItems: z.array(z.string().max(1_000)).max(30).default([]),
   })
   .superRefine((block, context) => {
     const addIssue = (path: (string | number)[], message: string) =>
@@ -459,6 +478,18 @@ export const generatedBlockSeedSchema = z
           );
       });
     }
+    if (block.type === "formula" && !block.formulaLatex.trim())
+      addIssue(["formulaLatex"], "Formula blocks need LaTeX source.");
+    if (block.type === "table") {
+      if (!block.tableColumns.length) addIssue(["tableColumns"], "Tables need at least one column.");
+      if (!block.tableRows.length) addIssue(["tableRows"], "Tables need at least one row.");
+      block.tableRows.forEach((row, index) => {
+        if (row.length !== block.tableColumns.length)
+          addIssue(["tableRows", index], "Every table row must match its column count.");
+      });
+    }
+    if (block.type === "checklist" && !block.checklistItems.some((item) => item.trim()))
+      addIssue(["checklistItems"], "Checklists need at least one item.");
   });
 
 export const generatedCourseSeedSchema = z
@@ -516,42 +547,16 @@ export const generatedCourseSeedSchema = z
         message: "A generated course can contain at most 20 lessons at a time.",
       });
     }
-    const imageCount = course.sections.reduce(
-      (total, section) =>
-        total +
-        section.lessons.reduce(
-          (lessonTotal, lesson) =>
-            lessonTotal +
-            lesson.blocks.reduce((blockTotal, block) => {
-              if (
-                (block.type === "image" || block.type === "labeledGraphic") &&
-                block.imagePrompt.trim()
-              )
-                return blockTotal + 1;
-              if (block.type === "flipCard")
-                return (
-                  blockTotal +
-                  block.cards.reduce(
-                    (cardTotal, card) =>
-                      cardTotal +
-                      Number(Boolean(card.frontImagePrompt.trim())) +
-                      Number(Boolean(card.backImagePrompt.trim())),
-                    0,
-                  )
-                );
-              return blockTotal;
-            }, 0),
-          0,
-        ),
-      0,
-    );
-    if (imageCount > 8) {
-      context.addIssue({
-        code: "custom",
-        path: ["sections"],
-        message: "A generated course can include at most eight AI images.",
-      });
-    }
+    course.sections.forEach((section, sectionIndex) => section.lessons.forEach((lesson, lessonIndex) => {
+      const imageCount = lesson.blocks.reduce((blockTotal, block) => {
+        if ((block.type === "image" || block.type === "labeledGraphic") && block.imagePrompt.trim()) return blockTotal + 1;
+        if (block.type === "flipCard") return blockTotal + block.cards.reduce((cardTotal, card) =>
+          cardTotal + Number(Boolean(card.frontImagePrompt.trim())) + Number(Boolean(card.backImagePrompt.trim())), 0);
+        return blockTotal;
+      }, 0);
+      if (imageCount > 8)
+        context.addIssue({ code: "custom", path: ["sections", sectionIndex, "lessons", lessonIndex, "blocks"], message: "A lesson can include at most eight generated supporting images." });
+    }));
   });
 
 export type CourseGenerationInput = z.infer<typeof courseGenerationInputSchema>;

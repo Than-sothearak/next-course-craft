@@ -20,6 +20,9 @@ import { PreviewBlock as LearnerBlock } from "../../../../../preview/_components
 import { BalloonArcher } from "@/components/balloon-archer";
 import { YouTubeVideoEmbed } from "@/components/youtube-video-embed";
 import { getYouTubeEmbedUrl } from "@/lib/media/youtube";
+import { EducationalFormula } from "@/components/educational-formula";
+import { EducationalTable } from "@/components/educational-table";
+import { EducationalChecklist } from "@/components/educational-checklist";
 
 type PreviewBlock = Exclude<ContentBlock, { type: "heading" | "richText" | "statement" | "lessonMap" }>;
 
@@ -34,6 +37,12 @@ export function ContentBlockPreview({ block, onChange, presentation = false, cou
     <FileAttachmentLink href={block.data.src} fileName={block.data.fileName} size={block.data.size} />
   ) : block.type === "chart" ? (
     <ChartBlockPreview data={block.data} />
+  ) : block.type === "formula" ? (
+    <EducationalFormula data={block.data} />
+  ) : block.type === "table" ? (
+    <EducationalTable data={block.data} />
+  ) : block.type === "checklist" ? (
+    <EducationalChecklist title={block.data.title} items={block.data.items} />
   ) : block.type === "image" ? (
     <ImageBlockLayout
       layout={block.data.layout}

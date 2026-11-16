@@ -36,6 +36,7 @@ import { HangingRopeSettingsEditor } from "@/components/physics-interaction/hang
 import { BlockProgressControls } from "@/components/block-progress-controls";
 import { TimelineBlockSettings } from "./(content_block_editor_components)/timeline-block-editor";
 import { getInteractiveBlockProgressIds } from "@/lib/export/progress";
+import { FormulaBlockEditor, TableBlockEditor, ChecklistBlockEditor } from "./(content_block_editor_components)/structured-block-editors";
 
 export function ContentBlockEditor({
   block,
@@ -261,6 +262,7 @@ export function ContentBlockEditor({
         <RichTextBlockEditor
           block={block}
           onChange={(html) => onChange({ ...block, data: { html } })}
+          standardMode={!inlineSettings}
         />
       </div>
     );
@@ -269,7 +271,7 @@ export function ContentBlockEditor({
       <div className="group relative">
         {!inlineSettings && settingsButton()}
         {styleSettingsPanel()}
-        <StatementContentEditor block={block} onChange={onChange} />
+        <StatementContentEditor block={block} onChange={onChange} standardMode={!inlineSettings} />
       </div>
     );
   if (block.type === "lessonMap")
@@ -291,6 +293,9 @@ export function ContentBlockEditor({
     {inlineSettings && replaceTemplateAction()}
     {block.type === "link" && <LinkBlockSettings block={block} onChange={onChange} />}
     {block.type === "chart" && <ChartBlockSettings block={block} onChange={onChange} />}
+    {block.type === "formula" && <FormulaBlockEditor block={block} onChange={onChange} />}
+    {block.type === "table" && <TableBlockEditor block={block} onChange={onChange} />}
+    {block.type === "checklist" && <ChecklistBlockEditor block={block} onChange={onChange} />}
     {block.type === "image" && <ImageBlockSettings block={block} onChange={onChange} setMediaLibraryTarget={setMediaLibraryTarget} />}
     {block.type === "gallery" && <GalleryBlockSettings block={block} setSelectedGalleryImageIndex={setSelectedGalleryImageIndex} setMediaLibraryTarget={setMediaLibraryTarget} onChange={onChange} />}
     {block.type === "video" && <VideoBlockSettings setMediaLibraryTarget={setMediaLibraryTarget} block={block} onChange={onChange} />}

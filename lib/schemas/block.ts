@@ -17,6 +17,9 @@ import { mediaMimeTypeSchema } from "@/lib/media/schemas";
 export const blockTypes = [
   "heading",
   "richText",
+  "formula",
+  "table",
+  "checklist",
   "image",
   "gallery",
   "video",
@@ -121,6 +124,41 @@ export const richTextBlockSchema = z.object({
   ...blockBase("medium", 40),
   type: z.literal("richText"),
   data: z.object({ html: z.string().max(100_000) }),
+});
+export const formulaBlockSchema = z.object({
+  ...blockBase("medium", 40),
+  type: z.literal("formula"),
+  data: z.object({
+    title: z.string().max(160).default(""),
+    latex: z.string().trim().min(1).max(5_000),
+    explanation: z.string().max(5_000).default(""),
+    variables: z.array(z.object({
+      symbol: z.string().trim().min(1).max(80),
+      explanation: z.string().trim().min(1).max(500),
+    })).max(30).default([]),
+  }),
+});
+export const tableBlockSchema = z.object({
+  ...blockBase("medium", 40),
+  type: z.literal("table"),
+  data: z.object({
+    caption: z.string().max(500).default(""),
+    columns: z.array(z.string().trim().min(1).max(120)).min(1).max(8),
+    rows: z.array(z.array(z.string().max(2_000)).min(1).max(8)).min(1).max(100),
+  }).superRefine((data, context) => {
+    data.rows.forEach((row, index) => {
+      if (row.length !== data.columns.length)
+        context.addIssue({ code: "custom", path: ["rows", index], message: "Every table row must have one cell per column." });
+    });
+  }),
+});
+export const checklistBlockSchema = z.object({
+  ...blockBase("medium", 40),
+  type: z.literal("checklist"),
+  data: z.object({
+    title: z.string().max(500).default(""),
+    items: z.array(z.string().trim().min(1).max(1_000)).min(1).max(30),
+  }),
 });
 export const imageBlockSchema = z.object({
   ...blockBase("medium", 40),
@@ -351,7 +389,7 @@ const legacyFlipCardDataSchema = z.object({
   cardTextColor: colorValueSchema.default("#0f172a"),
 });
 export const flipCardBlockSchema = z.object({
-  ...blockBase("full", 40),
+  ...blockBase("medium", 40),
   type: z.literal("flipCard"),
   data: z
     .union([flipCardCollectionDataSchema, legacyFlipCardDataSchema])
@@ -454,7 +492,7 @@ export const labeledGraphicBlockSchema = z.object({
 });
 export const timelineStyleSchema = z.enum(["vertical", "horizontal", "stacked"]);
 export const timelineBlockSchema = z.object({
-  ...blockBase("full", 40),
+  ...blockBase("medium", 40),
   type: z.literal("timeline"),
   data: z.object({
     style: timelineStyleSchema.default("vertical"),
@@ -588,7 +626,7 @@ export const balloonArcherBlockSchema = z.object({
 });
 
 /** One level of ordinary learning content; interactions cannot recursively nest here. */
-export const revealContentBlockSchema = z.discriminatedUnion("type", [richTextBlockSchema, headingBlockSchema, statementBlockSchema, imageBlockSchema, galleryBlockSchema, videoBlockSchema, audioBlockSchema, linkBlockSchema]);
+export const revealContentBlockSchema = z.discriminatedUnion("type", [richTextBlockSchema, headingBlockSchema, formulaBlockSchema, tableBlockSchema, checklistBlockSchema, statementBlockSchema, imageBlockSchema, galleryBlockSchema, videoBlockSchema, audioBlockSchema, linkBlockSchema]);
 export type RevealContentBlock = z.infer<typeof revealContentBlockSchema>;
 export const peelToRevealBlockSchema = z.object({
   ...blockBase("medium", 40),
@@ -615,6 +653,9 @@ const plainContentBlockSchema = z.discriminatedUnion("type", [
   peelToRevealBlockSchema,
   headingBlockSchema,
   richTextBlockSchema,
+  formulaBlockSchema,
+  tableBlockSchema,
+  checklistBlockSchema,
   imageBlockSchema,
   galleryBlockSchema,
   videoBlockSchema,
@@ -707,8 +748,8 @@ export function defaultBlockWidth(
 ): ContentBlock["width"] {
   if (type === "heading" || type === "richText" || type === "statement" || type === "peelToReveal") return "medium";
   if (type === "image" || type === "video" || type === "audio" || type === "gallery") return "medium";
-  if (type === "flipCard" || type === "labeledGraphic" || type === "lessonMap" || type === "balloonArcher" || type === "hangingRopeCards" || type === "timeline") return "full";
-  if (type === "accordion" || type === "processSteps" || type === "chart") return "medium";
+  if (type === "labeledGraphic" || type === "lessonMap" || type === "balloonArcher" || type === "hangingRopeCards") return "full";
+  if (type === "accordion" || type === "processSteps" || type === "chart" || type === "checklist" || type === "formula" || type === "table" || type === "flipCard" || type === "timeline") return "medium";
   return "small";
 }
 
@@ -721,6 +762,7 @@ export function defaultBlockWidthForBlock(block: ContentBlock): ContentBlock["wi
 
 export function defaultBlockPadding(_type: ContentBlock["type"]): number {
   if (_type === "interactionButton" || _type === "audioInstruction") return 0;
+  if (_type === "formula" || _type === "table" || _type === "checklist") return 40;
   void _type;
   return 40;
 }

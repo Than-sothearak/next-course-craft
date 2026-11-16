@@ -7,6 +7,9 @@ const fieldsByType = {
   heading: ["body", "headingLevel"],
   richText: ["body", "bullets"],
   text: ["body", "bullets"],
+  formula: ["formulaLatex", "formulaExplanation", "formulaVariables"],
+  table: ["tableCaption", "tableColumns", "tableRows"],
+  checklist: ["checklistItems"],
   code: ["body", "codeExample"],
   image: ["imagePrompt", "imageAlt", "imageLayout", "imageTitle", "imageBody"],
   gallery: ["galleryImages"],
@@ -29,7 +32,7 @@ const nullBlockFieldDefaults: Record<string, unknown> = {
   body: "",
   bullets: [],
   style: "tip",
-  headingLevel: 2,
+  headingLevel: 3,
   question: "",
   options: [],
   correctOptionIndex: 0,
@@ -78,6 +81,13 @@ const nullBlockFieldDefaults: Record<string, unknown> = {
   src: "",
   alt: "",
   explanation: "",
+  formulaLatex: "",
+  formulaExplanation: "",
+  formulaVariables: [],
+  tableCaption: "",
+  tableColumns: [],
+  tableRows: [],
+  checklistItems: [],
 };
 
 function normalizeNullBlockFields(value: unknown): unknown {

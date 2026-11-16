@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import { previewTextEditorExtensions } from "./(editor_client_components)/(text_editing_components)/text-formatting-toolbar";
+import { reflowLongParagraphs } from "@/lib/editor/reflow-long-paragraphs";
 
 function escapeHtml(value: string) {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
@@ -16,6 +17,7 @@ export function StatementTextPreview({
   inheritColor = false,
   matchEditorSpacing = false,
   courseTextRole,
+  standardMode = false,
 }: {
   html?: string;
   text: string;
@@ -24,8 +26,10 @@ export function StatementTextPreview({
   inheritColor?: boolean;
   matchEditorSpacing?: boolean;
   courseTextRole?: "title" | "subtitle" | "heading";
+  standardMode?: boolean;
 }) {
-  const content = html ?? `<${tag}>${escapeHtml(text)}</${tag}>`;
+  const sourceContent = html ?? `<${tag}>${escapeHtml(text)}</${tag}>`;
+  const content = standardMode && !matchEditorSpacing && tag === "p" ? reflowLongParagraphs(sourceContent) : sourceContent;
   const editor = useEditor({
     extensions: previewTextEditorExtensions,
     content,
@@ -46,5 +50,5 @@ export function StatementTextPreview({
     });
   }, [className, content, editor]);
 
-  return <EditorContent editor={editor} data-course-text-role={courseTextRole} data-block-text-role={tag === "p" ? "body" : "title"} style={inheritColor ? { color: "inherit" } : undefined} className={`lesson-rich-text ${className} [&_.tiptap]:m-0 [&_.tiptap]:outline-none [&_.tiptap_*]:text-inherit ${matchEditorSpacing ? "[&_.tiptap_p]:my-2" : "[&_.tiptap_h1]:my-0 [&_.tiptap_h2]:my-0 [&_.tiptap_h3]:my-0 [&_.tiptap_p]:my-0"}`} />;
+  return <EditorContent editor={editor} data-course-text-role={courseTextRole} data-block-text-role={tag === "p" ? "body" : "title"} style={inheritColor ? { color: "inherit" } : undefined} className={`lesson-rich-text ${className} [&_.tiptap]:m-0 [&_.tiptap]:outline-none [&_.tiptap_*]:text-inherit ${standardMode ? "[&_strong]:text-[var(--course-primary,#2f5f9f)]" : ""} ${matchEditorSpacing ? "[&_.tiptap_p]:my-2" : "[&_.tiptap_h1]:my-0 [&_.tiptap_h2]:my-0 [&_.tiptap_h3]:my-0 [&_.tiptap_p]:my-0"}`} />;
 }
