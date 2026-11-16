@@ -1,3 +1,5 @@
+import { inlineFormattingHtml } from "./inline-formatting";
+
 export const codeThemeValues = ["midnight", "paper", "ocean", "forest", "plum", "amber"] as const;
 export type CodeTheme = (typeof codeThemeValues)[number];
 export const codeLanguageValues = ["auto", "html", "css", "javascript", "typescript", "json", "python", "sql", "bash", "plaintext"] as const;
@@ -42,18 +44,20 @@ function escapeCodeHtml(value: string) {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 }
 
-export function renderCodeExampleHtml({ title = "", code, explanation = "", template = "midnight-explained-below", language = "auto" }: {
+export function renderCodeExampleHtml({ title = "", code, explanation = "", template = "midnight-explained-below", language = "auto", formatInlineText = false }: {
   title?: string;
   code: string;
   explanation?: string;
   template?: CodeExampleTemplate;
   language?: CodeLanguage;
+  formatInlineText?: boolean;
 }) {
   const preset = codeExamplePresets.find((item) => item.id === template) ?? codeExamplePresets[2];
   const normalizedLanguage = normalizeCodeLanguage(language);
-  const heading = title.trim() ? `<h3>${escapeCodeHtml(title.trim())}</h3>` : "";
+  const formatText = formatInlineText ? inlineFormattingHtml : escapeCodeHtml;
+  const heading = title.trim() ? `<h3>${formatText(title.trim())}</h3>` : "";
   const paragraphs = explanation.trim().split(/\r?\n\s*\r?\n/).filter(Boolean)
-    .map((paragraph) => `<p>${escapeCodeHtml(paragraph).replace(/\r?\n/g, "<br>")}</p>`).join("");
+    .map((paragraph) => `<p>${formatText(paragraph).replace(/\r?\n/g, "<br>")}</p>`).join("");
   const snippet = `<pre data-code-theme="${preset.theme}" data-code-language="${normalizedLanguage}"><code class="language-${normalizedLanguage}">${escapeCodeHtml(code)}</code></pre>`;
   return heading + (preset.explanationPosition === "above" ? paragraphs + snippet : snippet + paragraphs);
 }

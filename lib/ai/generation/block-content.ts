@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { blockSchema, type ContentBlock } from "@/lib/schemas/block";
 import type { QuizQuestion } from "@/lib/schemas/quiz";
 import { renderCodeExampleHtml } from "@/lib/editor/code-example";
+import { hasInlineFormatting, inlineFormattingHtml, stripInlineFormatting } from "@/lib/editor/inline-formatting";
 import { type GeneratedAssessmentQuestion, type GeneratedCourseDraft, type GeneratedCourseSeed } from "../course-generation-schemas";
 import { createGeneratedImageAsset, type GeneratedImageOptions } from "./images";
 
@@ -19,6 +20,15 @@ function escapeHtml(value: string) {
   );
 }
 
+function plainText(value: string) {
+  return stripInlineFormatting(value).trim();
+}
+
+function formattedHtml(value: string, tag: "h1" | "h2" | "h3" | "p") {
+  if (!hasInlineFormatting(value)) return undefined;
+  return `<${tag}>${inlineFormattingHtml(value.trim()).replace(/\r?\n/g, "<br />")}</${tag}>`;
+}
+
 export function textHtml(
   title: string,
   body: string,
@@ -26,14 +36,14 @@ export function textHtml(
   khmer = false,
 ) {
   const parts = [
-    title.trim() ? `<h3>${escapeHtml(title.trim())}</h3>` : "",
+    title.trim() ? `<h3>${inlineFormattingHtml(title.trim())}</h3>` : "",
     body.trim()
-      ? body.trim().split(/\r?\n\s*\r?\n/).map((paragraph) => `<p>${escapeHtml(paragraph.trim()).replace(/\r?\n/g, "<br />")}</p>`).join("")
+      ? body.trim().split(/\r?\n\s*\r?\n/).map((paragraph) => `<p>${inlineFormattingHtml(paragraph.trim()).replace(/\r?\n/g, "<br />")}</p>`).join("")
       : "",
     bullets.filter((item) => item.trim()).length
       ? `<ul>${bullets
           .filter((item) => item.trim())
-          .map((item) => `<li><p>${escapeHtml(item.trim())}</p></li>`)
+          .map((item) => `<li><p>${inlineFormattingHtml(item.trim())}</p></li>`)
           .join("")}</ul>`
       : "",
   ].filter(Boolean);
@@ -48,7 +58,7 @@ function customSummaryHtml(title: string, body: string, khmer = false) {
   const bullets = lines.map((line) => line.match(/^[-*•]\s+(.+)$/)?.[1]);
   if (!lines.length || bullets.some((bullet) => !bullet))
     return textHtml(title, body, [], khmer);
-  return `<h3>${escapeHtml(title.trim())}</h3><ul>${bullets.map((bullet) => `<li><p>${escapeHtml(bullet!)}</p></li>`).join("")}</ul>`;
+  return `<h3>${inlineFormattingHtml(title.trim())}</h3><ul>${bullets.map((bullet) => `<li><p>${inlineFormattingHtml(bullet!)}</p></li>`).join("")}</ul>`;
 }
 
 export function needsContinueAfter(
@@ -424,10 +434,10 @@ export async function toContentBlock(
   if (seed.type === "formula") {
     return {
       block: blockSchema.parse({ ...base, type: "formula", width: "medium", data: {
-        title: seed.title.trim(),
+        title: plainText(seed.title),
         latex: seed.formulaLatex.trim(),
-        explanation: seed.formulaExplanation.trim(),
-        variables: seed.formulaVariables.map(({ symbol, explanation }) => ({ symbol: symbol.trim(), explanation: explanation.trim() })),
+        explanation: plainText(seed.formulaExplanation),
+        variables: seed.formulaVariables.map(({ symbol, explanation }) => ({ symbol: plainText(symbol), explanation: plainText(explanation) })),
       } }),
       generatedImage: false,
     };
@@ -435,9 +445,9 @@ export async function toContentBlock(
   if (seed.type === "table") {
     return {
       block: blockSchema.parse({ ...base, type: "table", width: "medium", data: {
-        caption: seed.tableCaption.trim(),
-        columns: seed.tableColumns.map((column) => column.trim()),
-        rows: seed.tableRows.map((row) => row.map((cell) => cell.trim())),
+        caption: plainText(seed.tableCaption),
+        columns: seed.tableColumns.map((column) => plainText(column)),
+        rows: seed.tableRows.map((row) => row.map((cell) => plainText(cell))),
       } }),
       generatedImage: false,
     };
@@ -445,8 +455,8 @@ export async function toContentBlock(
   if (seed.type === "checklist") {
     return {
       block: blockSchema.parse({ ...base, type: "checklist", data: {
-        title: seed.title.trim(),
-        items: seed.checklistItems.map((item) => item.trim()).filter(Boolean),
+        title: plainText(seed.title),
+        items: seed.checklistItems.map((item) => plainText(item)).filter(Boolean),
       } }),
       generatedImage: false,
     };
@@ -488,7 +498,11 @@ export async function toContentBlock(
       block: blockSchema.parse({
         ...base,
         type: "heading",
-        data: { text: seed.title.trim(), level: seed.headingLevel },
+        data: {
+          text: plainText(seed.title),
+          level: seed.headingLevel,
+          html: formattedHtml(seed.title, seed.headingLevel === 1 ? "h1" : seed.headingLevel === 2 ? "h2" : "h3"),
+        },
       }),
       generatedImage: false,
     };
@@ -523,9 +537,9 @@ export async function toContentBlock(
         ...base,
         type: "link",
         data: {
-          label: seed.linkLabel.trim() || seed.title.trim() || "Open resource",
+          label: plainText(seed.linkLabel) || plainText(seed.title) || "Open resource",
           url: seed.linkUrl.trim(),
-          description: seed.linkDescription.trim() || seed.body.trim(),
+          description: plainText(seed.linkDescription) || plainText(seed.body),
           style: "button",
           openInNewTab: true,
         },
@@ -534,14 +548,17 @@ export async function toContentBlock(
     };
   }
   if (seed.type === "statement") {
+    const statementBodySource = seed.body.trim() || seed.bullets.join(" ");
     return {
       block: blockSchema.parse({
         ...base,
         type: "statement",
         data: {
           style: seed.style,
-          title: seed.title.trim() || (khmer ? "ចំណុចសំខាន់" : "Key takeaway"),
-          body: seed.body.trim() || seed.bullets.join(" "),
+          title: plainText(seed.title) || (khmer ? "ចំណុចសំខាន់" : "Key takeaway"),
+          body: plainText(statementBodySource),
+          titleHtml: formattedHtml(seed.title, "h3"),
+          bodyHtml: formattedHtml(statementBodySource, "p"),
         },
       }),
       generatedImage: false,
@@ -562,7 +579,7 @@ export async function toContentBlock(
     };
   }
   if (seed.type === "knowledgeCheck") {
-    const options = seed.options.map((option) => option.trim()).filter(Boolean);
+    const options = seed.options.map((option) => plainText(option)).filter(Boolean);
     if (
       seed.question.trim() &&
       options.length >= 2 &&
@@ -573,14 +590,14 @@ export async function toContentBlock(
           ...base,
           type: "knowledgeCheck",
           data: {
-            question: seed.question.trim(),
+            question: plainText(seed.question),
             options,
             correctOptionIndex: seed.correctOptionIndex,
-            correctFeedback: seed.correctFeedback.trim() ||
+            correctFeedback: plainText(seed.correctFeedback) ||
               (khmer
                 ? "ត្រឹមត្រូវ។ អ្នកយល់ចំណុចសំខាន់នេះហើយ។"
                 : "Correct. You understand this key point."),
-            incorrectFeedback: seed.incorrectFeedback.trim() ||
+            incorrectFeedback: plainText(seed.incorrectFeedback) ||
               (khmer
                 ? "សូមពិនិត្យមេរៀនឡើងវិញ រួចព្យាយាមម្ដងទៀត។"
                 : "Review the lesson and try again."),
@@ -592,11 +609,13 @@ export async function toContentBlock(
   }
   if (seed.type === "processSteps") {
     const steps = seed.steps
-      .filter((step) => step.title.trim() && step.body.trim())
+      .filter((step) => plainText(step.title) && plainText(step.body))
       .map((step) => ({
         id: randomUUID(),
-        title: step.title.trim(),
-        body: step.body.trim(),
+        title: plainText(step.title),
+        body: plainText(step.body),
+        titleHtml: formattedHtml(step.title, "h3"),
+        bodyHtml: formattedHtml(step.body, "p"),
       }));
     if (steps.length >= 2) {
       return {
@@ -612,12 +631,15 @@ export async function toContentBlock(
   }
   if (seed.type === "timeline") {
     const items = seed.timelineItems
-      .filter((item) => item.title.trim() || item.body.trim())
+      .filter((item) => plainText(item.title) || plainText(item.body))
       .map((item) => ({
         id: randomUUID(),
-        label: item.label.trim(),
-        title: item.title.trim(),
-        body: item.body.trim(),
+        label: plainText(item.label),
+        title: plainText(item.title),
+        body: plainText(item.body),
+        labelHtml: formattedHtml(item.label, "p"),
+        titleHtml: formattedHtml(item.title, "h3"),
+        bodyHtml: formattedHtml(item.body, "p"),
       }));
     if (items.length >= 2 && items.length <= 20) {
       return {
@@ -680,11 +702,13 @@ export async function toContentBlock(
   }
   if (seed.type === "accordion") {
     const items = seed.steps
-      .filter((step) => step.title.trim() && step.body.trim())
+      .filter((step) => plainText(step.title) && plainText(step.body))
       .map((step) => ({
         id: randomUUID(),
-        title: step.title.trim(),
-        body: step.body.trim(),
+        title: plainText(step.title),
+        body: plainText(step.body),
+        titleHtml: formattedHtml(step.title, "h3"),
+        bodyHtml: formattedHtml(step.body, "p"),
       }));
     if (items.length >= 2) {
       return {
@@ -768,13 +792,13 @@ export async function toContentBlock(
         block: blockSchema.parse({
           ...base,
           type: "richText",
-          data: { html: renderCodeExampleHtml({ title: seed.title, code: seed.body, ...seed.codeExample }) },
+          data: { html: renderCodeExampleHtml({ title: seed.title, code: seed.body, ...seed.codeExample, formatInlineText: true }) },
         }),
         generatedImage: false,
       };
     }
     const title = seed.title.trim()
-      ? `<h3>${escapeHtml(seed.title.trim())}</h3>`
+      ? `<h3>${inlineFormattingHtml(seed.title.trim())}</h3>`
       : "";
     const code = seed.body.trim() ? seed.body : seed.bullets.join("\n");
     return {

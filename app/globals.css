@@ -407,6 +407,12 @@ video[data-slide-media-player]::-webkit-media-controls-enclosure {
   background: #f8fafc;
   padding: 0.5em 0.75em;
 }
+.lesson-rich-text ul[data-list-style="check"] > li::before {
+  border: 1px solid color-mix(in srgb, var(--course-primary, #2f5f9f) 30%, transparent);
+  border-radius: 0.65em;
+  background: color-mix(in srgb, var(--course-primary, #2f5f9f) 10%, white);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 0.08);
+}
 .lesson-rich-text ul[data-item-spacing="compact"] > li,
 .lesson-rich-text ol[data-item-spacing="compact"] > li { margin-block: 0.375em; }
 .lesson-rich-text ul[data-item-spacing="comfortable"] > li,
@@ -416,6 +422,7 @@ video[data-slide-media-player]::-webkit-media-controls-enclosure {
 .lesson-rich-text li > p { margin-block: 0; }
 .lesson-rich-text .tiptap a { color: var(--course-primary, #2f5f9f); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 0.16em; }
 .lesson-rich-text .tiptap a:hover { text-decoration-thickness: 2px; }
+.lesson-rich-text [data-generated-emphasis="true"] { border-radius: 0.2em; background: color-mix(in srgb, var(--course-primary, #2f5f9f) 18%, white) !important; color: inherit; padding-inline: 0.12em; }
 [data-preview-screen] .lesson-rich-text { min-width: 0; overflow-wrap: anywhere; }
 [data-preview-screen] .lesson-rich-text .tiptap table { display: block; max-width: 100%; overflow-x: auto; }
 .lesson-rich-text:not([data-course-text-role="title"]) .tiptap :is(h1, h2, h3, h4, h5, h6) { margin-block: 0 0.75rem; font-weight: 700; line-height: 1.3; }

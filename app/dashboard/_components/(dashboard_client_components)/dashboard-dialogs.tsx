@@ -177,31 +177,35 @@ export function DashboardDialogs({
                   className="mt-1.5 font-normal"
                 />
               </label>
-              <fieldset>
-                <legend className="mb-2 text-sm font-medium text-slate-700">Course template</legend>
-                <div className="grid grid-cols-2 gap-3">
-                  <label className="group flex min-h-44 cursor-pointer flex-col rounded-2xl border border-slate-200 bg-white p-3.5 transition-colors hover:border-indigo-300 hover:bg-indigo-50/40 focus-within:ring-2 focus-within:ring-indigo-500 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50 has-[:checked]:shadow-sm sm:p-4">
-                    <span className="flex items-start justify-between gap-2">
-                      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-600 group-has-[:checked]:bg-indigo-600 group-has-[:checked]:text-white">
-                        <BookOpenText size={21} aria-hidden="true" />
+              {generateCourseAfterCreate ? (
+                <input type="hidden" name="courseLayout" value="standard" />
+              ) : (
+                <fieldset>
+                  <legend className="mb-2 text-sm font-medium text-slate-700">Course template</legend>
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="group flex min-h-44 cursor-pointer flex-col rounded-2xl border border-slate-200 bg-white p-3.5 transition-colors hover:border-indigo-300 hover:bg-indigo-50/40 focus-within:ring-2 focus-within:ring-indigo-500 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50 has-[:checked]:shadow-sm sm:p-4">
+                      <span className="flex items-start justify-between gap-2">
+                        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-600 group-has-[:checked]:bg-indigo-600 group-has-[:checked]:text-white">
+                          <BookOpenText size={21} aria-hidden="true" />
+                        </span>
+                        <input type="radio" name="courseLayout" value="standard" defaultChecked className="size-4 shrink-0 accent-indigo-600" />
                       </span>
-                      <input type="radio" name="courseLayout" value="standard" defaultChecked className="size-4 shrink-0 accent-indigo-600" />
-                    </span>
-                    <span className="mt-4 block text-sm font-semibold leading-tight text-slate-900">Standard course</span>
-                    <span className="mt-1 block text-xs leading-5 text-slate-500">Scrollable lessons with interactive blocks.</span>
-                  </label>
-                  <label className="group flex min-h-44 cursor-pointer flex-col rounded-2xl border border-slate-200 bg-white p-3.5 transition-colors hover:border-indigo-300 hover:bg-indigo-50/40 focus-within:ring-2 focus-within:ring-indigo-500 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50 has-[:checked]:shadow-sm sm:p-4">
-                    <span className="flex items-start justify-between gap-2">
-                      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-600 group-has-[:checked]:bg-indigo-600 group-has-[:checked]:text-white">
-                        <Presentation size={21} aria-hidden="true" />
+                      <span className="mt-4 block text-sm font-semibold leading-tight text-slate-900">Standard course</span>
+                      <span className="mt-1 block text-xs leading-5 text-slate-500">Scrollable lessons with interactive blocks.</span>
+                    </label>
+                    <label className="group flex min-h-44 cursor-pointer flex-col rounded-2xl border border-slate-200 bg-white p-3.5 transition-colors hover:border-indigo-300 hover:bg-indigo-50/40 focus-within:ring-2 focus-within:ring-indigo-500 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50 has-[:checked]:shadow-sm sm:p-4">
+                      <span className="flex items-start justify-between gap-2">
+                        <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-slate-100 text-slate-600 group-has-[:checked]:bg-indigo-600 group-has-[:checked]:text-white">
+                          <Presentation size={21} aria-hidden="true" />
+                        </span>
+                        <input type="radio" name="courseLayout" value="slides" className="size-4 shrink-0 accent-indigo-600" />
                       </span>
-                      <input type="radio" name="courseLayout" value="slides" className="size-4 shrink-0 accent-indigo-600" />
-                    </span>
-                    <span className="mt-4 block text-sm font-semibold leading-tight text-slate-900">Slide interactive presentation</span>
-                    <span className="mt-1 block text-xs leading-5 text-slate-500">16:9 slides with interactive blocks and navigation.</span>
-                  </label>
-                </div>
-              </fieldset>
+                      <span className="mt-4 block text-sm font-semibold leading-tight text-slate-900">Slide interactive presentation</span>
+                      <span className="mt-1 block text-xs leading-5 text-slate-500">16:9 slides with interactive blocks and navigation.</span>
+                    </label>
+                  </div>
+                </fieldset>
+              )}
               <label className="block text-sm font-medium text-slate-700">
                 Save in
                 <Select

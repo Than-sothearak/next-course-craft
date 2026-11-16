@@ -7,6 +7,8 @@ import { createBlocksFromTemplate } from "../app/courses/[courseId]/edit/_compon
 import { TemplatePreview } from "../app/courses/[courseId]/edit/_components/(editor_client_components)/(block_template_picker_components)/template-preview";
 import { ImageTemplatePreview } from "../app/courses/[courseId]/edit/_components/(editor_client_components)/(block_template_picker_components)/(template_preview_components)/image-template-preview";
 import { TextTemplatePreview } from "../app/courses/[courseId]/edit/_components/(editor_client_components)/(block_template_picker_components)/(template_preview_components)/text-template-preview";
+import { ListTemplatePreview } from "../app/courses/[courseId]/edit/_components/(editor_client_components)/(block_template_picker_components)/(template_preview_components)/list-template-preview";
+import { EducationalChecklist } from "../components/educational-checklist";
 import { codeExamplePresets } from "../lib/editor/code-example";
 
 describe("prebuilt lesson text templates", () => {
@@ -277,6 +279,18 @@ describe("prebuilt lesson link templates", () => {
 });
 
 describe("prebuilt lesson list templates", () => {
+  it("uses a vector check icon and a consistent card treatment for checklist previews", () => {
+    const listPreview = renderToStaticMarkup(createElement(ListTemplatePreview, { style: "check" }));
+    const nativePreview = renderToStaticMarkup(createElement(EducationalChecklist, { title: "Key points", items: ["Review the example"] }));
+
+    expect(listPreview).toContain("<svg");
+    expect(listPreview).toContain('aria-hidden="true"');
+    expect(listPreview).toContain("rounded-xl border");
+    expect(nativePreview).toContain("<svg");
+    expect(nativePreview).toContain("rounded-lg border");
+    expect(nativePreview).not.toContain("âœ");
+  });
+
   it("adds editable numbered and unordered list blocks for each preset", () => {
     const listTemplates = blockTemplates.filter(
       (template) => template.category === "List",

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { AlignLeft, BarChart3, CheckCircle2, Code2, FileDown, FilePlus2, Image as ImageIcon, Images, Link2, List, Minus, Quote, RotateCcw, Type, Video, X, Sigma, Table2 } from "lucide-react";
+import { AlignLeft, BarChart3, CheckCircle2, Code2, FileDown, FilePlus2, Image as ImageIcon, Images, Link2, List, ListChecks, Minus, Quote, RotateCcw, Type, Video, X, Sigma, Table2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { blockCategories, blockTemplates, type BlockCategory, type BlockTemplate } from "./(block_template_picker_components)/block-template-data";
@@ -23,7 +23,7 @@ const categoryIcons = {
   Chart: BarChart3,
   Formula: Sigma,
   Table: Table2,
-  Checklist: CheckCircle2,
+  Checklist: ListChecks,
   Divider: Minus,
   Blank: FilePlus2,
   Code: Code2,

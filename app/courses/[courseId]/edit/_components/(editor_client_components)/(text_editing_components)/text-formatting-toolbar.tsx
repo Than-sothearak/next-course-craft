@@ -104,6 +104,10 @@ const InlineStyle = Mark.create({
         parseHTML: (element) =>
           parseInlineColor(element as HTMLElement, "background-color"),
       },
+      generatedEmphasis: {
+        default: false,
+        parseHTML: (element) => element.getAttribute("data-generated-emphasis") === "true",
+      },
     };
   },
   parseHTML() {
@@ -115,6 +119,7 @@ const InlineStyle = Mark.create({
     const fontSize = normalizeFontSize(HTMLAttributes.fontSize);
     const color = normalizeTextPaint(HTMLAttributes.color);
     const highlight = normalizeHexColor(HTMLAttributes.highlight);
+    const generatedEmphasis = HTMLAttributes.generatedEmphasis === true;
     if (fontSize) style.push(`font-size: ${fontSize}`);
     if (fontFamily)
       style.push(`font-family: ${courseThemeFontFamilies[fontFamily]}`);
@@ -135,6 +140,7 @@ const InlineStyle = Mark.create({
         style: style.join("; ") || null,
         ...(fontFamily ? { "data-font-family": fontFamily } : {}),
         ...(parseGradient(color) ? { "data-text-gradient": color } : {}),
+        ...(generatedEmphasis ? { "data-generated-emphasis": "true" } : {}),
       },
       0,
     ];
