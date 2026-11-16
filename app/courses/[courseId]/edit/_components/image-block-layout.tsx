@@ -70,7 +70,7 @@ export function ImageBlockLayout({
 
   const resolvedFit = imageFit ?? (layout === "full" ? "contain" : "cover");
   const resolvedPosition = imagePosition ?? (layout === "cover" ? coverPosition : "center");
-  const ratioClass = imageAspectRatio ? { "4/3": "aspect-[4/3]", "16/9": "aspect-video", "1/1": "aspect-square", "3/4": "aspect-[3/4]" }[imageAspectRatio] : undefined;
+  const ratioClass = imageAspectRatio ? { "4/3": "aspect-[4/3]", "16/9": "aspect-video", "1/1": "aspect-square", "3/4": "aspect-[3/4]", "50/13": "aspect-[50/13]" }[imageAspectRatio] : undefined;
   function imageFrame(className: string, fixed = true, ratio = imageAspectRatio) {
     const fitClass = {
       cover: "[&>img]:object-cover [&>button_img]:object-cover",

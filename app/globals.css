@@ -339,9 +339,9 @@ body { margin: 0; min-height: 100vh; background: #f8fafc; color: #0f172a; font-f
 
 /* Keep presentation video controls over the footage without a shaded bar. */
 /* Course defaults apply only when explicitly configured. Inline formatting wins. */
-[data-course-typography~="title"] :is([data-course-text-role="title"], [data-course-text-role="title"] .tiptap > :is(p, h1, h2, h3), .lesson-rich-text:not([data-course-text-role]) h1):not([data-slide-canvas] *, [data-quiz-assessment] *) { font-size: var(--course-title-size); }
-[data-course-typography~="subtitle"] :is([data-course-text-role="subtitle"], [data-course-text-role="subtitle"] .tiptap > :is(p, h1, h2, h3), .lesson-rich-text:not([data-course-text-role]) h2):not([data-slide-canvas] *, [data-quiz-assessment] *) { font-size: var(--course-subtitle-size); }
-[data-course-typography~="heading"] :is([data-course-text-role="heading"], [data-course-text-role="heading"] .tiptap > :is(p, h1, h2, h3), .lesson-rich-text:not([data-course-text-role]) :is(h3, h4, h5, h6)):not([data-slide-canvas] *, [data-quiz-assessment] *) { font-size: var(--course-heading-size); }
+[data-course-typography~="title"] :is([data-course-text-role="title"], [data-course-text-role="title"] .tiptap > :is(p, h1, h2, h3, h4, h5, h6), .lesson-rich-text:not([data-course-text-role]) h1):not([data-slide-canvas] *, [data-quiz-assessment] *) { font-size: var(--course-title-size); }
+[data-course-typography~="subtitle"] :is([data-course-text-role="subtitle"], [data-course-text-role="subtitle"] .tiptap > :is(p, h1, h2, h3, h4, h5, h6), .lesson-rich-text:not([data-course-text-role]) h2):not([data-slide-canvas] *, [data-quiz-assessment] *) { font-size: var(--course-subtitle-size); }
+[data-course-typography~="heading"] :is([data-course-text-role="heading"], [data-course-text-role="heading"] .tiptap > :is(p, h1, h2, h3, h4, h5, h6), .lesson-rich-text:not([data-course-text-role]) :is(h3, h4, h5, h6)):not([data-slide-canvas] *, [data-quiz-assessment] *) { font-size: var(--course-heading-size); }
 [data-course-typography~="body"] .lesson-rich-text:not([data-course-text-role]) :is(p, li):not([data-slide-canvas] *, [data-quiz-assessment] *) { font-size: var(--course-body-size); }
 [data-course-typography~="leading"] .lesson-rich-text:not([data-course-text-role]) :is(p, li):not([data-slide-canvas] *, [data-quiz-assessment] *) { line-height: var(--course-body-leading); }
 [data-course-typography~="alignment"] :is([data-course-text-role="title"], .lesson-rich-text :is(h1, h2, h3)):not([data-slide-canvas] *, [data-quiz-assessment] *) { text-align: var(--course-title-align); }
@@ -418,8 +418,21 @@ video[data-slide-media-player]::-webkit-media-controls-enclosure {
 .lesson-rich-text .tiptap a:hover { text-decoration-thickness: 2px; }
 [data-preview-screen] .lesson-rich-text { min-width: 0; overflow-wrap: anywhere; }
 [data-preview-screen] .lesson-rich-text .tiptap table { display: block; max-width: 100%; overflow-x: auto; }
-.lesson-rich-text .tiptap h2 { margin-block: 0 0.75rem; font-size: 24px; font-weight: 700; line-height: 1.3; }
-.lesson-rich-text .tiptap h3 { margin-block: 0 0.75rem; font-size: 24px; font-weight: 700; line-height: 1.3; }
+.lesson-rich-text:not([data-course-text-role="title"]) .tiptap :is(h1, h2, h3, h4, h5, h6) { margin-block: 0 0.75rem; font-weight: 700; line-height: 1.3; }
+.lesson-rich-text:not([data-course-text-role="title"]) .tiptap h1 { font-size: 2.25rem; }
+.lesson-rich-text:not([data-course-text-role="title"]) .tiptap h2 { font-size: 1.875rem; }
+.lesson-rich-text:not([data-course-text-role="title"]) .tiptap h3 { font-size: 1.5rem; }
+.lesson-rich-text:not([data-course-text-role="title"]) .tiptap h4 { font-size: 1.25rem; }
+.lesson-rich-text:not([data-course-text-role="title"]) .tiptap h5 { font-size: 1.125rem; }
+.lesson-rich-text:not([data-course-text-role="title"]) .tiptap h6 { font-size: 1rem; }
+@media (min-width: 640px) {
+  .lesson-rich-text:not([data-course-text-role="title"]) .tiptap h1 { font-size: 3rem; }
+  .lesson-rich-text:not([data-course-text-role="title"]) .tiptap h2 { font-size: 2.25rem; }
+  .lesson-rich-text:not([data-course-text-role="title"]) .tiptap h3 { font-size: 1.875rem; }
+  .lesson-rich-text:not([data-course-text-role="title"]) .tiptap h4 { font-size: 1.5rem; }
+  .lesson-rich-text:not([data-course-text-role="title"]) .tiptap h5 { font-size: 1.25rem; }
+  .lesson-rich-text:not([data-course-text-role="title"]) .tiptap h6 { font-size: 1.125rem; }
+}
 .lesson-rich-text .tiptap pre {
   --code-background: #0b1220;
   --code-border: #334155;

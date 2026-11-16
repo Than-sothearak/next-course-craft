@@ -166,7 +166,7 @@ export async function generateLearnContentItem({
       lessonDesignInstruction(input, pages),
       blockSelectionGuide,
       previousBlockMixInstruction(previousLearningBlocks),
-      `Remaining course activity budget for this portion: ${Math.max(0, 2 - activitiesUsed.knowledgeCheck)} knowledgeCheck question blocks and ${Math.max(0, 1 - activitiesUsed.survey)} survey blocks. Previously used prompts (do not repeat): ${JSON.stringify(activitiesUsed.questions)}.`,
+      `Remaining course activity budget for this portion: ${Math.max(0, 2 - activitiesUsed.knowledgeCheck - Number(input.template === "custom"))} knowledgeCheck question blocks and ${Math.max(0, 1 - activitiesUsed.survey)} survey blocks. Previously used prompts (do not repeat): ${JSON.stringify(activitiesUsed.questions)}. The custom template reserves one knowledgeCheck for the first-lesson quick quiz.`,
       `Recommended blocks: ${item.recommendedBlockTypes.join(", ") || "Choose appropriate existing CourseCraft blocks"}. Interaction opportunities: ${item.interactionOpportunities.join("; ") || "Use interactions where they improve learning"}.`,
       `Additional author instructions: ${input.prompt || "None"}.`,
       `Assigned page range: ${item.startPage}-${item.endPage}. These are the only source pages for this item. Preserve their order.`,
@@ -210,7 +210,7 @@ export async function generateLearnContentItem({
     }
     const designIssues = [
       ...lessonDepthIssues(parsed.data.blocks, input, pages),
-      ...learningActivityIssues(parsed.data.blocks, previousLearningBlocks),
+      ...learningActivityIssues(parsed.data.blocks, previousLearningBlocks, input.template === "custom" ? { knowledgeCheck: 1 } : {}),
     ];
     if (designIssues.length) {
       finalIssues = designIssues;
@@ -331,7 +331,7 @@ export async function generateSourceCourseSeed(
   inventory: GeneratedSourceInventory,
 ) {
   const plan = await generateSourcePlan(input, model, inventory);
-  const preActivities = input.template === "preLearnPost"
+  const preActivities = input.template === "preLearnPost" || input.template === "custom"
     ? await generatePreActivities(input, model, plan, inventory)
     : { keyTerms: [], preTest: [] };
   const learnItems: z.infer<typeof generatedLearnItemSchema>[] = [];
@@ -408,10 +408,10 @@ export function buildSourceCourseSeed(
       422,
     );
   }
-  if (input.template === "preLearnPost" && (
+  if ((input.template === "preLearnPost" || input.template === "custom") && (
     seed.data.keyTerms.length !== 5 ||
     seed.data.preTest.length !== 3 ||
-    seed.data.postTest.length !== input.postTestCount
+    (input.template === "preLearnPost" && seed.data.postTest.length !== input.postTestCount)
   ))
     throw new DashboardError("The generated course is missing one or more required activity items.", 422);
   return {

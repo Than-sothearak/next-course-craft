@@ -80,6 +80,9 @@ describe("shared course preview experience", () => {
     expect(preview).toContain('aria-label="Preview mode"');
     expect(preview).toContain('aria-pressed="true"');
     expect(preview).toContain("1 / 1");
+    expect(preview).toContain("max-w-[920px]");
+    expect(preview).toContain("text-3xl");
+    expect(preview).toContain("sm:text-4xl");
     expect(preview).toContain("This content has no lesson material yet.");
     expect(preview).not.toContain("Course outline");
   });

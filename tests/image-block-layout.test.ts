@@ -44,6 +44,15 @@ describe("lesson image block layouts", () => {
     expect(cover).toContain("h-72 sm:h-96");
   });
 
+  it("renders the panoramic lesson image ratio at 1200:312", () => {
+    const markup = renderToStaticMarkup(createElement(ImageBlockLayout, {
+      imageAspectRatio: "50/13",
+      image: createElement("img", { src: "/image.png", alt: "Lesson cover" }),
+    }));
+    expect(markup).toContain("aspect-[50/13]");
+    expect(markup).toContain('data-image-aspect-ratio="50/13"');
+  });
+
   it.each(["cover", "contain", "fill"] as const)("keeps %s fit, focal point, and ratio on plain slide images and thumbnails", (imageFit) => {
     const block = imageBlockSchema.parse({ id: "image", version: 1, type: "image", data: {
       src: "/image.png", alt: "Example", imageFit, imagePosition: "top", imageAspectRatio: "1/1",

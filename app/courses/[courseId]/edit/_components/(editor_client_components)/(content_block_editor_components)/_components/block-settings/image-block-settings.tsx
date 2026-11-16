@@ -79,6 +79,7 @@ export function ImageBlockSettings({ block, onChange, setMediaLibraryTarget }: {
             <option value="16/9">Widescreen (16:9)</option>
             <option value="1/1">Square (1:1)</option>
             <option value="3/4">Portrait (3:4)</option>
+            <option value="50/13">Panoramic (1200:312)</option>
           </Select>
         </label>
       </>

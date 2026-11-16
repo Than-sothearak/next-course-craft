@@ -25,6 +25,7 @@ import {
   updateGenerationCheckpoints,
   updateGenerationJob,
 } from "./generation-job-store";
+import { logGenerationProgress } from "./progress-log";
 
 export async function summarizeCourseSource({
   input,
@@ -261,6 +262,14 @@ export async function advanceSourceGenerationJob({
       if (job.extractionCursor < batchCount) {
         const firstPage = job.extractionCursor * 5 + 1;
         const lastPage = Math.min(pageCount, firstPage + 4);
+        logGenerationProgress({
+          status: "IN PROGRESS",
+          task: `Extract source pages ${firstPage}-${lastPage}`,
+          courseId,
+          jobId,
+          current: job.extractionCursor + 1,
+          total: batchCount,
+        });
         const unitKey = generationUnitKey(firstPage, lastPage);
         let batch = await generationCheckpointPayload(job, "inventoryBatch", unitKey) as { summary: string; pages: GeneratedSourceInventory["pages"] } | null;
         if (!batch) {
@@ -284,6 +293,14 @@ export async function advanceSourceGenerationJob({
             $set: { expiresAt: expiry, leaseUntil: null },
           },
         );
+        logGenerationProgress({
+          status: "DONE",
+          task: `Extract source pages ${firstPage}-${lastPage}`,
+          courseId,
+          jobId,
+          current: job.extractionCursor + 1,
+          total: batchCount,
+        });
       } else {
         const inventoryBatches = await loadGenerationInventoryBatches(job);
         const inventory = await finalizeSourceInventory(
@@ -319,12 +336,12 @@ export async function advanceSourceGenerationJob({
       } else {
         plan = (await loadGenerationPlan(job)) as SourceCoursePlan;
       }
-      const upcomingUnits = 1 + (input.template === "preLearnPost" ? 1 : 0) + plan.items.length + (input.template === "preLearnPost" ? 1 : 0) + 1;
+      const upcomingUnits = 1 + 1 + plan.items.length + (input.template === "preLearnPost" ? 1 : 0) + 1;
       await updateGenerationJob(
         { _id: job._id, ownerId, courseId, status: "planning" },
         {
           $set: {
-            status: input.template === "preLearnPost" ? "generatingPreActivities" : "generatingLearn",
+            status: "generatingPreActivities",
             totalWorkUnits: job.completedWorkUnits + upcomingUnits,
             expiresAt: expiry,
             leaseUntil: null,
@@ -473,9 +490,19 @@ export async function advanceSourceGenerationJob({
       const inventory = await loadGenerationSourceInventory(job);
       const plan = await loadGenerationPlan(job);
       const learnItems = await loadGenerationLearnItems(job, plan.items.length);
-      const preActivities = input.template === "preLearnPost"
-        ? await generationCheckpointPayload(job, "preActivities", "course") as GeneratedPreActivities
-        : { keyTerms: [], preTest: [] };
+      let preActivities: GeneratedPreActivities = { keyTerms: [], preTest: [] };
+      if (input.template === "preLearnPost" || input.template === "custom") {
+        const savedPreActivities = await generationCheckpointPayload(job, "preActivities", "course");
+        if (savedPreActivities) {
+          const parsed = generatedPreActivitiesSchema.safeParse(savedPreActivities);
+          if (!parsed.success) throw new DashboardError("Saved pre-activity checkpoint is invalid. Retry this stage.", 422);
+          preActivities = parsed.data;
+        } else {
+          // Older resumable jobs can reach assembly without this checkpoint.
+          preActivities = await generatePreActivities(input, model, plan, inventory);
+          await saveGenerationCheckpoint(job, "preActivities", "course", preActivities);
+        }
+      }
       const postActivities = input.template === "preLearnPost"
         ? await generationCheckpointPayload(job, "postActivities", "course") as GeneratedPostActivities
         : {

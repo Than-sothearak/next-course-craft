@@ -391,7 +391,7 @@ const sharedTextExtensions = [
     document: false,
     codeBlock: false,
     underline: false,
-    heading: { levels: [1, 2, 3] },
+    heading: { levels: [1, 2, 3, 4, 5, 6] },
     link: {
       openOnClick: false,
       HTMLAttributes: { target: "_blank", rel: "noopener noreferrer nofollow" },
@@ -523,7 +523,7 @@ export function TextFormattingToolbar({
           else
             editor
               .chain()
-              .setHeading({ level: Number(event.target.value) as 1 | 2 | 3 })
+              .setHeading({ level: Number(event.target.value) as 1 | 2 | 3 | 4 | 5 | 6 })
               .run();
         }}
         className="h-8 w-[6.5rem] rounded-md border-slate-200 px-2 text-xs shadow-none"
@@ -532,6 +532,9 @@ export function TextFormattingToolbar({
         <option value="1">Heading 1</option>
         <option value="2">Heading 2</option>
         <option value="3">Heading 3</option>
+        <option value="4">Heading 4</option>
+        <option value="5">Heading 5</option>
+        <option value="6">Heading 6</option>
       </Select>
       <Select
         aria-label="Font family"

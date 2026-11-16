@@ -174,13 +174,13 @@ export function LessonReaderPreview({
                     markContentAboveComplete(lesson, event.currentTarget);
                 }}
               >
-              {!slideLayout && <div className="mx-auto w-full max-w-[720px] shrink-0 px-4 pb-8">
+              {!slideLayout && <div className="mx-auto w-full max-w-[920px] shrink-0 px-4 pb-8">
                 <StatementTextPreview
-                  tag="h3"
+                  tag="h1"
                   text={lesson.title}
                   courseTextRole="title"
                   html={lesson.titleHtml}
-                  className={`font-bold tracking-tight  text-slate-900 ${device === "mobile" ? "text-3xl" : "text-4xl"} [&_h1]:my-0 [&_h1]:text-inherit [&_h1]:font-bold [&_h1]:tracking-tight [&_h2]:my-0 [&_h2]:text-inherit [&_h2]:font-bold [&_h3]:my-0 [&_h3]:text-inherit [&_h3]:font-bold [&_p]:my-0 [&_p]:text-inherit [&_p]:font-bold`}
+                  className={`font-bold tracking-tight text-slate-900 ${device === "mobile" ? "text-3xl" : "text-3xl sm:text-4xl"} [&_h1]:my-0 [&_h1]:text-inherit [&_h1]:font-bold [&_h1]:tracking-tight [&_h2]:my-0 [&_h2]:text-inherit [&_h2]:font-bold [&_h3]:my-0 [&_h3]:text-inherit [&_h3]:font-bold [&_h4]:my-0 [&_h4]:text-inherit [&_h4]:font-bold [&_h5]:my-0 [&_h5]:text-inherit [&_h5]:font-bold [&_h6]:my-0 [&_h6]:text-inherit [&_h6]:font-bold [&_p]:my-0 [&_p]:text-inherit [&_p]:font-bold`}
                 />
                 {initialData.authorVisible && (
                   <div className="mt-4 flex items-center gap-2.5 text-xs font-medium text-slate-500">

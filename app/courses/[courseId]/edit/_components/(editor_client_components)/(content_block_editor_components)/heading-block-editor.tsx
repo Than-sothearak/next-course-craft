@@ -38,7 +38,7 @@ export function HeadingBlockEditor({ block, onChange, externalToolbar = false, o
         ...block,
         data: {
           text: activeEditor.getText().slice(0, 500),
-          level: level === 2 || level === 3 ? level : 1,
+          level: level >= 1 && level <= 6 ? level : 3,
           html: activeEditor.getHTML(),
         },
       });
@@ -53,7 +53,7 @@ export function HeadingBlockEditor({ block, onChange, externalToolbar = false, o
 
   return <div className="lesson-rich-text relative" data-course-text-role={block.data.level === 1 ? "title" : block.data.level === 2 ? "subtitle" : "heading"}>
     <EquationDialog editor={editor} />
-    <EditorContent editor={editor} aria-label="Edit heading text" className="min-h-10 cursor-text rounded-md [&_.tiptap]:min-h-10 [&_.tiptap]:outline-none [&_.tiptap]:text-inherit [&_.tiptap_*]:text-inherit [&_h1]:text-3xl sm:[&_h1]:text-4xl [&_h1]:font-semibold [&_h1]:tracking-tight [&_h2]:text-2xl sm:[&_h2]:text-2xl [&_h2]:font-bold [&_h2]:tracking-tight [&_h3]:text-xl sm:[&_h3]:text-2xl [&_h3]:font-semibold [&_h3]:tracking-tight [&_p]:text-3xl sm:[&_p]:text-4xl [&_p]:font-semibold" />
+    <EditorContent editor={editor} aria-label="Edit heading text" className="min-h-10 cursor-text rounded-md [&_.tiptap]:min-h-10 [&_.tiptap]:outline-none [&_.tiptap]:text-inherit [&_.tiptap_*]:text-inherit [&_h1]:text-4xl sm:[&_h1]:text-5xl [&_h1]:font-semibold [&_h1]:tracking-tight [&_h2]:text-3xl sm:[&_h2]:text-4xl [&_h2]:font-bold [&_h2]:tracking-tight [&_h3]:text-2xl sm:[&_h3]:text-3xl [&_h3]:font-semibold [&_h3]:tracking-tight [&_h4]:text-xl sm:[&_h4]:text-2xl [&_h4]:font-semibold [&_h4]:tracking-tight [&_h5]:text-lg sm:[&_h5]:text-xl [&_h5]:font-semibold [&_h5]:tracking-tight [&_h6]:text-base sm:[&_h6]:text-lg [&_h6]:font-semibold [&_h6]:tracking-tight [&_p]:text-3xl sm:[&_p]:text-4xl [&_p]:font-semibold" />
     {!externalToolbar && <SelectionTextFormattingPopup editor={editor} />}
   </div>;
 }

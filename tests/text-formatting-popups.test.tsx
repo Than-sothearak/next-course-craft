@@ -4,6 +4,8 @@ import type { Editor } from "@tiptap/core";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RichTextBlockEditor } from "@/app/courses/[courseId]/edit/_components/(editor_client_components)/(content_block_editor_components)/rich-text-block-editor";
+import { LessonTitleEditor } from "@/app/courses/[courseId]/edit/standard-mode/_components/lesson-title-editor";
+import { StatementTextPreview } from "@/app/courses/[courseId]/edit/_components/statement-text-preview";
 import { blockSchema, type ContentBlock } from "@/lib/schemas/block";
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
@@ -26,6 +28,12 @@ describe("selected text formatting popups", () => {
   const panel = () => document.querySelector<HTMLElement>('[data-card-popover][data-state="open"]')!;
   const button = (label: string) => document.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!;
   const position = () => ({ left: popup().style.left, top: popup().style.top });
+  it("keeps the default lesson title as an H1 in the editor and preview", async () => {
+    await act(async () => root.render(<LessonTitleEditor title="Lesson title" onChange={() => {}} onValidityChange={() => {}} />));
+    expect(container.querySelector('[role="textbox"] h1')?.textContent).toBe("Lesson title");
+    await act(async () => root.render(<StatementTextPreview tag="h1" text="Lesson title" courseTextRole="title" className="text-3xl sm:text-4xl" />));
+    expect(container.querySelector('[data-course-text-role="title"] .tiptap h1')?.textContent).toBe("Lesson title");
+  });
   async function render(html = "<p>First second third</p>") {
     function Authoring() {
       const [block, setBlock] = useState(() => blockSchema.parse({ id: "text", type: "richText", version: 1, data: { html } }) as TextBlock);
@@ -62,7 +70,9 @@ describe("selected text formatting popups", () => {
     act(() => { family.value = "serif"; family.dispatchEvent(new Event("change", { bubbles: true })); });
     expect(position()).toEqual(original);
     const style = popup().querySelector<HTMLSelectElement>('[aria-label="Text style"]')!;
-    act(() => { style.value = "2"; style.dispatchEvent(new Event("change", { bubbles: true })); });
+    expect([...style.options].map((option) => option.value)).toEqual(["paragraph", "1", "2", "3", "4", "5", "6"]);
+    act(() => { style.value = "6"; style.dispatchEvent(new Event("change", { bubbles: true })); });
+    expect(editor.isActive("heading", { level: 6 })).toBe(true);
     expect(position()).toEqual(original);
     act(() => button("Bulleted list").click());
     expect(position()).toEqual(original);

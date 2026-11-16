@@ -266,7 +266,7 @@ export function CourseGenerationWizard({ open, onClose, courseId, courseTitle, c
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
           <GenerationSwitch
-            label="Generate supplemental images"
+            label="Generate image"
             checked={input.includeImages}
             onChange={(checked) => change("includeImages", checked)}
           />

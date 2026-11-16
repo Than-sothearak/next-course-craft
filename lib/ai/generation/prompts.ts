@@ -35,7 +35,9 @@ export function buildUserPrompt(
   input: CourseGenerationInput,
   hasSourceFile: boolean,
   sourcePageCount?: number,
+  options: { includeCustomFirstLessonActivities?: boolean } = {},
 ) {
+  const includeCustomFirstLessonActivities = options.includeCustomFirstLessonActivities ?? input.template === "custom";
   const learnGroupingInstruction =
     input.learnGroupingMode === "fixed"
       ? `FIXED MODE: Group source pages into consecutive ranges of exactly ${input.slidesPerContent} pages per Learn content item, except for a shorter final range. Generate exactly ${Math.ceil((sourcePageCount ?? 0) / input.slidesPerContent)} Learn items for this ${sourcePageCount ?? "uploaded"}-page source. Use ranges 1-${Math.min(input.slidesPerContent, sourcePageCount ?? input.slidesPerContent)}, then continue consecutively with no gaps or overlaps. The selected range size controls grouping; author instructions may refine explanations, language, blocks, and activities inside each item.`
@@ -55,10 +57,10 @@ export function buildUserPrompt(
     lessonDesignInstruction(input),
     learnerLanguageStyleInstruction(resolveTargetLanguage(input)),
     `Create ${input.lessonCount} lessons unless the Pre / Learn / Post template and an uploaded source file determine a different learning lesson count.`,
-    "Include AI-generated image assets: " +
+    "Generate lesson images: " +
       (input.includeImages
-        ? "yes, create up to eight useful image assets from meaningful source visuals."
-        : "no; do not request generated images or labeled graphics. Preserve other visual details in text and suitable native blocks."),
+        ? "yes. The application creates one full-width panoramic cover block for each lesson, plus up to eight useful supporting images from meaningful source visuals. The cover block uses a 1200x312 frame with image fit cover. Use image and labeledGraphic blocks when an additional visual clearly improves understanding."
+        : "no. Preserve source visuals with suitable native blocks and text; the application will not create lesson covers or supporting images."),
     "Native charts remain enabled regardless of the image setting. Use chart blocks for supplied numeric comparisons and trends when they improve understanding; preserve exact values and units, and never invent data.",
     hasSourceFile
       ? "Use the complete extracted source inventory for all " +
@@ -71,22 +73,26 @@ export function buildUserPrompt(
           hasSourceFile
             ? `Use the page-by-page inventory as the primary material and cover every slide/page in original order. ${learnGroupingInstruction} Return one lessonOverview row per Learn lesson with a focus and a numeric source range. The ranges must start at 1 and end at the exact total page count, with no gaps or overlaps. Give each Learn item a meaningful title based on its assigned slide topics.`
             : `Create exactly ${input.lessonCount} Learn lessons from the supplied prompt or outline. Base each lesson title on the source outline where possible and return one lessonOverview row per Learn lesson.`,
-          "Write complete, easy-to-understand explanations for the assigned source pages. Preserve all meaningful source information, examples, definitions, table values, code, and important images. Use existing interactive blocks when they fit the source and learner goal. Follow author instructions for language, explanation depth, interactivity, and additional activities without omitting source content.",
+          "Write complete, easy-to-understand explanations for the assigned source pages. Preserve all meaningful source information, examples, definitions, table values, code, and important images. Keep paragraphs short (usually 1-3 sentences); use bullets for grouped facts, tips, and takeaways, and numbered steps for procedures. Use existing interactive blocks when they fit the source and learner goal. Follow author instructions for language, explanation depth, interactivity, and additional activities without omitting source content.",
           `Set keyTerms to exactly five important terms from the source, each with a clear definition. Set preTest to exactly three multiple-choice questions that check prior knowledge and provide the correct option index. Set postTest to exactly ${input.postTestCount} multiple-choice questions, testing taught material and providing the correct option index.`,
           "Represent content with interactive blocks whenever they improve practice or reveal grouped information. Use divider with title 'បន្ត' after a long Khmer section, or 'Continue' for other languages. Add an image block when a visual would materially help; the application will generate and save it automatically.",
           "Write in the source slides' language. If the slides are in Khmer or the author requests Khmer, write all learner-facing content in natural Khmer, including lesson titles, objectives, block content, key terms, tests, choices, feedback, lesson summary, and nextLesson. Keep code raw and explain it in Khmer.",
           "Create one code block for every source listing, including screenshots. Preserve its exact raw code in body. Use codeExample to select a template, language, and a full explanation above or below the code. A title is not an explanation. Use processSteps for real procedures, timeline for source-supported chronological events, and accordion/tabs for grouped concepts; choose interactions by meaning.",
-          "Put a content title and its paragraph explanation together in one richText block with title and body/bullets, using the Title and paragraph template. Do not generate a separate heading block for the explanation. Leave title empty only for untitled continuation paragraphs. Add Continue after substantial content.",
+          "Put a content title and its explanation together in one richText block with title and body/bullets, using the Title and paragraph template. Keep paragraphs brief and use bullets when they make the content easier to scan on a phone. Do not generate a separate heading block for the explanation. Leave title empty only for untitled continuation paragraphs. Add Continue after substantial content.",
           "The application turns the five key terms into interactive flip cards, the pre-test and post-test into quiz lessons, and the lesson overview into a rich text list with bold lesson titles and normal paragraph descriptions. Do not duplicate these activities inside learning lessons.",
           "Write a nonempty course description. Make lessonSummary a detailed, source-grounded recap of every Learn item in normally 2-4 substantive paragraphs: explain the main concepts, how they connect, and the important examples, code outcomes, or procedures learners covered. Scale the detail to the source, avoid a generic one-sentence recap, and do not add unsupported facts. Make nextLesson a concise standalone title for a relevant follow-up lesson, not a sentence or instruction; omit prefixes such as 'Next lesson:' and 'Continue with'. Keep quiz questions in preTest and postTest fields, not in the learning lesson blocks unless they are useful there too.",
         ].join("\n")
       : [
-          "For the custom template, keep keyTerms, preTest, and postTest empty.",
-          hasSourceFile
+          includeCustomFirstLessonActivities
+            ? "For the custom template, return exactly five keyTerms with useful definitions and exactly three brief prior-knowledge multiple-choice questions in preTest. The application places the keywords, course lesson overview, first lesson objective, and one quick quiz question in the first lesson; do not duplicate those activities in the teaching blocks. Use no more than one knowledgeCheck block in lesson teaching content so the course stays within its activity limit."
+            : "For this lesson, keep keyTerms, preTest, and postTest empty because the first custom lesson supplies the course activities.",
+          hasSourceFile && includeCustomFirstLessonActivities
             ? "Return exactly one lessonOverview row per generated lesson. Give each row a focus and a numeric source range such as 1-4. The ranges must start at 1 and end at the exact total page count, covering every uploaded slide/page in source order with no gaps or overlaps."
-            : "Keep lessonOverview empty because no source file needs a slide/page coverage map.",
-          "Always provide a nonempty course description, lessonSummary, and nextLesson. Write them in the requested learner language; for Khmer courses, use natural Khmer. Keep the description to a few clear sentences. Make lessonSummary a detailed, source-grounded recap that covers each lesson's main concepts and important examples or procedures, normally in 2-4 substantive paragraphs when the source has enough material. Make nextLesson a concise standalone title for a logical follow-up lesson, not a sentence or instruction; omit prefixes such as 'Next lesson:' and 'Continue with'.",
-          "Create a separate raw code block for every source code listing. Use timeline for source-supported historical chronology without invented dates, processSteps for procedures, and useful image/labeledGraphic blocks when images are enabled. Retain every slide/page detail in text and interactive blocks.",
+            : includeCustomFirstLessonActivities
+              ? "Return exactly one lessonOverview row per generated lesson with a short focus and an empty slideRange."
+              : "Keep lessonOverview empty for this lesson response.",
+          "Always provide a nonempty course description, lessonSummary, and nextLesson. Write them in the requested learner language; for Khmer courses, use natural Khmer. Keep the description to 1-3 clear sentences. Make lessonSummary a concise source-grounded recap as 3-5 short bullet lines, each starting with '- ' and covering a key concept, example, or procedure; avoid a multi-paragraph recap. Make nextLesson a concise standalone title for a logical follow-up lesson, not a sentence or instruction; omit prefixes such as 'Next lesson:' and 'Continue with'.",
+          "Write focused explanations with brief paragraphs, and prefer bullet lists for grouped facts, comparisons, tips, and takeaways. Use paragraphs for short context or examples. Keep content comfortable to read on a phone, while preserving the complete explanation and every source detail. Create a separate raw code block for every source code listing. Use timeline for source-supported historical chronology without invented dates, processSteps for procedures, and useful image/labeledGraphic blocks when images are enabled. Retain every slide/page detail in text and interactive blocks.",
         ].join("\n"),
   ].join("\n");
 }

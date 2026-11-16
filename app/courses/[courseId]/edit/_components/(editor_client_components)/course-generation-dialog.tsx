@@ -917,8 +917,7 @@ export function CourseGenerationDialog({
               <label className="flex flex-1 cursor-pointer items-start gap-2.5 rounded-lg border border-slate-200 p-3 text-sm text-slate-700">
                 <input type="checkbox" checked={includeImages} onChange={(event) => setIncludeImages(event.target.checked)} className="mt-0.5 size-4 accent-indigo-600" />
                 <span>
-                  <span className="flex items-center gap-1.5 font-medium"><ImagePlus size={15} className="text-indigo-600" /> Generate up to 8 images automatically</span>
-                  <span className="mt-0.5 block text-xs leading-5 text-slate-500">AI adds an image block when a visual helps and saves generated images to this course’s private media storage.</span>
+                  <span className="flex items-center gap-1.5 font-medium"><ImagePlus size={15} className="text-indigo-600" /> Generate image</span>
                 </span>
               </label>
               {includeImages && <label className="block min-w-0 text-sm font-medium text-slate-700 sm:w-56">Generated image style

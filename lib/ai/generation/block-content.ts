@@ -43,6 +43,14 @@ export function textHtml(
   );
 }
 
+function customSummaryHtml(title: string, body: string, khmer = false) {
+  const lines = body.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const bullets = lines.map((line) => line.match(/^[-*•]\s+(.+)$/)?.[1]);
+  if (!lines.length || bullets.some((bullet) => !bullet))
+    return textHtml(title, body, [], khmer);
+  return `<h3>${escapeHtml(title.trim())}</h3><ul>${bullets.map((bullet) => `<li><p>${escapeHtml(bullet!)}</p></li>`).join("")}</ul>`;
+}
+
 export function needsContinueAfter(
   block: GeneratedCourseSeed["sections"][number]["lessons"][number]["blocks"][number],
 ) {
@@ -257,17 +265,49 @@ export function addCustomTemplateCourseActivities(
   sections: GeneratedCourseDraft["sections"],
   lessons: GeneratedCourseDraft["lessons"],
   khmer: boolean,
+  courseOverview?: { title: string; focus: string; slideRange?: string }[],
+) {
+  const labels = khmer
+    ? { summary: "សេចក្តីសង្ខេបមេរៀន", next: "មេរៀនបន្ទាប់" }
+    : { summary: "Lesson summary", next: "Next lesson" };
+  const firstLessonCourse = addCustomTemplateFirstLessonActivities(seed, sections, lessons, khmer, courseOverview);
+  const orderedLessons = firstLessonCourse.lessons;
+  const lastSectionId = firstLessonCourse.sections.at(-1)?.id;
+  const lastLesson = [...orderedLessons].reverse().find((lesson) => lesson.sectionId === lastSectionId);
+  if (!lastLesson) return firstLessonCourse;
+
+  const metadataBlocks = (title: string, body: string) => [
+    richTextBlock(customSummaryHtml(title, body, khmer)),
+    ...(body.trim().length >= 850 ? [continueBlock(khmer)] : []),
+  ];
+  lastLesson.blocks.push(
+    ...metadataBlocks(labels.summary, seed.lessonSummary),
+    ...metadataBlocks(labels.next, seed.nextLesson),
+  );
+  return { sections: firstLessonCourse.sections, lessons: orderedLessons };
+}
+
+export function addCustomTemplateFirstLessonActivities(
+  seed: GeneratedCourseSeed,
+  sections: GeneratedCourseDraft["sections"],
+  lessons: GeneratedCourseDraft["lessons"],
+  khmer: boolean,
+  courseOverview?: { title: string; focus: string; slideRange?: string }[],
 ) {
   const labels = khmer
     ? {
-        description: "ការពិពណ៌នាវគ្គសិក្សា",
-        summary: "សេចក្តីសង្ខេបមេរៀន",
-        next: "មេរៀនបន្ទាប់",
+        description: "ការពិពណ៌នាវគ្គសិក្ស",
+        overview: "ទិដ្ឋភាពទូទៅនៃមេរៀន",
+        objective: "គោលបំណងមេរៀន",
+        keyword: "ពាក្យគន្លឹះ",
+        definition: "និយមន័យ",
       }
     : {
         description: "Course description",
-        summary: "Lesson summary",
-        next: "Next lesson",
+        overview: "Lesson overview",
+        objective: "Lesson objective",
+        keyword: "Keywords",
+        definition: "Definition",
       };
   const orderedLessons = lessons.map((lesson) => ({
     ...lesson,
@@ -278,23 +318,90 @@ export function addCustomTemplateCourseActivities(
   const firstLesson = orderedLessons.find(
     (lesson) => lesson.sectionId === firstSectionId,
   );
-  const lastLesson = [...orderedLessons].reverse().find(
-    (lesson) => lesson.sectionId === lastSectionId,
-  );
-  if (!firstLesson || !lastLesson) return { sections, lessons };
+  if (!firstLesson) return { sections, lessons };
 
-  const metadataBlocks = (title: string, body: string) => [
-    richTextBlock(textHtml(title, body, [], khmer)),
-    ...(body.trim().length >= 850 ? [continueBlock(khmer)] : []),
+  const firstSeedLesson = seed.sections.flatMap((section) => section.lessons)[0];
+  const overviewItems = courseOverview ?? seed.sections.flatMap((section) => section.lessons).map((lesson, index) => ({
+    title: lesson.title,
+    focus: seed.lessonOverview[index]?.focus || lesson.objective,
+    slideRange: seed.lessonOverview[index]?.slideRange || "",
+  }));
+  const overviewHtml = `<ul>${overviewItems.map((item) => {
+    const slideRange = item.slideRange?.trim();
+    return `<li><p><strong>${escapeHtml(item.title)}</strong></p><p>${escapeHtml(item.focus)}</p>${slideRange ? `<p>${khmer ? "ទំព័រប្រភព" : "Source pages"}: ${escapeHtml(slideRange)}</p>` : ""}</li>`;
+  }).join("")}</ul>`;
+  const metadataBlocks: ContentBlock[] = [
+    richTextBlock(textHtml(labels.description, seed.description, [], khmer)),
+    ...(overviewItems.length ? [richTextBlock(`<h3>${escapeHtml(labels.overview)}</h3>${overviewHtml}`)] : []),
+    ...(firstSeedLesson?.objective ? [richTextBlock(textHtml(labels.objective, firstSeedLesson.objective, [], khmer))] : []),
   ];
-  firstLesson.blocks.unshift(
-    ...metadataBlocks(labels.description, seed.description),
-  );
-  lastLesson.blocks.push(
-    ...metadataBlocks(labels.summary, seed.lessonSummary),
-    ...metadataBlocks(labels.next, seed.nextLesson),
-  );
+  if (seed.keyTerms.length) {
+    metadataBlocks.push(blockSchema.parse({
+      id: randomUUID(),
+      version: 1,
+      type: "flipCard",
+      width: "full",
+      data: {
+        cards: seed.keyTerms.map(({ term, definition }) => ({
+          id: randomUUID(),
+          frontLabel: labels.keyword,
+          front: { type: "text", text: term },
+          backLabel: labels.definition,
+          back: { type: "text", text: definition },
+        })),
+      },
+    }));
+  }
+  const coverIndex = firstLesson.blocks[0]?.type === "image" && firstLesson.blocks[0].data.imageAspectRatio === "50/13" ? 1 : 0;
+  firstLesson.blocks.splice(coverIndex, 0, ...metadataBlocks);
+  const quickQuiz = seed.preTest[0];
+  if (quickQuiz) firstLesson.blocks.push(blockSchema.parse({
+    id: randomUUID(),
+    version: 1,
+    type: "knowledgeCheck",
+    data: {
+      question: quickQuiz.question,
+      options: quickQuiz.options,
+      correctOptionIndex: quickQuiz.correctOptionIndex,
+      correctFeedback: quickQuiz.correctFeedback || (khmer ? "ត្រឹមត្រូវ។" : "Correct."),
+      incorrectFeedback: quickQuiz.incorrectFeedback || (khmer ? "សូមពិនិត្យមេរៀនឡើងវិញ រួចព្យាយាមម្ដងទៀត។" : "Review the lesson and try again."),
+    },
+  }));
   return { sections, lessons: orderedLessons };
+}
+
+export async function toLessonCoverBlock(
+  ownerId: string,
+  courseId: string,
+  courseTitle: string,
+  lessonTitle: string,
+  objective: string,
+  registerGeneratedAsset: (assetId: string) => void,
+  imageOptions: Pick<GeneratedImageOptions, "imageStyle" | "customImageStyle"> = {},
+) {
+  const generatedImage = await createGeneratedImageAsset(
+    ownerId,
+    courseId,
+    `Landscape cover artwork for the lesson “${lessonTitle}” in the course “${courseTitle}”. Show a clear visual that represents this learning objective: ${objective}. Keep the composition uncluttered and leave comfortable space around the main subject.`,
+    { ...imageOptions, purpose: "lesson-cover" },
+  );
+  registerGeneratedAsset(generatedImage.id);
+  return blockSchema.parse({
+    id: randomUUID(),
+    version: 1,
+    type: "image",
+    width: "full",
+    widthCustom: false,
+    blockPadding: 0,
+    data: {
+      src: generatedImage.src,
+      alt: `${lessonTitle} lesson cover`,
+      layout: "cover",
+      imageFit: "cover",
+      imageAspectRatio: "50/13",
+      coverOverlayOpacity: 0,
+    },
+  });
 }
 
 export async function toContentBlock(

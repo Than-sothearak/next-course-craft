@@ -22,6 +22,15 @@ export async function prepareSessionLesson({ job, input, model, outline, item, i
 }) {
   const ownerId = String(job.ownerId), courseId = String(job.courseId);
   const learnItems = outline.sections.flatMap((section) => section.lessons).filter((lesson) => lesson.kind === "learn");
+  const isFirstCustomLesson = input.template === "custom" && item.kind === "learn" && item.id === learnItems[0]?.id;
+  const customLessonOverview = learnItems.map((lesson) => {
+    const planned = lesson.sourceIndex === undefined ? undefined : sourcePlan?.items[lesson.sourceIndex];
+    return {
+      title: lesson.title,
+      focus: lesson.objective,
+      slideRange: planned ? `${planned.startPage}-${planned.endPage}` : "",
+    };
+  });
   const previous: z.infer<typeof generatedLearnItemSchema>[] = [];
   for (const lesson of learnItems.filter((lesson) => lesson.id !== item.id)) {
     const stored = await generationCheckpointPayload(job, "sessionSeed", lesson.id);
@@ -58,19 +67,40 @@ export async function prepareSessionLesson({ job, input, model, outline, item, i
       if (!work.results) return null;
       const lesson = generatedLearnItemSchema.parse({ title: item.title, objective: item.objective, summary: work.results.map((part) => part.summary).join("\n\n").slice(0, 5_000), blocks: work.results.flatMap((part) => part.blocks) });
       await saveGenerationCheckpoint(job, "sessionSeed", item.id, lesson);
-      seed = { title: outline.title, description: outline.description, sections: [{ title: "Learn", lessons: [lesson] }], lessonOverview: [], keyTerms: [], preTest: [], postTest: [], lessonSummary: lesson.summary, nextLesson: "Continue learning" };
+      let activities = { keyTerms: [], preTest: [] } as { keyTerms: GeneratedCourseSeed["keyTerms"]; preTest: GeneratedCourseSeed["preTest"] };
+      if (isFirstCustomLesson) {
+        const cached = await generationCheckpointPayload(job, "sessionPre", "course");
+        if (cached) activities = cached as typeof activities;
+        else {
+          activities = await generatePreActivities(input, model, plan, inventory);
+          await saveGenerationCheckpoint(job, "sessionPre", "course", activities);
+        }
+      }
+      seed = { title: outline.title, description: outline.description, sections: [{ title: "Learn", lessons: [lesson] }], lessonOverview: customLessonOverview.map(({ focus, slideRange }) => ({ focus, slideRange })), ...activities, postTest: [], lessonSummary: lesson.summary, nextLesson: "Continue learning" };
     } else {
       const usage = learningActivityUsage(previousBlocks);
       seed = await generateCourseSeed({ ...input, template: "custom", lessonCount: 1, courseTitle: outline.title, courseDescription: outline.description,
-        prompt: `${input.prompt}\n${inventory ? `Supplemental lesson context from the source: ${inventory.summary}. The original source groups are covered separately.` : ""}\nApproved outline: ${JSON.stringify(outline)}\nGenerate only lesson: ${item.title}. Objective: ${item.objective}. Do not generate other lessons. Remaining activity budget: ${Math.max(0, 2 - usage.knowledgeCheck)} knowledge checks and ${Math.max(0, 1 - usage.survey)} surveys. Avoid repeating: ${JSON.stringify(usage.questions)}. Generate at most ${Math.max(0, 8 - countGeneratedImagePrompts(previous))} images.`,
-      }, model);
+        prompt: `${input.prompt}\n${inventory ? `Supplemental lesson context from the source: ${inventory.summary}. The original source groups are covered separately.` : ""}\nApproved outline: ${JSON.stringify(outline)}\nGenerate only lesson: ${item.title}. Objective: ${item.objective}. Do not generate other lessons. Remaining activity budget: ${Math.max(0, 2 - usage.knowledgeCheck - Number(input.template === "custom"))} knowledge checks and ${Math.max(0, 1 - usage.survey)} surveys. The custom template reserves one knowledge check for the first lesson's quick quiz. Avoid repeating: ${JSON.stringify(usage.questions)}. Generate at most ${Math.max(0, 8 - countGeneratedImagePrompts(previous))} images.`,
+      }, model, { includeCustomFirstLessonActivities: isFirstCustomLesson });
+      seed = { ...seed, lessonOverview: isFirstCustomLesson ? customLessonOverview.map(({ focus, slideRange }) => ({ focus, slideRange })) : [], keyTerms: isFirstCustomLesson ? seed.keyTerms : [], preTest: isFirstCustomLesson ? seed.preTest : [] };
       const lesson = seed.sections[0].lessons[0];
-      const issues = learningActivityIssues([...previousBlocks, ...lesson.blocks]);
+      const issues = learningActivityIssues([...previousBlocks, ...lesson.blocks], [], input.template === "custom" ? { knowledgeCheck: 1 } : {});
       if (countGeneratedImagePrompts([...previous, { ...lesson, summary: seed.lessonSummary }]) > 8) issues.push("A course can contain at most eight generated images.");
       if (issues.length) throw new DashboardError(issues.join(" "), 422);
       await saveGenerationCheckpoint(job, "sessionSeed", item.id, { ...lesson, summary: seed.lessonSummary });
     }
-    const draft = await assembleCourseDraft({ ownerId, courseId, input: { ...input, template: "custom" }, seed, coverageIssuesByItem: [], includeCourseActivities: false });
+    const draft = await assembleCourseDraft({
+      ownerId,
+      courseId,
+      input: { ...input, template: "custom" },
+      seed,
+      coverageIssuesByItem: [],
+      includeCourseActivities: false,
+      includeFirstLessonActivities: isFirstCustomLesson,
+      customLessonOverview,
+      reservedKnowledgeChecks: input.template === "custom" ? 1 : 0,
+      lessonProgress: { current: learnItems.findIndex((lesson) => lesson.id === item.id) + 1, total: learnItems.length },
+    });
     return editorLessonSchema.parse({ ...draft.lessons[0], id: item.id, title: item.title });
   }
   const context = inventory ?? { summary: input.prompt, sourceLanguage: input.targetLanguage, sourcePageCount: 1, pages: [] };

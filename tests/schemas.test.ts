@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { blockSchema, defaultBlockPaddingForBlock, normalizeBlockPaddingForBlock, normalizeStoredFlipCardBlock, type ContentBlock } from "../lib/schemas/block";
+import { blockSchema, headingBlockSchema, defaultBlockPaddingForBlock, normalizeBlockPaddingForBlock, normalizeStoredFlipCardBlock, type ContentBlock } from "../lib/schemas/block";
 import { blockSurfaceStyle } from "../app/courses/[courseId]/preview/_components/(course_preview_components)/preview-utils";
 import { courseInputSchema } from "../lib/schemas/course";
 
 describe("shared authoring schemas", () => {
   it("accepts a versioned heading block", () => {
     expect(blockSchema.parse({ id: "b1", version: 1, type: "heading", data: { text: "Welcome", level: 1 } }).type).toBe("heading");
+    expect(headingBlockSchema.parse({ id: "b2", version: 1, type: "heading", data: { text: "Default heading" } }).data.level).toBe(3);
+    for (const level of [1, 2, 3, 4, 5, 6]) {
+      expect(headingBlockSchema.parse({ id: `h${level}`, version: 1, type: "heading", data: { text: `Heading ${level}`, level } }).data.level).toBe(level);
+    }
   });
 
   it("validates resource link blocks and rejects unsafe destinations", () => {

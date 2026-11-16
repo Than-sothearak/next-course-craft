@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { Types } from "mongoose";
 import { PDFDocument } from "pdf-lib";
+import sharp from "sharp";
 import { Asset } from "../models/Asset";
 import { GenerationCheckpoint } from "../models/GenerationCheckpoint";
 import { GenerationJob } from "../models/GenerationJob";
@@ -46,7 +47,7 @@ const input = {
   level: "beginner",
   lessonCount: 5,
   template: "custom",
-  includeImages: true,
+  includeImages: false,
   courseTitle: "Support fundamentals",
   courseDescription: "A short onboarding course.",
 };
@@ -185,9 +186,9 @@ function seed(
         blocks: index === 0 ? blocks : [block(), block()],
       })),
     }],
-    lessonOverview: [],
-    keyTerms: [],
-    preTest: [],
+    lessonOverview: Array.from({ length: learningLessonCount }, (_, index) => ({ focus: `Learning focus ${index + 1}`, slideRange: "" })),
+    keyTerms: Array.from({ length: 5 }, (_, index) => ({ term: `Term ${index + 1}`, definition: `Definition for term ${index + 1}.` })),
+    preTest: Array.from({ length: 3 }, (_, index) => assessmentQuestion(index)),
     postTest: [],
     lessonSummary: "This course explains how to read a customer request, identify its key details, and choose a suitable next action. It connects request triage with urgency, impact, prioritization, and clear communication. Examples and practice activities show how each step applies to real support cases, helping learners move from understanding a request to selecting and explaining an appropriate response.",
     nextLesson: "Continue with advanced customer support scenarios.",
@@ -339,7 +340,7 @@ function stagedSourceResponses(
     responses.push(sourcePageBatchResponse(firstPage, pageCount, options.elementsByPage));
   responses.push(sourceSummaryProviderResponse(pageCount));
   responses.push(options.planResponse ?? sourcePlanProviderResponse(ranges));
-  if (options.template === "preLearnPost") responses.push(preActivitiesProviderResponse());
+  responses.push(preActivitiesProviderResponse());
   for (const [index, range] of ranges.entries()) {
     const ids = Array.from({ length: range.endPage - range.startPage + 1 }, (_, pageIndex) => {
       const pageNumber = range.startPage + pageIndex;
@@ -536,7 +537,7 @@ describe("AI course generation contracts", () => {
   it("accepts bounded prompt generation settings", () => {
     expect(courseGenerationInputSchema.parse(input)).toMatchObject({
       lessonCount: 5,
-      includeImages: true,
+      includeImages: false,
       level: "beginner",
       learnGroupingMode: "smart",
       slidesPerContent: 5,
@@ -552,8 +553,8 @@ describe("AI course generation contracts", () => {
     expect(courseGenerationInputSchema.safeParse({ ...input, targetLanguage: "Khmer" }).success).toBe(true);
     expect(courseGenerationInputSchema.safeParse({ ...input, targetLanguage: "French" }).success).toBe(false);
     expect(courseGenerationInputSchema.safeParse({ ...input, slidesPerContent: 501 }).success).toBe(false);
-    expect(courseGenerationInputSchema.safeParse({ ...input, imageStyle: "custom" }).success).toBe(false);
-    expect(courseGenerationInputSchema.safeParse({ ...input, imageStyle: "custom", customImageStyle: "Editorial paper-cut" }).success).toBe(true);
+    expect(courseGenerationInputSchema.safeParse({ ...input, includeImages: true, imageStyle: "custom" }).success).toBe(false);
+    expect(courseGenerationInputSchema.safeParse({ ...input, includeImages: true, imageStyle: "custom", customImageStyle: "Editorial paper-cut" }).success).toBe(true);
     expect(courseGenerationInputSchema.safeParse({ ...input, imageStyle: "flatIllustration", generateCoverImage: true, coverImageStyle: "custom" }).success).toBe(false);
     expect(courseGenerationInputSchema.safeParse({ ...input, imageStyle: "flatIllustration", customImageStyle: "Lesson art", generateCoverImage: true, coverImageStyle: "custom", coverCustomImageStyle: "Cover photo collage" }).success).toBe(true);
     expect(courseGenerationInputSchema.parse({ ...input, imageStyle: "photorealistic" }).coverImageStyle).toBe("photorealistic");
@@ -618,12 +619,16 @@ describe("AI course generation contracts", () => {
         backImageAlt: index === 0 ? "Agent responding to the customer" : "",
       }));
       const png = Buffer.from("iVBORw0KGgo=", "base64");
+      const webp = await sharp({ create: { width: 1280, height: 720, channels: 3, background: "#345678" } }).webp().toBuffer();
+      const lessonWebp = await sharp({ create: { width: 1536, height: 512, channels: 3, background: "#345678" } }).webp().toBuffer();
       vi.stubEnv("OPENAI_API_KEY", "test-key");
       const fetchMock = vi.fn()
         .mockResolvedValueOnce(providerResponse([{ ...block("flipCard"), cards }]))
-        .mockImplementation(async () => new Response(JSON.stringify({
-          output: [{ type: "image_generation_call", result: png.toString("base64") }],
-        }), { status: 200 }));
+        .mockImplementation(async (_url, init) => {
+          const request = JSON.parse(String(init?.body));
+          const bytes = request.tools[0].size === "1536x512" ? lessonWebp : request.tools[0].output_format === "webp" ? webp : png;
+          return new Response(JSON.stringify({ output: [{ type: "image_generation_call", result: bytes.toString("base64") }] }), { status: 200 });
+        });
       vi.stubGlobal("fetch", fetchMock);
       vi.spyOn(mediaService, "activeStorageConfiguration").mockResolvedValue({ provider: "local", directory });
       const s3Upload = vi.spyOn(mediaStorage, "putMediaObject");
@@ -640,7 +645,7 @@ describe("AI course generation contracts", () => {
         input: courseGenerationInputSchema.parse({ ...input, includeImages, imageStyle: includeImages ? "flatIllustration" : "auto" }),
       });
 
-      const flipCard = course.lessons[0].blocks.find((value) => value.type === "flipCard");
+      const flipCard = course.lessons[0].blocks.find((value) => value.type === "flipCard" && value.data.cards.length === 4);
       expect(flipCard?.type).toBe("flipCard");
       if (flipCard?.type !== "flipCard") throw new Error("Expected generated flip cards.");
       expect(flipCard.data.cards).toHaveLength(4);
@@ -652,15 +657,16 @@ describe("AI course generation contracts", () => {
           ? { type: "image", src: expect.stringMatching(/^\/api\/assets\/[a-f0-9]{24}\/file$/), alt: cards[index].backImageAlt }
           : { type: "text", text: cards[index].back });
       }
-      expect(course.generatedImageCount).toBe(includeImages ? 5 : 0);
-      expect(fetchMock).toHaveBeenCalledTimes(includeImages ? 6 : 1);
+    expect(course.generatedImageCount).toBe(includeImages ? 10 : 0);
+      expect(fetchMock).toHaveBeenCalledTimes(includeImages ? 11 : 1);
       expect(s3Upload).not.toHaveBeenCalled();
-      expect(createdAssets).toHaveLength(includeImages ? 5 : 0);
+      expect(createdAssets).toHaveLength(includeImages ? 10 : 0);
       if (includeImages) {
         expect(JSON.parse(fetchMock.mock.calls[1][1].body).input).toContain("flat vector illustration");
         expect(createdAssets.every((asset) => asset.metadata.imageStyle === "flatIllustration")).toBe(true);
       }
       for (const asset of createdAssets) {
+        const storedBytes = await mediaService.storedMediaBytes(asset);
         expect(asset).toMatchObject({
           ownerId: new Types.ObjectId(ownerId),
           courseId: new Types.ObjectId(courseId),
@@ -668,10 +674,16 @@ describe("AI course generation contracts", () => {
           storageDirectory: directory,
           storageKey: `${ownerId}/${courseId}/${asset._id}`,
           status: "ready",
-          mimeType: "image/png",
-          size: png.length,
         });
-        expect(await mediaService.storedMediaBytes(asset)).toEqual(png);
+        if (asset.mimeType === "image/webp") {
+          expect(storedBytes.subarray(0, 4).toString("ascii")).toBe("RIFF");
+          expect(storedBytes.subarray(8, 12).toString("ascii")).toBe("WEBP");
+          expect(asset.size).toBeLessThan(1_000_000);
+        } else {
+          expect(asset.mimeType).toBe("image/png");
+          expect(asset.size).toBe(png.length);
+          expect(storedBytes).toEqual(png);
+        }
       }
     } finally {
       await rm(directory, { recursive: true, force: true });
@@ -797,7 +809,7 @@ describe("AI course generation contracts", () => {
       input: courseGenerationInputSchema.parse({ ...input, includeImages: false }),
       sourceFile: { name: "slides.pdf", contentType: "application/pdf", bytes: await blankPdf(1) },
     });
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock).toHaveBeenCalledTimes(5);
     expect(course.sourceCoverage?.complete).toBe(true);
     const codeBlock = course.lessons[0].blocks.find((block) => block.type === "richText" && block.data.html.includes('data-code-theme="paper"'));
     if (codeBlock?.type !== "richText") throw new Error("Expected a styled code example");
@@ -1512,7 +1524,7 @@ describe("AI course generation contracts", () => {
     for (const [index, lesson] of valid.sections[0].lessons.entries()) {
       lesson.blocks = [
         ...teachingBlocks(),
-        ...(index < 2 ? [{ ...block("knowledgeCheck"), question: `Which action fits case ${index + 1}?` }] : []),
+        ...(index === 0 ? [{ ...block("knowledgeCheck"), question: `Which action fits case ${index + 1}?` }] : []),
         ...(index === 0 ? [block("survey")] : []),
       ];
     }
@@ -1539,7 +1551,7 @@ describe("AI course generation contracts", () => {
   it("carries the remaining activity budget into each source lesson", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     const ranges = Array.from({ length: 3 }, (_, index) => ({ startPage: index + 1, endPage: index + 1 }));
-    const responses = stagedSourceResponses(3, ranges, {
+    const responses = stagedSourceResponses(3, ranges, { template: "preLearnPost",
       learn: (index, ids) => sourceLearnProviderResponse(ids, [
         block(),
         ...(index < 2 ? [{ ...block("knowledgeCheck"), question: `Which detail matters in case ${index + 1}?` }] : []),
@@ -1551,7 +1563,7 @@ describe("AI course generation contracts", () => {
 
     const course = await generateCourseDraft({
       ownerId: "507f1f77bcf86cd799439011", courseId: "507f1f77bcf86cd799439012",
-      input: courseGenerationInputSchema.parse({ ...input, includeImages: false }),
+      input: courseGenerationInputSchema.parse({ ...input, template: "preLearnPost", includeImages: false }),
       sourceFile: { name: "slides.pdf", contentType: "application/pdf", bytes: await blankPdf(3) },
     });
 
@@ -1616,7 +1628,7 @@ describe("AI course generation contracts", () => {
       sourceFile: { name: "slides.pdf", contentType: "application/pdf", bytes: await blankPdf(1) },
     });
 
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock).toHaveBeenCalledTimes(5);
     expect(course.generatedImageCount).toBe(0);
     expect(course.sourceCoverage?.complete).toBe(true);
     const result = course.lessons[0].blocks.find((item) => item.type === "chart");
@@ -1702,11 +1714,18 @@ describe("AI course generation contracts", () => {
 
   it("removes a stored image when the owner-scoped asset record cannot be created", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
+    const webp = await sharp({ create: { width: 1536, height: 512, channels: 3, background: "#345678" } }).webp().toBuffer();
     const fetchMock = vi.fn()
-      .mockResolvedValueOnce(providerResponse([block("image")]))
-      .mockResolvedValueOnce(new Response(JSON.stringify({
-        output: [{ type: "image_generation_call", result: "iVBORw0KGgo=" }],
-      }), { status: 200 }));
+      .mockResolvedValueOnce(providerResponse([block("image")], {
+        lessonOverview: [{ focus: "Read a request", slideRange: "" }],
+        keyTerms: Array.from({ length: 5 }, (_, index) => ({ term: `Term ${index + 1}`, definition: `Definition ${index + 1}` })),
+        preTest: Array.from({ length: 3 }, (_, index) => assessmentQuestion(index)),
+      }, 1))
+      .mockImplementation(async (_url, init) => {
+        const request = JSON.parse(String(init?.body));
+        const bytes = request.tools[0].output_format === "webp" ? webp : Buffer.from("iVBORw0KGgo=", "base64");
+        return new Response(JSON.stringify({ output: [{ type: "image_generation_call", result: bytes.toString("base64") }] }), { status: 200 });
+      });
     vi.stubGlobal("fetch", fetchMock);
     vi.spyOn(mediaService, "activeStorageConfiguration").mockResolvedValue({ provider: "s3" });
     vi.spyOn(mediaStorage, "putMediaObject").mockResolvedValue(undefined);
@@ -1716,7 +1735,7 @@ describe("AI course generation contracts", () => {
     await expect(generateCourseDraft({
       ownerId: "507f1f77bcf86cd799439011",
       courseId: "507f1f77bcf86cd799439012",
-      input: courseGenerationInputSchema.parse({ ...input, includeImages: true }),
+      input: courseGenerationInputSchema.parse({ ...input, lessonCount: 1, includeImages: true }),
     })).rejects.toThrow("could not be saved to course media storage");
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
@@ -1790,7 +1809,8 @@ describe("AI course generation contracts", () => {
     const extractionRequest = JSON.parse(fetchMock.mock.calls[0][1].body as string);
     expect(extractionRequest.input[1].content[1]).toMatchObject({ type: "input_file", detail: "high" });
     expect(JSON.stringify(extractionRequest)).toContain("Recognize HTML tags and examples");
-    const courseRequest = JSON.parse(fetchMock.mock.calls[4][1].body as string);
+    const courseRequest = fetchMock.mock.calls.map((call) => JSON.parse(call[1].body as string)).find((request) => request.text.format.name === "course_learn_content_item");
+    expect(courseRequest).toBeTruthy();
     const learnDeveloperPrompt = courseRequest.input[0].content as string;
     const lessonPrompt = courseRequest.input[1].content[0].text as string;
     expect(learnDeveloperPrompt.length).toBeLessThan(1_000);
@@ -1816,7 +1836,7 @@ describe("AI course generation contracts", () => {
     expect(course.lessons[0]?.blocks.some((item) =>
       item.type === "richText" && item.data.html.includes("The HTML heading element creates the page title"),
     )).toBe(true);
-    expect(lessonContentSchema.parse({ schemaVersion: 1, blocks: course.lessons[0]?.blocks }).blocks).toHaveLength(3);
+    expect(lessonContentSchema.parse({ schemaVersion: 1, blocks: course.lessons[0]?.blocks }).blocks).toHaveLength(7);
     const scormSnapshot = parseScorm12Snapshot({
       title: course.title,
       description: course.description,
@@ -1854,8 +1874,8 @@ describe("AI course generation contracts", () => {
       sourceFile: { name: "slides.pdf", contentType: "application/pdf", bytes: await blankPdf(1) },
     });
 
-    expect(fetchMock).toHaveBeenCalledTimes(5);
-    const repairPrompt = JSON.parse(fetchMock.mock.calls[4][1].body as string)
+    expect(fetchMock).toHaveBeenCalledTimes(6);
+    const repairPrompt = JSON.parse(fetchMock.mock.calls[5][1].body as string)
       .input[1].content[0].text as string;
     expect(repairPrompt).toContain("Important source value");
     expect(repairPrompt).toContain("30%");
@@ -1916,7 +1936,7 @@ describe("AI course generation contracts", () => {
       sourceFile: { name: "slides.pdf", contentType: "application/pdf", bytes },
     });
 
-    expect(fetchMock).toHaveBeenCalledTimes(5);
+    expect(fetchMock).toHaveBeenCalledTimes(6);
     expect(course.sourceCoverage?.items[0]).toMatchObject({
       sourceElementId: "p1-e1",
       preservationStatus: "partiallyPreserved",
@@ -2082,14 +2102,14 @@ describe("AI course generation contracts", () => {
       input: courseGenerationInputSchema.parse(input),
     });
 
-    expect(course.lessons[0].blocks.slice(1).map((item) => item.type)).toEqual([
+    expect(course.lessons[0].blocks.slice(4, -1).map((item) => item.type)).toEqual([
       "richText", "richText", "knowledgeCheck", "flipCard", "accordion", "divider",
       ...Array.from({ length: 8 }, () => "richText"),
     ]);
-    expect(lessonContentSchema.parse({ schemaVersion: 1, blocks: course.lessons[0].blocks }).blocks).toHaveLength(15);
-    const textBlock = course.lessons[0].blocks[1];
+    expect(lessonContentSchema.parse({ schemaVersion: 1, blocks: course.lessons[0].blocks }).blocks).toHaveLength(19);
+    const textBlock = course.lessons[0].blocks[4];
     expect(textBlock.type === "richText" && textBlock.data.html).toContain("&lt;script&gt;");
-    const codeBlock = course.lessons[0].blocks[2];
+    const codeBlock = course.lessons[0].blocks[5];
     expect(codeBlock.type === "richText" && codeBlock.data.html).toContain("<pre><code>const message = &#39;&lt;hello&gt;&#39;;");
     expect(textBlock.type === "richText" && textBlock.data.html).toContain("<h3>Identify the request</h3>");
   });
@@ -2120,12 +2140,12 @@ describe("AI course generation contracts", () => {
       input: courseGenerationInputSchema.parse({ ...input, includeImages: false }),
     });
 
-    expect(course.lessons[0].blocks.slice(1).map((item) => item.type)).toEqual([
+    expect(course.lessons[0].blocks.slice(4, -1).map((item) => item.type)).toEqual([
       "heading", "richText", "statement", "knowledgeCheck", "processSteps", "timeline",
       "flipCard", "accordion", "divider", "survey", "gallery", "video", "link", "chart",
       ...Array.from({ length: 8 }, () => "richText"),
     ]);
-    expect(lessonContentSchema.parse({ schemaVersion: 1, blocks: course.lessons[0].blocks }).blocks).toHaveLength(23);
+    expect(lessonContentSchema.parse({ schemaVersion: 1, blocks: course.lessons[0].blocks }).blocks).toHaveLength(27);
     const process = course.lessons[0].blocks.find((item) => item.type === "processSteps");
     expect(process).toMatchObject({ width: "full", widthCustom: false });
     expect(process?.data).toMatchObject({ style: "slider", steps: [{ title: "First", body: "Do this." }, { title: "Next", body: "Then do this." }] });
@@ -2133,7 +2153,7 @@ describe("AI course generation contracts", () => {
     expect(timeline).toMatchObject({ type: "timeline", data: { style: "horizontal", items: [{ label: "1980", title: "First" }, { label: "2000", title: "Next" }] } });
     const tabs = course.lessons[0].blocks.find((item) => item.type === "accordion")!;
     expect(tabs.type === "accordion" && tabs.data).toMatchObject({ layout: "tabs", displayMode: "all" });
-    const link = course.lessons[0].blocks[13];
+    const link = course.lessons[0].blocks[16];
     expect(link.type === "link" && link.data).toMatchObject({ url: "https://example.test/handbook", label: "Open handbook", description: "Read the support handbook." });
   });
 
@@ -2185,7 +2205,7 @@ describe("AI course generation contracts", () => {
     });
 
     expect(course.generatedImageCount).toBe(0);
-    expect(course.lessons[0].blocks).toHaveLength(11);
-    expect(lessonContentSchema.parse({ schemaVersion: 1, blocks: course.lessons[0].blocks }).blocks).toHaveLength(11);
+    expect(course.lessons[0].blocks).toHaveLength(15);
+    expect(lessonContentSchema.parse({ schemaVersion: 1, blocks: course.lessons[0].blocks }).blocks).toHaveLength(15);
   });
 });

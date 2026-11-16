@@ -32,7 +32,7 @@ export function lessonDesignInstruction(input: CourseGenerationInput, pages?: So
   return [
     `LESSON DEPTH: For each full ${input.contentDepth} lesson, aim for ${profile.blocks} substantive teaching blocks and about ${profile.words} words of explanation in English, or comparable detail in the target language.`,
     `Minimum for this ${pages ? "assigned source portion" : "lesson"}: ${profile.minTeachingBlocks} distinct teaching blocks and ${profile.minExplanationCharacters} characters of explanatory learning content. Headings, Continue dividers, questions, surveys, repeated copy, and raw code do not replace explanations.`,
-    "Teach a complete learning sequence: explain the goal and its relevance, introduce concepts in connected paragraphs, demonstrate a worked example with reasoning, explain a common mistake and how to avoid it, provide guided application, and close with a useful recap or transfer tip. Use multiple focused blocks rather than one short overview or a list of labels. Give accordion items, process steps, and card answers full explanations. Choose formats that fit the subject; vary them between lessons.",
+    "Teach a complete learning sequence: explain the goal and its relevance, introduce concepts in focused sections, demonstrate a worked example with reasoning, explain a common mistake and how to avoid it, provide guided application, and close with a useful recap or transfer tip. Keep paragraphs brief (usually 1-3 sentences), use bullets for grouped facts and takeaways, and use numbered steps for procedures so lessons are easy to read on mobile. Use multiple focused blocks rather than one short overview or a list of labels. Give accordion items, process steps, and card answers full explanations. Choose formats that fit the subject; vary them between lessons.",
     "ACTIVITY LIMITS: The entire generated course may contain at most 2 knowledgeCheck question blocks and 1 survey block, never per lesson. These are upper limits, not targets. Do not repeat a question or confidence survey across lessons. Use flip cards, accordions/tabs, process steps, and timelines for other suitable learning activities. Dedicated Pre/Post assessment quizzes keep their separately configured question counts.",
     "Continue controls belong only between substantial sections with more teaching content after them. Never end a lesson with a Continue button; end with substantive learning content.",
     ...(pages ? ["Preserve every assigned source detail and exact code in order. Scale the full-lesson targets to the supplied source portion; for sparse source material, use only supported explanations and do not invent facts or add filler to meet a quota."] : []),
@@ -88,13 +88,17 @@ export function learningActivityUsage(blocks: BlockSeed[]) {
   };
 }
 
-export function learningActivityIssues(blocks: BlockSeed[], previousBlocks: BlockSeed[] = []) {
+export function learningActivityIssues(
+  blocks: BlockSeed[],
+  previousBlocks: BlockSeed[] = [],
+  reserved: { knowledgeCheck?: number; survey?: number } = {},
+) {
   const usage = learningActivityUsage(blocks);
   const previousUsage = learningActivityUsage(previousBlocks);
   const issues: string[] = [];
-  if (usage.knowledgeCheck > Math.max(0, courseActivityLimits.knowledgeCheck - previousUsage.knowledgeCheck))
+  if (usage.knowledgeCheck > Math.max(0, courseActivityLimits.knowledgeCheck - previousUsage.knowledgeCheck - (reserved.knowledgeCheck ?? 0)))
     issues.push("The entire course may contain at most 2 knowledgeCheck question blocks. Replace excess questions with useful teaching content.");
-  if (usage.survey > Math.max(0, courseActivityLimits.survey - previousUsage.survey))
+  if (usage.survey > Math.max(0, courseActivityLimits.survey - previousUsage.survey - (reserved.survey ?? 0)))
     issues.push("The entire course may contain at most 1 survey block. Replace repeated confidence checks with useful teaching content.");
   const seen = new Set(learningActivityUsage(previousBlocks).questions);
   for (const question of learningActivityUsage(blocks).questions) {
@@ -106,9 +110,13 @@ export function learningActivityIssues(blocks: BlockSeed[], previousBlocks: Bloc
 
 // Saved source checkpoints may predate these limits. Keep their teaching material
 // while enforcing the same course-wide interaction budget during final assembly.
-export function constrainCourseActivities(seed: GeneratedCourseSeed): GeneratedCourseSeed {
+export function constrainCourseActivities(seed: GeneratedCourseSeed, reserved: { knowledgeCheck?: number; survey?: number } = {}): GeneratedCourseSeed {
   const used = { knowledgeCheck: 0, survey: 0 };
   const seen = new Set<string>();
+  const limits = {
+    knowledgeCheck: Math.max(0, courseActivityLimits.knowledgeCheck - (reserved.knowledgeCheck ?? 0)),
+    survey: Math.max(0, courseActivityLimits.survey - (reserved.survey ?? 0)),
+  };
   return {
     ...seed,
     sections: seed.sections.map((section) => ({
@@ -118,7 +126,7 @@ export function constrainCourseActivities(seed: GeneratedCourseSeed): GeneratedC
         blocks: lesson.blocks.map((block) => {
           if (block.type !== "knowledgeCheck" && block.type !== "survey") return block;
           const question = normalizedText(block.question);
-          if (!seen.has(question) && used[block.type] < courseActivityLimits[block.type]) {
+          if (!seen.has(question) && used[block.type] < limits[block.type]) {
             seen.add(question);
             used[block.type] += 1;
             return block;

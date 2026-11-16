@@ -18,6 +18,7 @@ import { planGenerationSession } from "./session-planning";
 import { prepareSessionLesson } from "./session-lesson";
 import { initializeBlockProgress } from "@/lib/editor/progress-settings";
 import type { SourceCoursePlan } from "./types";
+import { logGenerationProgress } from "./progress-log";
 
 type Scope = { ownerId: string; courseId: string };
 const modelFor = (input: CourseGenerationInput) => input.model ?? process.env.OPENAI_TEXT_MODEL ?? defaultCourseGenerationModel;
@@ -62,21 +63,38 @@ export async function planSession(scope: Scope, input: CourseGenerationInput, so
   const active = await CourseGenerationSession.exists({ ...scope, status: "generating", expiresAt: { $gt: new Date() } });
   if (active) throw new DashboardError("Finish or cancel the current generation before starting another.", 409);
   if (!input.prompt.trim() && !sourceJobId) throw new DashboardError("Write a course prompt or add source material.", 400);
-  const inventory = sourceJobId ? await inventoryFor(scope, sourceJobId) : undefined;
-  const plan = await planGenerationSession(input, modelFor(input), inventory);
-  const session = await CourseGenerationSession.create({ ...scope, input, ...plan, sourceJobId, expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1_000) });
-  if (input.generateCoverImage) {
-    try {
-      const cover = await prepareOutlineCover(scope.ownerId, scope.courseId, plan.outline, {
-        coverImageStyle: input.coverImageStyle,
-        coverCustomImageStyle: input.coverCustomImageStyle,
-      });
-      await CourseGenerationSession.updateOne({ _id: session._id, ...scope }, { $set: cover });
-    } catch (error) {
-      await CourseGenerationSession.updateOne({ _id: session._id, ...scope }, { $set: { coverWarning: `The outline is ready, but its cover image could not be prepared. ${error instanceof DashboardError ? error.message : "You can add a cover later."}`.slice(0, 1_000) } });
+  logGenerationProgress({ status: "STARTED", task: "Plan course outline", courseId: scope.courseId });
+  try {
+    const inventory = sourceJobId ? await inventoryFor(scope, sourceJobId) : undefined;
+    const plan = await planGenerationSession(input, modelFor(input), inventory);
+    const session = await CourseGenerationSession.create({ ...scope, input, ...plan, sourceJobId, expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1_000) });
+    if (input.generateCoverImage) {
+      logGenerationProgress({ status: "IN PROGRESS", task: "Generate course cover image", courseId: scope.courseId, sessionId: String(session._id) });
+      try {
+        const cover = await prepareOutlineCover(scope.ownerId, scope.courseId, plan.outline, {
+          coverImageStyle: input.coverImageStyle,
+          coverCustomImageStyle: input.coverCustomImageStyle,
+        });
+        await CourseGenerationSession.updateOne({ _id: session._id, ...scope }, { $set: cover });
+        logGenerationProgress({ status: "DONE", task: "Generate course cover image", courseId: scope.courseId, sessionId: String(session._id) });
+      } catch (error) {
+        await CourseGenerationSession.updateOne({ _id: session._id, ...scope }, { $set: { coverWarning: `The outline is ready, but its cover image could not be prepared. ${error instanceof DashboardError ? error.message : "You can add a cover later."}`.slice(0, 1_000) } });
+        logGenerationProgress({ status: "FAILED", task: "Generate course cover image", courseId: scope.courseId, sessionId: String(session._id), detail: "The outline is still available to review" });
+      }
     }
+    const lessonCount = plan.outline.sections.reduce((total, section) => total + section.lessons.length, 0);
+    logGenerationProgress({
+      status: "WAITING",
+      task: "Review and approve course outline",
+      courseId: scope.courseId,
+      sessionId: String(session._id),
+      detail: `${lessonCount} lessons are planned; generation continues after approval`,
+    });
+    return getSession(scope, String(session._id));
+  } catch (error) {
+    logGenerationProgress({ status: "FAILED", task: "Plan course outline", courseId: scope.courseId, detail: "See the server error above for details" });
+    throw error;
   }
-  return getSession(scope, String(session._id));
 }
 export async function approveSession(scope: Scope, sessionId: string, outline: CourseOutline, mode: "append" | "replace", revision: number) {
   const session = await ownedSession(scope, sessionId);
@@ -151,13 +169,18 @@ export async function approveSession(scope: Scope, sessionId: string, outline: C
   await CourseGenerationSession.updateOne({ _id: session._id, ...scope, status: "outline" }, { $set: { outline: approved } });
   await saveCourseEditor(scope.ownerId, scope.courseId, snapshot, { sessionId, ...(generatedCover ? { coverImage: generatedCover.imageSrc } : {}) });
   await CourseGenerationSession.updateOne({ _id: session._id, ...scope, status: "outline" }, { $set: { outline: approved, status: "generating", error: null } });
+  logGenerationProgress({ status: "IN PROGRESS", task: "Generate approved course lessons", courseId: scope.courseId, sessionId: String(session._id) });
   return { session: await getSession(scope, sessionId), editor: await getCourseEditor(scope.ownerId, scope.courseId) };
 }
 export async function prepareNextLesson(scope: Scope, sessionId: string) {
   const session = await ownedSession(scope, sessionId);
   const state = (await getSession(scope, sessionId))!;
   if (state.status !== "generating" || !state.currentLessonId || state.readyToSave) return state;
-  const item = state.outline.sections.flatMap((section) => section.lessons).find((lesson) => lesson.id === state.currentLessonId)!;
+  const items = state.outline.sections.flatMap((section) => section.lessons);
+  const lessonNumber = items.findIndex((lesson) => lesson.id === state.currentLessonId) + 1;
+  const item = items[lessonNumber - 1]!;
+  const task = `Generate lesson ${lessonNumber} of ${items.length}`;
+  logGenerationProgress({ status: "IN PROGRESS", task, courseId: scope.courseId, sessionId: String(session._id), current: lessonNumber, total: items.length });
   try {
     const input = courseGenerationInputSchema.parse(session.input);
     const draft = await prepareSessionLesson({ job: session, input, model: modelFor(input), outline: state.outline, item,
@@ -168,8 +191,10 @@ export async function prepareNextLesson(scope: Scope, sessionId: string) {
       if (draft) await saveGenerationCheckpoint(session, "sessionDraft", item.id, draft);
       await CourseGenerationSession.updateOne({ _id: session._id, ...scope, status: "generating" }, { $set: { error: null } });
     }
+    logGenerationProgress({ status: "WAITING", task: `Lesson ${lessonNumber} is ready to save`, courseId: scope.courseId, sessionId: String(session._id), current: lessonNumber, total: items.length });
   } catch (error) {
     await CourseGenerationSession.updateOne({ _id: session._id, ...scope, status: "generating" }, { $set: { error: (error instanceof Error ? error.message : "Lesson generation failed.").slice(0, 2_000) } });
+    logGenerationProgress({ status: "FAILED", task, courseId: scope.courseId, sessionId: String(session._id), current: lessonNumber, total: items.length, detail: "See the server error above for details" });
     throw error;
   }
   return getSession(scope, sessionId);
@@ -189,7 +214,17 @@ export async function commitNextLesson(scope: Scope, sessionId: string, revision
   const snapshot = editorSnapshotSchema.parse({ ...current, lessons: current.lessons.map((candidate) => candidate.id === lesson.id ? { ...candidate, blocks: initializeBlockProgress(lesson.blocks, current.navigationMode), quizQuestions: lesson.quizQuestions, lessonType: lesson.lessonType, passingScore: lesson.passingScore } : candidate) });
   await saveCourseEditor(scope.ownerId, scope.courseId, snapshot, { sessionId, lessonId: lesson.id });
   await CourseGenerationSession.updateOne({ _id: session._id, ...scope }, { $set: { error: null } });
-  return { session: await getSession(scope, sessionId), editor: await getCourseEditor(scope.ownerId, scope.courseId) };
+  const nextSession = await getSession(scope, sessionId);
+  const totalLessons = nextSession?.outline.sections.reduce((total, section) => total + section.lessons.length, 0);
+  logGenerationProgress({
+    status: nextSession?.status === "completed" ? "DONE" : "WAITING",
+    task: nextSession?.status === "completed" ? "Course generation completed" : `Lesson ${lesson.order + 1} saved; waiting for the next lesson`,
+    courseId: scope.courseId,
+    sessionId: String(session._id),
+    current: nextSession?.completedLessonIds.length,
+    total: totalLessons,
+  });
+  return { session: nextSession, editor: await getCourseEditor(scope.ownerId, scope.courseId) };
 }
 
 export async function cleanupCancelledSessionLessons(scope: Scope, sessionId: string) {
@@ -242,5 +277,7 @@ export async function cleanupCancelledSessionLessons(scope: Scope, sessionId: st
 export async function cancelSession(scope: Scope, sessionId: string) {
   const session = await ownedSession(scope, sessionId);
   await CourseGenerationSession.updateOne({ _id: sessionId, ...scope, status: { $ne: "completed" } }, { $set: { status: "cancelled", error: null } });
-  return cleanupCancelledSessionLessons(scope, String(session._id));
+  const result = await cleanupCancelledSessionLessons(scope, String(session._id));
+  logGenerationProgress({ status: "CANCELLED", task: "Course generation cancelled", courseId: scope.courseId, sessionId: String(session._id) });
+  return result;
 }

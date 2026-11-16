@@ -28,7 +28,7 @@ describe("added Custom lessons with source material", () => {
       sourcePlan: { title: "Course", description: "Description", sourceLanguage: "English", targetLanguage: "English", objectives: ["Learn HTML"], items: [{ title: "Original source lesson", focus: "Learn HTML", startPage: 1, endPage: 1, sourceElementIds: [], recommendedBlockTypes: [], interactionOpportunities: [] }] },
     });
     expect(result?.id).toBe("added");
-    expect(generateCourseSeed).toHaveBeenCalledWith(expect.objectContaining({ lessonCount: 1, prompt: expect.stringContaining("Reference summary") }), "test-model");
+    expect(generateCourseSeed).toHaveBeenCalledWith(expect.objectContaining({ lessonCount: 1, prompt: expect.stringContaining("Reference summary") }), "test-model", { includeCustomFirstLessonActivities: false });
     expect(generateLearnContentItem).not.toHaveBeenCalled();
     expect(outline.sections[0].lessons[0].sourceIndex).toBe(0);
   });

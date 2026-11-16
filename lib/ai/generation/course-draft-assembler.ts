@@ -8,9 +8,10 @@ import { deleteStoredMedia } from "@/lib/media/service";
 import { resolveTargetLanguage, courseUsesKhmer } from "./language";
 import { addSourceVisualBlocks, buildSourceCoverageReport } from "./source-coverage";
 import { splitGeneratedBlockSeeds } from "./block-seeds";
-import { toContentBlock, needsContinueAfter, continueBlock, buildPreLearnPostActivities, addCustomTemplateCourseActivities, removeTrailingContinueBlocks } from "./block-content";
+import { toContentBlock, toLessonCoverBlock, needsContinueAfter, continueBlock, buildPreLearnPostActivities, addCustomTemplateCourseActivities, addCustomTemplateFirstLessonActivities, removeTrailingContinueBlocks } from "./block-content";
 import { constrainCourseActivities } from "./lesson-design";
 import { initializeBlockProgress } from "@/lib/editor/progress-settings";
+import { logGenerationProgress } from "./progress-log";
 
 export async function assembleCourseDraft({
   ownerId,
@@ -21,6 +22,10 @@ export async function assembleCourseDraft({
   sourcePlan,
   coverageIssuesByItem,
   includeCourseActivities = true,
+  includeFirstLessonActivities = false,
+  customLessonOverview,
+  reservedKnowledgeChecks,
+  lessonProgress,
 }: {
   ownerId: string;
   courseId: string;
@@ -30,8 +35,14 @@ export async function assembleCourseDraft({
   sourcePlan?: SourceCoursePlan;
   coverageIssuesByItem: string[][];
   includeCourseActivities?: boolean;
+  includeFirstLessonActivities?: boolean;
+  customLessonOverview?: { title: string; focus: string; slideRange?: string }[];
+  reservedKnowledgeChecks?: number;
+  lessonProgress?: { current: number; total: number };
 }): Promise<GeneratedCourseDraft> {
-  seed = constrainCourseActivities(seed);
+  seed = constrainCourseActivities(seed, {
+    knowledgeCheck: reservedKnowledgeChecks ?? (input.template === "custom" && includeCourseActivities ? 1 : 0),
+  });
   if (sourceInventory && input.includeImages)
     addSourceVisualBlocks(seed, sourceInventory);
   const targetLanguage = sourcePlan?.targetLanguage ?? resolveTargetLanguage(input);
@@ -41,12 +52,16 @@ export async function assembleCourseDraft({
   let generatedImageCount = 0;
   const createdAssetIds: string[] = [];
   const generatedBlockBySourceId = new Map<string, { lessonId: string; blockId: string }>();
+  const totalLessonCount = lessonProgress?.total ?? seed.sections.reduce((total, section) => total + section.lessons.length, 0);
   try {
     const generatedSections = await Promise.all(
       seed.sections.map(async (sectionSeed, sectionOrder) => {
         const sectionId = randomUUID();
         const convertedLessons = await Promise.all(
           sectionSeed.lessons.map(async (lessonSeed, lessonOrder) => {
+            const lessonNumber = lessonProgress?.current ?? seed.sections.slice(0, sectionOrder).reduce((total, section) => total + section.lessons.length, 0) + lessonOrder + 1;
+            const lessonTask = `Build lesson ${lessonNumber} of ${totalLessonCount}`;
+            logGenerationProgress({ status: "IN PROGRESS", task: lessonTask, courseId, current: lessonNumber, total: totalLessonCount });
             const lessonId = randomUUID();
             const lessonBlocks = splitGeneratedBlockSeeds(lessonSeed.blocks);
             const convertedBlocks = await Promise.allSettled(
@@ -65,11 +80,13 @@ export async function assembleCourseDraft({
             const failure = convertedBlocks.find(
               (result) => result.status === "rejected",
             );
-            if (failure?.status === "rejected")
+            if (failure?.status === "rejected") {
+              logGenerationProgress({ status: "FAILED", task: lessonTask, courseId, current: lessonNumber, total: totalLessonCount, detail: "A lesson block could not be generated" });
               return {
                 lesson: null,
                 error: failure.reason as unknown,
               };
+            }
 
             const blocksWithContinue: ContentBlock[] = [];
             lessonBlocks.forEach((blockSeed, index) => {
@@ -93,6 +110,34 @@ export async function assembleCourseDraft({
               }
             });
             const blocks = removeTrailingContinueBlocks(blocksWithContinue);
+            let lessonCover: ContentBlock | null = null;
+            if (input.includeImages) {
+              const coverTask = `Generate cover image for lesson ${lessonNumber} of ${totalLessonCount}`;
+              logGenerationProgress({ status: "IN PROGRESS", task: coverTask, courseId, current: lessonNumber, total: totalLessonCount });
+              try {
+                lessonCover = await toLessonCoverBlock(
+                  ownerId,
+                  courseId,
+                  seed.title,
+                  lessonSeed.title,
+                  lessonSeed.objective,
+                  (assetId) => createdAssetIds.push(assetId),
+                  { imageStyle: input.imageStyle, customImageStyle: input.customImageStyle },
+                );
+                logGenerationProgress({ status: "DONE", task: coverTask, courseId, current: lessonNumber, total: totalLessonCount });
+              } catch (error) {
+                logGenerationProgress({ status: "FAILED", task: coverTask, courseId, current: lessonNumber, total: totalLessonCount });
+                throw error;
+              }
+            }
+            logGenerationProgress({
+              status: "DONE",
+              task: lessonTask,
+              courseId,
+              current: lessonNumber,
+              total: totalLessonCount,
+              detail: input.includeImages ? "Lesson content and cover image are ready" : "Lesson content is ready",
+            });
             return {
               lesson: {
                 id: lessonId,
@@ -102,7 +147,7 @@ export async function assembleCourseDraft({
                 lessonType: "content" as const,
                 order: lessonOrder,
                 quizQuestions: [] as [],
-                blocks,
+                blocks: lessonCover ? [lessonCover, ...blocks] : blocks,
               },
               error: null,
             };
@@ -146,6 +191,17 @@ export async function assembleCourseDraft({
         sections,
         lessons,
         khmer,
+        customLessonOverview,
+      );
+      sections = activityCourse.sections;
+      lessons = activityCourse.lessons;
+    } else if (includeFirstLessonActivities && input.template === "custom") {
+      const activityCourse = addCustomTemplateFirstLessonActivities(
+        seed,
+        sections,
+        lessons,
+        khmer,
+        customLessonOverview,
       );
       sections = activityCourse.sections;
       lessons = activityCourse.lessons;

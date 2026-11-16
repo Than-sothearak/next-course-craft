@@ -24,6 +24,13 @@ function response(blocks: object[]) {
   }) }));
 }
 
+function preActivitiesResponse() {
+  return new Response(JSON.stringify({ output_text: JSON.stringify({
+    keyTerms: Array.from({ length: 5 }, (_, index) => ({ term: `Term ${index + 1}`, definition: `Definition ${index + 1}` })),
+    preTest: Array.from({ length: 3 }, (_, index) => ({ question: `Question ${index + 1}?`, options: ["Use the source", "Guess"], correctOptionIndex: 0, correctFeedback: "Correct.", incorrectFeedback: "Review the source." })),
+  }) }));
+}
+
 function mockLearnJob(failed = false) {
   const identity = {
     ownerId: new Types.ObjectId("507f1f77bcf86cd799439011"),
@@ -99,7 +106,8 @@ describe("Learn-stage timeout recovery", () => {
       .mockResolvedValueOnce(response([{
         type: "code", title: "Flexbox example", body: sourceCode, sourceElementIds: ["p2-e1"],
         codeExample: { template: "midnight-explained-below", language: "css", explanation },
-      }]));
+      }]))
+      .mockResolvedValueOnce(preActivitiesResponse());
     vi.stubGlobal("fetch", fetchMock);
 
     const split = await advanceSourceGenerationJob(store.args);
@@ -111,7 +119,7 @@ describe("Learn-stage timeout recovery", () => {
     expect(store.job.learnCursor).toBe(1);
     const completed = await advanceSourceGenerationJob(store.args);
     expect(completed.status).toBe("completed");
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenCalledTimes(4);
     const draft = completed.course!;
     expect(draft.learningLessonCount).toBe(1);
     expect(draft.lessons[0].title).toBe("Display and Flexbox Basics");
@@ -193,11 +201,12 @@ describe("Learn-stage timeout recovery", () => {
       .mockRejectedValueOnce(new DOMException("Deadline", "TimeoutError"))
       .mockResolvedValueOnce(response([
         { type: "text", title: "", body: sourceText, bullets: [], sourceElementIds: ["p1-e1"] },
-        question("Which rule enables flexbox?"), question("Which element is the container?"),
+        question("Which rule enables flexbox?"),
         { type: "survey", title: "", sourceElementIds: [], question: "How confident are you with display rules?", minLabel: "Not confident", maxLabel: "Confident" },
       ]))
       .mockResolvedValueOnce(response([code, question("Which direction is the main axis?")]))
-      .mockResolvedValueOnce(response([code]));
+      .mockResolvedValueOnce(response([code]))
+      .mockResolvedValueOnce(preActivitiesResponse());
     vi.stubGlobal("fetch", fetchMock);
 
     await advanceSourceGenerationJob(store.args);
@@ -208,10 +217,10 @@ describe("Learn-stage timeout recovery", () => {
     const blocks = completed.course!.lessons.flatMap((lesson) => lesson.blocks);
     expect(blocks.filter((block) => block.type === "knowledgeCheck")).toHaveLength(2);
     expect(blocks.filter((block) => block.type === "survey")).toHaveLength(1);
-    expect(fetchMock).toHaveBeenCalledTimes(4);
+    expect(fetchMock).toHaveBeenCalledTimes(5);
     expect(fetchMock.mock.calls[2][1].body).toContain("0 knowledgeCheck question blocks and 0 survey blocks");
     const resumedPrompt = JSON.parse(fetchMock.mock.calls[2][1].body).input[1].content[0].text as string;
-    expect(resumedPrompt).toContain('"knowledgeCheck":2');
+    expect(resumedPrompt).toContain('"knowledgeCheck":1');
     expect(resumedPrompt).toContain('"survey":1');
     expect(fetchMock.mock.calls[3][1].body).toContain("LESSON REPAIR");
     expect(fetchMock.mock.calls[3][1].body).toContain("at most 2 knowledgeCheck");
