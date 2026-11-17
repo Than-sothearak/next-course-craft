@@ -18,7 +18,7 @@ import { sessionRequest, type SavedSessionResponse } from "./generation-session-
 import { advanceSourceGenerationJobUntil, postCourseGenerationForm, postSourceGenerationAction, responseError } from "./(course_generation_dialog_components)/generation-job-request";
 
 const steps = ["Source material", "Course details", "Course outline", "Lesson drafts"];
-const outlineProgressDurationMs = 60_000;
+const outlineProgressDurationMs = 15_000;
 const outlineProgressMaximum = 80;
 
 export function estimateOutlinePlanningProgress(elapsedMs: number) {
