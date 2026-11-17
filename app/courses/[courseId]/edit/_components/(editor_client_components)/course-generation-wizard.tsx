@@ -18,6 +18,14 @@ import { sessionRequest, type SavedSessionResponse } from "./generation-session-
 import { advanceSourceGenerationJobUntil, postCourseGenerationForm, postSourceGenerationAction, responseError } from "./(course_generation_dialog_components)/generation-job-request";
 
 const steps = ["Source material", "Course details", "Course outline", "Lesson drafts"];
+const outlineProgressDurationMs = 60_000;
+const outlineProgressMaximum = 80;
+
+export function estimateOutlinePlanningProgress(elapsedMs: number) {
+  if (!Number.isFinite(elapsedMs)) return 0;
+  return Math.max(0, Math.min(outlineProgressMaximum, Math.floor((elapsedMs / outlineProgressDurationMs) * outlineProgressMaximum)));
+}
+
 function Field({ label, children }: { label: string; children: ReactNode }) {
   return <label className="grid gap-1.5 text-sm font-medium text-slate-700">{label}{children}</label>;
 }
@@ -56,6 +64,8 @@ export function CourseGenerationWizard({ open, onClose, courseId, courseTitle, c
   const [mode, setMode] = useState<"append" | "replace">("append");
   const [busy, setBusy] = useState(false);
   const [busyLabel, setBusyLabel] = useState("");
+  const [outlinePlanningStartedAt, setOutlinePlanningStartedAt] = useState<number | null>(null);
+  const [outlinePlanningProgress, setOutlinePlanningProgress] = useState(0);
   const [error, setError] = useState("");
   const [customImageStyleDialogOpen, setCustomImageStyleDialogOpen] = useState(false);
   const [customImageStyleDraft, setCustomImageStyleDraft] = useState(input.customImageStyle);
@@ -65,6 +75,13 @@ export function CourseGenerationWizard({ open, onClose, courseId, courseTitle, c
   const sourceChoiceRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
   useEffect(() => () => abortRef.current?.abort(), []);
+  useEffect(() => {
+    if (!busy || step !== 1 || outlinePlanningStartedAt === null) return;
+    const updateProgress = () => setOutlinePlanningProgress(estimateOutlinePlanningProgress(Date.now() - outlinePlanningStartedAt));
+    updateProgress();
+    const timer = window.setInterval(updateProgress, 1_000);
+    return () => window.clearInterval(timer);
+  }, [busy, step, outlinePlanningStartedAt]);
   useEffect(() => {
     if (!open || source || sourceChoiceRef.current) return;
     const jobId = savedSession?.status === "outline" ? savedSession.sourceJobId : window.localStorage.getItem(`course-generation-source:${courseId}`);
@@ -154,10 +171,17 @@ export function CourseGenerationWizard({ open, onClose, courseId, courseTitle, c
   async function plan() {
     const parsed = courseGenerationInputSchema.safeParse(input);
     if (!parsed.success) { setError(parsed.error.issues.map((issue) => issue.message).join(" ")); return; }
-    await work(input.generateCoverImage ? "Planning the outline and preparing its card image…" : "Planning sections and learning objectives…", async (signal) => {
-      const result = await sessionRequest(courseId, { action: "plan", input: parsed.data, sourceJobId: source?.jobId ?? planned?.sourceJobId }, signal);
-      setPlanned(result); setOutline(result.outline); setStep(2);
-    });
+    setOutlinePlanningStartedAt(Date.now());
+    setOutlinePlanningProgress(0);
+    try {
+      await work(input.generateCoverImage ? "Planning the outline and preparing its card image…" : "Planning sections and learning objectives…", async (signal) => {
+        const result = await sessionRequest(courseId, { action: "plan", input: parsed.data, sourceJobId: source?.jobId ?? planned?.sourceJobId }, signal);
+        setPlanned(result); setOutline(result.outline); setStep(2);
+      });
+    } finally {
+      setOutlinePlanningStartedAt(null);
+      setOutlinePlanningProgress(0);
+    }
   }
   async function approve() {
     if (!planned || !outline) return;
@@ -219,7 +243,7 @@ export function CourseGenerationWizard({ open, onClose, courseId, courseTitle, c
     {planningOutline ? <section role="status" aria-live="polite" className="flex flex-1 flex-col items-center justify-center gap-6 py-8 text-center">
       <div aria-hidden="true" className="flex size-16 items-center justify-center rounded-full bg-indigo-50 text-indigo-600"><LoaderCircle size={30} className="animate-spin" /></div>
       <div className="space-y-2"><h3 className="text-lg font-semibold text-slate-900">Generating your course outline</h3><p className="max-w-md text-sm text-slate-600">{busyLabel}</p></div>
-      <div className="w-full max-w-sm space-y-2"><Progress aria-label="Generating course outline" /><p className="text-xs text-slate-500">Preparing sections and lesson objectives.</p></div>
+      <div className="w-full max-w-sm space-y-2"><Progress value={outlinePlanningProgress} aria-label="Generating course outline" aria-valuetext={`Estimated progress: ${outlinePlanningProgress}%`} /><p className="text-xs text-slate-500">Estimated progress: {outlinePlanningProgress}%{outlinePlanningProgress === outlineProgressMaximum ? " · still finishing the outline" : ""}</p></div>
     </section> : <>
     {generating && <p role="status" className="mb-4 text-sm">Lessons are already generating. Close this dialog to view progress in the editor.</p>}
     {error && <p role="alert" className="mb-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}

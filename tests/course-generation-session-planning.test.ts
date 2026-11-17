@@ -6,7 +6,7 @@ import { courseGenerationInputSchema, generatedSourceInventorySchema } from "@/l
 vi.mock("@/lib/ai/generation/provider", () => ({ requestStructuredJson: vi.fn() }));
 vi.mock("@/lib/ai/generation/source-generation-content", () => ({ generateSourcePlan: vi.fn() }));
 const input = courseGenerationInputSchema.parse({ prompt: "Teach HTML", audience: "Students", level: "beginner", lessonCount: 2, template: "custom", includeImages: false, courseTitle: "", courseDescription: "" });
-const rawOutline = { title: "HTML course", description: "Learn HTML", sections: [{ title: "Learn", lessons: [{ title: "HTML basics", objective: "Describe elements" }, { title: "Build a page", objective: "Create an HTML page" }] }] };
+const rawOutline = { title: "HTML course", description: "Explore how HTML structures pages with elements, attributes, and semantic sections. Build a clear foundation for creating accessible web content and understanding how browser-rendered pages fit together.", sections: [{ title: "Learn", lessons: [{ title: "HTML basics", objective: "Describe elements" }, { title: "Build a page", objective: "Create an HTML page" }] }] };
 beforeEach(() => { vi.clearAllMocks(); vi.mocked(requestStructuredJson).mockResolvedValue(rawOutline); });
 describe("reviewable outline planning", () => {
   it("produces stable metadata identities without drafting lesson content", async () => {
@@ -15,6 +15,17 @@ describe("reviewable outline planning", () => {
     expect(new Set(outline.sections[0].lessons.map((lesson) => lesson.id)).size).toBe(2);
     expect(outline.sections[0].lessons.every((lesson) => !("blocks" in lesson))).toBe(true);
     expect(vi.mocked(requestStructuredJson).mock.calls[0][0].developerPrompt).toContain("Do not write lesson content");
+    const request = vi.mocked(requestStructuredJson).mock.calls[0][0];
+    expect(request.content[0].text).toContain("2–3 complete, informative sentences");
+    expect((request.schema as { properties: { description: { minLength: number } } }).properties.description.minLength).toBe(120);
+  });
+  it("preserves an author-provided description without requiring a generated long description", async () => {
+    const authoredDescription = "A brief description from the course author.";
+    const { outline } = await planGenerationSession({ ...input, courseDescription: authoredDescription }, "test-model");
+    const request = vi.mocked(requestStructuredJson).mock.calls[0][0];
+    expect(outline.description).toBe(authoredDescription);
+    expect((request.schema as { properties: { description: { minLength: number } } }).properties.description.minLength).toBe(1);
+    expect(request.content[0].text).toContain("Use the author's supplied course description");
   });
   it("uses the requested Khmer language and terminology rules when planning an outline", async () => {
     const requestedInKhmer = { ...input, prompt: "Write this course in Khmer." };

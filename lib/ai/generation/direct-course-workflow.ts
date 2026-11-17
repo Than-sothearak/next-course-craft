@@ -25,7 +25,7 @@ function courseSeedResponseSchema(input: CourseGenerationInput, includeCustomFir
     properties: {
       ...properties,
       title: { type: "string", minLength: 1, maxLength: 160 },
-      description: { type: "string", minLength: 1, maxLength: 5_000 },
+      description: { type: "string", minLength: input.courseDescription.trim() ? 1 : 120, maxLength: 5_000 },
       sections: {
         ...sections,
         minItems: 1,

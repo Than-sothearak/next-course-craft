@@ -3,7 +3,7 @@ import { act, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Dialog } from "@/components/ui/dialog";
-import { CourseGenerationWizard } from "@/app/courses/[courseId]/edit/_components/(editor_client_components)/course-generation-wizard";
+import { CourseGenerationWizard, estimateOutlinePlanningProgress } from "@/app/courses/[courseId]/edit/_components/(editor_client_components)/course-generation-wizard";
 import { courseGenerationInputSchema } from "@/lib/ai/course-generation-schemas";
 import type { GenerationSessionSnapshot } from "@/lib/ai/course-generation-session-schema";
 import { courseCoverSchema } from "@/lib/editor/course-cover";
@@ -29,7 +29,7 @@ beforeEach(() => {
   fetchMock.mockReset(); vi.stubGlobal("fetch", fetchMock);
   container = document.createElement("div"); document.body.append(container); root = createRoot(container);
 });
-afterEach(() => { act(() => root.unmount()); container.remove(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+afterEach(() => { act(() => root.unmount()); container.remove(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe("AI course review wizard", () => {
   it("ignores outside clicks and Escape until the Close button is clicked", async () => {
@@ -99,6 +99,7 @@ describe("AI course review wizard", () => {
   it("fills the popup with outline progress while planning is in progress", async () => {
     await renderWizard();
     await click("Continue to course details");
+    vi.useFakeTimers();
     fetchMock.mockReturnValueOnce(new Promise<Response>(() => {}));
     await click("Generate outline");
     const dialog = container.querySelector("dialog")!;
@@ -107,8 +108,23 @@ describe("AI course review wizard", () => {
     expect(steps.textContent).toBe("1. Source material2. Course details3. Course outline4. Lesson drafts");
     expect(steps.querySelector('[aria-current="step"]')?.textContent).toBe("3. Course outline");
     expect(dialog.querySelector("fieldset")).toBeNull();
-    expect(dialog.querySelector('[aria-label="Generating course outline"]')).toBeTruthy();
+    const progress = dialog.querySelector<HTMLElement>('[aria-label="Generating course outline"]')!;
+    expect(progress.getAttribute("aria-valuenow")).toBe("0");
+    expect(dialog.textContent).toContain("Estimated progress: 0%");
+    await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
+    expect(progress.getAttribute("aria-valuenow")).toBe("40");
+    await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
+    expect(progress.getAttribute("aria-valuenow")).toBe("80");
+    expect(dialog.textContent).toContain("Estimated progress: 80% · still finishing the outline");
+    await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
+    expect(progress.getAttribute("aria-valuenow")).toBe("80");
     expect([...dialog.querySelectorAll("button")].some((button) => button.textContent?.includes("Back"))).toBe(false);
+  });
+  it("maps outline wait time to an estimate that reaches 80 percent after one minute", () => {
+    expect(estimateOutlinePlanningProgress(0)).toBe(0);
+    expect(estimateOutlinePlanningProgress(30_000)).toBe(40);
+    expect(estimateOutlinePlanningProgress(60_000)).toBe(80);
+    expect(estimateOutlinePlanningProgress(120_000)).toBe(80);
   });
   it("keeps the course cover image style separate from supplemental lesson images", async () => {
     await renderWizard();

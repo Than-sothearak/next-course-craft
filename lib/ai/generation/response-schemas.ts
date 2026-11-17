@@ -426,7 +426,7 @@ export const sourcePlanningResponseSchema = {
   required: ["title", "description", "objectives", "sourceLanguage", "targetLanguage", "items"],
   properties: {
     title: { type: "string", minLength: 1, maxLength: 160 },
-    description: { type: "string", minLength: 1, maxLength: 5_000 },
+    description: { type: "string", minLength: 120, maxLength: 5_000 },
     objectives: { type: "array", minItems: 1, maxItems: 20, items: { type: "string", minLength: 1, maxLength: 500 } },
     sourceLanguage: { type: "string", minLength: 1, maxLength: 80 },
     targetLanguage: { type: "string", minLength: 1, maxLength: 80 },

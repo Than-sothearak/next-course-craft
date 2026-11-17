@@ -6,6 +6,7 @@ import type { CourseGenerationInput, GeneratedSourceInventory } from "../course-
 import { requestStructuredJson } from "./provider";
 import { generateSourcePlan } from "./source-generation-content";
 import { courseUsesKhmer, learnerLanguageStyleInstruction, resolveTargetLanguage } from "./language";
+import { courseDescriptionGenerationInstruction } from "./prompts";
 import { createGenerationBudget } from "../generation-retry";
 import { generationStageTimeoutMs } from "../generation-timeouts";
 
@@ -19,11 +20,11 @@ export async function planGenerationSession(input: CourseGenerationInput, model:
     const targetLanguage = resolveTargetLanguage(input);
     const raw = await requestStructuredJson({
       model, budget, timeoutMs: generationStageTimeoutMs, schemaName: "course_outline",
-      developerPrompt: `Plan an educational course outline only. Do not write lesson content. Return clear section names, lesson titles and measurable learning objectives. ${learnerLanguageStyleInstruction(targetLanguage)}`,
-      content: [{ type: "input_text", text: `${JSON.stringify({ ...input, targetLanguage })}\nReturn exactly ${input.lessonCount} learning lessons total. ${input.template === "preLearnPost" ? "Return one Learn section containing all learning lessons. The application adds Pre and Post activities separately." : "Group related lessons into meaningful sections."} ${learnerLanguageStyleInstruction(targetLanguage)}` }],
+      developerPrompt: `Plan an educational course outline only. Do not write lesson content. Return a learner-facing course title and informative course description, clear section names, lesson titles, and measurable learning objectives. ${input.courseDescription.trim() ? "Preserve the meaning of the author's supplied description." : courseDescriptionGenerationInstruction} ${learnerLanguageStyleInstruction(targetLanguage)}`,
+      content: [{ type: "input_text", text: `${JSON.stringify({ ...input, targetLanguage })}\n${input.courseDescription.trim() ? "Use the author's supplied course description as the course description." : courseDescriptionGenerationInstruction} Return exactly ${input.lessonCount} learning lessons total. ${input.template === "preLearnPost" ? "Return one Learn section containing all learning lessons. The application adds Pre and Post activities separately." : "Group related lessons into meaningful sections."} ${learnerLanguageStyleInstruction(targetLanguage)}` }],
       maxOutputTokens: 7_000,
       schema: { type: "object", additionalProperties: false, required: ["title", "description", "sections"], properties: {
-        title: { type: "string", minLength: 1, maxLength: 160 }, description: { type: "string", minLength: 1, maxLength: 5_000 },
+        title: { type: "string", minLength: 1, maxLength: 160 }, description: { type: "string", minLength: input.courseDescription.trim() ? 1 : 120, maxLength: 5_000 },
         sections: { type: "array", minItems: 1, maxItems: input.template === "preLearnPost" ? 1 : 10, items: { type: "object", additionalProperties: false, required: ["title", "lessons"], properties: {
           title: { type: "string", minLength: 1, maxLength: 160 }, lessons: { type: "array", minItems: 1, maxItems: 20, items: { type: "object", additionalProperties: false, required: ["title", "objective"], properties: { title: { type: "string", minLength: 1, maxLength: 160 }, objective: { type: "string", minLength: 1, maxLength: 1_000 } } } },
         } } },

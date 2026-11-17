@@ -30,6 +30,7 @@ describe("course block selection guidance", () => {
     expect(prompt).toContain("let the lesson content determine which sections need compact supporting images");
     expect(prompt).toContain("Use Formula, Table, informational Checklist, Concept map, and Database schema blocks");
     expect(prompt).toContain("Use the processSteps ordering activity only when learners should reconstruct a supplied sequence");
+    expect(prompt).toContain("what learners will be able to understand or do");
   });
 
   it("preserves list meaning and selects existing blocks for different subjects", () => {
