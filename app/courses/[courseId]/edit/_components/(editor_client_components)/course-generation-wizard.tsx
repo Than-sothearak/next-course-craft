@@ -243,7 +243,7 @@ export function CourseGenerationWizard({ open, onClose, courseId, courseTitle, c
     {planningOutline ? <section role="status" aria-live="polite" className="flex flex-1 flex-col items-center justify-center gap-6 py-8 text-center">
       <div aria-hidden="true" className="flex size-16 items-center justify-center rounded-full bg-indigo-50 text-indigo-600"><LoaderCircle size={30} className="animate-spin" /></div>
       <div className="space-y-2"><h3 className="text-lg font-semibold text-slate-900">Generating your course outline</h3><p className="max-w-md text-sm text-slate-600">{busyLabel}</p></div>
-      <div className="w-full max-w-sm space-y-2"><Progress value={outlinePlanningProgress} aria-label="Generating course outline" aria-valuetext={`Estimated progress: ${outlinePlanningProgress}%`} /><p className="text-xs text-slate-500">Estimated progress: {outlinePlanningProgress}%{outlinePlanningProgress === outlineProgressMaximum ? " · still finishing the outline" : ""}</p></div>
+      <div className="w-full max-w-sm space-y-2"><Progress value={outlinePlanningProgress} aria-label="Generating course outline" /><p className="text-xs text-slate-500">Please wait a moment.</p></div>
     </section> : <>
     {generating && <p role="status" className="mb-4 text-sm">Lessons are already generating. Close this dialog to view progress in the editor.</p>}
     {error && <p role="alert" className="mb-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}

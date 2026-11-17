@@ -110,12 +110,14 @@ describe("AI course review wizard", () => {
     expect(dialog.querySelector("fieldset")).toBeNull();
     const progress = dialog.querySelector<HTMLElement>('[aria-label="Generating course outline"]')!;
     expect(progress.getAttribute("aria-valuenow")).toBe("0");
-    expect(dialog.textContent).toContain("Estimated progress: 0%");
+    expect(dialog.textContent).toContain("Please wait a moment.");
+    expect(dialog.textContent).not.toContain("%");
     await act(async () => { await vi.advanceTimersByTimeAsync(5_000); });
     expect(progress.getAttribute("aria-valuenow")).toBe("26");
     await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
     expect(progress.getAttribute("aria-valuenow")).toBe("80");
-    expect(dialog.textContent).toContain("Estimated progress: 80% · still finishing the outline");
+    expect(dialog.textContent).toContain("Please wait a moment.");
+    expect(dialog.textContent).not.toContain("%");
     await act(async () => { await vi.advanceTimersByTimeAsync(15_000); });
     expect(progress.getAttribute("aria-valuenow")).toBe("80");
     expect([...dialog.querySelectorAll("button")].some((button) => button.textContent?.includes("Back"))).toBe(false);
