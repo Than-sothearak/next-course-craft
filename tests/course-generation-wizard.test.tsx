@@ -112,9 +112,9 @@ describe("AI course review wizard", () => {
     expect(progress.getAttribute("aria-valuenow")).toBe("0");
     expect(dialog.textContent).toContain("Please wait a moment.");
     expect(dialog.textContent).not.toContain("%");
-    await act(async () => { await vi.advanceTimersByTimeAsync(5_000); });
-    expect(progress.getAttribute("aria-valuenow")).toBe("26");
-    await act(async () => { await vi.advanceTimersByTimeAsync(10_000); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(34_000); });
+    expect(progress.getAttribute("aria-valuenow")).toBe("77");
+    await act(async () => { await vi.advanceTimersByTimeAsync(1_000); });
     expect(progress.getAttribute("aria-valuenow")).toBe("80");
     expect(dialog.textContent).toContain("Please wait a moment.");
     expect(dialog.textContent).not.toContain("%");
@@ -122,11 +122,11 @@ describe("AI course review wizard", () => {
     expect(progress.getAttribute("aria-valuenow")).toBe("80");
     expect([...dialog.querySelectorAll("button")].some((button) => button.textContent?.includes("Back"))).toBe(false);
   });
-  it("maps outline wait time to an estimate that reaches 80 percent after 15 seconds", () => {
+  it("maps outline wait time to an estimate that reaches 80 percent after 35 seconds", () => {
     expect(estimateOutlinePlanningProgress(0)).toBe(0);
-    expect(estimateOutlinePlanningProgress(7_500)).toBe(40);
-    expect(estimateOutlinePlanningProgress(15_000)).toBe(80);
-    expect(estimateOutlinePlanningProgress(30_000)).toBe(80);
+    expect(estimateOutlinePlanningProgress(17_500)).toBe(40);
+    expect(estimateOutlinePlanningProgress(35_000)).toBe(80);
+    expect(estimateOutlinePlanningProgress(50_000)).toBe(80);
   });
   it("keeps the course cover image style separate from supplemental lesson images", async () => {
     await renderWizard();
