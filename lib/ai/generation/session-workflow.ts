@@ -19,6 +19,7 @@ import { prepareSessionLesson } from "./session-lesson";
 import { initializeBlockProgress } from "@/lib/editor/progress-settings";
 import type { SourceCoursePlan } from "./types";
 import { logGenerationProgress } from "./progress-log";
+import { withCourseUsage } from "./usage-scope";
 
 type Scope = { ownerId: string; courseId: string };
 const modelFor = (input: CourseGenerationInput) => input.model ?? process.env.OPENAI_TEXT_MODEL ?? defaultCourseGenerationModel;
@@ -59,7 +60,7 @@ export async function getSession(scope: Scope, sessionId?: string): Promise<Gene
     readyToSave: Boolean(currentLessonId && await generationCheckpointPayload(session, "sessionDraft", currentLessonId)),
   };
 }
-export async function planSession(scope: Scope, input: CourseGenerationInput, sourceJobId?: string) {
+export const planSession = withCourseUsage(async function(scope: Scope, input: CourseGenerationInput, sourceJobId?: string) {
   const active = await CourseGenerationSession.exists({ ...scope, status: "generating", expiresAt: { $gt: new Date() } });
   if (active) throw new DashboardError("Finish or cancel the current generation before starting another.", 409);
   if (!input.prompt.trim() && !sourceJobId) throw new DashboardError("Write a course prompt or add source material.", 400);
@@ -95,7 +96,7 @@ export async function planSession(scope: Scope, input: CourseGenerationInput, so
     logGenerationProgress({ status: "FAILED", task: "Plan course outline", courseId: scope.courseId, detail: "See the server error above for details" });
     throw error;
   }
-}
+});
 export async function approveSession(scope: Scope, sessionId: string, outline: CourseOutline, mode: "append" | "replace", revision: number) {
   const session = await ownedSession(scope, sessionId);
   const state = (await getSession(scope, sessionId))!;
@@ -172,7 +173,7 @@ export async function approveSession(scope: Scope, sessionId: string, outline: C
   logGenerationProgress({ status: "IN PROGRESS", task: "Generate approved course lessons", courseId: scope.courseId, sessionId: String(session._id) });
   return { session: await getSession(scope, sessionId), editor: await getCourseEditor(scope.ownerId, scope.courseId) };
 }
-export async function prepareNextLesson(scope: Scope, sessionId: string) {
+export const prepareNextLesson = withCourseUsage(async function(scope: Scope, sessionId: string) {
   const session = await ownedSession(scope, sessionId);
   const state = (await getSession(scope, sessionId))!;
   if (state.status !== "generating" || !state.currentLessonId || state.readyToSave) return state;
@@ -198,7 +199,7 @@ export async function prepareNextLesson(scope: Scope, sessionId: string) {
     throw error;
   }
   return getSession(scope, sessionId);
-}
+});
 export async function commitNextLesson(scope: Scope, sessionId: string, revision: number) {
   const session = await ownedSession(scope, sessionId);
   const state = (await getSession(scope, sessionId))!;

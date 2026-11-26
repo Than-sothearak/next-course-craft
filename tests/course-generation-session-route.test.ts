@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET, POST } from "@/app/api/courses/[courseId]/generation-session/route";
 import { resolveCourseAccess } from "@/lib/workspaces/access";
 import { requireAIEnabled } from "@/lib/auth/authorization";
@@ -26,6 +26,35 @@ const session: GenerationSessionSnapshot = { id: sessionId, status: "generating"
 const submit = (body: unknown, origin = "http://localhost") => POST(new NextRequest("http://localhost/api/courses/course/generation-session", { method: "POST", headers: { "Content-Type": "application/json", Origin: origin }, body: JSON.stringify(body) }), context);
 beforeEach(() => { vi.clearAllMocks(); vi.mocked(acquireGenerationLease).mockReset().mockResolvedValue({ courseId: "course", token: "00000000-0000-0000-0000-000000000000" }); vi.mocked(getGenerationLeaseStatus).mockResolvedValue({ locked: false, retryAfterMs: 0 }); vi.mocked(resolveCourseAccess).mockResolvedValue({ ownerId: "owner" } as Awaited<ReturnType<typeof resolveCourseAccess>>); vi.mocked(cleanupCancelledSessionLessons).mockResolvedValue({ session: null, discardedLessonIds: [], changed: false }); });
 describe("generation session authorization and mutations", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it.each([200, 404])("logs unavailable deferred cleanup concisely while preserving the original %i response", async (status) => {
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    if (status === 404) vi.mocked(prepareNextLesson).mockRejectedValueOnce(new DashboardError("Generation session expired or was not found. Saved lessons remain in your course.", 404));
+    else vi.mocked(prepareNextLesson).mockResolvedValueOnce(null);
+    vi.mocked(cleanupCancelledSessionLessons).mockRejectedValueOnce(new DashboardError("Generation session expired or was not found. Saved lessons remain in your course.", 404));
+    const response = await submit({ action: "prepare", sessionId });
+    expect(response.status).toBe(status);
+    expect(log).toHaveBeenCalledTimes(1);
+    expect(log.mock.calls[0][0]).toContain("[COURSE GENERATION] [SKIPPED] [Deferred cancellation cleanup]");
+    expect(log.mock.calls[0][0]).toContain(`[Course: course] [Session: ${sessionId}]`);
+    expect(log.mock.calls[0][0]).toContain("Course or generation session unavailable or expired. Cleanup skipped.");
+    expect(error).not.toHaveBeenCalled();
+    expect(releaseGenerationLease).toHaveBeenCalledOnce();
+  });
+
+  it("retains diagnostics for unexpected deferred cleanup errors without replacing the response", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    const failure = new Error("Database connection failed");
+    vi.mocked(prepareNextLesson).mockResolvedValueOnce(null);
+    vi.mocked(cleanupCancelledSessionLessons).mockRejectedValueOnce(failure);
+    expect((await submit({ action: "prepare", sessionId })).status).toBe(200);
+    expect(error).toHaveBeenCalledWith(`Deferred cancelled-generation cleanup failed. [Course: course] [Session: ${sessionId}]`, failure);
+    expect(log).not.toHaveBeenCalled();
+    expect(releaseGenerationLease).toHaveBeenCalledOnce();
+  });
   it("includes lock status in progress reads so restored clients can wait without POST retries", async () => {
     vi.mocked(getSession).mockResolvedValue(session);
     vi.mocked(getGenerationLeaseStatus).mockResolvedValue({ locked: true, retryAfterMs: 2_000 });

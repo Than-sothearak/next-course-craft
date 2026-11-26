@@ -176,7 +176,6 @@ export async function generateLearnContentItem({
       learnerLanguageStyleInstruction(plan.targetLanguage),
       `Audience: ${input.audience || "General adult learners"}. Difficulty: ${input.level}. Content depth: ${input.contentDepth}. Interactivity: ${input.interactivity}.`,
       lessonDesignInstruction(input, pages),
-      blockSelectionGuide,
       previousBlockMixInstruction(previousLearningBlocks),
       `Remaining course activity budget for this portion: ${Math.max(0, 2 - activitiesUsed.knowledgeCheck - Number(input.template === "custom"))} knowledgeCheck question blocks and ${Math.max(0, 1 - activitiesUsed.survey)} survey blocks. Previously used prompts (do not repeat): ${JSON.stringify(activitiesUsed.questions)}. The custom template reserves one knowledgeCheck for the first-lesson quick quiz.`,
       `Recommended blocks: ${item.recommendedBlockTypes.join(", ") || "Choose appropriate existing CourseCraft blocks"}. Interaction opportunities: ${item.interactionOpportunities.join("; ") || "Use interactions where they improve learning"}.`,
@@ -191,14 +190,14 @@ export async function generateLearnContentItem({
       !input.standardMode ? "Presentation mode: do not use Formula, Table, or Checklist blocks. Use the existing slide-friendly block formats." : "",
       !input.standardMode ? "Keep source diagrams and tables faithful, using text, labeled graphics, or charts in the existing presentation style." : "",
       "Return a specific, source-grounded summary of what this item teaches, without generic filler.",
-      retryFeedback,
       `Source pages and element IDs:\n${sourceText}`,
+      retryFeedback,
     ].filter(Boolean).join("\n\n");
     let raw: unknown;
     try {
       raw = await requestStructuredJson({
         model,
-        developerPrompt: `${sourceLearnSystemPrompt} Return block fields only; app fills settings. ${learnerLanguageStyleInstruction(plan.targetLanguage)}`,
+        developerPrompt: `${sourceLearnSystemPrompt} Return block fields only; app fills settings.\n\n${blockSelectionGuide}\n\n${learnerLanguageStyleInstruction(plan.targetLanguage)}`,
         content: [{ type: "input_text", text: prompt }],
         schemaName: "course_learn_content_item",
         schema: {

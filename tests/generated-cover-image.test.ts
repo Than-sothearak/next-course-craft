@@ -8,7 +8,9 @@ vi.mock("@/lib/media/service", () => ({ activeStorageConfiguration: vi.fn(async 
 const ownerId = "507f1f77bcf86cd799439011", courseId = "507f1f77bcf86cd799439012";
 const fetchMock = vi.fn();
 beforeEach(() => {
+  vi.stubEnv("OPENAI_USAGE_LOG_FORMAT", "json");
   vi.clearAllMocks(); vi.stubEnv("OPENAI_API_KEY", "test-key"); vi.stubGlobal("fetch", fetchMock);
+  vi.spyOn(console, "info").mockImplementation(() => undefined);
   vi.spyOn(Asset, "create").mockImplementation((async (value: object) => new Asset(value)) as never);
 });
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
@@ -59,5 +61,27 @@ describe("fast generated course cover assets", () => {
     output(Buffer.from("iVBORw0KGgo=", "base64"));
     await expect(createGeneratedImageAsset(ownerId, courseId, "Cover", { purpose: "course-cover" })).rejects.toThrow("file validation");
     expect(storage.upload).not.toHaveBeenCalled();
+  });
+  it("records mainline input usage even when the generated image fails file validation", async () => {
+    vi.stubEnv("OPENAI_TEXT_MODEL", "gpt-6-luna");
+    vi.stubEnv("OPENAI_IMAGE_MODEL", "gpt-image-2.6-flare");
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({
+      id: "resp_image", model: "gpt-6-luna", status: "completed", service_tier: "default",
+      usage: { input_tokens: 100, input_tokens_details: { cached_tokens: 0, cache_write_tokens: 0 }, output_tokens: 10 },
+      output: [{ type: "image_generation_call", result: "PRIVATE BASE64" }],
+    })));
+    await expect(createGeneratedImageAsset(ownerId, courseId, "PRIVATE PROMPT", { purpose: "course-cover" })).rejects.toThrow("file validation");
+    expect(console.info).toHaveBeenCalledTimes(1);
+    const event = JSON.parse(vi.mocked(console.info).mock.calls[0][0]);
+    expect(event).toMatchObject({ kind: "image", stage: "course-cover", responseId: "resp_image", usage: { inputTokens: 100 }, inputCostEstimate: { usd: 0.00001, scope: "mainline_model_input_only" }, imageCalls: [{ model: "gpt-image-2.6-flare", usage: { inputTokens: null, cachedInputTokens: null } }] });
+    expect(JSON.stringify(event)).not.toContain("PRIVATE");
+  });
+  it("records image transport errors without claiming zero usage or submitting a retry", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    fetchMock.mockRejectedValueOnce(Object.assign(new Error("PRIVATE FAILURE"), { code: "ETIMEDOUT" }));
+    await expect(createGeneratedImageAsset(ownerId, courseId, "PRIVATE PROMPT")).rejects.toMatchObject({ status: 504 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const event = JSON.parse(vi.mocked(console.info).mock.calls[0][0]);
+    expect(event).toMatchObject({ kind: "image", outcome: "transport_error", transportErrorCode: "ETIMEDOUT", usage: { inputTokens: null }, inputCostEstimate: { usd: null } });
   });
 });

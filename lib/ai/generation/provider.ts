@@ -1,9 +1,13 @@
+import { randomUUID } from "node:crypto";
 import { DashboardError } from "@/lib/dashboard/rules";
 import { createGenerationBudget, generationConnectionErrorCode, GenerationProviderError, generationRetryDelay, providerRetryAfterMs, type GenerationBudget } from "../generation-retry";
 import { requestGenerationResponse } from "./transport";
+import { generationUsageHash, logGenerationUsage, type GenerationUsageContext } from "./usage";
+import { structuredPromptCache } from "./prompt-cache";
 
-async function readOutputText(response: Response) {
+async function readOutputText(response: Response, context: GenerationUsageContext) {
   const body: unknown = await response.json().catch(() => null);
+  logGenerationUsage(context, { response, body });
   const record = body && typeof body === "object"
     ? body as { output_text?: unknown; output?: unknown; status?: unknown; incomplete_details?: unknown; error?: unknown }
     : undefined;
@@ -124,11 +128,24 @@ export async function requestStructuredJson({
       503,
     );
 
+  const promptCache = structuredPromptCache(model);
+  const usageContext = {
+    operationId: randomUUID(),
+    kind: "text" as const,
+    stage: schemaName,
+    requestedModel: model,
+    schemaHash: generationUsageHash(JSON.stringify(schema)),
+    developerPromptHash: generationUsageHash(developerPrompt),
+    cachePolicy: promptCache ? "shared_developer_v1" as const : "provider_default" as const,
+  };
+  let attempt = 0;
   let lastParseError: unknown;
   while (budget.remainingAttempts > 0) {
     const remainingMs = budget.deadline - Date.now();
     if (remainingMs <= 0) throw providerConnectionError(new DOMException("Generation deadline exceeded", "TimeoutError"), "AI provider");
     budget.remainingAttempts -= 1;
+    const context = { ...usageContext, attempt: ++attempt, startedAt: Date.now() };
+    let receivedResponse = false;
     let outputText: string;
     try {
       const response = await requestGenerationResponse(
@@ -136,17 +153,19 @@ export async function requestStructuredJson({
         JSON.stringify({
           model,
           store: false,
+          prompt_cache_options: promptCache,
           reasoning: model.startsWith("gpt-6") ? { effort: reasoningEffort } : undefined,
           max_output_tokens: maxOutputTokens,
           input: [
-            { role: "developer", content: developerPrompt },
+            { role: "developer", content: promptCache ? [{
+              type: "input_text", text: developerPrompt,
+              prompt_cache_breakpoint: { mode: "explicit" },
+            }] : developerPrompt },
             {
               role: "user",
-              content: !lastParseError ? content : [
-                ...content,
-                { type: "input_text", text: "Your previous response was not valid JSON. Return the complete response again as valid JSON matching the required schema. Do not omit any requested source content." },
-              ],
+              content,
             },
+            ...(lastParseError ? [{ role: "user", content: [{ type: "input_text", text: "Your previous response was not valid JSON. Return the complete response again as valid JSON matching the required schema. Do not omit any requested source content." }] }] : []),
           ],
           text: {
             format: {
@@ -159,8 +178,10 @@ export async function requestStructuredJson({
         }),
         AbortSignal.timeout(remainingMs),
       );
-      outputText = await readOutputText(response);
+      receivedResponse = true;
+      outputText = await readOutputText(response, context);
     } catch (error) {
+      if (!receivedResponse) logGenerationUsage(context, { transportErrorCode: generationConnectionErrorCode(error) });
       const delayMs = generationRetryDelay(error, budget);
       if (delayMs !== null) {
         await new Promise((resolve) => setTimeout(resolve, delayMs));

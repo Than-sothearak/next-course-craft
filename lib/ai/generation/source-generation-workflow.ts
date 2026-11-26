@@ -26,6 +26,7 @@ import {
   updateGenerationJob,
 } from "./generation-job-store";
 import { logGenerationProgress } from "./progress-log";
+import { withCourseUsage } from "./usage-scope";
 
 export async function summarizeCourseSource({
   input,
@@ -157,7 +158,7 @@ export async function cancelSourceGenerationJob({
   return getSourceGenerationJob({ ownerId, courseId, jobId });
 }
 
-export async function advanceSourceGenerationJob({
+export const advanceSourceGenerationJob = withCourseUsage(async function({
   ownerId,
   courseId,
   jobId,
@@ -569,7 +570,7 @@ export async function advanceSourceGenerationJob({
   const finalJob = await getSourceGenerationJob({ ownerId, courseId, jobId });
   if (finalJob.status === "cancelled") await deleteGenerationCheckpoints({ jobId: _id, ownerId, courseId });
   return finalJob;
-}
+});
 
 async function findOwnedGenerationJob(ownerId: string, courseId: string, jobId: string) {
   if (!Types.ObjectId.isValid(jobId)) throw new DashboardError("Invalid generation job identifier.", 400);

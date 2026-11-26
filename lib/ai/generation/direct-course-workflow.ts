@@ -13,6 +13,7 @@ import type { GenerationSourceFile } from "./types";
 import { generateSourceCourseSeed } from "./source-generation-content";
 import { assembleCourseDraft } from "./course-draft-assembler";
 import { logGenerationProgress } from "./progress-log";
+import { withCourseUsage } from "./usage-scope";
 
 function courseSeedResponseSchema(input: CourseGenerationInput, includeCustomFirstLessonActivities: boolean) {
   const properties = courseResponseSchema.properties;
@@ -157,7 +158,7 @@ export async function generateCourseSeed(
   );
 }
 
-export async function generateCourseDraft({
+export const generateCourseDraft = withCourseUsage(async function({
   ownerId,
   courseId,
   input,
@@ -222,5 +223,5 @@ export async function generateCourseDraft({
     });
     throw error;
   }
-}
+});
 

@@ -12,6 +12,7 @@
     "test:unit": "vitest run --maxWorkers=2 --exclude tests/admin-integration.test.ts",
     "check": "npm run lint && npm run typecheck && npm test",
     "perf:authors": "node scripts/performance/authors.mjs",
+    "report:ai-usage": "node scripts/report-ai-usage.mjs",
     "test:watch": "vitest",
     "test:e2e": "node scripts/run-e2e.mjs",
     "build:export": "vite build --config export/vite.config.ts",

@@ -4,7 +4,8 @@ export type GenerationProgressStatus =
   | "WAITING"
   | "DONE"
   | "FAILED"
-  | "CANCELLED";
+  | "CANCELLED"
+  | "SKIPPED";
 
 export type GenerationProgressEvent = {
   status: GenerationProgressStatus;

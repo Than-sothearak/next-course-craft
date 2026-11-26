@@ -1684,7 +1684,10 @@ describe("AI course generation contracts", () => {
     expect(prompts[2]).toContain('"accordion":1');
     expect(prompts[2]).toContain('"tabs":1');
     expect(prompts[2]).toContain('["accordion","tabs"]');
-    expect(prompts[2]).toContain("Charts work even when generated images are disabled");
+    expect(requests[2].input[0].content[0].text).toContain("Charts work even when generated images are disabled");
+    expect(requests[0].input[0]).toEqual(requests[1].input[0]);
+    expect(requests[1].input[0]).toEqual(requests[2].input[0]);
+    expect(requests[2].prompt_cache_options).toEqual({ mode: "explicit", ttl: "30m" });
   });
 
   it("preserves source chart values without image generation or an unnecessary coverage retry", async () => {
@@ -1909,9 +1912,11 @@ describe("AI course generation contracts", () => {
     expect(JSON.stringify(extractionRequest)).toContain("Recognize HTML tags and examples");
     const courseRequest = fetchMock.mock.calls.map((call) => JSON.parse(call[1].body as string)).find((request) => request.text.format.name === "course_learn_content_item");
     expect(courseRequest).toBeTruthy();
-    const learnDeveloperPrompt = courseRequest.input[0].content as string;
+    const learnDeveloperPrompt = courseRequest.input[0].content[0].text as string;
     const lessonPrompt = courseRequest.input[1].content[0].text as string;
-    expect(learnDeveloperPrompt.length).toBeLessThan(1_500);
+    expect(courseRequest.input[0].content[0].prompt_cache_breakpoint).toEqual({ mode: "explicit" });
+    expect(learnDeveloperPrompt).toContain("CONTENT-BASED BLOCK SELECTION");
+    expect(lessonPrompt).not.toContain("CONTENT-BASED BLOCK SELECTION");
     expect(learnDeveloperPrompt).toContain("timeline orders historical events");
     expect(learnDeveloperPrompt).toMatch(/map every sourceElementId to a block/i);
     expect(learnDeveloperPrompt).toContain("Avoid duplicate facts");

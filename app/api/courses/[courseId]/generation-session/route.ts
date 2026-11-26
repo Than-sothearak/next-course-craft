@@ -9,6 +9,8 @@ import { acquireGenerationLease, getGenerationLeaseStatus, GenerationLeaseBusyEr
 import { getCourseEditor } from "@/lib/editor/services/course";
 import { sessionRequestSchema } from "@/lib/ai/course-generation-session-schema";
 import { getSession, planSession, approveSession, prepareNextLesson, commitNextLesson, cancelSession, cleanupCancelledSessionLessons } from "@/lib/ai/generation/session-workflow";
+import { DashboardError } from "@/lib/dashboard/rules";
+import { logGenerationProgress } from "@/lib/ai/generation/progress-log";
 
 export const maxDuration = 960;
 type Context = { params: Promise<{ courseId: string }> };
@@ -84,7 +86,15 @@ export async function POST(request: NextRequest, { params }: Context) {
       } catch (error) {
         // Do not replace the generation request's JSON response if deferred
         // cancellation cleanup fails; the next cancel request can retry it.
-        console.error("Deferred cancelled-generation cleanup failed.", error);
+        if (error instanceof DashboardError && error.status === 404) {
+          logGenerationProgress({
+            status: "SKIPPED", task: "Deferred cancellation cleanup",
+            courseId: cleanupTarget.courseId, sessionId: cleanupTarget.sessionId,
+            detail: "Course or generation session unavailable or expired. Cleanup skipped.",
+          });
+        } else {
+          console.error(`Deferred cancelled-generation cleanup failed. [Course: ${cleanupTarget.courseId}] [Session: ${cleanupTarget.sessionId}]`, error);
+        }
       }
     }
   }

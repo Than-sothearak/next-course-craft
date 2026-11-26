@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { Types } from "mongoose";
 import sharp from "sharp";
 import { Asset } from "@/models/Asset";
@@ -7,6 +7,8 @@ import { defaultCourseGenerationModel } from "../course-generation-schemas";
 import { activeStorageConfiguration, deleteStoredMedia, storageProvider } from "@/lib/media/service";
 import { providerConnectionError } from "./provider";
 import { courseImageStyleInstruction, defaultCourseImageGenerationModel, type CourseImageStyle } from "../image-style";
+import { generationConnectionErrorCode } from "../generation-retry";
+import { logGenerationUsage } from "./usage";
 
 export type GeneratedImageOptions = {
   purpose?: "course-cover" | "lesson-cover";
@@ -14,7 +16,7 @@ export type GeneratedImageOptions = {
   customImageStyle?: string;
 };
 
-async function generateImage(prompt: string, options: GeneratedImageOptions) {
+async function generateImage(prompt: string, options: GeneratedImageOptions, courseId: string) {
   const cover = options.purpose === "course-cover" || options.purpose === "lesson-cover";
   const lessonCover = options.purpose === "lesson-cover";
   const apiKey = process.env.OPENAI_API_KEY;
@@ -23,6 +25,13 @@ async function generateImage(prompt: string, options: GeneratedImageOptions) {
       "AI generation is not configured. Set OPENAI_API_KEY on the server.",
       503,
     );
+  const model = process.env.OPENAI_TEXT_MODEL || defaultCourseGenerationModel;
+  const imageModel = process.env.OPENAI_IMAGE_MODEL || defaultCourseImageGenerationModel;
+  const usageContext = {
+    operationId: randomUUID(), kind: "image" as const,
+    stage: options.purpose ?? "lesson-illustration", attempt: 1,
+    requestedModel: model, imageModel, courseId, startedAt: Date.now(),
+  };
   let response: Response;
   try {
     response = await fetch("https://api.openai.com/v1/responses", {
@@ -32,13 +41,13 @@ async function generateImage(prompt: string, options: GeneratedImageOptions) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: process.env.OPENAI_TEXT_MODEL || defaultCourseGenerationModel,
+        model,
         store: false,
         input: `Create one polished, original educational image for a course. ${prompt}. ${cover ? lessonCover ? "Compose this as a clean, full-width, extra-wide 3:1 panoramic banner. Keep the main subject inside a central horizontal band so the image can fill a wider 1200 by 312 cover frame without losing important details." : "Compose this as a clean, full-width 16:9 landscape course cover with the main subject clearly readable on desktop and mobile." : "Use a clear educational composition."} ${courseImageStyleInstruction(options.imageStyle ?? "auto", options.customImageStyle)} Do not add words, labels, watermarks, logos, or captions to the image. Keep clear subject separation.`,
         tools: [
           {
             type: "image_generation",
-            model: process.env.OPENAI_IMAGE_MODEL || defaultCourseImageGenerationModel,
+            model: imageModel,
             size: lessonCover ? "1536x512" : "1280x720",
             ...(cover ? { output_format: "webp", output_compression: lessonCover ? 90 : 70 } : {}),
             quality: lessonCover ? "high" : cover ? "medium" : "low",
@@ -49,9 +58,11 @@ async function generateImage(prompt: string, options: GeneratedImageOptions) {
       signal: AbortSignal.timeout(75_000),
     });
   } catch (error) {
+    logGenerationUsage(usageContext, { transportErrorCode: generationConnectionErrorCode(error) });
     throw providerConnectionError(error, "image generation service");
   }
   const body: unknown = await response.json().catch(() => null);
+  logGenerationUsage(usageContext, { response, body });
   if (!response.ok) {
     if (response.status === 429)
       throw new DashboardError(
@@ -175,7 +186,7 @@ async function createGeneratedImageAssetNow(
   prompt: string,
   options: GeneratedImageOptions,
 ) {
-  const { bytes, mimeType, extension, width, height } = await generateImage(prompt, options);
+  const { bytes, mimeType, extension, width, height } = await generateImage(prompt, options, courseId);
   const assetId = new Types.ObjectId();
   const assetIdText = assetId.toString();
   const objectKey = `${ownerId}/${courseId}/${assetIdText}`;
