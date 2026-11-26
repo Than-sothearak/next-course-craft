@@ -1,8 +1,6 @@
 import { FileDown, LockKeyhole, Music2, Video } from "lucide-react";
 import type { BlockTemplate } from "./block-template-data";
 import { InputBlockPreview } from "../input-block-preview";
-import { StatementBlockPreview } from "../../statement-block-preview";
-import { ChartBlockPreview } from "../../../../preview/chart-block";
 import { AccordionTemplatePreview } from "./(template_preview_components)/accordion-template-preview";
 import { FlipCardTemplatePreview } from "./(template_preview_components)/flip-card-template-preview";
 import { ImageTemplatePreview } from "./(template_preview_components)/image-template-preview";
@@ -12,14 +10,12 @@ import { ProcessStepsTemplatePreview } from "./(template_preview_components)/pro
 import { TimelineTemplatePreview } from "./(template_preview_components)/timeline-template-preview";
 import { TextTemplatePreview } from "./(template_preview_components)/text-template-preview";
 import { CodeTemplatePreview } from "./(template_preview_components)/code-template-preview";
-import { CourseLinkBlock } from "@/components/course-link-block";
+import { ChartTemplatePreview } from "./(template_preview_components)/chart-template-preview";
+import { LinkTemplatePreview } from "./(template_preview_components)/link-template-preview";
+import { ConceptMapTemplatePreview, DatabaseSchemaTemplatePreview, FormulaTemplatePreview, StatementTemplatePreview, TableTemplatePreview } from "./(template_preview_components)/educational-template-previews";
 import { LessonMapTemplateThumbnail } from "@/components/lesson-map";
 import { InteractionIcon } from "@/components/interaction-icon";
-import { EducationalFormula } from "@/components/educational-formula";
-import { EducationalTable } from "@/components/educational-table";
 import { EducationalChecklist } from "@/components/educational-checklist";
-import { ConceptMap } from "@/components/concept-map";
-import { DatabaseSchema } from "@/components/database-schema";
 
 export function TemplatePreview({ template }: { template: BlockTemplate }) {
   if (template.type === "timeline" && template.timeline) return <TimelineTemplatePreview style={template.timeline.style} />;
@@ -30,7 +26,7 @@ export function TemplatePreview({ template }: { template: BlockTemplate }) {
   if (template.type === "audioInstruction") return <div className="grid aspect-video place-items-center rounded-lg bg-slate-100"><span className="flex items-center gap-2 rounded-lg bg-slate-50 px-4 py-3 text-sm text-slate-700 shadow-sm"><Music2 size={20} />Audio instructions</span></div>;
   if (template.type === "interactionButton") return <div className="grid aspect-video place-items-center rounded-lg bg-indigo-50"><span className="grid size-14 place-items-center rounded-xl bg-indigo-600 text-white shadow-md"><InteractionIcon name={template.interactionButton?.icon ?? "info"} /></span></div>;
   if (template.type === "statement" && template.statement)
-    return <StatementBlockPreview {...template.statement} />;
+    return <StatementTemplatePreview data={template.statement} />;
   if (template.type === "flipCard" && template.flipCard)
     return <FlipCardTemplatePreview cards={template.flipCard.cards} />;
   if (template.type === "accordion" && template.accordion)
@@ -40,21 +36,21 @@ export function TemplatePreview({ template }: { template: BlockTemplate }) {
   if (template.type === "lessonMap" && template.lessonMap)
     return <LessonMapTemplateThumbnail template={template.lessonMap.template} className="aspect-[18/11] w-full" />;
   if (template.type === "conceptMap" && template.conceptMap)
-    return <ConceptMap data={template.conceptMap} />;
+    return <ConceptMapTemplatePreview data={template.conceptMap} />;
   if (template.type === "databaseSchema" && template.databaseSchema)
-    return <DatabaseSchema data={template.databaseSchema} />;
+    return <DatabaseSchemaTemplatePreview data={template.databaseSchema} />;
   if (template.type === "processSteps" && template.processSteps)
     return <ProcessStepsTemplatePreview data={template.processSteps} />;
   if (template.type === "chart" && template.chart)
-    return <ChartBlockPreview data={template.chart} />;
+    return <ChartTemplatePreview data={template.chart} />;
   if (template.type === "formula" && template.formula)
-    return <EducationalFormula data={template.formula} />;
+    return <FormulaTemplatePreview data={template.formula} />;
   if (template.type === "table" && template.table)
-    return <EducationalTable data={template.table} />;
+    return <TableTemplatePreview data={template.table} />;
   if (template.type === "checklist" && template.checklist)
     return <EducationalChecklist title={template.checklist.title} items={template.checklist.items} />;
   if (template.type === "link" && template.link)
-    return <CourseLinkBlock data={template.link} interactive={false} />;
+    return <LinkTemplatePreview data={template.link} />;
   if (kind === "knowledge")
     return (
       <InputBlockPreview

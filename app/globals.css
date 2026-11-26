@@ -541,10 +541,13 @@ video[data-slide-media-player]::-webkit-media-controls-enclosure {
 .lesson-rich-text .tiptap pre .cc-code-token-tag { color: var(--code-tag); }
 .lesson-rich-text .tiptap pre .cc-code-token-property { color: var(--code-property); }
 .lesson-rich-text .tiptap pre .cc-code-token-function { color: var(--code-function); }
-.code-template-thumbnail .tiptap pre { margin-block: 0.5rem; padding: 2.5rem 0.75rem 0.75rem; font-size: 9px; line-height: 1.6; box-shadow: none; }
-.code-template-thumbnail .tiptap pre::before { background-position: 0.75rem 0.85rem, 1.75rem 0.85rem, 2.75rem 0.85rem; }
-.code-template-thumbnail .tiptap h2 { margin-block: 0.5rem; font-size: 13px; }
-.code-template-thumbnail .tiptap p { margin-block: 0.5rem; font-size: 10px; line-height: 1.6; }
+.template-formula-thumbnail .katex-display { margin: 0; }
+.lesson-rich-text.code-template-thumbnail .tiptap pre { margin-block: 0.25rem; border-radius: 0.5rem; padding: 1.5rem 0.625rem 0.5rem; font-size: 9px; line-height: 1.5; box-shadow: none; }
+.lesson-rich-text.code-template-thumbnail .tiptap pre::before { height: 1.375rem; background-size: 5px 5px; background-position: 0.625rem 0.5rem, 1.25rem 0.5rem, 1.875rem 0.5rem; }
+.lesson-rich-text.code-template-thumbnail .tiptap pre::after { top: 0.3rem; right: 0.625rem; font-size: 7px; }
+.lesson-rich-text.code-template-thumbnail .tiptap h2 { margin-block: 0.25rem; font-size: 12px; line-height: 1.4; }
+.lesson-rich-text.code-template-thumbnail .tiptap p { margin-block: 0.25rem; font-size: 10px; line-height: 1.4; }
+.lesson-rich-text.code-template-thumbnail .tiptap :is(h2, p) { text-align: left; }
 @media (max-width: 640px) {
   .lesson-rich-text .tiptap pre { padding-inline: 0.875rem; font-size: 0.75rem; }
   .lesson-rich-text .tiptap pre::before { background-position: 0.875rem 0.85rem, 1.875rem 0.85rem, 2.875rem 0.85rem; }

@@ -90,10 +90,11 @@ export function BlockTemplatePicker({
             <h3 className="mb-4 text-sm font-semibold text-slate-900">
               {category} templates
             </h3>
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,220px),1fr))] gap-4">
               {visibleTemplates.map((template) => (
                 <button
                   key={template.id}
+                  data-template-card={template.id}
                   type="button"
                   onClick={() => onSelect(template)}
                   className="cursor-pointer group overflow-hidden rounded-xl border border-slate-200 text-left transition hover:border-indigo-300 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"

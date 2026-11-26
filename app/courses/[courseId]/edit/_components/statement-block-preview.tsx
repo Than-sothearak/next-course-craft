@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { AlertTriangle, CheckCircle2, Info, type LucideIcon } from "lucide-react";
 import type { StatementStyle } from "@/lib/schemas/block";
+import { cn } from "@/lib/utils";
 import { StatementTextPreview } from "./statement-text-preview";
 
 type StatementStylePresentation = {
@@ -62,14 +63,15 @@ export const statementStyles: Record<StatementStyle, StatementStylePresentation>
   },
 };
 
-export function StatementBlockSurface({ style, children, transparentSurface = false }: {
+export function StatementBlockSurface({ style, children, transparentSurface = false, className }: {
   style: StatementStyle;
   children?: ReactNode;
   transparentSurface?: boolean;
+  className?: string;
 }) {
   const classes = statementStyles[style];
   const Icon = classes.icon;
-  return <div data-statement-style={style} className={`${classes.container} ${Icon ? "flex min-w-0 items-start gap-3" : ""}`} style={transparentSurface ? { backgroundColor: "transparent", color: "inherit", padding: 0 } : undefined}>
+  return <div data-statement-style={style} className={cn(classes.container, Icon && "flex min-w-0 items-start gap-3", className)} style={transparentSurface ? { backgroundColor: "transparent", color: "inherit", padding: 0 } : undefined}>
     {Icon && <Icon aria-hidden="true" className={`mt-1 size-5 shrink-0 ${classes.iconColor}`} />}
     <div className={Icon ? "min-w-0 flex-1" : undefined}>{children}</div>
   </div>;

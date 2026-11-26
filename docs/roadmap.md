@@ -1,5 +1,7 @@
 # Delivery roadmap
 
+Requested template-preview refinement: compact diagrams, statement callouts, charts, formulas, tables, code and link variants with thumbnail-sized typography and spacing, plus a picker grid that fits the available panel width. This is limited to the existing block picker and preserves template insertion and learner/export appearance.
+
 Requested theme/settings extension: theme-color and gradient block background presets; consistent Course theme sections with Advanced default typography (title/subtitle/heading/body sizes, title alignment and line spacing), and improved cover alignment controls. This extends the existing themes and block-editor slice with validated optional fields, normal save/undo behavior and shared static rendering; existing formatting and Presentation master typography remain authoritative.
 
 Requested flip-card settings redesign: readable numbered card headers, separate card actions, Front/Back tabs, labeled content fields, and shared collapsible appearance/grid settings across Standard, Presentation and popup editing. Existing card content, media, colors, ordering and persistence remain in the current block-editor slice.

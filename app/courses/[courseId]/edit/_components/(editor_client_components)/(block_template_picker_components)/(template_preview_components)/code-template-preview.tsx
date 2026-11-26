@@ -28,13 +28,14 @@ export function CodeTemplatePreview({
   }
   children.push(sample.code.slice(offset));
   const explained = template !== "midnight-code";
-  const explanation = <p>{sample.explanation}</p>;
+  const explanation = <p className="line-clamp-1">{sample.explanation}</p>;
   return (
     <div
       data-template-code-preview=""
-      className="lesson-rich-text code-template-thumbnail"
+      data-course-text-role="template-preview"
+      className="lesson-rich-text code-template-thumbnail flex h-40 flex-col justify-center"
     >
-      <div className="mb-1 flex justify-between gap-2 text-[8px] font-medium text-slate-500">
+      <div className="mb-1 flex justify-between gap-2 text-[9px] font-medium leading-3 text-slate-500">
         <span>greeting.js</span>
         <span>JavaScript</span>
       </div>
