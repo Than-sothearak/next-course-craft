@@ -580,6 +580,16 @@ const CourseSchema = new Schema(
       enum: ["draft", "published", "archived"],
       default: "draft",
     },
+    publicShare: {
+      type: new Schema({
+        token: { type: String, required: true, match: /^[a-f\d]{48}$/ },
+        snapshot: { type: Schema.Types.Mixed, required: true, select: false },
+        authorName: { type: String, required: true },
+        assetIds: [{ type: Schema.Types.ObjectId }],
+        publishedAt: { type: Date, required: true },
+      }, { _id: false }),
+      default: undefined,
+    },
     revision: { type: Number, default: 0, min: 0 },
     editorSaveLock: { type: String, default: null, select: false },
     editorSaveLockAt: { type: Date, default: null, select: false },
@@ -593,6 +603,7 @@ const CourseSchema = new Schema(
 );
 CourseSchema.index({ ownerId: 1, folderId: 1, updatedAt: -1 });
 CourseSchema.index({ workspaceId: 1, folderId: 1, updatedAt: -1 });
+CourseSchema.index({ "publicShare.token": 1 }, { unique: true, sparse: true });
 export type CourseDocument = InferSchemaType<typeof CourseSchema>;
 export const Course =
   (models.Course as Model<CourseDocument> | undefined) ??

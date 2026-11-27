@@ -1,7 +1,10 @@
-/** Verify chart theme defaults, per-field colors, persistence, and column label spacing. */
+/** Verify chart motion, theme defaults, field colors, persistence, and label spacing. */
 import { createServer } from "vite";
 import { chromium, expect } from "@playwright/test";
 import assert from "node:assert/strict";
+import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 const fixture = `import React,{useEffect,useState}from'react';import{createRoot}from'react-dom/client';
 import{ChartBlockPreview}from'/app/courses/[courseId]/preview/chart-block.tsx';
 import{ChartBlockSettings}from'/app/courses/[courseId]/edit/_components/(editor_client_components)/(content_block_editor_components)/_components/block-settings/chart-block-settings.tsx';
@@ -47,6 +50,33 @@ try {
     assert.ok(fills.includes('rgb(204, 51, 68)'));
     assert.ok(await page.locator(`[data-type="${type}"] span[style*="linear-gradient"]`).count());
   }
+  for (const type of ['bar', 'column', 'line', 'donut', 'stacked']) {
+    const chart = page.locator(`[data-type="${type}"] figure`);
+    await chart.scrollIntoViewIfNeeded();
+    await expect(chart).not.toHaveAttribute('data-chart-reveal', 'pending');
+    const motion = await chart.evaluate(node => {
+      const marks = [...node.querySelectorAll('[data-chart-motion]')];
+      const animations = marks.flatMap(mark => mark.getAnimations().map(animation => ({ mark, animation })));
+      for (const { animation } of animations) {
+        const timing = animation.effect.getTiming();
+        animation.pause(); animation.currentTime = Number(timing.delay) + Number(timing.duration) * 0.25;
+      }
+      const result = animations.map(({ mark, animation }) => ({ kind: mark.dataset.chartMotion, frames: animation.effect.getKeyframes(), transform: getComputedStyle(mark).transform, dash: getComputedStyle(mark).strokeDasharray }));
+      for (const { animation } of animations) animation.finish();
+      return result;
+    });
+    const kind = { bar: 'bar', column: 'column', line: 'line', donut: 'arc', stacked: 'stacked' }[type];
+    assert.ok(motion.some(item => item.kind === kind), `The ${type} chart must animate its marks`);
+    assert.ok(motion.some(item => item.kind === 'value'), `The ${type} values should reveal alongside their marks`);
+    if (type === 'bar' || type === 'column' || type === 'stacked') {
+      const transform = motion.find(item => item.kind === kind).transform;
+      assert.notEqual(transform, 'none', `${type} must grow progressively rather than jump to its final size`);
+      assert.notEqual(transform, 'matrix(1, 0, 0, 1, 0, 0)');
+    }
+    assert.equal(await chart.locator('[data-chart-motion]').evaluateAll(nodes => nodes.some(node => getComputedStyle(node).opacity === '0')), false, 'Every chart value remains visible after animation');
+  }
+  // Stop any other on-screen entrances before measuring final label geometry.
+  await page.evaluate(() => document.getAnimations().forEach(animation => animation.finish()));
   for (const width of [1400, 360]) {
     await page.setViewportSize({ width, height: 1000 });
     for (const group of await page.locator('[data-weekly] g, [data-type="line"] g').all()) {
@@ -101,6 +131,57 @@ try {
     });
     assert.deepEqual(mismatches, [], `Donut segments must cover the correct portion of the ring: ${await section.getAttribute('data-donut-case')}`);
   }
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.reload();
+  for (const type of ['bar', 'column', 'line', 'donut', 'stacked']) {
+    const chart = page.locator(`[data-type="${type}"] figure`);
+    await chart.scrollIntoViewIfNeeded();
+    assert.equal(await chart.locator('[data-chart-motion]').evaluateAll(nodes => nodes.some(node => node.getAnimations().length || getComputedStyle(node).opacity === '0')), false, 'Reduced motion shows final values without animation');
+  }
+  const base = await page.evaluate(() => window.__chart);
+  const { editorSnapshotSchema } = await vite.ssrLoadModule('/lib/editor/schemas.ts');
+  const { inlineLocalFontAssets } = await vite.ssrLoadModule('/lib/export/inline-font-assets.ts');
+  const directory = resolve('public/course-export/assets'), files = readdirSync(directory);
+  const js = readFileSync(resolve(directory, files.find(file => file.endsWith('.js'))), 'utf8');
+  const css = await inlineLocalFontAssets(readFileSync(resolve(directory, files.find(file => file.endsWith('.css'))), 'utf8'), directory);
+  mkdirSync('test-results', { recursive: true });
+  const types = ['bar', 'column', 'line', 'donut', 'stacked'];
+  for (const layout of ['standard', 'slides']) for (const format of ['html', 'scorm12', 'scorm2004']) {
+    const blocks = types.map(type => ({ ...base, id: `chart-${type}`, data: { ...base.data, chartType: type }, ...(layout === 'slides' ? { slideFrame: { x: 5, y: 5, width: 90, height: 85, z: 0 } } : {}) }));
+    const lesson = { id: 'lesson', sectionId: 's', title: 'Charts', order: 0, blocks };
+    const data = editorSnapshotSchema.parse({ title: 'Animated charts', description: '', revision: 0, courseLayout: layout, navigationMode: 'free', sections: [{ id: 's', title: 'Learn', order: 0 }], lessons: layout === 'slides' ? blocks.map((block, index) => ({ ...lesson, id: `slide-${index}`, order: index, blocks: [block] })) : [lesson] });
+    const file = resolve(`test-results/chart-${layout}-${format}.html`);
+    writeFileSync(file, '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>' + css + '</style></head><body><div id="export-root"></div><script>window.COURSE_EXPORT_DATA=' + JSON.stringify({ ...data, courseId: `chart-${layout}-${format}`, scorm12Enabled: format === 'scorm12', scorm2004Enabled: format === 'scorm2004' }).replaceAll('<', '\\u003c') + '</script><script>' + js + '</script></body></html>');
+    const offline = await browser.newPage({ viewport: { width: 1200, height: 900 } });
+    const requests = [];
+    offline.on('request', request => { if (/^https?:/.test(request.url())) requests.push(request.url()); });
+    offline.on('pageerror', error => errors.push(error.message));
+    await offline.addInitScript(() => {
+      window.__chartMotions = [];
+      const animate = Element.prototype.animate;
+      Element.prototype.animate = function (...args) {
+        if (this.dataset.chartMotion) window.__chartMotions.push({ type: this.closest('[data-chart-type]').dataset.chartType, kind: this.dataset.chartMotion });
+        return animate.apply(this, args);
+      };
+    });
+    await offline.goto(pathToFileURL(file).href);
+    if (layout === 'standard') await offline.getByRole('button', { name: 'Start learning', exact: true }).click();
+    for (const [index, type] of types.entries()) {
+      const chart = offline.locator(`[data-chart-type="${type}"]`);
+      await chart.scrollIntoViewIfNeeded();
+      await offline.waitForFunction(type => window.__chartMotions.some(item => item.type === type && item.kind !== 'value'), type);
+      await expect(chart).not.toHaveAttribute('data-chart-reveal', 'pending');
+      await offline.evaluate(() => document.getAnimations().forEach(animation => animation.finish()));
+      if (layout === 'slides') {
+        const count = await offline.evaluate(() => window.__chartMotions.length);
+        await offline.getByRole('button', { name: 'Restart slide', exact: true }).click();
+        await offline.waitForFunction(count => window.__chartMotions.length > count, count);
+        if (index < types.length - 1) await offline.getByRole('button', { name: 'Next', exact: true }).click();
+      }
+    }
+    assert.deepEqual(requests, [], 'Compiled charts must animate without application/network requests');
+    await offline.close();
+  }
   assert.deepEqual(errors, []);
-  console.log('Chart browser checks passed: live theme defaults, field colors/gradients in all five styles, settings and reload, resets, and column/line label spacing on desktop/mobile.');
+  console.log('Chart browser checks passed: all five fills/drawing, reduced motion, live colors/gradients, settings/reload, desktop/mobile spacing, and six compiled Standard/Presentation HTML/SCORM learners including Restart without network requests.');
 } finally { await browser?.close(); await vite.close(); }

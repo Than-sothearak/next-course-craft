@@ -182,7 +182,7 @@ export function PreviewBlock({
       />
     );
   } else if (block.type === "chart") {
-    content = <ChartBlockPreview data={block.data} />;
+    content = <ChartBlockPreview data={block.data} presentation={slideLayout} authoring={authoring} decorative={decorative} animation={block.slideAnimation} />;
   } else if (block.type === "formula") {
     content = <EducationalFormula data={block.data} />;
   } else if (block.type === "table") {

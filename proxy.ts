@@ -5,6 +5,7 @@ import { assertMutationOrigin } from "@/lib/auth/http-security";
 import { dashboardErrorResponse } from "@/lib/dashboard/http";
 
 export default auth(async (request) => {
+  if (/^\/share\/[^/]+\/?$/.test(request.nextUrl.pathname)) return NextResponse.next();
   if (request.nextUrl.pathname.startsWith("/api/")) {
     try { assertMutationOrigin(request); } catch (error) { return dashboardErrorResponse(error); }
     // APIs return their own 401/403 responses, rather than HTML login redirects.

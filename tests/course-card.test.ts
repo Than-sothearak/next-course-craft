@@ -81,6 +81,7 @@ describe("course card actions", () => {
       "PDF handout",
       "SCORM 1.2",
       "SCORM 2004",
+      "Share link",
     ]);
     act(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
     expect(container.querySelector('[role="menu"]')).toBeNull();

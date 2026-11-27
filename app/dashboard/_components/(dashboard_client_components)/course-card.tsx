@@ -27,6 +27,7 @@ export function CourseCard({
   error,
   onSubmit,
   onRequest,
+  onShareChanged,
 }: {
   course: DashboardCourse;
   data: DashboardData;
@@ -39,6 +40,7 @@ export function CourseCard({
     method: string,
   ) => Promise<void>;
   onRequest: (url: string, method: string, body?: unknown) => Promise<void>;
+  onShareChanged?: () => void;
 }) {
   const statusVariant =
     course.status === "published"
@@ -107,7 +109,7 @@ export function CourseCard({
             {course.lessonCount}{" "}
             {course.lessonCount === 1 ? "lesson" : "lessons"}
           </span>
-          {course.permissions?.includes("courses.publish") && course.permissions?.includes("courses.export") && <div className="relative z-20"><PublishMenu courseId={course.id} title={course.title} disabled={disabled || busy} openUpward closeOnMouseLeave /></div>}
+          {course.permissions?.includes("courses.publish") && course.permissions?.includes("courses.export") && <div className="relative z-20"><PublishMenu courseId={course.id} title={course.title} disabled={disabled || busy} openUpward closeOnMouseLeave onShareChanged={onShareChanged} /></div>}
         </div>
       </div>
     </Card>

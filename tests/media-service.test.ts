@@ -4,9 +4,11 @@ const mocks = vi.hoisted(() => ({
   findOne: vi.fn(),
   deleteOne: vi.fn(),
   deleteMediaObject: vi.fn(),
+  publishedMedia: vi.fn(),
 }));
 
 vi.mock("@/models/Asset", () => ({ Asset: { findOne: mocks.findOne, deleteOne: mocks.deleteOne } }));
+vi.mock("@/models/Course", () => ({ Course: { exists: mocks.publishedMedia } }));
 vi.mock("@/lib/media/storage", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/lib/media/storage")>(),
   deleteMediaObject: mocks.deleteMediaObject,
@@ -20,6 +22,7 @@ describe("course media deletion", () => {
     mocks.findOne.mockResolvedValue({ _id: "asset-1", objectKey: "owner-1/course-1/asset-1" });
     mocks.deleteMediaObject.mockResolvedValue(undefined);
     mocks.deleteOne.mockResolvedValue({ deletedCount: 1 });
+    mocks.publishedMedia.mockResolvedValue(null);
   });
 
   it("deletes the S3 object before removing the owner-scoped asset record", async () => {
@@ -41,6 +44,13 @@ describe("course media deletion", () => {
     mocks.findOne.mockResolvedValue(null);
 
     await expect(deleteCourseMediaAsset("owner-1", "course-1", "asset-1")).rejects.toThrow("Media asset not found.");
+    expect(mocks.deleteMediaObject).not.toHaveBeenCalled();
+    expect(mocks.deleteOne).not.toHaveBeenCalled();
+  });
+
+  it("keeps files referenced by the published snapshot", async () => {
+    mocks.publishedMedia.mockResolvedValue({ _id: "course-1" });
+    await expect(deleteCourseMediaAsset("owner-1", "course-1", "asset-1")).rejects.toMatchObject({ status: 409 });
     expect(mocks.deleteMediaObject).not.toHaveBeenCalled();
     expect(mocks.deleteOne).not.toHaveBeenCalled();
   });

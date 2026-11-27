@@ -88,7 +88,7 @@ try {
     assert.equal((await dialog.getByRole("button", { name: "Done", exact: true }).boundingBox()).y, doneY);
     await dialog.getByRole("button", { name: "Publish", exact: true }).click();
     const formats = dialog.getByRole("menu", { name: "Publish format" });
-    assert.equal(await formats.getByRole("menuitem").count(), 4);
+    assert.equal(await formats.getByRole("menuitem").count(), 5);
     const formatBounds = await formats.boundingBox();
     assert.ok(formatBounds.y >= bounds.y && formatBounds.y + formatBounds.height <= bounds.y + bounds.height, `Publish formats must not be clipped: ${JSON.stringify({ width, height, formatBounds, bounds })}`);
     for (const item of await formats.getByRole("menuitem").all()) {

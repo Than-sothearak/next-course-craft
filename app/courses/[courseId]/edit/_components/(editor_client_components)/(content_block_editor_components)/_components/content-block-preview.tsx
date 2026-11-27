@@ -38,7 +38,7 @@ export function ContentBlockPreview({ block, onChange, presentation = false, cou
   ) : block.type === "attachment" ? (
     <FileAttachmentLink href={block.data.src} fileName={block.data.fileName} size={block.data.size} />
   ) : block.type === "chart" ? (
-    <ChartBlockPreview data={block.data} />
+    <ChartBlockPreview data={block.data} authoring />
   ) : block.type === "formula" ? (
     <EducationalFormula data={block.data} />
   ) : block.type === "table" ? (

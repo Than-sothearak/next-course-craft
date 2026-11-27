@@ -1,7 +1,11 @@
-import { useId, type CSSProperties } from "react";
+"use client";
+
+import { useId, useRef, type CSSProperties } from "react";
 import type { ContentBlock } from "@/lib/schemas/block";
 import { backgroundPaint, parseGradient, solidColor } from "@/lib/color";
 import { SvgGradient } from "@/components/svg-gradient";
+import { useChartAnimation } from "@/components/use-chart-animation";
+import type { SlideAnimation } from "@/lib/editor/slide-animation";
 
 export type ChartBlockData = Extract<ContentBlock, { type: "chart" }>["data"];
 
@@ -34,16 +38,17 @@ function BarChart({ data }: { data: ChartBlockData }) {
   const max = Math.max(1, ...data.fields.map((field) => field.value));
   return (
     <div className="space-y-4" aria-label="Horizontal bar chart">
-      {data.fields.map((field) => (
+      {data.fields.map((field, index) => (
         <div key={field.id} data-slide-animation-item className="grid grid-cols-[minmax(72px,1fr)_minmax(0,3fr)_auto] items-center gap-3 sm:gap-4">
           <span className="truncate text-sm text-slate-600">{field.label || "Untitled field"}</span>
           <span className="h-3 overflow-hidden rounded-full bg-slate-100">
             <span
-              className="block h-full rounded-full transition-[width] duration-300"
-              style={{ width: `${(field.value / max) * 100}%`, ...backgroundPaint(field.color ?? data.color ?? themeChartColor) }}
+              data-chart-motion="bar" data-chart-index={index}
+              className="block h-full rounded-full motion-safe:transition-[width] motion-safe:duration-300"
+              style={{ transformOrigin: "left center", width: `${(field.value / max) * 100}%`, ...backgroundPaint(field.color ?? data.color ?? themeChartColor) }}
             />
           </span>
-          <span className="min-w-10 text-right text-sm font-medium tabular-nums text-slate-800">
+          <span data-chart-motion="value" data-chart-index={index} className="min-w-10 text-right text-sm font-medium tabular-nums text-slate-800">
             {formatValue(field.value)}
           </span>
         </div>
@@ -74,8 +79,8 @@ function ColumnChart({ data, gradientId }: { data: ChartBlockData; gradientId: s
         const y = chartHeight - height;
         return (
           <g key={field.id} data-slide-animation-item>
-            <rect x={x} y={y} width={barWidth} height={height} rx="6" fill={fieldSvgColor(field.color, gradientId, index)} />
-            <text x={x + barWidth / 2} y={Math.max(14, y - 8)} textAnchor="middle" className="fill-slate-700 text-[12px]">
+            <rect data-chart-motion="column" data-chart-index={index} style={{ transformBox: "fill-box", transformOrigin: "center bottom" }} x={x} y={y} width={barWidth} height={height} rx="6" fill={fieldSvgColor(field.color, gradientId, index)} />
+            <text data-chart-motion="value" data-chart-index={index} x={x + barWidth / 2} y={Math.max(14, y - 8)} textAnchor="middle" className="fill-slate-700 text-[12px]">
               {formatValue(field.value)}
             </text>
             <text x={x + barWidth / 2} y={chartHeight + 24} textAnchor="middle" className="fill-slate-500 text-[12px]">
@@ -112,11 +117,11 @@ function LineChart({ data, gradientId }: { data: ChartBlockData; gradientId: str
     >
       <ChartGradients data={data} gradientId={gradientId} />
       <path d={`M ${padding} 0 V ${chartHeight} H ${chartWidth - padding}`} fill="none" stroke="#e2e8f0" strokeWidth="2" />
-      {points.length > 1 && <polyline points={pointString} fill="none" stroke="var(--chart-svg)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />}
+      {points.length > 1 && <polyline data-chart-motion="line" pathLength="100" points={pointString} fill="none" stroke="var(--chart-svg)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />}
       {points.map((point, index) => (
         <g key={point.id} data-slide-animation-item>
-          <circle cx={point.x} cy={point.y} r="6" fill="white" stroke={fieldSvgColor(point.color, gradientId, index)} strokeWidth="4" />
-          <text x={point.x} y={point.y - 18} textAnchor="middle" className="fill-slate-700 text-[12px]">
+          <circle data-chart-motion="point" data-chart-index={index} style={{ transformBox: "fill-box", transformOrigin: "center" }} cx={point.x} cy={point.y} r="6" fill="white" stroke={fieldSvgColor(point.color, gradientId, index)} strokeWidth="4" />
+          <text data-chart-motion="value" data-chart-index={index} x={point.x} y={point.y - 18} textAnchor="middle" className="fill-slate-700 text-[12px]">
             {formatValue(point.value)}
           </text>
           <text x={point.x} y={chartHeight + 26} textAnchor="middle" className="fill-slate-500 text-[12px]">
@@ -145,6 +150,7 @@ function DonutChart({ data, gradientId }: { data: ChartBlockData; gradientId: st
           return (
             <circle
               key={field.id}
+              data-chart-motion="arc" data-chart-index={index}
               cx="80"
               cy="80"
               r="62"
@@ -170,7 +176,7 @@ function DonutChart({ data, gradientId }: { data: ChartBlockData; gradientId: st
               style={chartSegmentStyle(data, field, index)}
             />
             <span className="min-w-0 flex-1 text-slate-600">{field.label || "Untitled field"}</span>
-            <span className="font-medium tabular-nums text-slate-800">{formatValue(field.value)}{total ? ` · ${Math.round((field.value / total) * 100)}%` : ""}</span>
+            <span data-chart-motion="value" data-chart-index={index} className="font-medium tabular-nums text-slate-800">{formatValue(field.value)}{total ? ` · ${Math.round((field.value / total) * 100)}%` : ""}</span>
           </div>
         ))}
       </div>
@@ -187,9 +193,11 @@ function StackedChart({ data }: { data: ChartBlockData }) {
         {data.fields.map((field, index) => (
           <span
             key={field.id}
+            data-chart-motion="stacked" data-chart-index={index}
             title={`${field.label}: ${formatValue(field.value)}`}
-            className="h-full transition-[width] duration-300"
+            className="h-full motion-safe:transition-[width] motion-safe:duration-300"
             style={{
+              transformOrigin: "left center",
               width: `${(field.value / denominator) * 100}%`,
               ...chartSegmentStyle(data, field, index),
             }}
@@ -205,7 +213,7 @@ function StackedChart({ data }: { data: ChartBlockData }) {
               style={chartSegmentStyle(data, field, index)}
             />
             <span className="min-w-0 flex-1 truncate text-slate-600">{field.label || "Untitled field"}</span>
-            <span className="font-medium tabular-nums text-slate-800">{formatValue(field.value)}</span>
+            <span data-chart-motion="value" data-chart-index={index} className="font-medium tabular-nums text-slate-800">{formatValue(field.value)}</span>
           </div>
         ))}
       </div>
@@ -213,8 +221,11 @@ function StackedChart({ data }: { data: ChartBlockData }) {
   );
 }
 
-export function ChartBlockPreview({ data }: { data: ChartBlockData }) {
+export function ChartBlockPreview({ data, presentation = false, authoring = false, decorative = false, animation }: { data: ChartBlockData; presentation?: boolean; authoring?: boolean; decorative?: boolean; animation?: SlideAnimation }) {
   const gradientId = `chart-${useId().replaceAll(":", "")}`;
+  const ref = useRef<HTMLElement>(null);
+  const contentKey = JSON.stringify([data.chartType, data.fields.map((field) => [field.id, field.value])]);
+  useChartAnimation(ref, { contentKey, fieldCount: data.fields.length, presentation, authoring, decorative, animation });
   let chart: React.ReactNode;
   if (data.chartType === "bar") chart = <BarChart data={data} />;
   else if (data.chartType === "column") chart = <ColumnChart data={data} gradientId={gradientId} />;
@@ -223,7 +234,7 @@ export function ChartBlockPreview({ data }: { data: ChartBlockData }) {
   else chart = <StackedChart data={data} />;
 
   return (
-    <figure className="w-full min-w-0 space-y-5" style={chartColorStyle(data.color, gradientId)}>
+    <figure ref={ref} data-chart-type={data.chartType} className="w-full min-w-0 space-y-5" style={chartColorStyle(data.color, gradientId)}>
       {(data.title || data.description) && (
         <figcaption className="space-y-1">
           {data.title && <h3 className="m-0 text-lg font-semibold tracking-tight text-slate-900">{data.title}</h3>}

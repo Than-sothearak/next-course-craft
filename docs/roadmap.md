@@ -1,5 +1,9 @@
 # Delivery roadmap
 
+Requested chart animation refinement: smooth per-field bar/column growth, line drawing, donut sweep, stacked fills and value reveals across learner preview, public links and static HTML/SCORM. Viewport entry, presentation activation/Preview/Restart, reduced motion and still authoring/thumbnails use the existing shared renderer and presentation lifecycle without expanding other phases.
+
+Requested publishing extension: Publish → Share link creates a public learner URL with copy/open, publish update and turn-off controls. Course-scoped publish/export authorization, validated atomic snapshots, stable update URLs, token-scoped referenced media and immediate access revocation extend the existing publishing slice. Standard and Presentation reuse the shared standalone renderer; this adds no second application, export worker, registration flow or centralized learner tracking.
+
 Requested template-preview refinement: compact diagrams, statement callouts, charts, formulas, tables, code and link variants with thumbnail-sized typography and spacing, plus a picker grid that fits the available panel width. This is limited to the existing block picker and preserves template insertion and learner/export appearance.
 
 Requested theme/settings extension: theme-color and gradient block background presets; consistent Course theme sections with Advanced default typography (title/subtitle/heading/body sizes, title alignment and line spacing), and improved cover alignment controls. This extends the existing themes and block-editor slice with validated optional fields, normal save/undo behavior and shared static rendering; existing formatting and Presentation master typography remain authoritative.

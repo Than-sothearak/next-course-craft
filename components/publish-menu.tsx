@@ -1,18 +1,19 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ChevronDown, Download, LoaderCircle } from "lucide-react";
+import { ChevronDown, Download, FileCode2, FileText, Link2, LoaderCircle, Package, type LucideIcon } from "lucide-react";
+import { CourseShareDialog } from "@/components/course-share-dialog";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { courseExportFilename, type CourseExportFormat } from "@/lib/export/filename";
 
 type PublishFormat = CourseExportFormat;
 
-const formats: Array<{ id: PublishFormat; label: string; endpoint: string }> = [
-  { id: "html", label: "HTML", endpoint: "" },
-  { id: "pdf", label: "PDF handout", endpoint: "/pdf" },
-  { id: "scorm12", label: "SCORM 1.2", endpoint: "/scorm12" },
-  { id: "scorm2004", label: "SCORM 2004", endpoint: "/scorm2004" },
+const formats: Array<{ id: PublishFormat; label: string; endpoint: string; icon: LucideIcon }> = [
+  { id: "html", label: "HTML", endpoint: "", icon: FileCode2 },
+  { id: "pdf", label: "PDF handout", endpoint: "/pdf", icon: FileText },
+  { id: "scorm12", label: "SCORM 1.2", endpoint: "/scorm12", icon: Package },
+  { id: "scorm2004", label: "SCORM 2004", endpoint: "/scorm2004", icon: Package },
 ];
 
 export async function receiveExport(response: Response, onProgress: (stage: string, value: number) => void) {
@@ -79,6 +80,7 @@ export function PublishMenu({
   closeOnMouseLeave = false,
   compact = false,
   onPublished,
+  onShareChanged,
 }: {
   courseId: string;
   title: string;
@@ -89,8 +91,10 @@ export function PublishMenu({
   closeOnMouseLeave?: boolean;
   compact?: boolean;
   onPublished?: () => void;
+  onShareChanged?: () => void;
 }) {
   const [open, setOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [publishing, setPublishing] = useState<PublishFormat | null>(null);
   const [progress, setProgress] = useState<{ stage: string; value: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -183,9 +187,14 @@ export function PublishMenu({
               onClick={() => void publish(format.id)}
               className="h-10 w-full justify-start rounded-lg px-3 text-left text-sm font-medium text-slate-700"
             >
+              <format.icon size={14} className="shrink-0" aria-hidden="true" />
               {format.label}
             </Button>
           ))}
+          <div className="my-1 border-t border-slate-100" />
+          <Button type="button" variant="ghost" size="sm" role="menuitem" className="h-10 w-full justify-start rounded-lg px-3 text-left text-sm font-medium text-slate-700" onClick={() => { setOpen(false); setShareOpen(true); }}>
+            <Link2 size={14} className="shrink-0" aria-hidden="true" />Share link
+          </Button>
           {error && <p role="alert" className="mx-2 my-1 border-t border-slate-100 pt-2 text-xs leading-5 text-rose-700">{error}</p>}
         </div>
       )}
@@ -198,6 +207,7 @@ export function PublishMenu({
         </section>
       )}
       {error && !open && <div role="alert" className="absolute right-0 top-full z-[71] mt-2 w-72 rounded-xl border border-rose-200 bg-white p-3 text-xs text-rose-700 shadow-xl">{error}{failedFormat && <Button variant="ghost" size="sm" className="ml-2 h-7" onClick={() => void publish(failedFormat)}>Retry</Button>}</div>}
+      {shareOpen && <CourseShareDialog courseId={courseId} onClose={() => setShareOpen(false)} onPublished={onPublished} onShareChanged={onShareChanged} />}
     </div>
   );
 }

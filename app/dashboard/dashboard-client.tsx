@@ -574,6 +574,7 @@ export default function DashboardClient({
                   {data.courses.map((course) => (
                     <CourseCard
                       key={`${course.id}:${data.workspaceId ?? "personal"}`}
+                      onShareChanged={() => { void refresh().catch((cause) => setError(cause instanceof Error ? cause.message : "Could not refresh your workspace.")); }}
                       course={course}
                       data={data}
                       disabled={disabled}

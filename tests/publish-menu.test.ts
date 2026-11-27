@@ -26,7 +26,7 @@ describe("publish format menu", () => {
     Reflect.deleteProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT");
   });
 
-  it("offers HTML, PDF handout, SCORM 1.2, and SCORM 2004 exports", () => {
+  it("offers a share link and HTML, PDF handout, SCORM 1.2, and SCORM 2004 exports", () => {
     act(() => {
       root.render(createElement(PublishMenu, { courseId: "course-1", title: "Sample course" }));
     });
@@ -40,6 +40,7 @@ describe("publish format menu", () => {
       "PDF handout",
       "SCORM 1.2",
       "SCORM 2004",
+      "Share link",
     ]);
   });
 

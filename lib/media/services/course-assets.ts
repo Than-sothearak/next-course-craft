@@ -1,4 +1,5 @@
 import { Asset } from "@/models/Asset";
+import { Course } from "@/models/Course";
 import { DashboardError } from "@/lib/dashboard/rules";
 import { resolveCourseAccess } from "@/lib/workspaces/access";
 import { deleteStoredMedia } from "../service";
@@ -35,6 +36,10 @@ export async function listCourseMedia(ownerId: string, courseId: string, cursor?
 export async function deleteCourseMediaAsset(ownerId: string, courseId: string, assetId: string) {
   const asset = await Asset.findOne({ _id: assetId, ownerId, courseId, status: "ready" });
   if (!asset) throw new DashboardError("Media asset not found.", 404);
+
+  if (await Course.exists({ _id: courseId, deletedAt: null, "publicShare.assetIds": assetId })) {
+    throw new DashboardError("This file is used by the public course. Update or turn off its share link before deleting it.", 409);
+  }
 
   try {
     await deleteStoredMedia(asset);

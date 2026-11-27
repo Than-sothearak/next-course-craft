@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+/* Static/unsupported-motion fallbacks keep chart data fully visible. */
+[data-chart-reveal="pending"] [data-chart-motion] { opacity: 0; }
+@media (prefers-reduced-motion: reduce) {
+  [data-chart-reveal="pending"] [data-chart-motion] { opacity: 1; }
+}
+
 .course-timeline .timeline-list { position: relative; display: grid; gap: 24px; margin: 0; padding: 4px 0; list-style: none; }
 .course-timeline .timeline-list::before { content: ""; position: absolute; top: 4px; bottom: 4px; left: 11px; width: 2px; background: var(--timeline-paint); }
 .course-timeline .timeline-item { position: relative; display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 12px; min-width: 0; }
