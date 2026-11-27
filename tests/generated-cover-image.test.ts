@@ -32,15 +32,15 @@ describe("fast generated course cover assets", () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body).tools[0]).toMatchObject({ model: "gpt-image-2.6-flare", size: "1280x720", quality: "high" });
     expect(Asset.create).toHaveBeenCalledWith(expect.objectContaining({ metadata: expect.objectContaining({ imageModel: "gpt-image-2.6-flare" }) }));
   });
-  it("defaults to medium-quality WebP and stores a direct 1152x656 cover below 100 KB", async () => {
+  it("defaults to medium-quality WebP and stores a direct 1152x656 cover up to 200 KB", async () => {
     output(await webp());
     const image = await createGeneratedImageAsset(ownerId, courseId, "Cover for HTML", { purpose: "course-cover" });
     const request = JSON.parse(fetchMock.mock.calls[0][1].body);
-    expect(request.tools[0]).toMatchObject({ type: "image_generation", size: "1152x656", quality: "medium", output_format: "webp", output_compression: 30 });
+    expect(request.tools[0]).toMatchObject({ type: "image_generation", size: "1152x656", quality: "medium", output_format: "webp", output_compression: 60 });
     expect(storage.upload).toHaveBeenCalledWith(expect.objectContaining({ contentType: "image/webp", size: expect.any(Number) }));
     const asset = vi.mocked(Asset.create).mock.calls[0][0] as Record<string, unknown>;
     expect(asset).toMatchObject({ ownerId, courseId, mimeType: "image/webp", originalName: expect.stringMatching(/\.webp$/), metadata: expect.objectContaining({ purpose: "course-cover", imageQuality: "medium", width: 1152, height: 656 }) });
-    expect(asset.size).toBeLessThan(100_000);
+    expect(asset.size).toBeLessThanOrEqual(200_000);
     expect(image.src).toMatch(/^\/api\/assets\/[a-f\d]{24}\/file$/);
   });
   it.each(qualityCases.flatMap(({ quality }) => ([
@@ -53,7 +53,7 @@ describe("fast generated course cover assets", () => {
     output(providerBytes);
     await createGeneratedImageAsset(ownerId, courseId, "Teach HTML", { purpose, imageQuality: quality });
     const request = JSON.parse(fetchMock.mock.calls[0][1].body);
-    expect(request.tools[0]).toMatchObject({ model: "gpt-image-1-mini", size: "1536x1024", quality, output_format: "webp", output_compression: 30 });
+    expect(request.tools[0]).toMatchObject({ model: "gpt-image-1-mini", size: "1536x1024", quality, output_format: "webp", output_compression: 60 });
     expect(storage.upload.mock.calls[0][0].body).toEqual(providerBytes);
     expect(Asset.create).toHaveBeenCalledWith(expect.objectContaining({
       metadata: expect.objectContaining({ width: 1536, height: 1024, imageQuality: quality }),
@@ -94,7 +94,7 @@ describe("fast generated course cover assets", () => {
       size: `${width}x${height}`,
       quality,
       output_format: "webp",
-      output_compression: 30,
+      output_compression: 60,
     });
     expect(storage.upload.mock.calls[0][0].body).toEqual(providerBytes);
     expect(await sharp(storage.upload.mock.calls[0][0].body).metadata()).toMatchObject({ format: "webp", width, height });
@@ -109,7 +109,7 @@ describe("fast generated course cover assets", () => {
     expect(block).toMatchObject({ type: "image", width: "full", widthCustom: false, blockPadding: 0, data: { layout: "cover", imageFit: "cover", imageAspectRatio: "50/13", coverOverlayOpacity: 0, alt: "Create a page lesson cover" } });
     const request = JSON.parse(fetchMock.mock.calls[0][1].body);
     expect(request.input).toContain("full-width 3:1 panoramic lesson banner");
-    expect(request.tools[0]).toMatchObject({ size: "1440x480", quality: "medium", output_format: "webp", output_compression: 30 });
+    expect(request.tools[0]).toMatchObject({ size: "1440x480", quality: "medium", output_format: "webp", output_compression: 60 });
     expect(Asset.create).toHaveBeenCalledWith(expect.objectContaining({ metadata: expect.objectContaining({ purpose: "lesson-cover", width: 1440, height: 480 }) }));
     expect(storage.upload.mock.calls[0][0].body).toEqual(generatedBytes);
     expect(await sharp(storage.upload.mock.calls[0][0].body).metadata()).toMatchObject({ width: 1440, height: 480 });
@@ -127,7 +127,7 @@ describe("fast generated course cover assets", () => {
     output(providerBytes);
     await createGeneratedImageAsset(ownerId, courseId, "Teaching illustration", { imageQuality: quality });
     const tool = JSON.parse(fetchMock.mock.calls[0][1].body).tools[0];
-    expect(tool).toMatchObject({ size: `${width}x${height}`, quality, output_format: "webp", output_compression: 30 });
+    expect(tool).toMatchObject({ size: `${width}x${height}`, quality, output_format: "webp", output_compression: 60 });
     expect(width % 16).toBe(0);
     expect(height % 16).toBe(0);
     expect(width * height).toBeGreaterThanOrEqual(655_360);
@@ -143,7 +143,7 @@ describe("fast generated course cover assets", () => {
     output(providerBytes);
     await toLessonCoverBlock(ownerId, courseId, "HTML basics", "Lesson cover", "Build a page", vi.fn(), { imageQuality: quality });
     expect(JSON.parse(fetchMock.mock.calls[0][1].body).tools[0]).toMatchObject({
-      size: "1440x480", quality, output_format: "webp", output_compression: 30,
+      size: "1440x480", quality, output_format: "webp", output_compression: 60,
     });
     expect(storage.upload.mock.calls[0][0].body).toEqual(providerBytes);
     expect(await sharp(storage.upload.mock.calls[0][0].body).metadata()).toMatchObject({ width: 1440, height: 480 });
@@ -156,23 +156,23 @@ describe("fast generated course cover assets", () => {
     const generatedBytes = await sharp(randomBytes(width * height * 3), {
       raw: { width, height, channels: 3 },
     }).webp().toBuffer();
-    expect(generatedBytes.length).toBeGreaterThanOrEqual(100_000);
+    expect(generatedBytes.length).toBeGreaterThan(200_000);
     output(generatedBytes);
-    await expect(createGeneratedImageAsset(ownerId, courseId, "Course image", { purpose, imageQuality: "high" })).rejects.toThrow("100 KB or larger");
+    await expect(createGeneratedImageAsset(ownerId, courseId, "Course image", { purpose, imageQuality: "high" })).rejects.toThrow("larger than 200 KB");
     expect(storage.upload).not.toHaveBeenCalled();
     expect(Asset.create).not.toHaveBeenCalled();
     expect(fetchMock).toHaveBeenCalledOnce();
   });
-  it.each([99_999, 100_000])("enforces the strict 100 KB boundary for a %i-byte API image", async (size) => {
+  it.each([99_999, 100_000, 150_000, 199_999, 200_000, 200_001])("enforces the 200 KB maximum for a %i-byte API image", async (size) => {
     const providerBytes = await webp();
     const bytes = Buffer.concat([providerBytes, Buffer.alloc(size - providerBytes.length)]);
     output(bytes);
     const generation = createGeneratedImageAsset(ownerId, courseId, "Course image");
-    if (size < 100_000) {
+    if (size <= 200_000) {
       await generation;
       expect(storage.upload.mock.calls[0][0].body).toEqual(bytes);
     } else {
-      await expect(generation).rejects.toThrow("100 KB or larger");
+      await expect(generation).rejects.toThrow("larger than 200 KB");
       expect(storage.upload).not.toHaveBeenCalled();
     }
   });

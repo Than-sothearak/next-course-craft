@@ -154,8 +154,8 @@ async function generateImage(prompt: string, options: GeneratedImageOptions, cou
       throw new DashboardError(`The image service returned an invalid image or dimensions other than ${imageSize}.`, 502);
 
     // Preserve the exact API bytes; compression is controlled by the provider.
-    if (!stepGuide && bytes.length >= generatedCourseImageMaxBytes)
-      throw new DashboardError("The image service returned an image of 100 KB or larger. Try generating it again; the provider cannot guarantee an exact file size.", 502);
+    if (!stepGuide && bytes.length > generatedCourseImageMaxBytes)
+      throw new DashboardError("The image service returned an image larger than 200 KB. Try generating it again; the provider cannot guarantee an exact file size.", 502);
     return { bytes, mimeType: "image/webp", extension: "webp", width, height };
   } catch (error) {
     if (error instanceof DashboardError) throw error;

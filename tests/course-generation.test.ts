@@ -725,7 +725,7 @@ describe("AI course generation contracts", () => {
           status: "ready",
         });
         expect(asset.mimeType).toBe("image/webp");
-        expect(asset.size).toBeLessThan(100_000);
+        expect(asset.size).toBeLessThanOrEqual(200_000);
         const expectedBytes = asset.metadata.purpose === "lesson-cover" ? lessonWebp : webp;
         expect(asset.size).toBe(expectedBytes.length);
         expect(storedBytes).toEqual(expectedBytes);

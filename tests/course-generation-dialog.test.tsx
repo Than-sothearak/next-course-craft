@@ -155,7 +155,7 @@ describe("course generation structure previews", () => {
     expect(Array.from(qualitySelect.options, (option) => option.textContent)).toEqual(["Low", "Medium", "High"]);
     expect(container.textContent).toContain("Medium AI generation quality · 1152 × 656 pixels.");
     expect(container.textContent).toContain("Lesson covers use 1440 × 480 pixels");
-    expect(container.textContent).toContain("Compressed WebP, below 100 KB.");
+    expect(container.textContent).toContain("Compressed WebP, targeting around 100–200 KB (maximum 200 KB).");
     const imageControls = styleSelect.closest('[class*="sm:grid-cols-3"]');
     expect(imageControls?.contains(container.querySelector('input[type="checkbox"]'))).toBe(true);
     await act(async () => {

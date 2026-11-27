@@ -62,7 +62,7 @@ export function generatedImageDimensions(quality: CourseImageQuality, model = de
 
 export function courseImageQualityDescription(quality: CourseImageQuality, model = defaultCourseImageGenerationModel) {
   const { width, height } = generatedImageDimensions(quality, model);
-  return `${quality[0].toUpperCase()}${quality.slice(1)} AI generation quality · ${width} × ${height} pixels. Compressed WebP, below 100 KB.`;
+  return `${quality[0].toUpperCase()}${quality.slice(1)} AI generation quality · ${width} × ${height} pixels. Compressed WebP, targeting around 100–200 KB (maximum 200 KB).`;
 }
 
 export function lessonCoverImageDescription(quality: CourseImageQuality, model = defaultCourseImageGenerationModel) {
@@ -70,8 +70,8 @@ export function lessonCoverImageDescription(quality: CourseImageQuality, model =
   return `Lesson covers use ${width} × ${height} pixels with the selected AI quality.`;
 }
 
-export const generatedCourseImageOutputCompression = 30;
-export const generatedCourseImageMaxBytes = 100_000;
+export const generatedCourseImageOutputCompression = 60;
+export const generatedCourseImageMaxBytes = 200_000;
 
 export const courseImageQualityOptions: { value: CourseImageQuality; label: string }[] = [
   { value: "low", label: "Low" },

@@ -202,7 +202,7 @@ describe("AI course review wizard", () => {
     expect(container.textContent).toContain("Lesson covers use 1440 × 480 pixels");
     await select(imageQualitySelect, "low");
     expect(container.textContent).toContain("Low AI generation quality · 1024 × 640 pixels.");
-    expect(container.textContent).toContain("Compressed WebP, below 100 KB.");
+    expect(container.textContent).toContain("Compressed WebP, targeting around 100–200 KB (maximum 200 KB).");
     expect(container.textContent).toContain("Image generation may take longer than a typical response, so wait for the generation to finish.");
     expect(imageModelSelect.value).toBe("");
     expect(imageModelSelect.disabled).toBe(false);
