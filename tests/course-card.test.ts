@@ -53,10 +53,11 @@ describe("course card actions", () => {
     container.remove();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+    vi.useRealTimers();
     Reflect.deleteProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT");
   });
 
-  it("opens compact course settings above the cards and offers all publish formats", () => {
+  it("publishes from the card and opens sharing in the three-dot settings popup", () => {
     act(() => {
       root.render(createElement(CourseCard, {
         course,
@@ -70,6 +71,20 @@ describe("course card actions", () => {
 
     expect(container.querySelector(".aspect-video.rounded-t-2xl.overflow-hidden")).not.toBeNull();
     expect(container.querySelector("dialog")).toBeNull();
+    expect(container.querySelector('a[href="/courses/course-1/access"]')).toBeNull();
+    const publishButton = container.querySelector<HTMLButtonElement>('button[aria-label="Publish course"]')!;
+    expect(publishButton.textContent).toBe("Publish");
+    act(() => publishButton.click());
+    const menu = container.querySelector('[role="menu"][aria-label="Publish format"]');
+    expect([...menu!.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent)).toEqual([
+      "HTML",
+      "PDF handout",
+      "SCORM 1.2",
+      "SCORM 2004",
+    ]);
+    act(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+    expect(container.querySelector('[role="menu"]')).toBeNull();
+
     const trigger = container.querySelector<HTMLButtonElement>('button[aria-haspopup="dialog"]')!;
     act(() => trigger.click());
     expect(trigger.getAttribute("aria-expanded")).toBe("true");
@@ -78,22 +93,95 @@ describe("course card actions", () => {
     expect(dialog.parentElement).toBe(document.body);
     expect(dialog.getAttribute("aria-modal")).toBe("false");
     expect(document.documentElement.style.overflow).toBe("");
-    const publishButton = [...dialog.querySelectorAll("button")].find((button) => button.textContent === "Publish");
-    expect(publishButton).toBeDefined();
-
-    act(() => publishButton!.click());
-    const menu = document.querySelector('[role="menu"][aria-label="Publish format"]');
-    expect([...menu!.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent)).toEqual([
-      "HTML",
-      "PDF handout",
-      "SCORM 1.2",
-      "SCORM 2004",
-    ]);
-    act(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+    expect(dialog.querySelector('button[aria-label="Publish course"]')).toBeNull();
+    expect(dialog.querySelector('a[href="/courses/course-1/access"]')?.textContent).toBe("Share access");
     act(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
     expect(dialog.dataset.state).toBe("closed");
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
     expect(document.documentElement.style.overflow).toBe("");
+  });
+
+  it("uses one accessible card-wide editor link with separate action controls", () => {
+    act(() => root.render(createElement(CourseCard, { course, data, disabled: false, busy: false, onSubmit: async () => {}, onRequest: async () => {} })));
+    const links = container.querySelectorAll("a");
+    expect(links).toHaveLength(1);
+    expect(links[0].getAttribute("href")).toBe("/courses/course-1/edit/standard-mode");
+    expect(links[0].getAttribute("aria-label")).toBe("Open editor: Sample course");
+    expect(links[0].className).toContain("after:inset-0");
+    expect(links[0].className).toContain("focus-visible:after:outline-2");
+    expect(links[0].querySelector("button")).toBeNull();
+  });
+
+  it("allows moving between the three-dot trigger and popup, then closes on mouse leave", () => {
+    vi.useFakeTimers();
+    act(() => root.render(createElement(CourseCard, { course, data, disabled: false, busy: false, onSubmit: async () => {}, onRequest: async () => {} })));
+    const trigger = container.querySelector<HTMLButtonElement>('button[aria-haspopup="dialog"]')!;
+    act(() => trigger.click());
+    const dialog = document.querySelector<HTMLElement>('[data-card-popover][data-state="open"]')!;
+    const pointer = (type: string, relatedTarget: EventTarget, pointerType = "mouse") => Object.assign(new MouseEvent(type, { bubbles: true, relatedTarget }), { pointerType });
+    act(() => {
+      trigger.dispatchEvent(pointer("pointerout", document.body));
+      vi.advanceTimersByTime(100);
+      dialog.dispatchEvent(pointer("pointerover", document.body));
+      vi.advanceTimersByTime(300);
+    });
+    expect(dialog.dataset.state).toBe("open");
+    act(() => {
+      dialog.dispatchEvent(pointer("pointerout", trigger));
+      vi.advanceTimersByTime(300);
+    });
+    expect(dialog.dataset.state).toBe("open");
+    act(() => {
+      dialog.querySelector("input")!.dispatchEvent(pointer("pointerout", dialog.querySelector("select")!));
+      vi.advanceTimersByTime(300);
+    });
+    expect(dialog.dataset.state).toBe("open");
+    act(() => {
+      dialog.dispatchEvent(pointer("pointerout", document.body));
+      vi.advanceTimersByTime(250);
+    });
+    expect(dialog.dataset.state).toBe("closed");
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    expect(document.activeElement).toBe(trigger);
+  });
+
+  it("keeps the three-dot popup open for touch and cancels mouse dismissal while saving", () => {
+    vi.useFakeTimers();
+    const props = { course, data, disabled: false, busy: false, onSubmit: async () => {}, onRequest: async () => {} };
+    act(() => root.render(createElement(CourseCard, props)));
+    act(() => container.querySelector<HTMLButtonElement>('button[aria-haspopup="dialog"]')!.click());
+    const dialog = document.querySelector<HTMLElement>('[data-card-popover][data-state="open"]')!;
+    const leave = (pointerType: string) => Object.assign(new MouseEvent("pointerout", { bubbles: true, relatedTarget: document.body }), { pointerType });
+    act(() => {
+      dialog.dispatchEvent(leave("touch"));
+      vi.advanceTimersByTime(300);
+    });
+    expect(dialog.dataset.state).toBe("open");
+    act(() => dialog.dispatchEvent(leave("mouse")));
+    act(() => root.render(createElement(CourseCard, { ...props, busy: true })));
+    act(() => vi.advanceTimersByTime(300));
+    expect(dialog.dataset.state).toBe("open");
+    act(() => {
+      dialog.dispatchEvent(leave("mouse"));
+      vi.advanceTimersByTime(300);
+    });
+    expect(dialog.dataset.state).toBe("open");
+  });
+
+  it("keeps publishing and sharing permissions and disables card actions while saving", () => {
+    const props = { course, data, disabled: false, busy: false, onSubmit: async () => {}, onRequest: async () => {} };
+    for (const permission of ["courses.publish", "courses.export"] as const) {
+      act(() => root.render(createElement(CourseCard, { ...props, course: { ...course, permissions: course.permissions?.filter((value) => value !== permission) } })));
+      expect(container.querySelector('button[aria-label="Publish course"]')).toBeNull();
+    }
+    act(() => root.render(createElement(CourseCard, { ...props, busy: true })));
+    expect(container.querySelector<HTMLButtonElement>('button[aria-label="Publish course"]')?.disabled).toBe(true);
+    expect(container.querySelector<HTMLButtonElement>('button[aria-haspopup="dialog"]')?.disabled).toBe(true);
+    act(() => root.render(createElement(CourseCard, { ...props, disabled: true })));
+    expect(container.querySelector<HTMLButtonElement>('button[aria-label="Publish course"]')?.disabled).toBe(true);
+    act(() => root.render(createElement(CourseCard, { ...props, course: { ...course, permissions: course.permissions?.filter((value) => value !== "courses.assign") } })));
+    act(() => container.querySelector<HTMLButtonElement>('button[aria-haspopup="dialog"]')!.click());
+    expect(document.querySelector('[data-card-popover] a[href="/courses/course-1/access"]')).toBeNull();
   });
 
   it("identifies standard and slide presentation cards even when a cover image is set", () => {

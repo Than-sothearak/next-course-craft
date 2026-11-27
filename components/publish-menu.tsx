@@ -76,6 +76,7 @@ export function PublishMenu({
   disabledReason,
   className,
   openUpward = false,
+  closeOnMouseLeave = false,
   compact = false,
   onPublished,
 }: {
@@ -85,6 +86,7 @@ export function PublishMenu({
   disabledReason?: string;
   className?: string;
   openUpward?: boolean;
+  closeOnMouseLeave?: boolean;
   compact?: boolean;
   onPublished?: () => void;
 }) {
@@ -151,7 +153,7 @@ export function PublishMenu({
   }
 
   return (
-    <div ref={menuRef} className="relative">
+    <div ref={menuRef} className="relative" onPointerLeave={(event) => { if (closeOnMouseLeave && event.pointerType === "mouse") setOpen(false); }}>
       <Button
         type="button"
         variant={compact ? "ghost" : "outline"}
@@ -169,7 +171,7 @@ export function PublishMenu({
         {!compact && !publishing && <ChevronDown size={14} />}
       </Button>
       {open && (
-        <div role="menu" aria-label="Publish format" className={`absolute right-0 z-[70] w-52 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl ${openUpward ? "bottom-full mb-2" : "top-full mt-2"}`}>
+        <div role="menu" aria-label="Publish format" className={`absolute right-0 z-[70] w-52 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl ${openUpward ? "bottom-full mb-2" : "top-full mt-2"} ${closeOnMouseLeave ? `after:absolute after:inset-x-0 after:h-3 ${openUpward ? "after:top-full" : "after:bottom-full"}` : ""}`}>
           {formats.map((format) => (
             <Button
               key={format.id}

@@ -6,6 +6,7 @@ import { BookOpenText, Clock3, Presentation } from "lucide-react";
 import type { DashboardCourse, DashboardData } from "@/lib/dashboard/types";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { PublishMenu } from "@/components/publish-menu";
 import { CourseSettingsPopover } from "./course-settings-popover";
 import { courseEditorMode, editorModeHref, previewModeHref } from "@/lib/editor/course-routes";
 
@@ -52,8 +53,7 @@ export function CourseCard({
     : editorModeHref(course.id, courseMode);
 
   return (
-    <>
-    <Card className="relative flex h-full min-w-0 flex-col overflow-hidden rounded-2xl shadow-[0_2px_8px_rgba(15,23,42,0.03)] transition hover:border-indigo-200 hover:shadow-md">
+    <Card className="group relative flex h-full min-w-0 flex-col rounded-2xl shadow-[0_2px_8px_rgba(15,23,42,0.03)] transition hover:border-indigo-200 hover:shadow-md focus-within:border-indigo-200">
       <div className="relative flex aspect-video w-full shrink-0 items-center justify-center overflow-hidden rounded-t-2xl bg-gradient-to-br from-indigo-100 via-violet-50 to-cyan-50">
         {course.coverImage ? (
           <Image
@@ -87,13 +87,13 @@ export function CourseCard({
               className="line-clamp-2 break-words font-semibold text-slate-900"
               title={course.title}
             >
-              <Link href={courseHref} className="rounded-sm hover:text-indigo-700 focus-visible:outline-2 focus-visible:outline-indigo-600">{course.title}</Link>
+              <Link href={courseHref} aria-label={`${readOnly ? "Preview course" : "Open editor"}: ${course.title}`} className="rounded-sm group-hover:text-indigo-700 focus-visible:outline-none after:absolute after:inset-0 after:z-10 after:cursor-pointer after:rounded-2xl focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-indigo-600">{course.title}</Link>
             </h3>
             <p className="mt-1 line-clamp-2 min-h-10 break-words text-sm leading-5 text-slate-500">
               {course.description || "Start building your learning experience."}
             </p>
           </div>
-          {!readOnly && <CourseSettingsPopover course={course} data={data} disabled={disabled} busy={busy} error={error} onSubmit={onSubmit} onRequest={onRequest} />}
+          {!readOnly && <div className="relative z-20"><CourseSettingsPopover course={course} data={data} disabled={disabled} busy={busy} error={error} onSubmit={onSubmit} onRequest={onRequest} /></div>}
         </div>
         <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3">
           <Badge variant={statusVariant}>{course.status}</Badge>
@@ -107,12 +107,9 @@ export function CourseCard({
             {course.lessonCount}{" "}
             {course.lessonCount === 1 ? "lesson" : "lessons"}
           </span>
-          {course.permissions?.includes("courses.assign") && <Link href={`/courses/${course.id}/access`} className="inline-flex min-h-10 items-center whitespace-nowrap font-medium text-indigo-700 sm:min-h-8">Share access</Link>}
-          <Link href={courseHref} className="inline-flex min-h-10 items-center whitespace-nowrap font-medium text-indigo-700 hover:text-indigo-900 sm:min-h-8">{readOnly ? "Preview course" : "Open editor"} <span aria-hidden="true">→</span></Link>
+          {course.permissions?.includes("courses.publish") && course.permissions?.includes("courses.export") && <div className="relative z-20"><PublishMenu courseId={course.id} title={course.title} disabled={disabled || busy} openUpward closeOnMouseLeave /></div>}
         </div>
       </div>
     </Card>
-
-    </>
   );
 }

@@ -1,13 +1,13 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useId, useState, type ComponentProps } from "react";
-import { Copy, FolderInput, ImagePlus, MoreHorizontal, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Copy, FolderInput, ImagePlus, MoreHorizontal, Share2, Trash2 } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover } from "@/components/ui/popover";
 import { Select } from "@/components/ui/select";
-import { PublishMenu } from "@/components/publish-menu";
 import { MediaLibraryDialog } from "@/app/courses/[courseId]/edit/_components/media-library-dialog";
 import type { CourseCard } from "./course-card";
 
@@ -29,9 +29,10 @@ export function CourseSettingsPopover({ course, data, disabled, busy, error, onS
       trigger={<MoreHorizontal size={18} aria-hidden="true" />}
       disabled={unavailable}
       busy={busy}
+      closeOnMouseLeave
       footer={<>
         <Button size="sm" variant="ghost" disabled={busy} onClick={() => setOpen(false)} className="mr-auto">Done</Button>
-        {course.permissions?.includes("courses.publish") && course.permissions?.includes("courses.export") && <PublishMenu courseId={course.id} title={course.title} disabled={unavailable} openUpward />}
+        {course.permissions?.includes("courses.assign") && <Link href={`/courses/${course.id}/access`} className={buttonVariants({ variant: "outline", size: "sm" })}><Share2 size={14} aria-hidden="true" />Share access</Link>}
       </>}
     >
       <div className="space-y-4">

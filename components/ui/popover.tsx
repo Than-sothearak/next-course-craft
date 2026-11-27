@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { Button } from "./button";
 
 /** A compact, nonmodal panel kept above card badges and inside the viewport. */
-export function Popover({ open, onOpenChange, title, triggerLabel, trigger, children, footer, disabled = false, busy = false, portalTarget, anchorElement, placement = "center", ownerId, layer = 70, initialFocusSelector, triggerActive = false }: {
+export function Popover({ open, onOpenChange, title, triggerLabel, trigger, children, footer, disabled = false, busy = false, portalTarget, anchorElement, placement = "center", ownerId, layer = 70, initialFocusSelector, triggerActive = false, closeOnMouseLeave = false }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
@@ -23,14 +23,38 @@ export function Popover({ open, onOpenChange, title, triggerLabel, trigger, chil
   layer?: number;
   initialFocusSelector?: string;
   triggerActive?: boolean;
+  closeOnMouseLeave?: boolean;
 }) {
   const id = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
+  const mouseLeaveTimerRef = useRef<number | null>(null);
   const [present, setPresent] = useState(open);
   if (open && !present) setPresent(true);
   const [position, setPosition] = useState<{ left: number; top: number; maxHeight: number } | null>(null);
+
+  function cancelMouseLeave() {
+    if (mouseLeaveTimerRef.current !== null) window.clearTimeout(mouseLeaveTimerRef.current);
+    mouseLeaveTimerRef.current = null;
+  }
+
+  function scheduleMouseLeave(event: ReactPointerEvent<HTMLElement>) {
+    if (!closeOnMouseLeave || !open || busy || event.pointerType !== "mouse") return;
+    const target = event.relatedTarget;
+    if (target instanceof Node && (triggerRef.current?.contains(target) || panelRef.current?.contains(target))) return;
+    cancelMouseLeave();
+    // The panel is portaled, so allow time to cross the gap from its trigger.
+    mouseLeaveTimerRef.current = window.setTimeout(() => {
+      mouseLeaveTimerRef.current = null;
+      onOpenChange(false);
+    }, 250);
+  }
+
+  useEffect(() => () => {
+    if (mouseLeaveTimerRef.current !== null) window.clearTimeout(mouseLeaveTimerRef.current);
+    mouseLeaveTimerRef.current = null;
+  }, [open, busy, closeOnMouseLeave]);
 
   useEffect(() => {
     if (open) return;
@@ -111,9 +135,9 @@ export function Popover({ open, onOpenChange, title, triggerLabel, trigger, chil
   }, [open, present, busy, onOpenChange]);
 
   return <>
-    <Button ref={triggerRef} variant={triggerActive ? "secondary" : "ghost"} size="icon" aria-label={triggerLabel} aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? id : undefined} disabled={disabled} onClick={() => open ? close() : onOpenChange(true)} className="size-8 text-slate-400 hover:text-slate-700">{trigger}</Button>
+    <Button ref={triggerRef} variant={triggerActive ? "secondary" : "ghost"} size="icon" aria-label={triggerLabel} aria-haspopup="dialog" aria-expanded={open} aria-controls={open ? id : undefined} disabled={disabled} onPointerEnter={cancelMouseLeave} onPointerLeave={scheduleMouseLeave} onClick={() => open ? close() : onOpenChange(true)} className="size-8 text-slate-400 hover:text-slate-700">{trigger}</Button>
     {present && typeof document !== "undefined" && createPortal(
-      <section ref={panelRef} id={id} role="dialog" aria-modal="false" aria-labelledby={`${id}-title`} aria-hidden={!open} inert={!open} data-state={open ? "open" : "closed"} data-card-popover data-popover-owner={ownerId} onKeyDown={(event) => {
+      <section ref={panelRef} id={id} role="dialog" aria-modal="false" aria-labelledby={`${id}-title`} aria-hidden={!open} inert={!open} data-state={open ? "open" : "closed"} data-card-popover data-popover-owner={ownerId} onPointerEnter={cancelMouseLeave} onPointerLeave={scheduleMouseLeave} onKeyDown={(event) => {
         if (event.key === "Escape" && !event.defaultPrevented) { event.preventDefault(); event.stopPropagation(); close(); }
       }} className="card-actions-popover fixed z-[70] flex max-h-[560px] w-80 max-w-[calc(100vw-24px)] flex-col rounded-xl border border-slate-200 bg-white text-slate-900 shadow-[0_16px_48px_rgba(15,23,42,0.18)]" style={{ ...position, zIndex: layer, visibility: position ? "visible" : "hidden" }}>
         <header className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 px-4 py-2.5">

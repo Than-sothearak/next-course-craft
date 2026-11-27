@@ -59,6 +59,37 @@ describe("publish format menu", () => {
     expect(trigger?.className).toContain("size-8");
   });
 
+  it("keeps card formats open while moving into the menu and closes when the mouse leaves", () => {
+    act(() => root.render(createElement(PublishMenu, { courseId: "course-1", title: "Sample course", openUpward: true, closeOnMouseLeave: true })));
+    const trigger = container.querySelector<HTMLButtonElement>("button")!;
+    act(() => trigger.click());
+    const menu = container.querySelector<HTMLElement>('[role="menu"]')!;
+    const format = menu.querySelector("button")!;
+    act(() => trigger.dispatchEvent(Object.assign(new MouseEvent("pointerout", { bubbles: true, relatedTarget: format }), { pointerType: "mouse" })));
+    expect(container.querySelector('[role="menu"]')).toBe(menu);
+    act(() => format.dispatchEvent(Object.assign(new MouseEvent("pointerout", { bubbles: true, relatedTarget: document.body }), { pointerType: "mouse" })));
+    expect(container.querySelector('[role="menu"]')).toBeNull();
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it("preserves click dismissal for publishing menus outside course cards", () => {
+    act(() => root.render(createElement(PublishMenu, { courseId: "course-1", title: "Sample course" })));
+    const trigger = container.querySelector<HTMLButtonElement>("button")!;
+    act(() => trigger.click());
+    act(() => trigger.dispatchEvent(Object.assign(new MouseEvent("pointerout", { bubbles: true, relatedTarget: document.body }), { pointerType: "mouse" })));
+    expect(container.querySelector('[role="menu"]')).not.toBeNull();
+    act(() => trigger.click());
+    expect(container.querySelector('[role="menu"]')).toBeNull();
+  });
+
+  it("keeps card formats open after a touch pointer leaves", () => {
+    act(() => root.render(createElement(PublishMenu, { courseId: "course-1", title: "Sample course", closeOnMouseLeave: true })));
+    const trigger = container.querySelector<HTMLButtonElement>("button")!;
+    act(() => trigger.click());
+    act(() => trigger.dispatchEvent(Object.assign(new MouseEvent("pointerout", { bubbles: true, relatedTarget: document.body }), { pointerType: "touch" })));
+    expect(container.querySelector('[role="menu"]')).not.toBeNull();
+  });
+
   it("receives streamed export progress and the final binary file", async () => {
     const filename = "My Presentation មេរៀន-scorm-1.2.zip";
     const header = new TextEncoder().encode(`${JSON.stringify({ type: "progress", stage: "Packaging", value: 70 })}\n${JSON.stringify({ type: "file", filename, size: 3 })}\n`);

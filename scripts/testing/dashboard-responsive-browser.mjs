@@ -21,7 +21,7 @@ const data={currentFolder:null,breadcrumbs:[{id:null,name:'All courses'},...(fil
 window.__data=data;window.__filters=filters;
 if(skeleton)return <><button onClick={()=>setSkeleton(false)}>Exit skeleton</button><DashboardSkeleton/></>;
 return <main className="flex min-h-screen flex-col bg-[#f7f8fc]"><DashboardNavbar userName="Mobile Author" actions={editorNav?<><Button variant="ghost" size="icon" aria-label="Back">←</Button><Button variant="ghost" size="icon" aria-label="Forward">→</Button></>:undefined} primaryAction={editorNav?<div className="flex items-center gap-2"><span className="whitespace-nowrap">All changes saved</span>{['Undo','Redo','Generate course'].map(label=><Button key={label}>{label}</Button>)}<PublishMenu courseId="test" title="Test course"/></div>:undefined}/><DashboardProvider key={JSON.stringify(filters)} initialFilters={filters}><div className="grid flex-1 lg:grid-cols-[260px_minmax(0,1fr)]"><DashboardNavigationClient initialNavigation={data} initialError={null}/><DashboardClient initialData={data} initialError={null} userName="MobileAuthorWithAVeryLongUnbrokenName"/></div></DashboardProvider><footer className="p-4"><Button onClick={()=>setEditorNav(value=>!value)}>Toggle editor navbar</Button><Button onClick={()=>setSkeleton(true)}>Show loading skeleton</Button></footer></main>};createRoot(document.getElementById('root')).render(<App/>);`;
-const link = `import React from'react';export const useLinkStatus=()=>({pending:false});export default function Link({children,prefetch,...props}){return React.createElement('a',{...props,onClick:event=>{props.onClick?.(event);if(!event.defaultPrevented&&event.button===0&&!event.metaKey&&!event.ctrlKey&&!event.shiftKey&&!event.altKey&&String(props.href).startsWith('/dashboard')){event.preventDefault();window.__push(String(props.href));}}},children)}`;
+const link = `import React from'react';export const useLinkStatus=()=>({pending:false});export default function Link({children,prefetch,...props}){return React.createElement('a',{...props,onClick:event=>{props.onClick?.(event);if(!event.defaultPrevented&&event.button===0&&!event.metaKey&&!event.ctrlKey&&!event.shiftKey&&!event.altKey){if(String(props.href).startsWith('/dashboard')){event.preventDefault();window.__push(String(props.href));}else if(String(props.href).startsWith('/courses/')){event.preventDefault();window.__courseHref=String(props.href);}}}},children)}`;
 const navigation = `export function useRouter(){return{push:href=>window.__push(href),refresh(){},back(){},forward(){}}}`;
 const vite = await createServer({ configFile: false, root: process.cwd(), cacheDir: "node_modules/.vite-dashboard-responsive", define: { "process.env": JSON.stringify({ NODE_ENV: "development" }) }, resolve: { alias: { "@": process.cwd() } }, esbuild: { jsx: "automatic", loader: "tsx", include: /\.[jt]sx?$/ }, optimizeDeps: { noDiscovery: true, include: ["react", "react-dom", "react-dom/client", "react/jsx-runtime", "react/jsx-dev-runtime", "lucide-react", "class-variance-authority", "clsx", "tailwind-merge", "next/image"] }, server: { host: "127.0.0.1", port: 0, watch: { ignored: ["**/.next/**", "**/test-results/**", "**/public/course-export/**"] } }, plugins: [{ name: "dashboard-fixture", enforce: "pre", resolveId(id, importer) {
   if (id === "/__dashboard.tsx") return id;
@@ -36,7 +36,7 @@ const vite = await createServer({ configFile: false, root: process.cwd(), cacheD
 }, configureServer(server) { server.middlewares.use((request, response, next) => { if (!request.url?.startsWith('/__dashboard') || request.url.startsWith('/__dashboard.tsx')) return next(); response.setHeader('Content-Type', 'text/html'); response.end('<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><div id="root"></div><script type="module" src="/__dashboard.tsx"></script></body></html>'); }); } }] });
 let browser;
 try {
-  await vite.listen(); browser = await chromium.launch({ headless: true });
+  await vite.listen(); browser = await chromium.launch({ headless: true, channel: process.env.PLAYWRIGHT_CHANNEL || undefined });
   const page = await browser.newPage({ hasTouch: true }); page.setDefaultTimeout(10000);
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.addInitScript(() => { window.process = { env: { NODE_ENV: 'development' } }; window.__push = href => { history.pushState(null, '', href); window.dispatchEvent(new Event('fixture-route')); }; });
@@ -53,13 +53,58 @@ try {
       const statusRows=await cards.evaluateAll(elements=>elements.slice(0,2).map(element=>({top:element.getBoundingClientRect().top,status:element.querySelector('.border-t').getBoundingClientRect().top})));
       if(statusRows[0].top===statusRows[1].top)assert.ok(Math.abs(statusRows[0].status-statusRows[1].status)<1,'Card metadata aligns across the row');
     }
-    const actions = cards.first().getByRole('link', {name:/Open editor/});
-    const share = cards.first().getByRole('link', {name:'Share access',exact:true});
-    const a = await actions.boundingBox(), b = await share.boundingBox();
-    assert.ok(a.x+a.width<=b.x || b.x+b.width<=a.x || a.y+a.height<=b.y || b.y+b.height<=a.y,'Card actions never overlap');
+    assert.equal(await cards.first().getByRole('link', {name:'Share access',exact:true}).count(),0);
+    for (const [index, mode] of [[0,'standard-mode'],[1,'presentation-mode']]) {
+      const card = cards.nth(index);
+      for (const target of ['.aspect-video','p','.border-t']) {
+        await page.evaluate(()=>{window.__courseHref=null;});
+        await card.locator(target).evaluate(element=>element.scrollIntoView({block:'center',behavior:'instant'}));
+        const bounds=await card.locator(target).boundingBox();
+        await page.mouse.click(bounds.x+12,bounds.y+bounds.height/2);
+        assert.equal(await page.evaluate(()=>window.__courseHref),`/courses/course-${index}/edit/${mode}`,`Card ${index} ${target} opens the editor at ${width}px`);
+      }
+    }
+    await cards.first().getByRole('link',{name:/Open editor/}).focus();
+    await page.keyboard.press('Enter');
+    assert.equal(await page.evaluate(()=>window.__courseHref),'/courses/course-0/edit/standard-mode');
+    await page.evaluate(()=>{window.__courseHref=null;});
+    await cards.first().getByRole('button',{name:'Publish course',exact:true}).tap();
+    const cardPublishMenu=cards.first().getByRole('menu',{name:'Publish format',exact:true});
+    const cardMenuBounds=await cardPublishMenu.boundingBox();
+    assert.ok(cardMenuBounds.x>=0&&cardMenuBounds.x+cardMenuBounds.width<=width,'Card publish formats fit the viewport');
+    assert.equal(await cardPublishMenu.getByRole('menuitem',{name:'SCORM 2004',exact:true}).evaluate(element=>{const bounds=element.getBoundingClientRect();return element.contains(document.elementFromPoint(bounds.x+bounds.width/2,bounds.y+bounds.height/2));}),true,'Card publish menu stays clickable above its cover and card link');
+    assert.equal(await page.evaluate(()=>window.__courseHref),null,'Publish does not open the editor');
+    await page.keyboard.press('Escape');
+    if(width===1280){
+      const publishButton=cards.first().getByRole('button',{name:'Publish course',exact:true});
+      await publishButton.click();
+      const buttonBounds=await publishButton.boundingBox();
+      const formatBounds=await cardPublishMenu.getByRole('menuitem',{name:'SCORM 2004',exact:true}).boundingBox();
+      await page.mouse.move(buttonBounds.x+buttonBounds.width/2,formatBounds.y+formatBounds.height/2,{steps:20});
+      assert.equal(await cardPublishMenu.isVisible(),true,'Moving through the button-menu gap keeps formats open');
+      await page.mouse.move(buttonBounds.x-30,buttonBounds.y+buttonBounds.height/2);
+      await cardPublishMenu.waitFor({state:'hidden'});
+      assert.equal(await publishButton.getAttribute('aria-expanded'),'false','Leaving Publish dismisses the card popup');
+    }
     await cards.last().getByRole('button', {name:/^Manage /}).tap();
     const settings = page.getByRole('dialog',{name:'Course settings',exact:true}); await settings.waitFor();
     const settingsBounds=await settings.boundingBox(); assert.ok(settingsBounds.x>=0&&settingsBounds.x+settingsBounds.width<=width);
+    assert.equal(await settings.getByRole('button',{name:'Publish course',exact:true}).count(),0);
+    await settings.getByRole('link',{name:'Share access',exact:true}).tap();
+    assert.equal(await page.evaluate(()=>window.__courseHref),'/courses/course-5/access','Sharing opens access from the settings popup');
+    if(width===1280){
+      await settings.getByRole('heading',{name:'Course settings',exact:true}).hover();
+      await page.waitForTimeout(300);
+      assert.equal(await settings.isVisible(),true,'Moving into the three-dot popup keeps settings open');
+      await page.mouse.move(0,0);
+      await settings.waitFor({state:'hidden'});
+      const manageButton=cards.last().getByRole('button',{name:/^Manage /});
+      assert.equal(await manageButton.getAttribute('aria-expanded'),'false','Leaving the three-dot popup dismisses settings');
+      await manageButton.click();
+      await settings.getByRole('heading',{name:'Course settings',exact:true}).hover();
+      await page.waitForTimeout(300);
+      assert.equal(await settings.isVisible(),true,'Mouse users can move from the three-dot button into settings');
+    }
     await page.keyboard.press('Escape');
     if(width<1024){
       await page.getByRole('button',{name:'Open folders and workspaces',exact:true}).tap();
@@ -82,7 +127,7 @@ try {
     await page.getByRole('button',{name:'Toggle editor navbar',exact:true}).click();
     await page.evaluate(()=>scrollTo(0,0));
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`Navbar fits at ${width}px`);
-    await page.locator('header').getByRole('button',{name:'Publish',exact:true}).tap();
+    await page.locator('header').getByRole('button',{name:'Publish course',exact:true}).tap();
     const publishMenu=page.getByRole('menu',{name:'Publish format',exact:true}), publishBounds=await publishMenu.boundingBox();
     assert.ok(publishBounds.x>=0&&publishBounds.x+publishBounds.width<=width,'The navbar Publish menu fits the screen');
     assert.equal(await publishMenu.getByRole('menuitem',{name:'SCORM 2004',exact:true}).evaluate(element=>{const bounds=element.getBoundingClientRect();return element.contains(document.elementFromPoint(bounds.x+bounds.width/2,bounds.y+bounds.height/2));}),true,'Navbar dropdowns stay clickable without overflow clipping');
