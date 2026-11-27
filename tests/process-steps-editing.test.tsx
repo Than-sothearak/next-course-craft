@@ -37,12 +37,16 @@ describe("process step authoring", () => {
     selectedAsset = { id: assetId, fileUrl: media.src, originalName: media.fileName, contentType: media.mimeType, size: media.size };
     Object.defineProperty(Range.prototype, "getClientRects", { configurable: true, value: () => [] });
     Object.defineProperty(Range.prototype, "getBoundingClientRect", { configurable: true, value: () => new DOMRect() });
+    Object.defineProperty(HTMLDialogElement.prototype, "showModal", { configurable: true, value: function (this: HTMLDialogElement) { this.open = true; } });
+    Object.defineProperty(HTMLDialogElement.prototype, "close", { configurable: true, value: function (this: HTMLDialogElement) { this.open = false; } });
     container = document.createElement("div"); document.body.append(container); root = createRoot(container);
   });
   afterEach(() => {
-    act(() => root.unmount()); container.remove(); vi.restoreAllMocks();
+    act(() => root.unmount()); container.remove(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers();
     delete (Range.prototype as unknown as Record<string, unknown>).getClientRects;
     delete (Range.prototype as unknown as Record<string, unknown>).getBoundingClientRect;
+    delete (HTMLDialogElement.prototype as unknown as Record<string, unknown>).showModal;
+    delete (HTMLDialogElement.prototype as unknown as Record<string, unknown>).close;
   });
   const click = (label: string) => act(async () => document.querySelector<HTMLButtonElement>(`[aria-label="${label}"]`)!.click());
   const input = (label: string, value: string) => act(async () => {
@@ -117,7 +121,105 @@ describe("process step authoring", () => {
     await click("Go to previous process step");
     expect(editor("instructions").querySelector("strong")?.textContent).toBe("Read the image");
     expect(container.querySelector("article img")?.getAttribute("src")).toBe(media.src);
+    const frame = container.querySelector<HTMLElement>("[data-process-media-frame]")!;
+    expect(frame.style.width).toBe("720px");
+    expect(frame.style.aspectRatio).toBe("720 / 400");
+    expect(frame.querySelector("img")?.style.objectFit).toBe("cover");
     expect(remapCourseAssetUrls(saved, new Map([[assetId, "./media/guide.png"]])).data.steps[0].media?.src).toBe("./media/guide.png");
+  });
+
+  it.each(["standard", "slide", "popup"] as const)("generates and applies a slider image from the current instructions in %s", async (mode) => {
+    const original = initial(); original.data.style = "slider"; original.data.steps[0].attachment = file;
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ media }), { status: 201 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await act(async () => root.render(<Authoring mode={mode} original={original} />));
+    act(() => editor("instructions").editor.commands.setContent("<p>Updated instructions</p>"));
+    await click("Generate image for process step 1");
+    const button = (label: string) => [...document.querySelectorAll<HTMLButtonElement>("dialog button")].find((item) => item.textContent === label)!;
+    await act(async () => button("Generate image").click());
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ title: "Prepare", instructions: "Updated instructions", customPrompt: "" });
+    expect(saved.data.steps[0].media).toBeUndefined();
+    expect(document.querySelector("dialog img")?.getAttribute("src")).toBe(media.src);
+    await act(async () => button("Use image").click());
+    expect(saved.data.steps[0]).toMatchObject({ body: "Updated instructions", media, attachment: file });
+    expect(saved.data.steps[1].media).toBeUndefined();
+    expect(container.querySelector("article img")?.getAttribute("src")).toBe(media.src);
+    expect(remapCourseAssetUrls(saved, new Map([[assetId, "./media/guide.png"]])).data.steps[0].media?.src).toBe("./media/guide.png");
+  });
+
+  it("supports custom image instructions and retries without replacing existing media on failure", async () => {
+    const original = initial(); original.data.style = "slider"; original.data.steps[0].media = media; original.data.steps[0].body = "";
+    const fetchMock = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ error: "Try again shortly" }), { status: 429 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ media }), { status: 201 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await act(async () => root.render(<Authoring original={original} />));
+    await click("Generate image for process step 1");
+    const button = (label: string) => [...document.querySelectorAll<HTMLButtonElement>("dialog button")].find((item) => item.textContent === label)!;
+    expect(button("Generate image").disabled).toBe(true);
+    await act(async () => {
+      const prompt = document.querySelector<HTMLTextAreaElement>("dialog textarea")!;
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(prompt, "Show a seedling");
+      prompt.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => button("Generate image").click());
+    expect(document.querySelector('[role="alert"]')?.textContent).toBe("Try again shortly");
+    expect(saved.data.steps[0].media).toEqual(media);
+    await act(async () => button("Generate image").click());
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body).customPrompt).toBe("Show a seedling");
+    await act(async () => button("Cancel").click());
+    expect(document.querySelector("dialog[open]")).toBeNull();
+    expect(saved.data.steps[0].media).toEqual(media);
+  });
+
+  it("disables duplicate requests and discards a response after leaving the editor", async () => {
+    let finish!: (response: Response) => void;
+    const fetchMock = vi.fn(() => new Promise<Response>((resolve) => { finish = resolve; }));
+    vi.stubGlobal("fetch", fetchMock);
+    await act(async () => root.render(<Authoring />));
+    await click("Generate image for process step 1");
+    const generate = [...document.querySelectorAll<HTMLButtonElement>("dialog button")].find((item) => item.textContent === "Generate image")!;
+    await act(async () => { generate.click(); generate.click(); });
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(generate.disabled).toBe(true);
+    const signal = (fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].signal!;
+    await act(async () => root.render(<div />));
+    expect(signal.aborted).toBe(true);
+    await act(async () => finish(new Response(JSON.stringify({ media }), { status: 201 })));
+    expect(saved.data.steps[0].media).toBeUndefined();
+    expect(document.querySelector("dialog[open]")).toBeNull();
+  });
+
+  it("covers the image popup, reaches 90% in 15 seconds and holds until the response", async () => {
+    let finish!: (response: Response) => void;
+    vi.stubGlobal("fetch", vi.fn(() => new Promise<Response>((resolve) => { finish = resolve; })));
+    await act(async () => root.render(<Authoring />));
+    await click("Generate image for process step 1");
+    vi.useFakeTimers();
+    const button = (label: string) => [...document.querySelectorAll<HTMLButtonElement>("dialog button")].find((item) => item.textContent === label)!;
+    const progress = () => document.querySelector('[aria-label="Image generation progress"]')!;
+    await act(async () => button("Generate image").click());
+    const dialog = document.querySelector<HTMLDialogElement>("dialog[open]")!;
+    expect(dialog.querySelector("[data-process-step-image-loading]")?.parentElement).toBe(dialog);
+    expect(progress().getAttribute("aria-valuenow")).toBe("0");
+    expect([...dialog.querySelectorAll<HTMLButtonElement>("button")].every((item) => item.disabled)).toBe(true);
+    await act(async () => vi.advanceTimersByTime(7500));
+    expect(progress().getAttribute("aria-valuenow")).toBe("45");
+    await act(async () => vi.advanceTimersByTime(7500));
+    expect(progress().getAttribute("aria-valuenow")).toBe("90");
+    await act(async () => vi.advanceTimersByTime(30_000));
+    expect(progress().getAttribute("aria-valuenow")).toBe("90");
+    expect(dialog.querySelector('[role="status"]')?.textContent).toContain("Still generating");
+    await act(async () => finish(new Response(JSON.stringify({ media }), { status: 201 })));
+    expect(dialog.querySelector("[data-process-step-image-loading]")).toBeNull();
+    expect(button("Use image").disabled).toBe(false);
+    await act(async () => button("Generate again").click());
+    expect(progress().getAttribute("aria-valuenow")).toBe("0");
+    await act(async () => vi.advanceTimersByTime(1000));
+    expect(progress().getAttribute("aria-valuenow")).toBe("6");
+    await act(async () => finish(new Response(JSON.stringify({ error: "Please retry" }), { status: 502 })));
+    expect(dialog.querySelector("[data-process-step-image-loading]")).toBeNull();
+    expect(dialog.querySelector('[role="alert"]')?.textContent).toBe("Please retry");
+    expect(button("Generate image").disabled).toBe(false);
   });
 
   it("adds and removes course media on the active step and retains it through static asset remapping", async () => {
@@ -196,6 +298,14 @@ describe("process step authoring", () => {
     }
     await act(async () => root.render(<Settings />));
     const dimension = (name: string) => container.querySelector<HTMLInputElement>(`[aria-label="Process media ${name}"]`)!;
+    expect(processMediaLayoutSchema.parse({})).toEqual({ width: 720, height: 400, fit: "cover", position: "center" });
+    expect(processMediaLayoutSchema.parse({ fit: "contain" }).fit).toBe("contain");
+    expect(container.querySelector<HTMLSelectElement>('[aria-label="Process media fit"]')?.value).toBe("cover");
+    expect(dimension("width").value).toBe("720"); expect(dimension("height").value).toBe("400");
+    const defaultFrame = container.querySelector<HTMLElement>("[data-process-media-frame]")!;
+    expect(defaultFrame.style.width).toBe("720px"); expect(defaultFrame.style.aspectRatio).toBe("720 / 400");
+    expect(defaultFrame.classList.contains("max-w-full")).toBe(true);
+    expect(defaultFrame.querySelector("img")?.style.objectFit).toBe("cover");
     for (const [name, value] of [["width", "320"], ["height", "200"]]) {
       await act(async () => dimension(name).focus());
       await input(`Process media ${name}`, value);
@@ -224,7 +334,7 @@ describe("process step authoring", () => {
     expect(packaged.lessons[0].blocks[0]).toMatchObject({ data: { mediaLayout: saved.data.mediaLayout, steps: [{ media: { src: "./media/guide.png" }, attachment: { src: "./media/worksheet.pdf" } }, {}] } });
     expect(getHandoutBlockText(saved)).toContain("File: Worksheet.pdf");
     await act(async () => restore());
-    expect(dimension("width").value).toBe("640"); expect(dimension("height").value).toBe("360");
+    expect(dimension("width").value).toBe("720"); expect(dimension("height").value).toBe("400");
   });
 
   it.each([{ width: 0 }, { height: 1601 }, { width: 200.5 }, { fit: "invalid" }, { position: "outside" }])("rejects invalid media sizing %j", (layout) => {

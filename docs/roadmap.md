@@ -1,5 +1,17 @@
 # Delivery roadmap
 
+Requested step image file size: request compressed WebP from the provider, aiming for approximately 100–200 KB without application-side resizing or recompression. Exact byte size depends on the generated image; the existing step display frame, realistic prompts and storage/export paths remain in use.
+
+Requested step image size: the shared process-step media frame defaults to 720 by 400 pixels with Cover fit. Settings, validation, authoring and learner/static rendering share the default, preserve explicit custom dimensions and scale down on smaller screens.
+
+Requested step image realism: software guides resemble real application screens. Web-development examples default to VS Code and a matching browser/app result, with readable code and relevant CSS styling; explicitly requested editors and terminal-only tasks retain their own context. This refines prompts within the existing image-generation slice.
+
+Requested step image loading: cover the Generate image popup with estimated progress reaching 90% over 15 seconds and holding until the real response. Keep the existing provider duration, prevent duplicate actions, and clear the overlay on success or failure within the current image-generation slice.
+
+Requested step image refinement: generate practical demonstrations and useful visual guides from the step instructions, including annotated software examples, physical task close-ups, diagrams and worked examples. A dedicated generation purpose allows minimal English-only labels and callouts with high image quality within the existing process-step image action. Images do not repeat the instructions, custom prompt or step title as written text, regardless of the input language.
+
+Requested Step slider image generation: add a Generate image action to shared process-step media controls, using the current step instructions by default or an optional custom prompt. Authors preview and apply the image through existing course-owned media and save/export paths. This extends the existing AI and process-step authoring slices with permission checks and bounded requests, without expanding other phase scope.
+
 Requested concept-based generation: use as many supported blocks as each concept needs, with brief Text introductions, separate Code/output blocks and explanatory Text bullets, numbered Process steps, and supported comparisons. Remove fixed lesson count/length quotas while retaining depth choices, source completeness, native limits and activity budgets. Keep code groups adjacent, preserve inline code and course language, and reuse existing authoring/preview/static learners without migrating saved courses.
 
 Requested flip-card formatting: render `**bold**`, `***keyword***`, `==highlight==` and inline code on both faces across authoring and learner/export views, and retain generated formatting in the current face text fields. This extends the existing flip-card slice without changing card schema or progress behavior.

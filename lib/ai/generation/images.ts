@@ -11,7 +11,7 @@ import { generationConnectionErrorCode } from "../generation-retry";
 import { logGenerationUsage } from "./usage";
 
 export type GeneratedImageOptions = {
-  purpose?: "course-cover" | "lesson-cover";
+  purpose?: "course-cover" | "lesson-cover" | "process-step-guide";
   imageStyle?: CourseImageStyle;
   customImageStyle?: string;
 };
@@ -19,6 +19,10 @@ export type GeneratedImageOptions = {
 async function generateImage(prompt: string, options: GeneratedImageOptions, courseId: string) {
   const cover = options.purpose === "course-cover" || options.purpose === "lesson-cover";
   const lessonCover = options.purpose === "lesson-cover";
+  const stepGuide = options.purpose === "process-step-guide";
+  const imagePrompt = stepGuide
+    ? `Create one clear, accurate instructional demonstration image for a learner. ${prompt}\nCompose a readable 16:9 landscape visual guide. For software tasks, prioritize the appearance of a real application screenshot over an illustration: authentic interface chrome, realistic controls, sharp text and the actual working screen. For web-development tasks, default to a recognizable VS Code workspace and a matching browser preview when the step produces a web page. Keep the code, CSS styling and rendered app consistent. Prioritize accurate actions, useful detail and legibility. Demonstrate the task visually without printing the instructions, custom prompt or step title in the image. Do not add instruction paragraphs, written directions or captions. Use subtle highlights or arrows only where useful. Include only minimal short labels, necessary interface text or a small worked example. All visible text must be in English only, regardless of the input language or any language requested in the custom prompt. Translate human-readable text into English while preserving code syntax and numeric values. Do not add watermarks or decorative branding.`
+    : `Create one polished, original educational image for a course. ${prompt}. ${cover ? lessonCover ? "Compose this as a clean, full-width, extra-wide 3:1 panoramic banner. Keep the main subject inside a central horizontal band so the image can fill a wider 1200 by 312 cover frame without losing important details." : "Compose this as a clean, full-width 16:9 landscape course cover with the main subject clearly readable on desktop and mobile." : "Use a clear educational composition."} ${courseImageStyleInstruction(options.imageStyle ?? "auto", options.customImageStyle)} Do not add words, labels, watermarks, logos, or captions to the image. Keep clear subject separation.`;
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey)
     throw new DashboardError(
@@ -43,14 +47,14 @@ async function generateImage(prompt: string, options: GeneratedImageOptions, cou
       body: JSON.stringify({
         model,
         store: false,
-        input: `Create one polished, original educational image for a course. ${prompt}. ${cover ? lessonCover ? "Compose this as a clean, full-width, extra-wide 3:1 panoramic banner. Keep the main subject inside a central horizontal band so the image can fill a wider 1200 by 312 cover frame without losing important details." : "Compose this as a clean, full-width 16:9 landscape course cover with the main subject clearly readable on desktop and mobile." : "Use a clear educational composition."} ${courseImageStyleInstruction(options.imageStyle ?? "auto", options.customImageStyle)} Do not add words, labels, watermarks, logos, or captions to the image. Keep clear subject separation.`,
+        input: imagePrompt,
         tools: [
           {
             type: "image_generation",
             model: imageModel,
             size: lessonCover ? "1536x512" : "1280x720",
-            ...(cover ? { output_format: "webp", output_compression: lessonCover ? 90 : 70 } : {}),
-            quality: lessonCover ? "high" : cover ? "medium" : "low",
+            ...(cover || stepGuide ? { output_format: "webp", output_compression: stepGuide ? 60 : lessonCover ? 90 : 70 } : {}),
+            quality: lessonCover || stepGuide ? "high" : cover ? "medium" : "low",
           },
         ],
         tool_choice: { type: "image_generation" },
@@ -108,20 +112,34 @@ async function generateImage(prompt: string, options: GeneratedImageOptions, cou
       502,
     );
   const bytes = Buffer.from(imageItem.result, "base64");
+  const expectsWebp = cover || stepGuide;
   const isWebp = bytes.length >= 12 && bytes.subarray(0, 4).toString("ascii") === "RIFF" && bytes.subarray(8, 12).toString("ascii") === "WEBP";
-  const signature = cover ? Buffer.from("RIFF") : Buffer.from([
+  const signature = expectsWebp ? Buffer.from("RIFF") : Buffer.from([
     0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
   ]);
   if (
     bytes.length < signature.length ||
     bytes.length > 25 * 1024 * 1024 ||
     !bytes.subarray(0, signature.length).equals(signature) ||
-    (cover && !isWebp)
+    (expectsWebp && !isWebp)
   )
     throw new DashboardError(
       "The generated image did not pass file validation.",
       502,
     );
+  if (stepGuide) {
+    try {
+      // Inspect the provider's WebP without resizing or re-encoding its bytes.
+      // API compression is a best-effort size target, not a byte-size limit.
+      const metadata = await sharp(bytes, { limitInputPixels: 40_000_000 }).metadata();
+      if (metadata.format !== "webp" || metadata.width !== 1280 || metadata.height !== 720)
+        throw new DashboardError("The image service returned an invalid step guide image or unexpected dimensions.", 502);
+      return { bytes, mimeType: "image/webp", extension: "webp", width: metadata.width, height: metadata.height };
+    } catch (error) {
+      if (error instanceof DashboardError) throw error;
+      throw new DashboardError("The generated image did not pass file validation.", 502);
+    }
+  }
   if (!cover) return { bytes, mimeType: "image/png", extension: "png", width: 1280, height: 720 };
 
   try {

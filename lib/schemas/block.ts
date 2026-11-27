@@ -582,9 +582,9 @@ export const processStepMediaSchema = z.object({
   size: z.number().int().min(0).max(250 * 1024 * 1024),
 });
 export const processMediaLayoutSchema = z.object({
-  width: z.number().int().min(64).max(1600).default(640),
-  height: z.number().int().min(64).max(1600).default(360),
-  fit: imageFitSchema.default("contain"),
+  width: z.number().int().min(64).max(1600).default(720),
+  height: z.number().int().min(64).max(1600).default(400),
+  fit: imageFitSchema.default("cover"),
   position: imageCoverPositionSchema.default("center"),
 });
 export type ProcessMediaLayout = z.infer<typeof processMediaLayoutSchema>;

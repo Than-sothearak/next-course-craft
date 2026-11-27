@@ -1,6 +1,6 @@
 import type { ContentBlock, ProcessMediaLayout, ProcessStepsStyle } from "../schemas/block";
 
-export const defaultProcessMediaLayout: ProcessMediaLayout = { width: 640, height: 360, fit: "contain", position: "center" };
+export const defaultProcessMediaLayout: ProcessMediaLayout = { width: 720, height: 400, fit: "cover", position: "center" };
 
 type ProcessStep = Extract<ContentBlock, { type: "processSteps" }>["data"]["steps"][number];
 

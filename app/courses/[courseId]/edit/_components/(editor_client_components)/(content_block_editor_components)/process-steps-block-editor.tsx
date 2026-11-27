@@ -32,7 +32,7 @@ export function ProcessStepsBlockEditor({ block, courseId, onChange, onEditorFoc
       renderBody={(step, index) => <StatementTextEditor id={`${block.id}-${step.id}-body`} label={`Edit process step ${index + 1} instructions`} tag="p" html={step.bodyHtml ?? plainInstructionsHtml(step.body)} text={step.body} maxLength={5000} multiline placeholder="Add instructions. Select text to format or add a link." onEditorFocus={onEditorFocus} onChange={(html, text) => update(step.id, { body: text, bodyHtml: html })} className="lesson-rich-text text-base leading-6" />}
       renderMedia={(step, index) => <div className="space-y-3">
         <ProcessStepAssets step={step} layout={block.data.mediaLayout} />
-        {courseId && <ProcessStepMediaEditor step={step} index={index} courseId={courseId} onChange={(patch) => update(step.id, patch)} />}
+        {courseId && <ProcessStepMediaEditor key={step.id} step={step} index={index} courseId={courseId} onChange={(patch) => update(step.id, patch)} />}
       </div>}
       renderControl={({ direction, label: controlLabel, disabled, onClick }) => {
         if (block.data.style === "slider") return <Button variant="outline" size="icon" className="size-11 shrink-0 rounded-full" aria-label={`Go to ${direction} process step`} title={controlLabel} disabled={disabled} onClick={onClick}>{direction === "previous" ? <ArrowLeft size={20} /> : <ArrowRight size={20} />}</Button>;
