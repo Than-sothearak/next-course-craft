@@ -3,6 +3,7 @@ import { generatedBlockSeedSchema, type GeneratedSourceInventory, type Generated
 import { generatedLearnItemSchema } from "./response-schemas";
 import type { SourceCoursePlan } from "./types";
 import { normalizeSourceRange } from "./source-ranges";
+import { hasCodeExplanation } from "./lesson-design";
 
 export function sourceIdsForRange(inventory: GeneratedSourceInventory, startPage: number, endPage: number) {
   return inventory.pages
@@ -29,10 +30,7 @@ export function validateLearnItemCoverage(
           issues.push(`Exact source code ${element.sourceElementId} on page ${page.pageNumber} was not retained as a code block.`);
         else {
           const codeIndex = lesson.blocks.indexOf(codeBlock);
-          const adjacentExplanation = [lesson.blocks[codeIndex - 1], lesson.blocks[codeIndex + 1]]
-            .some((block) => block && ["text", "richText", "statement"].includes(block.type) && block.body.trim().length >= 40);
-          const embeddedExplanation = (codeBlock.codeExample?.explanation.trim().length ?? 0) >= 40;
-          if (!adjacentExplanation && !embeddedExplanation)
+          if (!hasCodeExplanation(lesson.blocks, codeIndex))
             issues.push(`Source code ${element.sourceElementId} needs an adjacent text explanation.`);
         }
       }

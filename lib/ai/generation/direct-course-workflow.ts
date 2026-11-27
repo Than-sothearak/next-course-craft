@@ -7,7 +7,7 @@ import { courseResponseSchema, learnItemResponseSchema, preActivitiesResponseSch
 import { buildUserPrompt, courseSystemPrompt } from "./prompts";
 import { requestStructuredJson } from "./provider";
 import { learnerLanguageStyleInstruction, resolveTargetLanguage } from "./language";
-import { lessonDepthIssues, learningActivityIssues, lessonRequirements } from "./lesson-design";
+import { lessonDepthIssues, learningActivityIssues } from "./lesson-design";
 import { generateSourceInventory } from "./source-inventory";
 import type { GenerationSourceFile } from "./types";
 import { generateSourceCourseSeed } from "./source-generation-content";
@@ -44,7 +44,7 @@ function courseSeedResponseSchema(input: CourseGenerationInput, includeCustomFir
                 properties: {
                   title: learnItemResponseSchema.properties.title,
                   objective: learnItemResponseSchema.properties.objective,
-                  blocks: { ...compactLearnItemResponseSchema.properties.blocks, minItems: lessonRequirements(input).minTeachingBlocks },
+                  blocks: { ...compactLearnItemResponseSchema.properties.blocks, minItems: 1 },
                 },
               },
             },
@@ -76,7 +76,7 @@ function courseSeedValidationIssues(seed: GeneratedCourseSeed, input: CourseGene
     if (input.template === "preLearnPost") check(seed.postTest.length === input.postTestCount, "postTest", `Return exactly ${input.postTestCount} post-test questions.`);
   }
   seed.sections.forEach((section, sectionIndex) => section.lessons.forEach((lesson, lessonIndex) => {
-    for (const message of lessonDepthIssues(lesson.blocks, input))
+    for (const message of lessonDepthIssues(lesson.blocks))
       issues.push({ path: `sections.${sectionIndex}.lessons.${lessonIndex}.blocks`, code: "custom", message });
     if (!input.standardMode && lesson.blocks.some((block) => ["formula", "table", "checklist"].includes(block.type)))
       issues.push({ path: `sections.${sectionIndex}.lessons.${lessonIndex}.blocks`, code: "custom", message: "Presentation mode cannot use Standard-only Formula, Table, or Checklist blocks." });

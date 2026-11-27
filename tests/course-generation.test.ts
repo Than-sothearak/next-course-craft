@@ -1560,42 +1560,62 @@ describe("AI course generation contracts", () => {
     expect(course.lessons.find((lesson) => lesson.title === "Post-test")?.quizQuestions).toHaveLength(3);
   });
 
-  it("repairs short prompt lessons with substantive explanations within the existing request budget", async () => {
+  it("accepts a complete short concept without retrying to meet lesson quotas", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce(jsonProviderResponse(seed([block()], {}, 1)))
-      .mockResolvedValueOnce(providerResponse([block()], {}, 1));
+    const fetchMock = vi.fn().mockResolvedValueOnce(jsonProviderResponse(seed([block()], {}, 1)));
     vi.stubGlobal("fetch", fetchMock);
-
     const course = await generateCourseDraft({
       ownerId: "507f1f77bcf86cd799439011", courseId: "507f1f77bcf86cd799439012",
       input: courseGenerationInputSchema.parse({ ...input, lessonCount: 1, includeImages: false }),
     });
-
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(fetchMock.mock.calls[1][1].body).toContain("Lesson depth");
-    expect(fetchMock.mock.calls[1][1].body).toContain("distinct teaching blocks");
-    expect(course.lessons[0].blocks.filter((item) => item.type === "richText").length).toBeGreaterThanOrEqual(8);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(course.learningLessonCount).toBe(1);
     const request = JSON.parse(fetchMock.mock.calls[0][1].body);
     const blocksSchema = request.text.format.schema.properties.sections.items.properties.lessons.items.properties.blocks;
-    expect(blocksSchema.minItems).toBe(8);
+    expect(blocksSchema.minItems).toBe(1);
+    expect(blocksSchema.maxItems).toBe(500);
     const textVariant = blocksSchema.items.anyOf.find((variant: { properties: { type: { enum: string[] } } }) => variant.properties.type.enum[0] === "richText");
     expect(textVariant.required).toEqual(["sourceElementIds", "type", "title", "body", "bullets"]);
-    expect(fetchMock.mock.calls[0][1].body).toContain("10-14 substantive teaching blocks");
-    expect(fetchMock.mock.calls[0][1].body).toContain("worked example with reasoning");
+    expect(fetchMock.mock.calls[0][1].body).toContain("a concept may need several separate blocks");
+    expect(fetchMock.mock.calls[0][1].body).not.toContain("10-14 substantive teaching blocks");
   });
 
-  it("stops after its correction allowance when prompt lessons are still too short", async () => {
+  it("stops after its correction allowance when a lesson still contains no teaching content", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     vi.spyOn(console, "error").mockImplementation(() => undefined);
-    const fetchMock = vi.fn().mockImplementation(async () => jsonProviderResponse(seed([block()], {}, 1)));
+    const fetchMock = vi.fn().mockImplementation(async () => jsonProviderResponse(seed([{ ...block("heading"), title: "Only a heading", body: "", bullets: [] }], {}, 1)));
     vi.stubGlobal("fetch", fetchMock);
-
     await expect(generateCourseDraft({
       ownerId: "507f1f77bcf86cd799439011", courseId: "507f1f77bcf86cd799439012",
       input: courseGenerationInputSchema.parse({ ...input, lessonCount: 1, includeImages: false }),
-    })).rejects.toThrow("Lesson depth");
+    })).rejects.toThrow("Lesson content");
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps separate introduction, code, output and bullet-explanation blocks together", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    const source = 'const message = "Welcome.";\n' + '// Preserve this source line.\n'.repeat(16) + 'console.log(message);';
+    const fetchMock = vi.fn().mockResolvedValueOnce(jsonProviderResponse(seed([
+      { ...block("richText"), title: "Print a message", body: "A console message shows the value passed to the logging function.", bullets: [] },
+      { ...block("code"), title: "JavaScript example", body: source, codeExample: { template: "midnight-code", language: "javascript", explanation: "" } },
+      { ...block("code"), title: "Expected output", body: "Welcome.", codeExample: { template: "midnight-code", language: "plaintext", explanation: "" } },
+      { ...block("richText"), title: "How it works", body: "", bullets: ["`message` stores the text.", "`console.log` displays that value."] },
+    ], {}, 1)));
+    vi.stubGlobal("fetch", fetchMock);
+    const course = await generateCourseDraft({
+      ownerId: "507f1f77bcf86cd799439011", courseId: "507f1f77bcf86cd799439012",
+      input: courseGenerationInputSchema.parse({ ...input, lessonCount: 1, includeImages: false }),
+    });
+    const blocks = course.lessons[0].blocks;
+    const codeIndex = blocks.findIndex((item) => item.type === "richText" && item.data.html.includes('class="language-javascript"'));
+    const html = blocks.slice(codeIndex - 1, codeIndex + 3).map((item) => item.type === "richText" ? item.data.html : "");
+    expect(html).toHaveLength(4);
+    expect(html[0]).toContain("Print a message");
+    expect(html[1]).toContain(source.replaceAll('"', "&quot;"));
+    expect(html[2]).toContain('class="language-plaintext">Welcome.</code>');
+    expect(html[3]).toContain("<ul>");
+    expect(html[3]).toContain("<code>console.log</code>");
+    expect(parseScorm12Snapshot({ title: course.title, description: course.description, revision: 0, sections: course.sections, lessons: course.lessons }).lessons).toHaveLength(1);
   });
 
   it("repairs course-wide question and survey overuse across separate lessons", async () => {
@@ -1723,14 +1743,13 @@ describe("AI course generation contracts", () => {
     expect(planner).toContain("Recommend chart for source datasets");
   });
 
-  it("repairs a dense source lesson that maps its source but supplies too little teaching content", async () => {
+  it("accepts a source concept explained with complete bullets without forcing extra blocks", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     const developed = teachingBlocks();
     const responses = stagedSourceResponses(1, [{ startPage: 1, endPage: 1 }], {
       elementsByPage: { 1: [{ kind: "text", content: developed.map((item) => item.body).join("\n\n"), visualKind: "other", visibleText: "", uncertainContent: false }] },
-      learn: (_index, ids) => sourceLearnProviderResponse(ids, [block()]),
+      learn: (_index, ids) => sourceLearnProviderResponse(ids, [{ ...block(), body: "", bullets: developed.map((item) => item.body) }]),
     });
-    responses.push(sourceLearnProviderResponse(["p1-e1"], developed, "Developed support lesson", developed.map(() => ["p1-e1"])));
     const fetchMock = vi.fn().mockImplementation(async () => responses.shift());
     vi.stubGlobal("fetch", fetchMock);
 
@@ -1741,10 +1760,9 @@ describe("AI course generation contracts", () => {
     });
 
     const requests = fetchMock.mock.calls.map((call) => JSON.parse(call[1].body)).filter((request) => request.text.format.name === "course_learn_content_item");
-    expect(requests).toHaveLength(2);
-    expect(JSON.stringify(requests[1])).toContain("LESSON REPAIR");
-    expect(JSON.stringify(requests[1])).toContain("distinct teaching blocks");
-    expect(course.lessons[0].blocks.filter((item) => item.type === "richText").length).toBeGreaterThanOrEqual(8);
+    expect(requests).toHaveLength(1);
+    expect(JSON.stringify(requests[0])).not.toContain("distinct teaching blocks");
+    expect(course.lessons[0].blocks.some((item) => item.type === "richText" && item.data.html.includes("<ul>"))).toBe(true);
     expect(course.sourceCoverage?.complete).toBe(true);
   });
 
@@ -1926,7 +1944,7 @@ describe("AI course generation contracts", () => {
     expect(lessonPrompt).toContain("Item focus: Learn the concepts from pages 1-5.");
     expect(lessonPrompt).not.toContain("Learning objectives:");
     expect(lessonPrompt).toContain("Content depth: detailed");
-    expect(JSON.stringify(courseRequest)).toContain("target-language explanation above or below the code");
+    expect(JSON.stringify(courseRequest)).toContain("adjacent Text block with target-language bullet explanations");
     const inventoryText = JSON.stringify(courseRequest.input[1].content);
     expect(inventoryText).toContain("The HTML heading element creates the page title");
     expect(inventoryText).toContain("A screenshot showing the console output.");

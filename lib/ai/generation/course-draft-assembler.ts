@@ -117,9 +117,14 @@ export async function assembleCourseDraft({
                   });
               }
               const nextBlock = lessonBlocks[index + 1];
+              const codeConceptPair = nextBlock && (
+                (blockSeed.type === "code" && ["code", "text", "richText", "statement"].includes(nextBlock.type))
+                || (nextBlock.type === "code" && ["text", "richText", "statement"].includes(blockSeed.type))
+              );
               if (
                 needsContinueAfter(blockSeed) &&
                 nextBlock &&
+                !codeConceptPair &&
                 nextBlock.type !== "divider"
               ) {
                 blocksWithContinue.push(continueBlock(khmer));

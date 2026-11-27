@@ -6,6 +6,12 @@ import { hasInlineFormatting, inlineFormattingInHtml, inlineFormattingHtml, stri
 import { richTextEditorExtensions } from "../app/courses/[courseId]/edit/_components/(editor_client_components)/(text_editing_components)/text-formatting-toolbar";
 
 describe("generated inline emphasis", () => {
+  it("preserves literal HTML and nested marker characters inside inline code", () => {
+    expect(inlineFormattingHtml('Use `<p>Welcome.</p>` and ``const message = `hello`;`` with **bold**.'))
+      .toBe('Use <code>&lt;p&gt;Welcome.&lt;/p&gt;</code> and <code>const message = `hello`;</code> with <strong>bold</strong>.');
+    expect(inlineFormattingHtml('`**literal** ==code==`')).toBe('<code>**literal** ==code==</code>');
+    expect(inlineFormattingHtml('***<p>Welcome.</p>***')).toBe('<code>&lt;p&gt;Welcome.&lt;/p&gt;</code>');
+  });
   it("renders triple-asterisk keywords with the padded theme highlight without leaving marker characters", () => {
     const source = "Use ***a < b & c***, **care**, and ==focus==.";
 
@@ -37,20 +43,20 @@ describe("generated inline emphasis", () => {
     expect(stripInlineFormatting("Use **care** and ==focus==.")).toBe("Use care and focus.");
   });
 
-  it("does not treat single or double backticks as emphasis markers", () => {
+  it("renders single and double backticks as inline code", () => {
     const source = "Use `photosynthesis` and ``cause and effect`` < carefully.";
 
     expect(inlineFormattingHtml(source)).toBe(
-      'Use `photosynthesis` and ``cause and effect`` &lt; carefully.',
+      'Use <code>photosynthesis</code> and <code>cause and effect</code> &lt; carefully.',
     );
-    expect(stripInlineFormatting(source)).toBe(source);
-    expect(hasInlineFormatting(source)).toBe(false);
+    expect(stripInlineFormatting(source)).toBe("Use photosynthesis and cause and effect < carefully.");
+    expect(hasInlineFormatting(source)).toBe(true);
   });
 
-  it("leaves backticks in saved HTML and code blocks unchanged", () => {
+  it("formats inline code in saved HTML without changing raw code blocks", () => {
     const html = '<p>Use `a &amp; b` in an explanation.</p><pre><code>`raw code`</code></pre>';
 
-    expect(inlineFormattingInHtml(html)).toBe(html);
+    expect(inlineFormattingInHtml(html)).toBe('<p>Use <code>a &amp; b</code> in an explanation.</p><pre><code>`raw code`</code></pre>');
   });
 
   it("formats all markers in saved HTML without changing attributes, entities or raw code", () => {
@@ -76,7 +82,7 @@ describe("generated inline emphasis", () => {
     }
   });
 
-  it("keeps backtick text as ordinary text through the Tiptap round trip", () => {
+  it("preserves inline code through the Tiptap round trip", () => {
     const editor = new Editor({
       extensions: richTextEditorExtensions,
       content: `<p>${inlineFormattingHtml("Remember `the key idea`.")}</p>`,
@@ -86,7 +92,8 @@ describe("generated inline emphasis", () => {
       expect(html).not.toContain("<strong>");
       expect(html).not.toContain('data-generated-emphasis="true"');
       expect(html).not.toContain("background-color");
-      expect(editor.getText()).toBe("Remember `the key idea`.");
+      expect(html).toContain("<code>the key idea</code>");
+      expect(editor.getText()).toBe("Remember the key idea.");
     } finally {
       editor.destroy();
     }

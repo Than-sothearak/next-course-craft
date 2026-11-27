@@ -22,7 +22,7 @@ import { learnerLanguageStyleInstruction, resolveTargetLanguage } from "./langua
 import { buildFixedSourceRanges, sourceRangesCoverFile } from "./source-ranges";
 import type { SourcePlanItem, SourceCoursePlan } from "./types";
 import { sourceIdsForRange, validateLearnItemCoverage } from "./source-coverage";
-import { lessonDepthIssues, learningActivityIssues, lessonDesignInstruction, lessonRequirements, learningActivityUsage } from "./lesson-design";
+import { lessonDepthIssues, learningActivityIssues, lessonDesignInstruction, learningActivityUsage } from "./lesson-design";
 import { blockSelectionGuide, previousBlockMixInstruction } from "./block-selection";
 import { courseDescriptionGenerationInstruction } from "./prompts";
 
@@ -181,7 +181,7 @@ export async function generateLearnContentItem({
       `Recommended blocks: ${item.recommendedBlockTypes.join(", ") || "Choose appropriate existing CourseCraft blocks"}. Interaction opportunities: ${item.interactionOpportunities.join("; ") || "Use interactions where they improve learning"}.`,
       `Additional author instructions: ${input.prompt || "None"}.`,
       `Assigned page range: ${item.startPage}-${item.endPage}. These are the only source pages for this item. Preserve their order.`,
-      "Cover every meaningful source element in order, without dropping details. Map every sourceElementId at least once. Keep a topic title and its normal paragraph explanation together in one richText block using title and body/bullets (Title and paragraph template), with all source heading and explanation IDs on that block. Do not split the title into a separate heading block. Leave title empty only for untitled continuation paragraphs. In every learner-facing field with rich-text support, put 1-2 ***keyword***, **bold**, or ==highlight== spans around the most important terms inside each substantive paragraph or bullet—not only in keyTerms, titles, or headings. Keep emphasis meaningful and readable; never use markers in raw code, URLs, image prompts, or plain-only fields. Keep exact code in its own code block and use codeExample for a template, language, and explanation above or below it; avoid duplicating that explanation in another block. Avoid filler and unsupported elaboration.",
+      "Cover every meaningful source element in order, without dropping details. Map every sourceElementId at least once. Keep a topic title and its normal paragraph explanation together in one richText block using title and body/bullets (Title and paragraph template), with all source heading and explanation IDs on that block. Do not split the title into a separate heading block. Leave title empty only for untitled continuation paragraphs. In every learner-facing field with rich-text support, put 1-2 ***keyword***, **bold**, or ==highlight== spans around the most important terms inside each substantive paragraph or bullet—not only in keyTerms, titles, or headings. Keep emphasis meaningful and readable; never use markers in raw code, URLs, image prompts, or plain-only fields. Keep exact code in a separate Code block; use codeExample for its template and language, leave its explanation empty, and use an adjacent Text block with bullets to explain important lines or parts. Add expected output as a separate plaintext Code block only when useful and reliably supported. Avoid filler and unsupported elaboration.",
       input.includeImages
         ? input.standardMode
           ? `Use at most ${Math.max(0, imagesRemaining)} generated supporting images for this lesson, only where a visual clarifies source material; never present them as original source images. Choose the sections that benefit from a visual and place each image beside its explanation. Use imageLayout full; the app displays these at compact width. The cover is separate.`
@@ -204,7 +204,7 @@ export async function generateLearnContentItem({
           ...compactLearnItemResponseSchema,
           properties: {
             ...compactLearnItemResponseSchema.properties,
-            blocks: { ...compactLearnItemResponseSchema.properties.blocks, minItems: lessonRequirements(input, pages).minTeachingBlocks },
+            blocks: { ...compactLearnItemResponseSchema.properties.blocks, minItems: 1 },
           },
         },
         maxOutputTokens: 24_000,
@@ -226,7 +226,7 @@ export async function generateLearnContentItem({
       continue;
     }
     const designIssues = [
-      ...lessonDepthIssues(parsed.data.blocks, input, pages),
+      ...lessonDepthIssues(parsed.data.blocks, { checkCodeExplanations: false }),
       ...learningActivityIssues(parsed.data.blocks, previousLearningBlocks, input.template === "custom" ? { knowledgeCheck: 1 } : {}),
       ...(!input.standardMode && parsed.data.blocks.some((block) => ["formula", "table", "checklist"].includes(block.type))
         ? ["Presentation mode cannot use Standard-only Formula, Table, or Checklist blocks."]
@@ -234,7 +234,7 @@ export async function generateLearnContentItem({
     ];
     if (designIssues.length) {
       finalIssues = designIssues;
-      retryFeedback = `LESSON REPAIR: ${JSON.stringify(designIssues)}. Return the complete corrected item with fuller teaching content, keeping all assigned source details and code intact.`;
+      retryFeedback = `LESSON REPAIR: ${JSON.stringify(designIssues)}. Return the complete corrected item using supported blocks for each concept, keeping all assigned source details and code intact without adding quota-driven filler.`;
       continue;
     }
     if (!firstResult) firstResult = parsed.data;

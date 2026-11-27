@@ -36,14 +36,19 @@ function survey(prompt: string) {
 }
 
 describe("generated lesson depth and course activity limits", () => {
-  it("requires multiple developed teaching blocks and applies the selected depth", () => {
-    expect(lessonDepthIssues(explanations(), input)).toEqual([]);
-    expect(lessonDesignInstruction(input)).toContain("Use bullets only for unordered groups");
-    expect(lessonDesignInstruction(input)).toContain("use processSteps for actions whose order matters");
-    expect(lessonDepthIssues(explanations(4), { ...input, contentDepth: "concise" })).toEqual([]);
-    expect(lessonDepthIssues(explanations(4), input).some((issue) => issue.includes("distinct teaching blocks"))).toBe(true);
-    expect(lessonDepthIssues(explanations(), { ...input, contentDepth: "veryDetailed" }).length).toBeGreaterThan(0);
-    expect(lessonDepthIssues(explanations(12), { ...input, contentDepth: "veryDetailed" })).toEqual([]);
+  it.each(["concise", "detailed", "veryDetailed"] as const)("accepts a simple definition without padding at %s depth", (contentDepth) => {
+    expect(lessonDepthIssues([seedBlock({ type: "text", title: "Triage", body: "Triage identifies which requests need attention first." })])).toEqual([]);
+    const guidance = lessonDesignInstruction({ ...input, contentDepth });
+    expect(guidance).toContain(`LESSON DEPTH (${contentDepth})`);
+    expect(guidance).toContain("Keep paragraphs to 1-2 sentences");
+    expect(guidance).toContain("a concept may need several separate blocks");
+    expect(guidance).toContain("500-block lesson limit");
+    expect(guidance).not.toContain("characters of explanatory");
+    expect(guidance).not.toContain("substantive teaching blocks");
+  });
+
+  it("accepts more concepts than the old block targets", () => {
+    expect(lessonDepthIssues(explanations(25))).toEqual([]);
   });
 
   it("does not accept headings, controls, questions, or surveys as teaching explanations", () => {
@@ -51,13 +56,28 @@ describe("generated lesson depth and course activity limits", () => {
       ...Array.from({ length: 8 }, (_, index) => seedBlock({ type: "heading", title: `Heading ${index + 1}` })),
       seedBlock({ type: "divider" }), question("What should you do first?"), survey("How confident are you?"),
     ];
-    expect(lessonDepthIssues(padding, input)).toHaveLength(2);
-    expect(lessonDepthIssues(explanations().map((block) => ({ ...block, body: "One short sentence." })), input)).toHaveLength(2);
+    expect(lessonDepthIssues(padding)).toHaveLength(1);
+    expect(lessonDepthIssues([seedBlock({ type: "text", body: "", bullets: [] })])).toHaveLength(1);
   });
 
   it("requires explanatory prose alongside raw code", () => {
     const code = seedBlock({ type: "code", body: "const answer = 42;\n".repeat(500) });
-    expect(lessonDepthIssues([code], input).some((issue) => issue.includes("explanatory learning content"))).toBe(true);
+    expect(lessonDepthIssues([code]).some((issue) => issue.includes("explanatory learning content"))).toBe(true);
+  });
+
+  it("accepts code and expected output with an adjacent bullet explanation", () => {
+    const code = seedBlock({ type: "code", body: 'console.log("Welcome.");', codeExample: { template: "midnight-code", language: "javascript", explanation: "" } });
+    const output = seedBlock({ type: "code", body: "Welcome.", codeExample: { template: "midnight-code", language: "plaintext", explanation: "" } });
+    const explanation = seedBlock({ type: "text", bullets: ["`console.log` prints the message."] });
+    expect(lessonDepthIssues([code, output, explanation])).toEqual([]);
+  });
+
+  it("recognizes structured comparison, formula and checklist content without requiring prose padding", () => {
+    for (const value of [
+      { type: "table", tableColumns: ["Feature", "A", "B"], tableRows: [["Storage", "Local", "Remote"]] },
+      { type: "formula", formulaLatex: "E=mc^2", formulaExplanation: "Energy depends on mass.", formulaVariables: [] },
+      { type: "checklist", checklistItems: ["Check the supplied evidence."] },
+    ]) expect(lessonDepthIssues([seedBlock(value)])).toEqual([]);
   });
 
   it("scales source requirements to a bounded source portion without padding sparse material", () => {
@@ -65,9 +85,10 @@ describe("generated lesson depth and course activity limits", () => {
       pageNumber: 1, elements: [{ sourceElementId: "p1-e1", kind: "text", content: "Read the full customer message before responding.", visualKind: "other", visibleText: "", uncertainContent: false }],
     }];
     const brief = seedBlock({ type: "text", body: pages[0].elements[0].content });
-    expect(lessonDepthIssues([brief], input, pages)).toEqual([]);
+    expect(lessonDepthIssues([brief])).toEqual([]);
     const densePages = [{ ...pages[0], elements: [{ ...pages[0].elements[0], content: pages[0].elements[0].content.repeat(60) }] }];
-    expect(lessonDepthIssues([brief], input, densePages)).toHaveLength(2);
+    expect(lessonDepthIssues([brief])).toEqual([]);
+    expect(lessonDesignInstruction(input, densePages)).not.toContain("characters of explanatory");
     expect(lessonDesignInstruction(input, pages)).toContain("do not invent facts or add filler");
   });
 

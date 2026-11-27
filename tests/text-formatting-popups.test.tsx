@@ -47,6 +47,20 @@ describe("selected text formatting popups", () => {
     act(() => { field.focus(); editor.commands.setTextSelection({ from: 1, to: 6 }); });
     return field;
   }
+  it("preserves literal inline HTML references beside bullet explanations after editing and preview", async () => {
+    const html = '<h3>Paragraph parts</h3><ul><li><p>The opening tag is `&lt;p&gt;`.</p></li><li><p>`&lt;p&gt;Welcome.&lt;/p&gt;` contains the message.</p></li></ul>';
+    const assertParts = () => {
+      const field = container.querySelector(".lesson-rich-text .tiptap")!;
+      expect(field.querySelectorAll("li")).toHaveLength(2);
+      expect(Array.from(field.querySelectorAll("code")).map((code) => code.textContent)).toEqual(["<p>", "<p>Welcome.</p>"]);
+      expect(field.querySelector("code p")).toBeNull();
+    };
+    await render(html);
+    assertParts();
+    const savedHtml = editor.getHTML();
+    await act(async () => root.render(<StatementTextPreview tag="p" text="" html={savedHtml} className="" />));
+    assertParts();
+  });
   it("shows keyword backgrounds, bold and highlights consistently in the editor and preview", async () => {
     const text = "Remember ***keyword***, **bold**, and ==highlight==.";
     const styles = document.createElement("style");

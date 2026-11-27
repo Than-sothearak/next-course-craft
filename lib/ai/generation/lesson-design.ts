@@ -1,4 +1,5 @@
 import type { CourseGenerationInput, GeneratedCourseSeed, GeneratedSourceInventory } from "../course-generation-schemas";
+import { conceptTeachingInstruction } from "./teaching-style";
 
 type BlockSeed = GeneratedCourseSeed["sections"][number]["lessons"][number]["blocks"][number];
 type SourcePages = GeneratedSourceInventory["pages"];
@@ -6,36 +7,18 @@ type SourcePages = GeneratedSourceInventory["pages"];
 export const courseActivityLimits = { knowledgeCheck: 2, survey: 1 } as const;
 
 const depthProfiles = {
-  concise: { blocks: "6-8", words: "350-500", minTeachingBlocks: 4, minExplanationCharacters: 1_200 },
-  detailed: { blocks: "10-14", words: "700-1,000", minTeachingBlocks: 8, minExplanationCharacters: 2_800 },
-  veryDetailed: { blocks: "14-20", words: "1,100-1,500", minTeachingBlocks: 12, minExplanationCharacters: 4_500 },
+  concise: "Give the essential definition, explanation, and example needed for each concept.",
+  detailed: "Explain how and why each concept works, with relevant examples and common mistakes where helpful.",
+  veryDetailed: "Develop the reasoning and relevant examples for each concept, including useful edge cases, common mistakes, and transfer to new situations.",
 } as const;
 
-export function lessonRequirements(input: CourseGenerationInput, pages?: SourcePages) {
-  const profile = depthProfiles[input.contentDepth];
-  if (!pages) return profile;
-  // A short source or a timeout-recovery part must not be padded with invented facts.
-  const sourceLength = pages.flatMap((page) => page.elements)
-    .reduce((total, element) => total + (element.kind === "code" ? Math.min(element.content.length, 200) : element.content.length), 0);
-  const proseLength = pages.flatMap((page) => page.elements)
-    .filter((element) => element.kind !== "code")
-    .reduce((total, element) => total + element.content.length, 0);
-  return {
-    ...profile,
-    minTeachingBlocks: sourceLength < 800 ? 1 : Math.min(profile.minTeachingBlocks, Math.ceil(sourceLength / 300)),
-    minExplanationCharacters: sourceLength < 800 ? 0 : Math.min(profile.minExplanationCharacters, Math.floor(proseLength * 0.8)),
-  };
-}
-
 export function lessonDesignInstruction(input: CourseGenerationInput, pages?: SourcePages) {
-  const profile = lessonRequirements(input, pages);
   return [
-    `LESSON DEPTH: For each full ${input.contentDepth} lesson, aim for ${profile.blocks} substantive teaching blocks and about ${profile.words} words of explanation in English, or comparable detail in the target language.`,
-    `Minimum for this ${pages ? "assigned source portion" : "lesson"}: ${profile.minTeachingBlocks} distinct teaching blocks and ${profile.minExplanationCharacters} characters of explanatory learning content. Headings, Continue dividers, questions, surveys, repeated copy, and raw code do not replace explanations.`,
-    "Teach a complete learning sequence: explain the goal and its relevance, introduce concepts in focused sections, demonstrate a worked example with reasoning, explain a common mistake and how to avoid it, provide guided application, and close with a useful recap or transfer tip. Keep paragraphs to 2-4 sentences. Use bullets only for unordered groups of peer facts or takeaways; use processSteps for actions whose order matters so procedure meaning is preserved. Use multiple focused blocks rather than one short overview or a list of labels. Give accordion items, process steps, and card answers full explanations. Choose formats that fit the subject; vary them between lessons.",
+    `LESSON DEPTH (${input.contentDepth}): ${depthProfiles[input.contentDepth]} Depth changes the treatment of each concept, not a fixed number of blocks or words.`,
+    conceptTeachingInstruction,
     "ACTIVITY LIMITS: The entire generated course may contain at most 2 knowledgeCheck question blocks and 1 survey block, never per lesson. These are upper limits, not targets. Do not repeat a question or confidence survey across lessons. Use flip cards, accordions/tabs, process steps, and timelines for other suitable learning activities. Dedicated Pre/Post assessment quizzes keep their separately configured question counts.",
     "Continue controls belong only between substantial sections with more teaching content after them. Never end a lesson with a Continue button; end with substantive learning content.",
-    ...(pages ? ["Preserve every assigned source detail and exact code in order. Scale the full-lesson targets to the supplied source portion; for sparse source material, use only supported explanations and do not invent facts or add filler to meet a quota."] : []),
+    ...(pages ? ["Preserve every assigned source detail and exact code in order. For sparse source material, use only supported explanations and do not invent facts or add filler to meet a quota."] : []),
   ].join("\n");
 }
 
@@ -53,7 +36,13 @@ function explanatoryText(block: BlockSeed) {
     case "image": return block.imageBody;
     case "labeledGraphic":
       return block.markers.map((marker) => `${marker.label}\n${marker.description}`).join("\n");
-    case "chart": return block.chartDescription;
+    case "chart": return [block.chartDescription, ...block.chartFields.map((field) => `${field.label}: ${field.value}`)].join("\n");
+    case "formula": return [block.formulaLatex, block.formulaExplanation, ...block.formulaVariables.map((variable) => variable.explanation)].join("\n");
+    case "table": return [...block.tableColumns, ...block.tableRows.flat()].join("\n");
+    case "checklist": return block.checklistItems.join("\n");
+    case "conceptMap": return [block.conceptMapCentralConcept, block.conceptMapCentralExplanation, ...block.conceptMapBranches.flatMap((branch) => [branch.concept, branch.relationship, branch.explanation])].join("\n");
+    case "databaseSchema": return block.databaseEntities.flatMap((entity) => [entity.name, ...entity.fields.map((field) => field.name)]).join("\n");
+    case "link": return block.linkDescription;
     default: return "";
   }
 }
@@ -62,20 +51,27 @@ function normalizedText(value: string) {
   return value.normalize("NFKC").toLocaleLowerCase().replace(/[\p{P}\p{Z}\s]+/gu, " ").trim();
 }
 
-export function lessonDepthIssues(blocks: BlockSeed[], input: CourseGenerationInput, pages?: SourcePages) {
-  const requirements = lessonRequirements(input, pages);
-  const uniqueContent = new Map<string, string>();
-  for (const block of blocks) {
-    const text = explanatoryText(block).trim();
-    const identity = normalizedText(text || (block.type === "code" ? block.body : ""));
-    if (identity) uniqueContent.set(identity, text);
-  }
+export function hasCodeExplanation(blocks: BlockSeed[], index: number) {
+  let start = index, end = index;
+  while (blocks[start - 1]?.type === "code") start -= 1;
+  while (blocks[end + 1]?.type === "code") end += 1;
+  return blocks.slice(start, end + 1).some((block) => Boolean(block.codeExample?.explanation.trim()))
+    || [blocks[start - 1], blocks[end + 1]].some((block) => block
+      && ["text", "richText", "statement"].includes(block.type)
+      && Boolean([block.body, ...block.bullets].join("").trim()));
+}
+
+export function lessonDepthIssues(blocks: BlockSeed[], { checkCodeExplanations = true } = {}) {
   const issues: string[] = [];
-  if (uniqueContent.size < requirements.minTeachingBlocks)
-    issues.push(`Lesson depth: expected at least ${requirements.minTeachingBlocks} distinct teaching blocks, received ${uniqueContent.size}. Add substantive explanations, worked examples, and application guidance, not headings, repeated text, or extra questions.`);
-  const explanationLength = [...uniqueContent.values()].join("").length;
-  if (explanationLength < requirements.minExplanationCharacters)
-    issues.push(`Lesson depth: expected at least ${requirements.minExplanationCharacters} characters of explanatory learning content, received ${explanationLength}. Explain how and why, develop examples, and cover common mistakes and a recap.`);
+  // Source code explanations are checked by source coverage so a partial result
+  // can be retained and repaired without discarding its exact source listing.
+  const suppliedCode = !checkCodeExplanations && blocks.some((block) => block.type === "code" && block.body.trim());
+  if (!suppliedCode && !blocks.some((block) => /[\p{L}\p{N}]/u.test(explanatoryText(block))))
+    issues.push("Lesson content: include meaningful explanatory learning content. Headings, Continue controls, quiz questions, surveys, and raw code alone do not explain a concept.");
+  blocks.forEach((block, index) => {
+    if (checkCodeExplanations && block.type === "code" && !hasCodeExplanation(blocks, index))
+      issues.push(`Code example ${index + 1} needs an adjacent Text block explaining its important lines or parts. Keep code and any expected output together with their explanation.`);
+  });
   return issues;
 }
 

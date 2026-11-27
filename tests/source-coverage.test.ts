@@ -18,6 +18,16 @@ function lesson(blocks: ReturnType<typeof block>[]) {
 }
 
 describe("source coverage for native chart data", () => {
+  it("accepts a short bullet explanation after source code and expected output while requiring exact source code", () => {
+    const sourceCode = 'console.log("Welcome.");';
+    const sourcePages = [{ pageNumber: 1, elements: [{ sourceElementId: "p1-e1", kind: "code" as const, content: sourceCode, visualKind: "other" as const, visibleText: "", uncertainContent: false }] }];
+    const code = block({ type: "code", body: sourceCode, codeExample: { template: "midnight-code", language: "javascript", explanation: "" } });
+    const output = block({ type: "code", body: "Welcome.", codeExample: { template: "midnight-code", language: "plaintext", explanation: "" } });
+    const explanation = block({ type: "text", bullets: ["`console.log` prints text."] });
+    expect(validateLearnItemCoverage(lesson([code, output, explanation]), sourcePages)).toEqual([]);
+    expect(validateLearnItemCoverage(lesson([code, output]), sourcePages)).toContain("Source code p1-e1 needs an adjacent text explanation.");
+    expect(validateLearnItemCoverage(lesson([{ ...code, body: 'console.log("Changed.");' }, explanation]), sourcePages)).toContain("Exact source code p1-e1 on page 1 was not retained as a code block.");
+  });
   it("recognizes values stored only in chart fields in both validation and the final coverage report", () => {
     const sourcePages = pages("North: 1200; South: 2400.");
     const chart = block({ type: "chart", title: "Requests", chartFields: [{ label: "North", value: 1200 }, { label: "South", value: 2400 }] });

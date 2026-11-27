@@ -36,7 +36,7 @@ describe("course block selection guidance", () => {
   it("preserves list meaning and selects existing blocks for different subjects", () => {
     expect(blockSelectionGuide).toContain("richText bullets render as an unordered list");
     expect(blockSelectionGuide).toContain("Use processSteps for procedures or actions whose order matters");
-    expect(blockSelectionGuide).toContain("programming examples use code with a complete explanation");
+    expect(blockSelectionGuide).toContain("programming examples use a separate Code block with the correct language and an adjacent Text block with explanatory bullets");
     expect(blockSelectionGuide).toContain("Math uses formula for relationships stated in the supplied material");
     expect(blockSelectionGuide).toContain("use conceptMap in Standard mode for a central concept and explicit relationships in the supplied material");
     expect(blockSelectionGuide).toContain("select the ordering activity only when learners should reconstruct or practise a source-supported sequence");

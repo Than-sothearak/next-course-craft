@@ -1,5 +1,7 @@
 # Delivery roadmap
 
+Requested concept-based generation: use as many supported blocks as each concept needs, with brief Text introductions, separate Code/output blocks and explanatory Text bullets, numbered Process steps, and supported comparisons. Remove fixed lesson count/length quotas while retaining depth choices, source completeness, native limits and activity budgets. Keep code groups adjacent, preserve inline code and course language, and reuse existing authoring/preview/static learners without migrating saved courses.
+
 Requested flip-card formatting: render `**bold**`, `***keyword***`, `==highlight==` and inline code on both faces across authoring and learner/export views, and retain generated formatting in the current face text fields. This extends the existing flip-card slice without changing card schema or progress behavior.
 
 Requested generation keyword formatting: use `***keyword***` for padded theme-colored keywords, `**bold**` for bold text and `==highlight==` for ordinary text highlights without padding in supported text across direct and source-based generation. Extend the existing formatter and preserve raw code and reserve backticks for inline code within the current generation slice. Generation assembly preserves code delimiters and corrects HTML examples mistakenly wrapped in keyword markers to inline code, including resumed checkpoints. Keyword emphasis uses triple asterisks independently of inline code. Raw code and URLs stay exact; shared formatting instructions also cover pre/post activity requests.
