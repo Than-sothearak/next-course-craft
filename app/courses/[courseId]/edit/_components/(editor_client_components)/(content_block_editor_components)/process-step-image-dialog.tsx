@@ -75,7 +75,6 @@ export function ProcessStepImageDialog({ step, index, courseId, onClose, onSelec
     {image && <Button onClick={() => onSelect(image)}>Use image</Button>}
   </>}>
     <div className="space-y-4">
-      <p className="text-sm text-slate-600">Generate a visual demonstration of this step without repeating the written instructions. Any brief labels will be in English.</p>
       <div className="space-y-2 rounded-lg border border-slate-200 p-3">
         <p className="text-xs font-medium text-slate-600">Step instructions</p>
         {step.title && <p className="text-sm font-semibold">{step.title}</p>}
