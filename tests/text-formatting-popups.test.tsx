@@ -59,6 +59,49 @@ describe("selected text formatting popups", () => {
     act(() => { Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, value); input.dispatchEvent(new Event("input", { bubbles: true })); });
   }
 
+  it("shows inherited heading sizes and updates after heading changes without adding inline formatting", async () => {
+    const styles = document.createElement("style");
+    styles.textContent = ".tiptap h3 { font-size: 30px; } .tiptap h1 { font-size: 48px; }";
+    document.head.append(styles);
+    try {
+      await render("<h3>First second third</h3>");
+      const original = editor.getHTML();
+      const size = () => popup().querySelector<HTMLInputElement>('[aria-label="Custom font size in pixels"]')!;
+      const preset = () => popup().querySelector<HTMLSelectElement>('[aria-label="Font size preset"]')!;
+      expect(size().value).toBe("30");
+      expect(preset().value).toBe("30px");
+      expect(preset().selectedOptions[0].textContent).toBe("30 px");
+      expect(editor.getHTML()).toBe(original);
+      const style = popup().querySelector<HTMLSelectElement>('[aria-label="Text style"]')!;
+      await act(async () => { style.value = "1"; style.dispatchEvent(new Event("change", { bubbles: true })); });
+      await vi.waitFor(() => expect(size().value).toBe("48"));
+      expect(preset().value).toBe("48px");
+      expect(editor.getHTML()).not.toContain("font-size");
+    } finally {
+      styles.remove();
+    }
+  });
+
+  it("shows the exact computed size under a scaled canvas and refreshes on style changes", async () => {
+    const styles = document.createElement("style");
+    styles.textContent = ".tiptap h3 { font-size: 23.5px; } .updated-size .tiptap h3 { font-size: 26px; }";
+    document.head.append(styles);
+    try {
+      const field = await render("<h3>First second third</h3>");
+      const original = editor.getHTML();
+      field.parentElement!.style.transform = "scale(0.5)";
+      const size = () => popup().querySelector<HTMLInputElement>('[aria-label="Custom font size in pixels"]')!;
+      expect(size().value).toBe("23.5");
+      expect(popup().querySelector<HTMLSelectElement>('[aria-label="Font size preset"]')!.value).toBe("23.5px");
+      await act(async () => { size().focus(); size().blur(); });
+      expect(editor.getHTML()).toBe(original);
+      await act(async () => { field.parentElement!.classList.add("updated-size"); });
+      await vi.waitFor(() => expect(size().value).toBe("26"));
+    } finally {
+      styles.remove();
+    }
+  });
+
   it("pins the popup while size, font, heading and list formatting reflow the selected text", async () => {
     const field = await render();
     const original = position();

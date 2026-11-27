@@ -18,6 +18,7 @@ export function StatementTextEditor({
   id,
   label,
   tag,
+  textRole = tag === "p" ? "body" : "title",
   html,
   text,
   className = "",
@@ -33,6 +34,7 @@ export function StatementTextEditor({
   id: string;
   label: string;
   tag: "h3" | "p";
+  textRole?: "title" | "body";
   html?: string;
   text: string;
   className?: string;
@@ -47,7 +49,7 @@ export function StatementTextEditor({
 }) {
   const sourceContent = html ?? `<${tag}>${escapeHtml(text)}</${tag}>`;
   const displayContent = highlightInlineCodeTermsInHtml(sourceContent);
-  const content = standardMode && tag === "p" ? reflowLongParagraphs(displayContent) : displayContent;
+  const content = standardMode && textRole === "body" && tag === "p" ? reflowLongParagraphs(displayContent) : displayContent;
   const observedContent = useRef(sourceContent);
   const extensions = useMemo(
     () => [
@@ -88,8 +90,9 @@ export function StatementTextEditor({
     <EditorContent
       editor={editor}
       aria-label={label}
+      data-block-text-role={textRole}
       style={inheritColor ? { color: "inherit" } : undefined}
-      className={`min-h-6 cursor-text text-slate-800 [&_.tiptap]:m-0 [&_.tiptap]:min-h-6 [&_.tiptap]:outline-none [&_.tiptap_*]:text-inherit [&_.tiptap_h1]:my-0 [&_.tiptap_h2]:my-0 [&_.tiptap_h3]:my-0 [&_.tiptap_p]:my-0 ${standardMode ? "[&_strong]:text-[var(--course-primary,#2f5f9f)]" : ""} ${placeholder ? "course-description-editor" : ""} ${className}`}
+      className={`lesson-rich-text min-h-6 cursor-text text-slate-800 [&_.tiptap]:m-0 [&_.tiptap]:min-h-6 [&_.tiptap]:outline-none [&_.tiptap_*]:text-inherit [&_.tiptap_h1]:my-0 [&_.tiptap_h2]:my-0 [&_.tiptap_h3]:my-0 [&_.tiptap_p]:my-0 ${standardMode ? "[&_strong]:text-[var(--course-primary,#2f5f9f)]" : ""} ${placeholder ? "course-description-editor" : ""} ${className}`}
     />
     {!externalToolbar && <SelectionTextFormattingPopup editor={editor} />}
   </div>;

@@ -22,6 +22,8 @@ Requested Step slider preset: a simple process card with a theme-colored step ba
 
 Requested block typography refinement: accordion/tab titles and every process-step style default to 20px titles and 16px explanations across editor, preview and standalone export, preserving explicit text formatting and separate navigation labels.
 
+Requested title-default refinement: Statement and Step slider titles use paragraphs at 20px by default across authoring, generated content, preview and standalone learners, preserving authored title HTML, mobile title sizing and other process-step styles within the existing block typography slice.
+
 Requested mobile quiz refinement: Standard quiz sections use less padding, 16px questions and 12px answer/supporting text at phone widths, including framed mobile previews. Shared styling retains desktop and presentation behavior and carries into standalone exports within the existing quiz slice.
 
 Requested generation text refinement: titled explanations use one editable title-and-paragraph block. Generator instructions and shared assembly keep heading/body content together and combine adjacent matching heading/text seeds while preserving source coverage, code templates and native limits. This remains within the current generation slice and does not migrate existing courses.

@@ -14,6 +14,7 @@ export function StatementTextPreview({
   html,
   text,
   tag,
+  textRole = tag === "p" ? "body" : "title",
   className,
   inheritColor = false,
   matchEditorSpacing = false,
@@ -23,6 +24,7 @@ export function StatementTextPreview({
   html?: string;
   text: string;
   tag: "h1" | "h3" | "p";
+  textRole?: "title" | "body";
   className: string;
   inheritColor?: boolean;
   matchEditorSpacing?: boolean;
@@ -30,7 +32,7 @@ export function StatementTextPreview({
   standardMode?: boolean;
 }) {
   const sourceContent = highlightInlineCodeTermsInHtml(html ?? `<${tag}>${escapeHtml(text)}</${tag}>`);
-  const content = standardMode && !matchEditorSpacing && tag === "p" ? reflowLongParagraphs(sourceContent) : sourceContent;
+  const content = standardMode && textRole === "body" && !matchEditorSpacing && tag === "p" ? reflowLongParagraphs(sourceContent) : sourceContent;
   const editor = useEditor({
     extensions: previewTextEditorExtensions,
     content,
@@ -51,5 +53,5 @@ export function StatementTextPreview({
     });
   }, [className, content, editor]);
 
-  return <EditorContent editor={editor} data-course-text-role={courseTextRole} data-block-text-role={tag === "p" ? "body" : "title"} style={inheritColor ? { color: "inherit" } : undefined} className={`lesson-rich-text ${className} [&_.tiptap]:m-0 [&_.tiptap]:outline-none [&_.tiptap_*]:text-inherit ${standardMode ? "[&_strong]:text-[var(--course-primary,#2f5f9f)]" : ""} ${matchEditorSpacing ? "[&_.tiptap_p]:my-2" : "[&_.tiptap_h1]:my-0 [&_.tiptap_h2]:my-0 [&_.tiptap_h3]:my-0 [&_.tiptap_p]:my-0"}`} />;
+  return <EditorContent editor={editor} data-course-text-role={courseTextRole} data-block-text-role={textRole} style={inheritColor ? { color: "inherit" } : undefined} className={`lesson-rich-text ${className} [&_.tiptap]:m-0 [&_.tiptap]:outline-none [&_.tiptap_*]:text-inherit ${standardMode ? "[&_strong]:text-[var(--course-primary,#2f5f9f)]" : ""} ${matchEditorSpacing ? "[&_.tiptap_p]:my-2" : "[&_.tiptap_h1]:my-0 [&_.tiptap_h2]:my-0 [&_.tiptap_h3]:my-0 [&_.tiptap_p]:my-0"}`} />;
 }

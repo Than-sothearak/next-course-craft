@@ -28,7 +28,8 @@ export function StatementContentEditor({
     <StatementTextEditor
       id={`${block.id}-title`}
       label="Statement title"
-      tag="h3"
+      tag="p"
+      textRole="title"
       html={block.data.titleHtml}
       text={block.data.title}
       externalToolbar={externalToolbar}

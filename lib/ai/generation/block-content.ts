@@ -563,7 +563,7 @@ export async function toContentBlock(
           style: seed.style,
           title: plainText(seed.title) || (khmer ? "ចំណុចសំខាន់" : "Key takeaway"),
           body: plainText(statementBodySource),
-          titleHtml: formattedHtml(seed.title, "h3"),
+          titleHtml: formattedHtml(seed.title, "p"),
           bodyHtml: formattedHtml(statementBodySource, "p"),
         },
       }),
@@ -620,7 +620,7 @@ export async function toContentBlock(
         id: randomUUID(),
         title: plainText(step.title),
         body: plainText(step.body),
-        titleHtml: formattedHtml(step.title, "h3"),
+        titleHtml: formattedHtml(step.title, "p"),
         bodyHtml: formattedHtml(step.body, "p"),
       }));
     if (steps.length >= 2) {

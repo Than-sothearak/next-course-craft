@@ -826,7 +826,7 @@ describe("AI course generation contracts", () => {
     expect(heading.block).toMatchObject({ type: "heading", data: { text: "Important heading", html: '<h2><strong>Important heading</strong></h2>' } });
 
     const statement = await convert("statement", { title: "**Key takeaway**", body: "Remember ==this point==." });
-    expect(statement.block).toMatchObject({ type: "statement", data: { title: "Key takeaway", body: "Remember this point.", titleHtml: '<h3><strong>Key takeaway</strong></h3>', bodyHtml: '<p>Remember <span data-generated-emphasis="true" style="background-color: #fef08a">this point</span>.</p>' } });
+    expect(statement.block).toMatchObject({ type: "statement", data: { title: "Key takeaway", body: "Remember this point.", titleHtml: '<p><strong>Key takeaway</strong></p>', bodyHtml: '<p>Remember <span data-generated-emphasis="true" style="background-color: #fef08a">this point</span>.</p>' } });
 
     const accordion = await convert("accordion", { steps: [{ title: "**First step**", body: "Read ==the evidence==." }, { title: "Second step", body: "Explain the result." }] });
     if (accordion.block.type !== "accordion") throw new Error("Expected accordion block");
@@ -834,7 +834,7 @@ describe("AI course generation contracts", () => {
 
     const process = await convert("processSteps", { steps: [{ title: "**Prepare**", body: "Collect ==the inputs==." }, { title: "Finish", body: "Review the output." }] });
     if (process.block.type !== "processSteps") throw new Error("Expected process steps block");
-    expect(process.block.data.steps[0]).toMatchObject({ titleHtml: '<h3><strong>Prepare</strong></h3>', bodyHtml: '<p>Collect <span data-generated-emphasis="true" style="background-color: #fef08a">the inputs</span>.</p>' });
+    expect(process.block.data.steps[0]).toMatchObject({ titleHtml: '<p><strong>Prepare</strong></p>', bodyHtml: '<p>Collect <span data-generated-emphasis="true" style="background-color: #fef08a">the inputs</span>.</p>' });
 
     const timeline = await convert("timeline", { timelineItems: [{ label: "==2026==", title: "**Launch**", body: "Ship the release." }, { label: "Later", title: "Review", body: "Measure the result." }] });
     if (timeline.block.type !== "timeline") throw new Error("Expected timeline block");

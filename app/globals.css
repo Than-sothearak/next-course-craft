@@ -342,8 +342,8 @@ body { margin: 0; min-height: 100vh; background: #f8fafc; color: #0f172a; font-f
 [data-course-typography~="title"] :is([data-course-text-role="title"], [data-course-text-role="title"] .tiptap > :is(p, h1, h2, h3, h4, h5, h6), .lesson-rich-text:not([data-course-text-role]) h1):not([data-slide-canvas] *, [data-quiz-assessment] *) { font-size: var(--course-title-size); }
 [data-course-typography~="subtitle"] :is([data-course-text-role="subtitle"], [data-course-text-role="subtitle"] .tiptap > :is(p, h1, h2, h3, h4, h5, h6), .lesson-rich-text:not([data-course-text-role]) h2):not([data-slide-canvas] *, [data-quiz-assessment] *) { font-size: var(--course-subtitle-size); }
 [data-course-typography~="heading"] :is([data-course-text-role="heading"], [data-course-text-role="heading"] .tiptap > :is(p, h1, h2, h3, h4, h5, h6), .lesson-rich-text:not([data-course-text-role]) :is(h3, h4, h5, h6)):not([data-slide-canvas] *, [data-quiz-assessment] *) { font-size: var(--course-heading-size); }
-[data-course-typography~="body"] .lesson-rich-text:not([data-course-text-role]) :is(p, li):not([data-slide-canvas] *, [data-quiz-assessment] *) { font-size: var(--course-body-size); }
-[data-course-typography~="leading"] .lesson-rich-text:not([data-course-text-role]) :is(p, li):not([data-slide-canvas] *, [data-quiz-assessment] *) { line-height: var(--course-body-leading); }
+[data-course-typography~="body"] .lesson-rich-text:not([data-course-text-role], [data-block-text-role="title"]) :is(p, li):not([data-slide-canvas] *, [data-quiz-assessment] *) { font-size: var(--course-body-size); }
+[data-course-typography~="leading"] .lesson-rich-text:not([data-course-text-role], [data-block-text-role="title"]) :is(p, li):not([data-slide-canvas] *, [data-quiz-assessment] *) { line-height: var(--course-body-leading); }
 [data-course-typography~="alignment"] :is([data-course-text-role="title"], .lesson-rich-text :is(h1, h2, h3)):not([data-slide-canvas] *, [data-quiz-assessment] *) { text-align: var(--course-title-align); }
 
 video[data-slide-media-player]::-webkit-media-controls-panel,
