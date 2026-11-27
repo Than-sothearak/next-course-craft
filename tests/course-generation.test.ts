@@ -808,7 +808,7 @@ describe("AI course generation contracts", () => {
     expect(normalized[0]).toMatchObject({ title: "Flexbox", body: "The container controls the main axis.", sourceElementIds: ["p1-e1", "p1-e2"] });
   });
 
-  it("preserves generated bold and highlight markers in every supported rich-text block", async () => {
+  it("preserves generated padded keyword highlights and legacy formatting in every supported rich-text block", async () => {
     const convert = (type: GenerationBlockType, changes: Record<string, unknown>) =>
       toContentBlock(
         generatedBlockSeedSchema.parse({ ...block(type), type, ...changes }),
@@ -819,29 +819,30 @@ describe("AI course generation contracts", () => {
         () => {},
       );
 
-    const richText = await convert("richText", { title: "**Core idea**", body: "Use ==the signal== and `the central idea`.", bullets: ["Keep the **evidence** visible."] });
-    expect(richText.block).toMatchObject({ type: "richText", data: { html: '<h3><strong>Core idea</strong></h3><p>Use <span data-generated-emphasis="true" style="background-color: #fef08a">the signal</span> and <span data-generated-emphasis="true" style="background-color: #fef08a">the central idea</span>.</p><ul><li><p>Keep the <strong>evidence</strong> visible.</p></li></ul>' } });
+    const richText = await convert("richText", { title: "**Core idea**", body: "Use ==the signal== and ***the central idea***.", bullets: ["Keep the **evidence** visible."] });
+    expect(richText.block).toMatchObject({ type: "richText", data: { html: '<h3><strong>Core idea</strong></h3><p>Use <span style="background-color: #fef08a">the signal</span> and <span data-generated-emphasis="true" style="background-color: #fef08a">the central idea</span>.</p><ul><li><p>Keep the <strong>evidence</strong> visible.</p></li></ul>' } });
 
-    const heading = await convert("heading", { title: "**Important heading**", body: "" });
-    expect(heading.block).toMatchObject({ type: "heading", data: { text: "Important heading", html: '<h2><strong>Important heading</strong></h2>' } });
+    const heading = await convert("heading", { title: "***Important heading***", body: "" });
+    expect(heading.block).toMatchObject({ type: "heading", data: { text: "Important heading", html: '<h2><span data-generated-emphasis="true" style="background-color: #fef08a">Important heading</span></h2>' } });
 
-    const statement = await convert("statement", { title: "**Key takeaway**", body: "Remember ==this point==." });
+    const statement = await convert("statement", { title: "**Key takeaway**", body: "Remember ***this point***." });
     expect(statement.block).toMatchObject({ type: "statement", data: { title: "Key takeaway", body: "Remember this point.", titleHtml: '<p><strong>Key takeaway</strong></p>', bodyHtml: '<p>Remember <span data-generated-emphasis="true" style="background-color: #fef08a">this point</span>.</p>' } });
 
-    const accordion = await convert("accordion", { steps: [{ title: "**First step**", body: "Read ==the evidence==." }, { title: "Second step", body: "Explain the result." }] });
+    const accordion = await convert("accordion", { steps: [{ title: "**First step**", body: "Read ***the evidence***." }, { title: "Second step", body: "Explain the result." }] });
     if (accordion.block.type !== "accordion") throw new Error("Expected accordion block");
     expect(accordion.block.data.items[0]).toMatchObject({ title: "First step", titleHtml: '<h3><strong>First step</strong></h3>', body: "Read the evidence.", bodyHtml: '<p>Read <span data-generated-emphasis="true" style="background-color: #fef08a">the evidence</span>.</p>' });
 
-    const process = await convert("processSteps", { steps: [{ title: "**Prepare**", body: "Collect ==the inputs==." }, { title: "Finish", body: "Review the output." }] });
+    const process = await convert("processSteps", { steps: [{ title: "**Prepare**", body: "Collect ***the inputs***." }, { title: "Finish", body: "Review the output." }] });
     if (process.block.type !== "processSteps") throw new Error("Expected process steps block");
     expect(process.block.data.steps[0]).toMatchObject({ titleHtml: '<p><strong>Prepare</strong></p>', bodyHtml: '<p>Collect <span data-generated-emphasis="true" style="background-color: #fef08a">the inputs</span>.</p>' });
 
-    const timeline = await convert("timeline", { timelineItems: [{ label: "==2026==", title: "**Launch**", body: "Ship the release." }, { label: "Later", title: "Review", body: "Measure the result." }] });
+    const timeline = await convert("timeline", { timelineItems: [{ label: "***2026***", title: "**Launch**", body: "Ship the release." }, { label: "Later", title: "Review", body: "Measure the result." }] });
     if (timeline.block.type !== "timeline") throw new Error("Expected timeline block");
     expect(timeline.block.data.items[0]).toMatchObject({ label: "2026", labelHtml: '<p><span data-generated-emphasis="true" style="background-color: #fef08a">2026</span></p>', title: "Launch", titleHtml: '<h3><strong>Launch</strong></h3>' });
 
-    const code = await convert("code", { title: "**Example**", body: "const value = 1;", codeExample: { template: "paper-explained-above", language: "javascript", explanation: "This is ==important==." } });
+    const code = await convert("code", { title: "**Example**", body: "const value = `***raw code***`;", codeExample: { template: "paper-explained-above", language: "javascript", explanation: "This is ***important***." } });
     expect(code.block).toMatchObject({ type: "richText", data: { html: expect.stringContaining('<h3><strong>Example</strong></h3><p>This is <span data-generated-emphasis="true" style="background-color: #fef08a">important</span>.</p>') } });
+    expect(code.block.type === "richText" && code.block.data.html).toContain("const value = `***raw code***`;");
   });
 
   it("groups untitled paragraphs and lists with their heading without merging unrelated topics", () => {

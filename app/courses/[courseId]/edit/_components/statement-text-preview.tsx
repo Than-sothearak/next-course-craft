@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import { previewTextEditorExtensions } from "./(editor_client_components)/(text_editing_components)/text-formatting-toolbar";
 import { reflowLongParagraphs } from "@/lib/editor/reflow-long-paragraphs";
-import { highlightInlineCodeTermsInHtml } from "@/lib/editor/inline-formatting";
+import { inlineFormattingInHtml } from "@/lib/editor/inline-formatting";
 
 function escapeHtml(value: string) {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
@@ -31,7 +31,7 @@ export function StatementTextPreview({
   courseTextRole?: "title" | "subtitle" | "heading";
   standardMode?: boolean;
 }) {
-  const sourceContent = highlightInlineCodeTermsInHtml(html ?? `<${tag}>${escapeHtml(text)}</${tag}>`);
+  const sourceContent = inlineFormattingInHtml(html ?? `<${tag}>${escapeHtml(text)}</${tag}>`);
   const content = standardMode && textRole === "body" && !matchEditorSpacing && tag === "p" ? reflowLongParagraphs(sourceContent) : sourceContent;
   const editor = useEditor({
     extensions: previewTextEditorExtensions,

@@ -6,7 +6,7 @@ import type { ContentBlock } from "@/lib/schemas/block";
 import { textEditorExtensions } from "../(text_editing_components)/text-formatting-toolbar";
 import { EquationDialog } from "../(text_editing_components)/equation-dialog";
 import { SelectionTextFormattingPopup } from "../(text_editing_components)/selection-text-formatting-popup";
-import { highlightInlineCodeTermsInHtml } from "@/lib/editor/inline-formatting";
+import { inlineFormattingInHtml } from "@/lib/editor/inline-formatting";
 
 type HeadingBlock = Extract<ContentBlock, { type: "heading" }>;
 
@@ -19,7 +19,7 @@ function getHeadingContent(block: HeadingBlock) {
   const html = block.data.html && block.data.text !== "Add a heading"
     ? block.data.html
     : `<h${block.data.level}>${escapeHtml(text)}</h${block.data.level}>`;
-  return highlightInlineCodeTermsInHtml(html);
+  return inlineFormattingInHtml(html);
 }
 
 export function HeadingBlockEditor({ block, onChange, externalToolbar = false, onEditorFocus }: {

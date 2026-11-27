@@ -8,7 +8,7 @@ import { textLengthLimit } from "@/lib/editor/text-length-limit";
 import { EquationDialog } from "./equation-dialog";
 import { SelectionTextFormattingPopup } from "./selection-text-formatting-popup";
 import { reflowLongParagraphs } from "@/lib/editor/reflow-long-paragraphs";
-import { highlightInlineCodeTermsInHtml } from "@/lib/editor/inline-formatting";
+import { inlineFormattingInHtml } from "@/lib/editor/inline-formatting";
 
 function escapeHtml(value: string) {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
@@ -48,7 +48,7 @@ export function StatementTextEditor({
   onChange: (html: string, text: string) => void;
 }) {
   const sourceContent = html ?? `<${tag}>${escapeHtml(text)}</${tag}>`;
-  const displayContent = highlightInlineCodeTermsInHtml(sourceContent);
+  const displayContent = inlineFormattingInHtml(sourceContent);
   const content = standardMode && textRole === "body" && tag === "p" ? reflowLongParagraphs(displayContent) : displayContent;
   const observedContent = useRef(sourceContent);
   const extensions = useMemo(

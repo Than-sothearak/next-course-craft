@@ -8,7 +8,7 @@ import { CodeExampleControls } from "./(rich_text_block_editor_components)/code-
 import { EquationDialog } from "../(text_editing_components)/equation-dialog";
 import { SelectionTextFormattingPopup } from "../(text_editing_components)/selection-text-formatting-popup";
 import { reflowLongParagraphs } from "@/lib/editor/reflow-long-paragraphs";
-import { highlightInlineCodeTermsInHtml } from "@/lib/editor/inline-formatting";
+import { inlineFormattingInHtml } from "@/lib/editor/inline-formatting";
 
 export function RichTextBlockEditor({
   block,
@@ -23,7 +23,7 @@ export function RichTextBlockEditor({
   onEditorFocus?: (editor: Editor) => void;
   standardMode?: boolean;
 }) {
-  const displayContent = highlightInlineCodeTermsInHtml(block.data.html);
+  const displayContent = inlineFormattingInHtml(block.data.html);
   const content = standardMode ? reflowLongParagraphs(displayContent) : displayContent;
   const observedContent = useRef({ id: block.id, html: block.data.html });
   const editor = useEditor(

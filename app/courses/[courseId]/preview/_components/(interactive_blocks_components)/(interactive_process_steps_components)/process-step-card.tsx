@@ -1,7 +1,7 @@
 import type { ContentBlock, ProcessMediaLayout, ProcessStepsStyle } from "@/lib/schemas/block";
 import { textPaint } from "@/lib/color";
 import type { ReactNode } from "react";
-import { hasInlineCodeTerms } from "@/lib/editor/inline-formatting";
+import { hasInlineFormatting } from "@/lib/editor/inline-formatting";
 import { StatementTextPreview } from "@/app/courses/[courseId]/edit/_components/statement-text-preview";
 import { ProcessStepAssets } from "./process-step-media";
 
@@ -29,12 +29,12 @@ export function ProcessStepCard({ step, index, style, showNumbers, accentColor, 
           : { background: "var(--process-paint)", color: "var(--process-accent-text)" }}
       >{index + 1}</span>}
       {(renderTitle || step.title.trim()) && <div className={showNumbers && style !== "slider" ? "mt-4" : "mt-0"}>
-        {renderTitle ? renderTitle(step, index) : step.titleHtml !== undefined || hasInlineCodeTerms(step.title)
+        {renderTitle ? renderTitle(step, index) : step.titleHtml !== undefined || hasInlineFormatting(step.title)
           ? <StatementTextPreview tag={TitleTag} textRole="title" text={step.title} html={step.titleHtml} className="text-[20px] font-semibold text-slate-900" />
           : <TitleTag data-block-text-role="title" className="text-[20px] font-semibold text-slate-900">{step.title}</TitleTag>}
       </div>}
       <div className="mt-2 text-base leading-6 text-slate-700">
-        {renderBody ? renderBody(step, index) : step.bodyHtml !== undefined || hasInlineCodeTerms(step.body)
+        {renderBody ? renderBody(step, index) : step.bodyHtml !== undefined || hasInlineFormatting(step.body)
           ? <StatementTextPreview tag="p" text={step.body} html={step.bodyHtml} className="prose max-w-none text-base leading-6" />
           : <p className="whitespace-pre-wrap">{step.body}</p>}
       </div>

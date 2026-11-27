@@ -2,7 +2,8 @@ import { randomUUID } from "node:crypto";
 import { blockSchema, type ContentBlock } from "@/lib/schemas/block";
 import type { QuizQuestion } from "@/lib/schemas/quiz";
 import { renderCodeExampleHtml } from "@/lib/editor/code-example";
-import { hasInlineFormatting, inlineFormattingHtml, stripInlineFormatting } from "@/lib/editor/inline-formatting";
+import { hasInlineFormatting } from "@/lib/editor/inline-formatting";
+import { generatedInlineHtml, generatedPlainText, normalizeGeneratedInlineFormatting } from "./inline-formatting";
 import { type GeneratedAssessmentQuestion, type GeneratedCourseDraft, type GeneratedCourseSeed } from "../course-generation-schemas";
 import { createGeneratedImageAsset, type GeneratedImageOptions } from "./images";
 
@@ -21,12 +22,13 @@ function escapeHtml(value: string) {
 }
 
 function plainText(value: string) {
-  return stripInlineFormatting(value).trim();
+  return generatedPlainText(value);
 }
 
 function formattedHtml(value: string, tag: "h1" | "h2" | "h3" | "p") {
+  value = normalizeGeneratedInlineFormatting(value);
   if (!hasInlineFormatting(value)) return undefined;
-  return `<${tag}>${inlineFormattingHtml(value.trim()).replace(/\r?\n/g, "<br />")}</${tag}>`;
+  return `<${tag}>${generatedInlineHtml(value.trim()).replace(/\r?\n/g, "<br />")}</${tag}>`;
 }
 
 export function textHtml(
@@ -36,14 +38,14 @@ export function textHtml(
   khmer = false,
 ) {
   const parts = [
-    title.trim() ? `<h3>${inlineFormattingHtml(title.trim())}</h3>` : "",
+    title.trim() ? `<h3>${generatedInlineHtml(title.trim())}</h3>` : "",
     body.trim()
-      ? body.trim().split(/\r?\n\s*\r?\n/).map((paragraph) => `<p>${inlineFormattingHtml(paragraph.trim()).replace(/\r?\n/g, "<br />")}</p>`).join("")
+      ? body.trim().split(/\r?\n\s*\r?\n/).map((paragraph) => `<p>${generatedInlineHtml(paragraph.trim()).replace(/\r?\n/g, "<br />")}</p>`).join("")
       : "",
     bullets.filter((item) => item.trim()).length
       ? `<ul>${bullets
           .filter((item) => item.trim())
-          .map((item) => `<li><p>${inlineFormattingHtml(item.trim())}</p></li>`)
+          .map((item) => `<li><p>${generatedInlineHtml(item.trim())}</p></li>`)
           .join("")}</ul>`
       : "",
   ].filter(Boolean);
@@ -58,7 +60,7 @@ function customSummaryHtml(title: string, body: string, khmer = false) {
   const bullets = lines.map((line) => line.match(/^[-*•]\s+(.+)$/)?.[1]);
   if (!lines.length || bullets.some((bullet) => !bullet))
     return textHtml(title, body, [], khmer);
-  return `<h3>${inlineFormattingHtml(title.trim())}</h3><ul>${bullets.map((bullet) => `<li><p>${inlineFormattingHtml(bullet!)}</p></li>`).join("")}</ul>`;
+  return `<h3>${generatedInlineHtml(title.trim())}</h3><ul>${bullets.map((bullet) => `<li><p>${generatedInlineHtml(bullet!)}</p></li>`).join("")}</ul>`;
 }
 
 export function needsContinueAfter(
@@ -127,25 +129,25 @@ function quizQuestion(
 ): QuizQuestion {
   const choices = question.options.map((text) => ({
     id: randomUUID(),
-    text,
+    text: plainText(text),
     imageSrc: "",
     imageAlt: "",
   }));
   return {
     id: randomUUID(),
-    prompt: question.question,
+    prompt: plainText(question.question),
     imageSrc: "",
     imageAlt: "",
     selectionMode: "single",
     choices,
     correctChoiceIds: [choices[question.correctOptionIndex].id],
     correctFeedback:
-      question.correctFeedback ||
+      plainText(question.correctFeedback) ||
       (khmer
         ? "ត្រឹមត្រូវ។ អ្នកយល់ចំណុចសំខាន់នេះហើយ។"
         : "Correct. You understand this key point."),
     incorrectFeedback:
-      question.incorrectFeedback ||
+      plainText(question.incorrectFeedback) ||
       (khmer
         ? "សូមពិនិត្យមេរៀនឡើងវិញ រួចព្យាយាមម្ដងទៀត។"
         : "Review the lesson and try again."),
@@ -232,7 +234,7 @@ export function buildPreLearnPostActivities(
     .map((lesson, index) => {
       const entry = seed.lessonOverview[index];
       const sourceRange = entry.slideRange.trim();
-      return `<li><p><strong>${escapeHtml(lesson.title)}</strong></p><p>${escapeHtml(entry.focus)}</p>${sourceRange ? `<p>${labels.sourcePages}: ${escapeHtml(sourceRange)}</p>` : ""}</li>`;
+      return `<li><p><strong>${escapeHtml(lesson.title)}</strong></p><p>${generatedInlineHtml(entry.focus)}</p>${sourceRange ? `<p>${labels.sourcePages}: ${escapeHtml(sourceRange)}</p>` : ""}</li>`;
     })
     .join("")}</ul>`;
   const keywordBlock = blockSchema.parse({
@@ -244,15 +246,15 @@ export function buildPreLearnPostActivities(
       cards: seed.keyTerms.map(({ term, definition }) => ({
         id: randomUUID(),
         frontLabel: labels.keyword,
-        front: { type: "text", text: term },
+        front: { type: "text", text: plainText(term) },
         backLabel: labels.definition,
-        back: { type: "text", text: definition },
+        back: { type: "text", text: plainText(definition) },
       })),
     },
   });
   const preLessons = [
     activityLesson(preSection.id, labels.description, 0, [
-      richTextBlock(`<p>${escapeHtml(seed.description)}</p>`),
+      richTextBlock(`<p>${generatedInlineHtml(seed.description)}</p>`),
     ]),
     activityLesson(preSection.id, labels.overview, 1, [
       richTextBlock(overview),
@@ -350,7 +352,7 @@ export function addCustomTemplateFirstLessonActivities(
   }));
   const overviewHtml = `<ul>${overviewItems.map((item) => {
     const slideRange = item.slideRange?.trim();
-    return `<li><p><strong>${escapeHtml(item.title)}</strong></p><p>${escapeHtml(item.focus)}</p>${slideRange ? `<p>${khmer ? "ទំព័រប្រភព" : "Source pages"}: ${escapeHtml(slideRange)}</p>` : ""}</li>`;
+    return `<li><p><strong>${escapeHtml(item.title)}</strong></p><p>${generatedInlineHtml(item.focus)}</p>${slideRange ? `<p>${khmer ? "ទំព័រប្រភព" : "Source pages"}: ${escapeHtml(slideRange)}</p>` : ""}</li>`;
   }).join("")}</ul>`;
   const metadataBlocks: ContentBlock[] = [
     richTextBlock(textHtml(labels.description, seed.description, [], khmer)),
@@ -367,9 +369,9 @@ export function addCustomTemplateFirstLessonActivities(
         cards: seed.keyTerms.map(({ term, definition }) => ({
           id: randomUUID(),
           frontLabel: labels.keyword,
-          front: { type: "text", text: term },
+          front: { type: "text", text: plainText(term) },
           backLabel: labels.definition,
-          back: { type: "text", text: definition },
+          back: { type: "text", text: plainText(definition) },
         })),
       },
     }));
@@ -701,7 +703,7 @@ export async function toContentBlock(
             alt: alt.trim() || text.trim() || (khmer ? "រូបភាពក្នុងកាត" : "Flip card image"),
           };
         }
-        const fallbackText = text.trim() || alt.trim();
+        const fallbackText = plainText(text) || plainText(alt);
         return fallbackText ? { type: "text" as const, text: fallbackText } : null;
       };
       const front = await createFace(card.front, card.frontImagePrompt, card.frontImageAlt);
@@ -866,13 +868,13 @@ export async function toContentBlock(
         block: blockSchema.parse({
           ...base,
           type: "richText",
-          data: { html: renderCodeExampleHtml({ title: seed.title, code: seed.body, ...seed.codeExample, formatInlineText: true }) },
+          data: { html: renderCodeExampleHtml({ ...seed.codeExample, title: normalizeGeneratedInlineFormatting(seed.title), code: seed.body, explanation: normalizeGeneratedInlineFormatting(seed.codeExample.explanation), formatInlineText: true }) },
         }),
         generatedImage: false,
       };
     }
     const title = seed.title.trim()
-      ? `<h3>${inlineFormattingHtml(seed.title.trim())}</h3>`
+      ? `<h3>${generatedInlineHtml(seed.title.trim())}</h3>`
       : "";
     const code = seed.body.trim() ? seed.body : seed.bullets.join("\n");
     return {

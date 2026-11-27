@@ -1,4 +1,5 @@
 /** @vitest-environment jsdom */
+import { readFileSync } from "node:fs";
 import { act, useState } from "react";
 import type { Editor } from "@tiptap/core";
 import { createRoot, type Root } from "react-dom/client";
@@ -46,6 +47,42 @@ describe("selected text formatting popups", () => {
     act(() => { field.focus(); editor.commands.setTextSelection({ from: 1, to: 6 }); });
     return field;
   }
+  it("shows keyword backgrounds, bold and highlights consistently in the editor and preview", async () => {
+    const text = "Remember ***keyword***, **bold**, and ==highlight==.";
+    const styles = document.createElement("style");
+    styles.textContent = readFileSync("app/globals.css", "utf8")
+      .match(/\.lesson-rich-text \[data-generated-emphasis="true"\] \{[^}]+\}/)?.[0] ?? "";
+    document.head.append(styles);
+    const assertFormatting = () => {
+      const field = container.querySelector(".lesson-rich-text .tiptap")!;
+      expect(field.textContent).toBe("Remember keyword, bold, and highlight.");
+      expect(field.querySelector("strong")?.textContent).toBe("bold");
+      expect(Array.from(field.querySelectorAll('[data-generated-emphasis="true"]')).map((span) => span.textContent)).toEqual(["keyword"]);
+      for (const span of field.querySelectorAll('[data-generated-emphasis="true"]')) {
+        expect(getComputedStyle(span).padding).toBe("0.06em 0.2em");
+        expect(getComputedStyle(span).backgroundColor).not.toBe("rgba(0, 0, 0, 0)");
+      }
+      const highlight = Array.from(field.querySelectorAll("span")).find((span) => span.textContent === "highlight")!;
+      expect(highlight.hasAttribute("data-generated-emphasis")).toBe(false);
+      expect(getComputedStyle(highlight).backgroundColor).toBe("rgb(254, 240, 138)");
+      expect(parseFloat(getComputedStyle(highlight).paddingTop || "0")).toBe(0);
+      expect(parseFloat(getComputedStyle(highlight).paddingLeft || "0")).toBe(0);
+      expect(parseFloat(getComputedStyle(highlight).borderRadius || "0")).toBe(0);
+      expect(field.querySelector("em")).toBeNull();
+    };
+
+    try {
+      await render(`<p>${text}</p>`);
+      assertFormatting();
+      const savedHtml = editor.getHTML();
+      await act(async () => root.render(<StatementTextPreview tag="p" text={text} className="" />));
+      assertFormatting();
+      await act(async () => root.render(<StatementTextPreview tag="p" text={text} html={savedHtml} className="" />));
+      assertFormatting();
+    } finally {
+      styles.remove();
+    }
+  });
   async function openLink() {
     await act(async () => button(editor.isActive("link") ? "Edit link" : "Add link to selected text").click());
     expect(panel().parentElement).toBe(document.body);

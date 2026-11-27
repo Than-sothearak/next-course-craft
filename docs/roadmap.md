@@ -1,5 +1,7 @@
 # Delivery roadmap
 
+Requested generation keyword formatting: use `***keyword***` for padded theme-colored keywords, `**bold**` for bold text and `==highlight==` for ordinary text highlights without padding in supported text across direct and source-based generation. Extend the existing formatter and preserve raw code while removing backtick emphasis within the current generation slice. Generation assembly normalizes unexpected backtick-wrapped AI terms into keyword emphasis in supported prose and plain text in keyword cards, including resumed checkpoints. Raw code and URLs stay exact; shared formatting instructions also cover pre/post activity requests.
+
 Requested chart animation refinement: smooth per-field bar/column growth, line drawing, donut sweep, stacked fills and value reveals across learner preview, public links and static HTML/SCORM. Viewport entry, presentation activation/Preview/Restart, reduced motion and still authoring/thumbnails use the existing shared renderer and presentation lifecycle without expanding other phases.
 
 Requested publishing extension: Publish → Share link creates a public learner URL with copy/open, publish update and turn-off controls. Course-scoped publish/export authorization, validated atomic snapshots, stable update URLs, token-scoped referenced media and immediate access revocation extend the existing publishing slice. Standard and Presentation reuse the shared standalone renderer; this adds no second application, export worker, registration flow or centralized learner tracking.

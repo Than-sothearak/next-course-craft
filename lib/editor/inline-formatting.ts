@@ -1,62 +1,64 @@
 /**
- * Convert generated bold, highlight, and inline-code markers into safe HTML.
- * Backtick terms use a light, padded theme highlight without changing weight.
+ * Convert generated keyword, bold, and highlight markers into safe HTML.
+ * Keywords use the padded theme background; highlights use ordinary text formatting.
  */
-export function inlineFormattingHtml(value: string) {
-  const escapeHtml = (text: string) =>
-    text.replace(
-      /[&<>"']/g,
-      (character) =>
-        ({
-          "&": "&amp;",
-          "<": "&lt;",
-          ">": "&gt;",
-          '"': "&quot;",
-          "'": "&#39;",
-        })[character]!,
-    );
-  const pattern = /(`{1,2})([^`\r\n]+?)\1|\*\*([^*\r\n]+)\*\*|==([^=\r\n]+)==/g;
+const inlineFormattingPattern = /\*\*\*([^*\r\n]+)\*\*\*|\*\*([^*\r\n]+)\*\*|==([^=\r\n]+)==/g;
+
+function escapeHtml(text: string) {
+  return text.replace(
+    /[&<>"']/g,
+    (character) =>
+      ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      })[character]!,
+  );
+}
+
+function renderInlineFormatting(value: string, escapeText: (text: string) => string) {
   let html = "";
   let cursor = 0;
 
-  for (const match of value.matchAll(pattern)) {
+  for (const match of value.matchAll(inlineFormattingPattern)) {
     const index = match.index ?? 0;
-    html += escapeHtml(value.slice(cursor, index));
+    html += escapeText(value.slice(cursor, index));
 
     if (match[2] !== undefined) {
-      html += `<span data-generated-emphasis="true" style="background-color: #fef08a">${escapeHtml(match[2])}</span>`;
-    } else if (match[3] !== undefined) {
-      html += `<strong>${escapeHtml(match[3])}</strong>`;
-    } else if (match[4] !== undefined) {
-      html += `<span data-generated-emphasis="true" style="background-color: #fef08a">${escapeHtml(match[4])}</span>`;
+      html += `<strong>${escapeText(match[2])}</strong>`;
+    } else if (match[1] !== undefined) {
+      html += `<span data-generated-emphasis="true" style="background-color: #fef08a">${escapeText(match[1])}</span>`;
+    } else {
+      html += `<span style="background-color: #fef08a">${escapeText(match[3])}</span>`;
     }
 
     cursor = index + match[0].length;
   }
 
-  return html + escapeHtml(value.slice(cursor));
+  return html + escapeText(value.slice(cursor));
+}
+
+export function inlineFormattingHtml(value: string) {
+  return renderInlineFormatting(value, escapeHtml);
 }
 
 export function stripInlineFormatting(value: string) {
   return value.replace(
-    /(`{1,2})([^`\r\n]+?)\1|\*\*([^*\r\n]+)\*\*|==([^=\r\n]+)==/g,
-    (match, _delimiter: string, codeTerm: string | undefined, bold: string | undefined, highlight: string | undefined) =>
-      codeTerm ?? bold ?? highlight ?? match,
+    inlineFormattingPattern,
+    (match, keyword: string | undefined, bold: string | undefined, highlight: string | undefined) =>
+      keyword ?? bold ?? highlight ?? match,
   );
 }
 
 export function hasInlineFormatting(value: string) {
-  return /(`{1,2})[^`\r\n]+?\1|\*\*[^*\r\n]+\*\*|==[^=\r\n]+==/.test(value);
+  return value.match(inlineFormattingPattern) !== null;
 }
 
-export function hasInlineCodeTerms(value: string) {
-  return /(`{1,2})[^`\r\n]+?\1/.test(value);
-}
-
-/** Apply the legacy backtick display treatment to text inside saved HTML. */
-export function highlightInlineCodeTermsInHtml(html: string) {
+/** Format text nodes in saved HTML, preserving entities, attributes and raw code. */
+export function inlineFormattingInHtml(html: string) {
   const htmlToken = /<!--[\s\S]*?-->|<![^>]*>|<\/?[a-z][^>]*>/gi;
-  const codeTerm = /(`{1,2})([^`\r\n]+?)\1/g;
   const skippedTags = new Set(["code", "pre", "script", "style"]);
   let result = "";
   let cursor = 0;
@@ -66,7 +68,7 @@ export function highlightInlineCodeTermsInHtml(html: string) {
     const index = match.index ?? 0;
     const text = html.slice(cursor, index);
     result += skippedDepth === 0
-      ? text.replace(codeTerm, (_span, _delimiter: string, term: string) => `<span data-generated-emphasis="true" style="background-color: #fef08a">${term}</span>`)
+      ? renderInlineFormatting(text, (value) => value)
       : text;
 
     const token = match[0];
@@ -81,7 +83,7 @@ export function highlightInlineCodeTermsInHtml(html: string) {
 
   const trailingText = html.slice(cursor);
   result += skippedDepth === 0
-    ? trailingText.replace(codeTerm, (_span, _delimiter: string, term: string) => `<span data-generated-emphasis="true" style="background-color: #fef08a">${term}</span>`)
+    ? renderInlineFormatting(trailingText, (value) => value)
     : trailingText;
   return result;
 }
