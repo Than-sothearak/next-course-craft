@@ -585,12 +585,14 @@ describe("AI course generation contracts", () => {
       interactivity: "high",
       postTestCount: 5,
       imageStyle: "auto",
+      imageQuality: "optimized",
       customImageStyle: "",
       coverImageStyle: "auto",
       coverCustomImageStyle: "",
     });
     expect(courseGenerationInputSchema.safeParse({ ...input, targetLanguage: "Khmer" }).success).toBe(true);
     expect(courseGenerationInputSchema.safeParse({ ...input, targetLanguage: "French" }).success).toBe(false);
+    expect(courseGenerationInputSchema.safeParse({ ...input, imageQuality: "unsupported" }).success).toBe(false);
     expect(courseGenerationInputSchema.safeParse({ ...input, slidesPerContent: 501 }).success).toBe(false);
     expect(courseGenerationInputSchema.safeParse({ ...input, includeImages: true, imageStyle: "custom" }).success).toBe(false);
     expect(courseGenerationInputSchema.safeParse({ ...input, includeImages: true, imageStyle: "custom", customImageStyle: "Editorial paper-cut" }).success).toBe(true);

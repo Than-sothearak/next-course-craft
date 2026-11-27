@@ -66,13 +66,20 @@ describe("prompt-only course generation requests", () => {
   it("uses defaults for blank optional settings", async () => {
     const response = await submit({ lessonCount: "", model: "", level: "", contentDepth: "", targetLanguage: "" });
     expect(response.status).toBe(200);
-    expect(generateCourseDraft).toHaveBeenCalledWith(expect.objectContaining({ input: expect.objectContaining({ lessonCount: 5, model: undefined, level: "beginner", contentDepth: "detailed", targetLanguage: "English" }) }));
+    expect(generateCourseDraft).toHaveBeenCalledWith(expect.objectContaining({ input: expect.objectContaining({ lessonCount: 5, model: undefined, level: "beginner", contentDepth: "detailed", targetLanguage: "English", imageQuality: "optimized" }) }));
   });
 
   it("identifies invalid visible settings before contacting the AI provider", async () => {
     const response = await submit({ template: "preLearnPost", postTestCount: "21" });
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({ error: "Post-test questions must be a whole number from 1 to 20." });
+    expect(generateCourseDraft).not.toHaveBeenCalled();
+  });
+
+  it("rejects an unsupported image quality before contacting the AI provider", async () => {
+    const response = await submit({ imageQuality: "maximum" });
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "Choose a supported image quality." });
     expect(generateCourseDraft).not.toHaveBeenCalled();
   });
 

@@ -6,13 +6,14 @@ import { DashboardError } from "@/lib/dashboard/rules";
 import { defaultCourseGenerationModel } from "../course-generation-schemas";
 import { activeStorageConfiguration, deleteStoredMedia, storageProvider } from "@/lib/media/service";
 import { providerConnectionError } from "./provider";
-import { courseImageStyleInstruction, defaultCourseImageGenerationModel, type CourseImageStyle } from "../image-style";
+import { courseImageStyleInstruction, defaultCourseImageGenerationModel, type CourseImageQuality, type CourseImageStyle } from "../image-style";
 import { generationConnectionErrorCode } from "../generation-retry";
 import { logGenerationUsage } from "./usage";
 
 export type GeneratedImageOptions = {
   purpose?: "course-cover" | "lesson-cover" | "process-step-guide";
   imageStyle?: CourseImageStyle;
+  imageQuality?: CourseImageQuality;
   customImageStyle?: string;
 };
 
@@ -20,6 +21,8 @@ async function generateImage(prompt: string, options: GeneratedImageOptions, cou
   const cover = options.purpose === "course-cover" || options.purpose === "lesson-cover";
   const lessonCover = options.purpose === "lesson-cover";
   const stepGuide = options.purpose === "process-step-guide";
+  const optimizedCourseImage = options.imageQuality === "optimized" && !stepGuide && options.purpose !== "course-cover";
+  const fullSizeCourseImage = options.imageQuality === "fullSize" && !stepGuide && options.purpose !== "course-cover";
   const imagePrompt = stepGuide
     ? `Create one clear, accurate instructional demonstration image for a learner. ${prompt}\nCompose a readable 16:9 landscape visual guide. Honor the selected visual type and look. When Auto chooses software screens or Screenshot / UI Mockup is selected, use authentic interface chrome, realistic controls, sharp text and the actual working screen. For web-development screens, default to a recognizable VS Code workspace and a matching browser preview when the step produces a web page, including paired Before & After views when appropriate. Keep the code, CSS styling and rendered app consistent. Use the selected illustration, photographic or clean educational treatment when explicitly requested, without forcing a software screenshot. Prioritize accurate actions, useful detail and legibility. Demonstrate the task visually without printing the instructions, custom prompt or step title in the image. Do not add instruction paragraphs, written directions or captions. Use subtle highlights or arrows only where useful. Include only minimal short labels, necessary interface text or a small worked example. All visible text must be in English only, regardless of the input language or any language requested in the custom prompt. Translate human-readable text into English while preserving code syntax and numeric values. Do not add watermarks or decorative branding.`
     : `Create one polished, original educational image for a course. ${prompt}. ${cover ? lessonCover ? "Compose this as a clean, full-width, extra-wide 3:1 panoramic banner. Keep the main subject inside a central horizontal band so the image can fill a wider 1200 by 312 cover frame without losing important details." : "Compose this as a clean, full-width 16:9 landscape course cover with the main subject clearly readable on desktop and mobile." : "Use a clear educational composition."} ${courseImageStyleInstruction(options.imageStyle ?? "auto", options.customImageStyle)} Do not add words, labels, watermarks, logos, or captions to the image. Keep clear subject separation.`;
@@ -53,8 +56,13 @@ async function generateImage(prompt: string, options: GeneratedImageOptions, cou
             type: "image_generation",
             model: imageModel,
             size: lessonCover ? "1536x512" : "1280x720",
-            ...(cover || stepGuide ? { output_format: "webp", output_compression: stepGuide ? 60 : lessonCover ? 90 : 70 } : {}),
-            quality: lessonCover || stepGuide ? "high" : cover ? "medium" : "low",
+            ...(cover || stepGuide || optimizedCourseImage || (lessonCover && fullSizeCourseImage)
+              ? {
+                output_format: "webp",
+                output_compression: stepGuide ? 60 : lessonCover ? fullSizeCourseImage ? 100 : optimizedCourseImage ? 60 : 90 : cover ? 70 : 60,
+              }
+              : {}),
+            quality: lessonCover || stepGuide || fullSizeCourseImage || optimizedCourseImage ? "high" : cover ? "medium" : "low",
           },
         ],
         tool_choice: { type: "image_generation" },
@@ -112,7 +120,7 @@ async function generateImage(prompt: string, options: GeneratedImageOptions, cou
       502,
     );
   const bytes = Buffer.from(imageItem.result, "base64");
-  const expectsWebp = cover || stepGuide;
+  const expectsWebp = cover || stepGuide || optimizedCourseImage || (lessonCover && fullSizeCourseImage);
   const isWebp = bytes.length >= 12 && bytes.subarray(0, 4).toString("ascii") === "RIFF" && bytes.subarray(8, 12).toString("ascii") === "WEBP";
   const signature = expectsWebp ? Buffer.from("RIFF") : Buffer.from([
     0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
@@ -140,13 +148,17 @@ async function generateImage(prompt: string, options: GeneratedImageOptions, cou
       throw new DashboardError("The generated image did not pass file validation.", 502);
     }
   }
-  if (!cover) return { bytes, mimeType: "image/png", extension: "png", width: 1280, height: 720 };
+  if (!cover) return expectsWebp
+    ? { bytes, mimeType: "image/webp", extension: "webp", width: 1280, height: 720 }
+    : { bytes, mimeType: "image/png", extension: "png", width: 1280, height: 720 };
 
   try {
     if (lessonCover) {
       const metadata = await sharp(bytes, { limitInputPixels: 40_000_000 }).metadata();
       if (metadata.width !== 1536 || metadata.height !== 512)
         throw new DashboardError("The image service returned lesson cover dimensions other than 1536x512.", 502);
+      if (fullSizeCourseImage)
+        return { bytes, mimeType: "image/webp", extension: "webp", width: metadata.width, height: metadata.height };
       if (bytes.length < 1_000_000)
         return { bytes, mimeType: "image/webp", extension: "webp", width: metadata.width, height: metadata.height };
       for (const quality of [90, 85, 80, 75, 70, 65, 60]) {
@@ -230,6 +242,7 @@ async function createGeneratedImageAssetNow(
         source: "ai-course-generation",
         prompt,
         imageStyle: options.imageStyle ?? "auto",
+        ...(options.imageQuality ? { imageQuality: options.imageQuality } : {}),
         ...(options.imageStyle === "custom" && options.customImageStyle ? { customImageStyle: options.customImageStyle } : {}),
         width,
         height,

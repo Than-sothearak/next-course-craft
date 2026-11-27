@@ -80,7 +80,7 @@ export async function assembleCourseDraft({
                   input.includeImages,
                   khmer,
                   (assetId) => createdAssetIds.push(assetId),
-                  { imageStyle: input.imageStyle, customImageStyle: input.customImageStyle },
+                  { imageStyle: input.imageStyle, imageQuality: input.imageQuality, customImageStyle: input.customImageStyle },
                 );
                 return imageTask
                   ? conversion.then((result) => {
@@ -143,7 +143,7 @@ export async function assembleCourseDraft({
                   lessonSeed.title,
                   lessonSeed.objective,
                   (assetId) => createdAssetIds.push(assetId),
-                  { imageStyle: input.imageStyle, customImageStyle: input.customImageStyle },
+                  { imageStyle: input.imageStyle, imageQuality: input.imageQuality, customImageStyle: input.customImageStyle },
                 );
                 logGenerationProgress({ status: "DONE", task: coverTask, courseId, current: lessonNumber, total: totalLessonCount });
               } catch (error) {

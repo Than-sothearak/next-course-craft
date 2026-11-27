@@ -9,7 +9,7 @@ import {
   statementStyleSchema,
   timelineStyleSchema,
 } from "../schemas/block";
-import { courseImageStyleSchema } from "./image-style";
+import { courseImageQualitySchema, courseImageStyleSchema } from "./image-style";
 
 const generatedNativeBlockTypes = [
   "heading",
@@ -134,6 +134,7 @@ const courseGenerationInputBaseSchema = z.object({
   includeImages: z.boolean(),
   generateCoverImage: z.boolean().default(false),
   imageStyle: courseImageStyleSchema.default("auto"),
+  imageQuality: courseImageQualitySchema.default("optimized"),
   customImageStyle: z.string().trim().max(240).default(""),
   coverImageStyle: courseImageStyleSchema.optional(),
   coverCustomImageStyle: z.string().trim().max(240).optional(),

@@ -401,7 +401,7 @@ export async function toLessonCoverBlock(
   lessonTitle: string,
   objective: string,
   registerGeneratedAsset: (assetId: string) => void,
-  imageOptions: Pick<GeneratedImageOptions, "imageStyle" | "customImageStyle"> = {},
+  imageOptions: Pick<GeneratedImageOptions, "imageStyle" | "imageQuality" | "customImageStyle"> = {},
 ) {
   const generatedImage = await createGeneratedImageAsset(
     ownerId,
@@ -435,7 +435,7 @@ export async function toContentBlock(
   includeImages: boolean,
   khmer: boolean,
   registerGeneratedAsset: (assetId: string) => void,
-  imageOptions: Pick<GeneratedImageOptions, "imageStyle" | "customImageStyle"> = {},
+  imageOptions: Pick<GeneratedImageOptions, "imageStyle" | "imageQuality" | "customImageStyle"> = {},
 ): Promise<{ block: ContentBlock; generatedImage: boolean; assetId?: string }> {
   const id = randomUUID();
   const base = { id, version: 1 as const };

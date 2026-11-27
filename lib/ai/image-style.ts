@@ -18,6 +18,15 @@ export const courseImageStyleValues = [
 export const courseImageStyleSchema = z.enum(courseImageStyleValues);
 export type CourseImageStyle = z.infer<typeof courseImageStyleSchema>;
 
+export const courseImageQualityValues = ["optimized", "fullSize"] as const;
+export const courseImageQualitySchema = z.enum(courseImageQualityValues);
+export type CourseImageQuality = z.infer<typeof courseImageQualitySchema>;
+
+export const courseImageQualityOptions: { value: CourseImageQuality; label: string }[] = [
+  { value: "optimized", label: "Optimized" },
+  { value: "fullSize", label: "Full size" },
+];
+
 export const courseImageStyleOptions: { value: CourseImageStyle; label: string }[] = [
   { value: "auto", label: "Automatic" },
   { value: "flatIllustration", label: "Flat illustration" },

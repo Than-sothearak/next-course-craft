@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { randomBytes } from "node:crypto";
 import sharp from "sharp";
 import { createGeneratedImageAsset } from "@/lib/ai/generation/images";
 import { toLessonCoverBlock } from "@/lib/ai/generation/block-content";
@@ -46,6 +47,51 @@ describe("fast generated course cover assets", () => {
     expect(storage.upload).toHaveBeenCalledWith(expect.objectContaining({ contentType: "image/png" }));
     expect(Asset.create).toHaveBeenCalledWith(expect.objectContaining({ metadata: expect.objectContaining({ width: 1280, height: 720 }) }));
     expect(JSON.parse(fetchMock.mock.calls[0][1].body).input).toContain("Do not add words, labels");
+  });
+  it("generates optimized course illustrations as compressed WebP", async () => {
+    const generatedBytes = await webp();
+    output(generatedBytes);
+    await createGeneratedImageAsset(ownerId, courseId, "Teaching illustration", { imageQuality: "optimized" });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).tools[0]).toMatchObject({
+      size: "1280x720", quality: "high", output_format: "webp", output_compression: 60,
+    });
+    expect(storage.upload).toHaveBeenCalledWith(expect.objectContaining({ body: generatedBytes, contentType: "image/webp", size: generatedBytes.length }));
+    expect(Asset.create).toHaveBeenCalledWith(expect.objectContaining({
+      mimeType: "image/webp", metadata: expect.objectContaining({ imageQuality: "optimized" }),
+    }));
+  });
+  it("generates full-size course illustrations as high-quality PNG", async () => {
+    output(Buffer.from("iVBORw0KGgo=", "base64"));
+    await createGeneratedImageAsset(ownerId, courseId, "Teaching illustration", { imageQuality: "fullSize" });
+    const tool = JSON.parse(fetchMock.mock.calls[0][1].body).tools[0];
+    expect(tool).toMatchObject({ size: "1280x720", quality: "high" });
+    expect(tool).not.toHaveProperty("output_format");
+    expect(tool).not.toHaveProperty("output_compression");
+    expect(storage.upload).toHaveBeenCalledWith(expect.objectContaining({ contentType: "image/png" }));
+    expect(Asset.create).toHaveBeenCalledWith(expect.objectContaining({
+      mimeType: "image/png", metadata: expect.objectContaining({ imageQuality: "fullSize" }),
+    }));
+  });
+  it("uses the chosen compression setting for lesson covers", async () => {
+    output(await webp(1536, 512));
+    await createGeneratedImageAsset(ownerId, courseId, "Lesson cover", { purpose: "lesson-cover", imageQuality: "optimized" });
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).tools[0]).toMatchObject({
+      size: "1536x512", quality: "high", output_format: "webp", output_compression: 60,
+    });
+  });
+  it("preserves full-size lesson cover bytes above the optimized size limit", async () => {
+    const generatedBytes = await sharp(randomBytes(1536 * 512 * 3), {
+      raw: { width: 1536, height: 512, channels: 3 },
+    }).webp({ lossless: true }).toBuffer();
+    expect(generatedBytes.length).toBeGreaterThan(1_000_000);
+    output(generatedBytes);
+    await createGeneratedImageAsset(ownerId, courseId, "Lesson cover", { purpose: "lesson-cover", imageQuality: "fullSize" });
+    expect(storage.upload).toHaveBeenCalledWith(expect.objectContaining({
+      body: generatedBytes, contentType: "image/webp", size: generatedBytes.length,
+    }));
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).tools[0]).toMatchObject({
+      quality: "high", output_format: "webp", output_compression: 100,
+    });
   });
   it.each([
     { title: "HTML heading", instructions: 'Type <h1>Hello</h1> in the editor and preview the page.', customPrompt: "" },

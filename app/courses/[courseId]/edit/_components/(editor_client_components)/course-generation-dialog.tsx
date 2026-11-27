@@ -14,7 +14,7 @@ import {
   type GeneratedCourseDraft,
   type SourceGenerationJobSnapshot,
 } from "@/lib/ai/course-generation-schemas";
-import { courseImageStyleOptions, type CourseImageStyle } from "@/lib/ai/image-style";
+import { courseImageQualityOptions, courseImageStyleOptions, type CourseImageStyle } from "@/lib/ai/image-style";
 
 import { advanceSourceGenerationJobUntil, isMissingGenerationJob, postCourseGenerationForm, postSourceGenerationAction, responseError } from "./(course_generation_dialog_components)/generation-job-request";
 import { GenerationPromptInput, starterGenerationPrompt } from "./(course_generation_dialog_components)/generation-prompt-input";
@@ -289,6 +289,7 @@ export function CourseGenerationDialog({
   const [selectedModel, setSelectedModel] = useState<CourseGenerationModel>(defaultCourseGenerationModel);
   const [includeImages, setIncludeImages] = useState(true);
   const [imageStyle, setImageStyle] = useState<CourseImageStyle>("auto");
+  const [imageQuality, setImageQuality] = useState<CourseGenerationInput["imageQuality"]>("optimized");
   const [customImageStyle, setCustomImageStyle] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [generationJobId, setGenerationJobId] = useState<string | null>(null);
@@ -447,6 +448,7 @@ export function CourseGenerationDialog({
     if (template === "preLearnPost") formData.set("postTestCount", postTestCount || "5");
     formData.set("includeImages", String(includeImages));
     formData.set("imageStyle", imageStyle);
+    formData.set("imageQuality", imageQuality);
     formData.set("customImageStyle", customImageStyle);
     formData.set("courseTitle", courseTitle);
     formData.set("courseDescription", courseDescription);
@@ -913,18 +915,23 @@ export function CourseGenerationDialog({
               </fieldset>
             )}
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <label className="flex flex-1 cursor-pointer items-start gap-2.5 rounded-lg border border-slate-200 p-3 text-sm text-slate-700">
+            <div className="grid gap-3 sm:grid-cols-3 sm:items-center">
+              <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-slate-200 p-3 text-sm text-slate-700">
                 <input type="checkbox" checked={includeImages} onChange={(event) => setIncludeImages(event.target.checked)} className="mt-0.5 size-4 accent-indigo-600" />
                 <span>
                   <span className="flex items-center gap-1.5 font-medium"><ImagePlus size={15} className="text-indigo-600" /> Generate image</span>
                 </span>
               </label>
-              {includeImages && <label className="block min-w-0 text-sm font-medium text-slate-700 sm:w-56">Generated image style
-                <Select value={imageStyle} onChange={(event) => setImageStyle(event.target.value as CourseImageStyle)} className="mt-1.5">{courseImageStyleOptions.map((style) => <option key={style.value} value={style.value}>{style.label}</option>)}</Select>
-              </label>}
+              {includeImages && <>
+                <label className="block min-w-0 text-sm font-medium text-slate-700">Generated image style
+                  <Select value={imageStyle} onChange={(event) => setImageStyle(event.target.value as CourseImageStyle)} className="mt-1.5">{courseImageStyleOptions.map((style) => <option key={style.value} value={style.value}>{style.label}</option>)}</Select>
+                </label>
+                <label className="block min-w-0 text-sm font-medium text-slate-700">Image quality
+                  <Select aria-label="Image quality" value={imageQuality} onChange={(event) => setImageQuality(event.target.value as CourseGenerationInput["imageQuality"])} className="mt-1.5">{courseImageQualityOptions.map((quality) => <option key={quality.value} value={quality.value}>{quality.label}</option>)}</Select>
+                </label>
+              </>}
             </div>
-            {includeImages && <p className="text-xs text-slate-500">Image generation may take longer than a typical response, so wait for the generation to finish.</p>}
+            {includeImages && <p className="text-xs text-slate-500">Optimized WebP images use compressed files for faster loading. Full size uses larger files. Image generation may take longer than a typical response, so wait for the generation to finish.</p>}
             {includeImages && imageStyle === "custom" && <label className="block text-sm font-medium text-slate-700">Custom style direction
               <Input value={customImageStyle} maxLength={240} placeholder="e.g. warm editorial paper-cut illustration" onChange={(event) => setCustomImageStyle(event.target.value)} className="mt-1.5" />
               <span className="mt-1 block text-xs font-normal leading-5 text-slate-500">Describe the visual treatment for generated images.</span>

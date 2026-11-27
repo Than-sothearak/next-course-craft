@@ -149,7 +149,11 @@ describe("course generation structure previews", () => {
     const styleSelect = styleField!.querySelector("select")!;
     expect(styleSelect.value).toBe("auto");
     expect(Array.from(styleSelect.options, (option) => option.textContent)).toContain("Photorealistic photography");
-    const imageControls = styleSelect.closest('[class*="sm:flex-row"]');
+    const qualityField = Array.from(container.querySelectorAll("label")).find((item) => item.textContent?.includes("Image quality"));
+    const qualitySelect = qualityField!.querySelector("select")!;
+    expect(qualitySelect.value).toBe("optimized");
+    expect(Array.from(qualitySelect.options, (option) => option.textContent)).toContain("Optimized");
+    const imageControls = styleSelect.closest('[class*="sm:grid-cols-3"]');
     expect(imageControls?.contains(container.querySelector('input[type="checkbox"]'))).toBe(true);
     await act(async () => {
       Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")!.set!.call(styleSelect, "custom");
@@ -200,6 +204,7 @@ describe("course generation structure previews", () => {
     await act(async () => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect((fetchMock.mock.calls[0][1].body as FormData).get("prompt")).toBe(prompt);
+    expect((fetchMock.mock.calls[0][1].body as FormData).get("imageQuality")).toBe("optimized");
   });
 
   it("keeps prompt instructions within the existing character limit", async () => {

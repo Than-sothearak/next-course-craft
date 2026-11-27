@@ -167,10 +167,12 @@ describe("AI course review wizard", () => {
     expect(imageModelSelect.disabled).toBe(true);
     const styleSelect = container.querySelector<HTMLSelectElement>('select[aria-label="Generated image style"]')!;
     expect([...styleSelect.options].map((option) => option.textContent)).toContain("3D cartoon");
-    await act(async () => supplementalSwitch.click());
+    expect(container.querySelector('select[aria-label="Image quality"]')).toBeNull();
     expect(supplementalSwitch.checked).toBe(false);
     await act(async () => supplementalSwitch.click());
     expect(supplementalSwitch.checked).toBe(true);
+    const imageQualitySelect = container.querySelector<HTMLSelectElement>('select[aria-label="Image quality"]')!;
+    expect(imageQualitySelect.value).toBe("optimized");
     expect(container.textContent).toContain("Image generation may take longer than a typical response, so wait for the generation to finish.");
     expect(imageModelSelect.value).toBe("gpt-image-2.5-sunburst");
     expect(imageModelSelect.disabled).toBe(true);
@@ -178,6 +180,7 @@ describe("AI course review wizard", () => {
     expect(styleSelect.closest('[class*="sm:flex-row"]')?.contains(supplementalSwitch)).toBe(true);
     expect(styleSelect.closest('[class*="sm:flex-row"]')?.contains(imageModelSelect)).toBe(true);
     await select(styleSelect, "custom");
+    await select(imageQualitySelect, "fullSize");
     await click("Set direction");
     const lessonStyleDialog = [...container.querySelectorAll("dialog")].find((dialog) => dialog.textContent?.includes("Describe the visual treatment"))!;
     await type(lessonStyleDialog.querySelector("textarea")!, "Warm paper-cut lesson illustrations");
@@ -189,6 +192,7 @@ describe("AI course review wizard", () => {
       includeImages: true,
       generateCoverImage: true,
       imageStyle: "custom",
+      imageQuality: "fullSize",
       customImageStyle: "Warm paper-cut lesson illustrations",
       coverImageStyle: "custom",
       coverCustomImageStyle: "Editorial cover art",

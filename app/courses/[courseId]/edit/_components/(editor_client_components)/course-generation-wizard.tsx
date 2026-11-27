@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import { createClientId } from "@/lib/client-id";
 import { courseGenerationInputSchema, courseGenerationModelOptions, defaultCourseGenerationModel, type CourseGenerationInput, type SourceGenerationJobSnapshot } from "@/lib/ai/course-generation-schemas";
-import { courseImageStyleOptions, defaultCourseImageGenerationModel } from "@/lib/ai/image-style";
+import { courseImageQualityOptions, courseImageStyleOptions, defaultCourseImageGenerationModel } from "@/lib/ai/image-style";
 import { courseOutlineSchema, type CourseOutline, type GenerationSessionSnapshot } from "@/lib/ai/course-generation-session-schema";
 import type { useEditorDraft } from "../_components/use-editor-draft";
 import { GenerationPromptInput, starterGenerationPrompt } from "./(course_generation_dialog_components)/generation-prompt-input";
@@ -55,7 +55,7 @@ export function CourseGenerationWizard({ open, onClose, courseId, courseTitle, c
   const [closeConfirmationOpen, setCloseConfirmationOpen] = useState(false);
   const closeDescriptionId = useId();
   const [step, setStep] = useState(savedSession?.status === "outline" ? 2 : 0);
-  const [input, setInput] = useState<CourseGenerationInput>(savedSession?.status === "outline" ? savedSession.input : { prompt: starterGenerationPrompt, audience: "", level: "beginner", lessonCount: 5, template: "custom", learnGroupingMode: "smart", slidesPerContent: 5, targetLanguage: "English", contentDepth: "detailed", interactivity: "high", postTestCount: 5, standardMode, includeImages: false, generateCoverImage: false, imageStyle: "auto", customImageStyle: "", coverImageStyle: "auto", coverCustomImageStyle: "", courseTitle, courseDescription, model: defaultCourseGenerationModel });
+  const [input, setInput] = useState<CourseGenerationInput>(savedSession?.status === "outline" ? savedSession.input : { prompt: starterGenerationPrompt, audience: "", level: "beginner", lessonCount: 5, template: "custom", learnGroupingMode: "smart", slidesPerContent: 5, targetLanguage: "English", contentDepth: "detailed", interactivity: "high", postTestCount: 5, standardMode, includeImages: false, generateCoverImage: false, imageStyle: "auto", imageQuality: "optimized", customImageStyle: "", coverImageStyle: "auto", coverCustomImageStyle: "", courseTitle, courseDescription, model: defaultCourseGenerationModel });
   const [file, setFile] = useState<File | null>(null);
   const [source, setSource] = useState<SourceGenerationJobSnapshot | null>(null);
   const [planned, setPlanned] = useState<GenerationSessionSnapshot | null>(savedSession?.status === "outline" ? savedSession : null);
@@ -295,12 +295,13 @@ export function CourseGenerationWizard({ open, onClose, courseId, courseTitle, c
             checked={input.includeImages}
             onChange={(checked) => change("includeImages", checked)}
           />
-          <div className="grid min-w-0 flex-1 gap-3 sm:grid-cols-2">
+          <div className="grid min-w-0 flex-1 gap-3 sm:grid-cols-3">
             <Field label="Generated image style"><Select aria-label="Generated image style" value={input.imageStyle} onChange={(event) => chooseImageStyle(event.target.value as CourseGenerationInput["imageStyle"], "lesson")}>{courseImageStyleOptions.map((style) => <option key={style.value} value={style.value}>{style.label}</option>)}</Select></Field>
+            {input.includeImages && <Field label="Image quality"><Select aria-label="Image quality" value={input.imageQuality} onChange={(event) => change("imageQuality", event.target.value as CourseGenerationInput["imageQuality"])}>{courseImageQualityOptions.map((quality) => <option key={quality.value} value={quality.value}>{quality.label}</option>)}</Select></Field>}
             <Field label="Image generation model"><Select aria-label="Image generation model" value={imageGenerationModel} disabled title={imageGenerationModel}><option value={imageGenerationModel}>{imageGenerationModel}</option></Select></Field>
           </div>
         </div>
-        {input.includeImages && <p className="text-xs text-slate-500">Image generation may take longer than a typical response, so wait for the generation to finish.</p>}
+        {input.includeImages && <p className="text-xs text-slate-500">Optimized WebP images use compressed files for faster loading. Full size uses larger files. Image generation may take longer than a typical response, so wait for the generation to finish.</p>}
         {input.imageStyle === "custom" && <div className="flex flex-wrap items-center gap-2 text-sm">
           <span className="min-w-0 flex-1 truncate text-slate-600">{input.customImageStyle || "Add a visual direction for your custom style."}</span>
           <Button type="button" variant="outline" size="sm" onClick={() => editCustomImageStyle("lesson")}>{input.customImageStyle ? "Edit direction" : "Set direction"}</Button>
