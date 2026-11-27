@@ -1,6 +1,7 @@
 import { ImageIcon, RotateCcw } from "lucide-react";
 import type { BlockTemplate } from "../block-template-data";
 import { courseThemeFlipCardGradient } from "@/lib/color";
+import { FlipCardText } from "@/components/flip-cards/flip-card-text";
 
 export function FlipCardTemplatePreview({ cards }: { cards: NonNullable<BlockTemplate["flipCard"]>["cards"] }) {
   const previewCards = cards.slice(0, 2);
@@ -25,9 +26,7 @@ export function FlipCardTemplatePreview({ cards }: { cards: NonNullable<BlockTem
           {card.front.type === "image" ? (
             <ImageIcon size={16} className="relative z-10 text-current opacity-80" aria-hidden="true" />
           ) : (
-            <span className="relative z-10 line-clamp-3 max-w-full break-words text-[8px] font-semibold leading-3 sm:text-[9px]">
-              {card.front.text || "Add a prompt"}
-            </span>
+            <FlipCardText text={card.front.text || "Add a prompt"} className="relative z-10 line-clamp-3 max-w-full break-words text-[8px] font-semibold leading-3 sm:text-[9px]" />
           )}
           <span className="relative z-10 mt-1.5 text-[7px] opacity-80 sm:text-[8px]">
             {card.backLabel || "Flip to reveal"}

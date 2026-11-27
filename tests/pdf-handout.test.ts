@@ -20,6 +20,10 @@ const course = parseScorm12Snapshot({
 });
 
 describe("PDF handout content", () => {
+  it("includes readable formatted flip-card text without exposing inline markers", () => {
+    const block = blockSchema.parse({ id: "cards", version: 1, type: "flipCard", data: { cards: [{ id: "card", frontLabel: "Question", front: { type: "text", text: "**Explain** ***HTML***" }, backLabel: "Answer", back: { type: "text", text: "Use ==elements==." } }] } });
+    expect(getHandoutBlockText(block)).toEqual(["Card 1: Question", "Explain HTML", "Answer: Use elements."]);
+  });
   it("converts rich text into readable, plain handout text", () => {
     expect(htmlToHandoutText("<h2>Use &amp; check</h2><ul><li>First</li><li>Second</li></ul><script>private()</script>"))
       .toBe("Use & check\n- First\n- Second");

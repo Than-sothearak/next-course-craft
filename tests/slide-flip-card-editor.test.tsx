@@ -46,6 +46,24 @@ describe("flip-card canvas authoring", () => {
     expect(container.querySelector('[aria-label="Flip card 1 to reveal the back"]')).not.toBeNull();
   });
 
+  it("retains face formatting through settings edits, saving, preview and standalone playback", async () => {
+    await start();
+    await input("Card 1 front text", "**Important** ***keyword***");
+    await act(async () => [...container.querySelectorAll<HTMLButtonElement>('[role="tab"]')].find((tab) => tab.textContent === "Back")!.click());
+    await input("Card 1 back text", "**Answer** with ==highlight==");
+    expect(frontFace(0).querySelector("strong")?.textContent).toBe("Important");
+    expect(backFace(0).querySelector("strong")?.textContent).toBe("Answer");
+    const snapshot = await saved();
+    expect(snapshot.lessons[0].blocks[0]).toMatchObject({ type: "flipCard", data: { cards: expect.arrayContaining([expect.objectContaining({ front: { type: "text", text: "**Important** ***keyword***" }, back: { type: "text", text: "**Answer** with ==highlight==" } })]) } });
+    for (const standalone of [false, true]) {
+      await act(async () => root.render(<CoursePreview key={String(standalone)} initialData={{ ...snapshot, courseId: "slides" }} authorName="Author" initialLessonId="slide" persistLocalProgress={false} standalone={standalone} />));
+      const active = container.querySelector('[data-slide-active="true"]')!;
+      expect(active.querySelector('[data-block-text-role="title"] strong')?.textContent).toBe("Important");
+      expect(active.querySelector('[data-flip-card-text] [data-generated-emphasis="true"]')?.textContent).toBe("keyword");
+      expect(active.querySelector('[data-block-text-role="body"] strong')?.textContent).toBe("Answer");
+    }
+  });
+
   it("uses the course theme on the front and a near-white face on the back by default", async () => {
     await start();
     expect(frontFace(0).style.backgroundColor).toContain("var(--course-primary");

@@ -1,8 +1,12 @@
 /**
- * Convert generated keyword, bold, and highlight markers into safe HTML.
+ * Convert inline code, keyword, bold, and highlight markers into safe HTML.
  * Keywords use the padded theme background; highlights use ordinary text formatting.
  */
-const inlineFormattingPattern = /\*\*\*([^*\r\n]+)\*\*\*|\*\*([^*\r\n]+)\*\*|==([^=\r\n]+)==/g;
+const inlineFormattingPattern = /(?<!`)(`{1,2})(?!`)([^\r\n]+?)\1(?!`)|\*\*\*([^*\r\n]+)\*\*\*|\*\*([^*\r\n]+)\*\*|==([^=\r\n]+)==/g;
+
+export function isHtmlCodeExample(value: string) {
+  return /<\/?[a-z][^<>]*>/i.test(value.replaceAll("&lt;", "<").replaceAll("&gt;", ">"));
+}
 
 function escapeHtml(text: string) {
   return text.replace(
@@ -27,11 +31,15 @@ function renderInlineFormatting(value: string, escapeText: (text: string) => str
     html += escapeText(value.slice(cursor, index));
 
     if (match[2] !== undefined) {
-      html += `<strong>${escapeText(match[2])}</strong>`;
-    } else if (match[1] !== undefined) {
-      html += `<span data-generated-emphasis="true" style="background-color: #fef08a">${escapeText(match[1])}</span>`;
+      html += `<code>${escapeText(match[2])}</code>`;
+    } else if (match[3] !== undefined) {
+      html += isHtmlCodeExample(match[3])
+        ? `<code>${escapeText(match[3])}</code>`
+        : `<span data-generated-emphasis="true" style="background-color: #fef08a">${escapeText(match[3])}</span>`;
+    } else if (match[4] !== undefined) {
+      html += `<strong>${escapeText(match[4])}</strong>`;
     } else {
-      html += `<span style="background-color: #fef08a">${escapeText(match[3])}</span>`;
+      html += `<span style="background-color: #fef08a">${escapeText(match[5])}</span>`;
     }
 
     cursor = index + match[0].length;
@@ -47,8 +55,8 @@ export function inlineFormattingHtml(value: string) {
 export function stripInlineFormatting(value: string) {
   return value.replace(
     inlineFormattingPattern,
-    (match, keyword: string | undefined, bold: string | undefined, highlight: string | undefined) =>
-      keyword ?? bold ?? highlight ?? match,
+    (match, _delimiter: string, code: string | undefined, keyword: string | undefined, bold: string | undefined, highlight: string | undefined) =>
+      code ?? keyword ?? bold ?? highlight ?? match,
   );
 }
 

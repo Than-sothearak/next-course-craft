@@ -246,9 +246,9 @@ export function buildPreLearnPostActivities(
       cards: seed.keyTerms.map(({ term, definition }) => ({
         id: randomUUID(),
         frontLabel: labels.keyword,
-        front: { type: "text", text: plainText(term) },
+        front: { type: "text", text: normalizeGeneratedInlineFormatting(term) },
         backLabel: labels.definition,
-        back: { type: "text", text: plainText(definition) },
+        back: { type: "text", text: normalizeGeneratedInlineFormatting(definition) },
       })),
     },
   });
@@ -369,9 +369,9 @@ export function addCustomTemplateFirstLessonActivities(
         cards: seed.keyTerms.map(({ term, definition }) => ({
           id: randomUUID(),
           frontLabel: labels.keyword,
-          front: { type: "text", text: plainText(term) },
+          front: { type: "text", text: normalizeGeneratedInlineFormatting(term) },
           backLabel: labels.definition,
-          back: { type: "text", text: plainText(definition) },
+          back: { type: "text", text: normalizeGeneratedInlineFormatting(definition) },
         })),
       },
     }));
@@ -703,7 +703,7 @@ export async function toContentBlock(
             alt: alt.trim() || text.trim() || (khmer ? "រូបភាពក្នុងកាត" : "Flip card image"),
           };
         }
-        const fallbackText = plainText(text) || plainText(alt);
+        const fallbackText = normalizeGeneratedInlineFormatting(text).trim() || plainText(alt);
         return fallbackText ? { type: "text" as const, text: fallbackText } : null;
       };
       const front = await createFace(card.front, card.frontImagePrompt, card.frontImageAlt);

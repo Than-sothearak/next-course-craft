@@ -43,10 +43,15 @@ describe("generated backtick term normalization", () => {
     expect(link.block).toMatchObject({ type: "link", data: { url, label: "Read HTML", description: "See examples." } });
   });
 
-  it("removes markers from keyword cards restored from an older generated seed", () => {
+  it("retains supported formatting in keyword cards restored from an older generated seed", () => {
     const seed = generatedCourseSeedSchema.parse({ title: "HTML", description: "Learn HTML.", sections: [{ title: "Learn", lessons: [{ title: "Elements", objective: "Learn elements.", blocks: [block({ type: "text", title: "", body: "HTML uses elements.", bullets: [], sourceElementIds: [] })] }] }], lessonOverview: [], keyTerms: [{ term: "`HTML`", definition: "Use ``elements`` and **tags**." }], preTest: [], postTest: [], lessonSummary: "Summary", nextLesson: "Next" });
     const activities = buildPreLearnPostActivities(seed, { id: "learn", title: "Learn", order: 1 }, [], false);
     const keywords = activities.lessons.find((lesson) => lesson.title === "Keyword");
-    expect(keywords?.blocks[0]).toMatchObject({ type: "flipCard", data: { cards: [{ front: { type: "text", text: "HTML" }, back: { type: "text", text: "Use elements and tags." } }] } });
+    expect(keywords?.blocks[0]).toMatchObject({ type: "flipCard", data: { cards: [{ front: { type: "text", text: "***HTML***" }, back: { type: "text", text: "Use ***elements*** and **tags**." } }] } });
+  });
+
+  it("preserves formatting on generated flip-card faces", async () => {
+    const converted = await toContentBlock(block({ type: "flipCard", title: "", sourceElementIds: [], cards: [{ front: "**Question** about `HTML`", back: "Use ***elements*** and ==tags==." }] }), "owner", "course", false, false, () => {});
+    expect(converted.block).toMatchObject({ type: "flipCard", data: { cards: [{ front: { type: "text", text: "**Question** about ***HTML***" }, back: { type: "text", text: "Use ***elements*** and ==tags==." } }] } });
   });
 });

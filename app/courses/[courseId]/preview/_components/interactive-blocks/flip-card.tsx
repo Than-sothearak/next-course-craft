@@ -7,6 +7,7 @@ import { getFlipCardProgressId } from "@/lib/export/progress";
 import { backgroundPaint, contrastTextColor, courseThemeFlipCardGradient, solidColor, textPaint } from "@/lib/color";
 import { PresentationFlipCardGrid, presentationCardStyle, realisticFlipCardShadow } from "@/components/flip-cards/presentation-flip-card-grid";
 import { defaultFlipCardLayout, type FlipCardLayout } from "@/lib/editor/flip-cards";
+import { FlipCardText } from "@/components/flip-cards/flip-card-text";
 
 type FlipCard = Extract<ContentBlock, { type: "flipCard" }>['data']['cards'][number];
 type FlipCardStyle = Extract<ContentBlock, { type: "flipCard" }>['data']['cardStyle'];
@@ -131,9 +132,7 @@ function FlipCardFace({ card, side, presentation, textColor }: { card: FlipCard;
       {face.type === "image" ? (
         <img src={face.src} alt={face.alt} className={`relative z-10 h-auto w-auto max-w-full rounded-lg object-contain ${presentation ? "min-h-0 flex-1 max-h-full" : "max-h-56"}`} />
       ) : (
-        <span data-block-text-role={side === "front" ? "title" : "body"} style={textPaint(textColor)} className={`relative z-10 min-w-0 w-full max-w-full whitespace-pre-wrap break-words ${presentation ? "min-h-0 flex-1 overflow-y-auto content-center" : ""} [overflow-wrap:anywhere] ${presentation ? side === "front" ? "text-sm font-semibold @min-[30rem]/flip-cards:text-base" : "text-xs @min-[30rem]/flip-cards:text-sm" : side === "front" ? "text-lg font-semibold @min-[36rem]/flip-cards:text-xl" : "text-base @min-[36rem]/flip-cards:text-lg"}`}>
-          {face.text || (side === "front" ? "Add a prompt for your learner." : "Add the answer or explanation here.")}
-        </span>
+        <FlipCardText text={face.text || (side === "front" ? "Add a prompt for your learner." : "Add the answer or explanation here.")} data-block-text-role={side === "front" ? "title" : "body"} style={textPaint(textColor)} className={`relative z-10 min-w-0 w-full max-w-full whitespace-pre-wrap break-words ${presentation ? "min-h-0 flex-1 overflow-y-auto content-center" : ""} [overflow-wrap:anywhere] ${presentation ? side === "front" ? "text-sm font-semibold @min-[30rem]/flip-cards:text-base" : "text-xs @min-[30rem]/flip-cards:text-sm" : side === "front" ? "text-lg font-semibold @min-[36rem]/flip-cards:text-xl" : "text-base @min-[36rem]/flip-cards:text-lg"}`} />
       )}
       <span style={textPaint(textColor)} className={`relative z-10 shrink-0 font-medium ${presentation ? "mt-2 text-[10px]" : "mt-4 text-xs @min-[36rem]/flip-cards:mt-5"}`}>
         {side === "front" ? "Click to flip" : "Click to flip back"}

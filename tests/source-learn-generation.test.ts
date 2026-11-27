@@ -129,7 +129,7 @@ describe("Learn-stage timeout recovery", () => {
     expect(html).toContain(sourceCode);
     expect(html).toContain(explanation);
     const keywords = draft.lessons[0].blocks.find((block) => block.type === "flipCard");
-    expect(keywords).toMatchObject({ type: "flipCard", data: { cards: expect.arrayContaining([expect.objectContaining({ front: { type: "text", text: "Term 1" } })]) } });
+    expect(keywords).toMatchObject({ type: "flipCard", data: { cards: expect.arrayContaining([expect.objectContaining({ front: { type: "text", text: "***Term 1***" } })]) } });
     expect(parseScorm12Snapshot({ title: draft.title, description: draft.description, revision: 0, sections: draft.sections, lessons: draft.lessons }).lessons).toHaveLength(1);
 
     const request = JSON.parse(fetchMock.mock.calls[1][1].body);

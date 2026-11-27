@@ -1,5 +1,6 @@
 import type { ContentBlock } from "@/lib/schemas/block";
 import type { QuizQuestion } from "@/lib/schemas/quiz";
+import { stripInlineFormatting } from "@/lib/editor/inline-formatting";
 
 function decodeHtmlEntities(value: string) {
   const namedEntities: Record<string, string> = {
@@ -65,7 +66,7 @@ export function htmlToHandoutText(value: string) {
 }
 
 function faceText(face: { type: "text"; text: string } | { type: "image"; alt: string }) {
-  return face.type === "text" ? face.text : `[Image: ${face.alt}]`;
+  return face.type === "text" ? stripInlineFormatting(face.text) : `[Image: ${face.alt}]`;
 }
 
 export function getHandoutBlockText(block: ContentBlock): string[] {

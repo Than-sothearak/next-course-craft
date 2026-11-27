@@ -18,6 +18,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { NumberInput } from "@/components/ui/number-input";
 import { FlipCardList } from "@/components/flip-cards/flip-card-list";
 import { defaultFlipCardLayout, duplicateFlipCard, moveFlipCard, type FlipCardLayout } from "@/lib/editor/flip-cards";
+import { stripInlineFormatting } from "@/lib/editor/inline-formatting";
 export function FlipCardBlockSettings({ block, onChange, updateFlipCard, updateFlipCardFace, setMediaLibraryTarget, presentation = false }: { block: Extract<ContentBlock, { type: "flipCard" }>; presentation?: boolean; onChange: (block: ContentBlock) => void; updateFlipCard: (cardId: string, update: (card: FlipCard) => FlipCard) => void; updateFlipCardFace: (cardId: string, side: FlipCardSide, face: FlipCardFace) => void; setMediaLibraryTarget: Dispatch<SetStateAction<MediaLibraryTarget | null>> }) {
   const layout = block.data.presentationLayout ?? defaultFlipCardLayout;
   const setLayout = (update: Partial<FlipCardLayout>) => onChange({ ...block, data: { ...block.data, presentationLayout: { ...layout, ...update } } });
@@ -35,7 +36,7 @@ export function FlipCardBlockSettings({ block, onChange, updateFlipCard, updateF
         <details key={card.id} open={index === 0} className="group/card min-w-0 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm open:border-indigo-200">
           <summary className="flex min-h-14 cursor-pointer list-none items-center gap-2 py-2 pl-9 pr-3 text-xs text-slate-700 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 [&::-webkit-details-marker]:hidden">
             <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-indigo-50 font-semibold text-indigo-700">{String(index + 1).padStart(2, "0")}</span>
-            <span className="min-w-0 flex-1"><span className="block font-semibold">Card {index + 1}</span><span className="mt-0.5 block truncate text-[11px] font-normal text-slate-500">{card.front.type === "text" ? card.front.text.trim() || "Add a question or prompt" : card.front.alt || "Image on front"}</span></span>
+            <span className="min-w-0 flex-1"><span className="block font-semibold">Card {index + 1}</span><span className="mt-0.5 block truncate text-[11px] font-normal text-slate-500">{card.front.type === "text" ? stripInlineFormatting(card.front.text).trim() || "Add a question or prompt" : card.front.alt || "Image on front"}</span></span>
             <ChevronDown size={14} aria-hidden="true" className="shrink-0 text-slate-400 transition-transform group-open/card:rotate-180" />
           </summary>
           <div className="space-y-3 border-t border-slate-100 p-2.5">

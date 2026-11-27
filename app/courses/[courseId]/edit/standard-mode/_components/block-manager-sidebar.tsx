@@ -19,6 +19,7 @@ import { List, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { ContentBlock } from "@/lib/schemas/block";
 import { SortableItem } from "./sortable-item";
+import { stripInlineFormatting } from "@/lib/editor/inline-formatting";
 
 function blockTypeLabel(block: ContentBlock) {
   if (block.type === "heading") return "Heading";
@@ -78,7 +79,7 @@ function blockTitle(block: ContentBlock) {
     return block.data.style === "continue" ? block.data.label.trim() || "Continue button" : `${block.data.style} divider`;
   if (block.type === "flipCard") {
     const front = block.data.cards[0]?.front;
-    return front?.type === "text" ? front.text.trim() || "Flip card" : front?.alt.trim() || "Flip card";
+    return front?.type === "text" ? stripInlineFormatting(front.text).trim() || "Flip card" : front?.alt.trim() || "Flip card";
   }
   if (block.type === "accordion") return block.data.items[0]?.title.trim() || "Reveal sections";
   if (block.type === "timeline") return block.data.items[0]?.title.trim() || "Timeline";
