@@ -12,6 +12,7 @@ import { defaultCanvasSlideFrame, resolveSlideTextLayout } from "@/lib/editor/sl
 import { pasteSlideObject } from "@/lib/editor/slide-clipboard";
 import { removeLessonBlock } from "@/lib/editor/course-content";
 import { createClientId } from "@/lib/client-id";
+import { insertBlockImage, type BlockImageMedia } from "@/lib/editor/block-image";
 import { createBlocksFromTemplate, createSlideBlocksFromTemplate } from "../(editor_client_components)/(block_template_picker_components)/create-blocks-from-template";
 import { blockTemplates, type BlockCategory, type BlockTemplate } from "../(editor_client_components)/(block_template_picker_components)/block-template-data";
 
@@ -318,6 +319,15 @@ export function useEditorBlockOperations({
     return copy.id;
   }
 
+  function addGeneratedBlockImage(lessonId: string, sourceId: string, media: BlockImageMedia) {
+    const lesson = draftRef.current.lessons.find((item) => item.id === lessonId);
+    if (!lesson || slideCourse) throw new Error("Choose a Standard lesson before adding this image.");
+    const id = newId();
+    // Validate against the latest draft before recording a single undoable insertion.
+    insertBlockImage(lesson.blocks, sourceId, media, id);
+    updateLesson(lessonId, (current) => ({ ...current, blocks: insertBlockImage(current.blocks, sourceId, media, id) }));
+  }
+
   function deleteBlock(blockId: string) {
     if (!activeLesson) return;
     updateLesson(activeLesson.id, (lesson) => ({
@@ -339,6 +349,7 @@ export function useEditorBlockOperations({
     reorderBlocksFromManager,
     moveBlock,
     duplicateBlock,
+    addGeneratedBlockImage,
     pastePresentationObject,
     deleteBlock,
   };

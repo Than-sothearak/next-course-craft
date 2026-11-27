@@ -50,6 +50,7 @@ describe("standard lesson image cover width", () => {
       onAddBlock={() => {}}
       onMoveBlock={() => {}}
       onDuplicateBlock={() => {}}
+      onAddGeneratedImage={() => {}}
       onDeleteBlock={() => {}}
       onChangeBlock={() => {}}
       onReplaceTemplate={() => {}}

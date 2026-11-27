@@ -1,6 +1,6 @@
 "use client";
 
-import { useId } from "react";
+import { useId, useState } from "react";
 import { backgroundPaint, parseGradient } from "@/lib/color";
 import { contrastTextColor as gradientContrastTextColor } from "@/app/courses/[courseId]/preview/_components/(course_preview_components)/preview-utils";
 import { AnimatePresence } from "framer-motion";
@@ -17,7 +17,7 @@ import {
   SortableContext,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { ArrowDown, ArrowUp, Copy, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Copy, Plus, Sparkles, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   defaultBlockPaddingForBlock,
@@ -30,6 +30,8 @@ import { LessonTitleEditor } from "@/app/courses/[courseId]/edit/standard-mode/_
 import { SortableItem } from "@/app/courses/[courseId]/edit/standard-mode/_components/sortable-item";
 import { BlockFormatMenu } from "@/app/courses/[courseId]/edit/_components/(editor_client_components)/block-format-menu";
 import { ContentBlockEditor } from "@/app/courses/[courseId]/edit/_components/(editor_client_components)/content-block-editor";
+import { BlockImageDialog } from "@/app/courses/[courseId]/edit/_components/(editor_client_components)/(content_block_editor_components)/block-image-dialog";
+import type { BlockImageMedia } from "@/lib/editor/block-image";
 
 type Lesson = EditorSnapshotInput["lessons"][number];
 type Section = EditorSnapshotInput["sections"][number];
@@ -50,6 +52,7 @@ type StandardLessonEditorProps = {
   onAddBlock: (index: number) => void;
   onMoveBlock: (blockId: string, direction: -1 | 1) => void;
   onDuplicateBlock: (blockId: string) => void;
+  onAddGeneratedImage: (blockId: string, media: BlockImageMedia) => void;
   onDeleteBlock: (blockId: string) => void;
   onChangeBlock: (blockId: string, next: ContentBlock) => void;
   onReplaceTemplate: (block: ContentBlock) => void;
@@ -85,11 +88,14 @@ export function StandardLessonEditor({
   onAddBlock,
   onMoveBlock,
   onDuplicateBlock,
+  onAddGeneratedImage,
   onDeleteBlock,
   onChangeBlock,
   onReplaceTemplate,
 }: StandardLessonEditorProps) {
   const dndId = `lesson-blocks-${useId().replaceAll(":", "")}`;
+  const [imageSourceId, setImageSourceId] = useState<string | null>(null);
+  const imageSource = lesson.blocks.find((block) => block.id === imageSourceId);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor),
@@ -169,6 +175,18 @@ export function StandardLessonEditor({
                         className="pointer-events-none absolute inset-0 z-10 border border-dashed border-slate-400 opacity-0 transition-opacity group-hover/block-content:opacity-100 group-focus-within/block-content:opacity-100"
                       />
                       <div className="absolute right-4 top-3 z-40 flex items-center gap-1 opacity-0 transition-opacity group-hover/block-content:opacity-100 group-focus-within/block-content:opacity-100">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setImageSourceId(block.id)}
+                          disabled={lesson.blocks.length >= 500}
+                          aria-label="Generate image for block"
+                          title="Generate image for block"
+                          className="size-8 border border-slate-200 bg-white text-slate-600 shadow-sm hover:bg-indigo-50 hover:text-indigo-700"
+                        >
+                          <Sparkles size={14} />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -271,6 +289,10 @@ export function StandardLessonEditor({
           </div>
         </SortableContext>
       </DndContext>
+      {imageSource && <BlockImageDialog key={imageSource.id} block={imageSource} courseId={courseId} onClose={() => setImageSourceId(null)} onSelect={(media) => {
+        onAddGeneratedImage(imageSource.id, media);
+        setImageSourceId(null);
+      }} />}
       {!lesson.blocks.length && (
         <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-5 py-6 text-center">
           <p className="font-medium text-slate-800">

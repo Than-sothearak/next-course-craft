@@ -163,6 +163,7 @@ export function EditorWorkspace({
     reorderBlocksFromManager,
     moveBlock,
     duplicateBlock,
+    addGeneratedBlockImage,
     pastePresentationObject,
     deleteBlock,
   } = blockOperations;
@@ -510,6 +511,7 @@ export function EditorWorkspace({
                   />
                 ) : (
                   <StandardLessonEditor
+                    key={activeLesson.id}
                     lesson={activeLesson}
                     courseId={courseId}
                     sections={draft.sections}
@@ -536,6 +538,7 @@ export function EditorWorkspace({
                     onAddBlock={openAddTemplatePicker}
                     onMoveBlock={moveBlock}
                     onDuplicateBlock={duplicateBlock}
+                    onAddGeneratedImage={(blockId, media) => addGeneratedBlockImage(activeLesson.id, blockId, media)}
                     onDeleteBlock={deleteBlock}
                     onChangeBlock={updateBlock}
                     onReplaceTemplate={openReplaceTemplatePicker}

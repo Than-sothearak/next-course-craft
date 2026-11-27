@@ -1,5 +1,9 @@
 # Delivery roadmap
 
+Requested Phase 14 educational image controls: shared block/step generation exposes independent Visual type and Look dropdowns with Auto defaults, including Before & After and the six requested looks. Automatic prompts choose a suitable combination from pasted or authored content; explicit selections control composition and appearance without overriding each other. The existing validated image endpoint and dimensions/compression remain in use, and course-cover generation stays separate.
+
+Requested Phase 14 block image extension: add Generate image beside each Standard block's Move block up action, reuse the step image popup and generation dimensions/compression, and use current block content or optional custom instructions. Applying the preview inserts a native image-with-caption block directly below its source through existing undo/save and static learner paths. This stays within the single application and existing AI/media boundaries.
+
 Requested step image file size: request compressed WebP from the provider, aiming for approximately 100–200 KB without application-side resizing or recompression. Exact byte size depends on the generated image; the existing step display frame, realistic prompts and storage/export paths remain in use.
 
 Requested step image size: the shared process-step media frame defaults to 720 by 400 pixels with Cover fit. Settings, validation, authoring and learner/static rendering share the default, preserve explicit custom dimensions and scale down on smaller screens.

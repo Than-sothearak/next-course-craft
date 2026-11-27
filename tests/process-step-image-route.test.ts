@@ -55,7 +55,31 @@ describe("process step image generation", () => {
   it("accepts custom instructions for an empty step", async () => {
     expect((await submit({ customPrompt: "Show a seedling" })).status).toBe(201);
   });
-  it.each([{}, { instructions: "  " }, { instructions: "x".repeat(5001) }, { customPrompt: "x".repeat(5001) }, { title: "x".repeat(161), instructions: "Draw" }])("rejects invalid input before acquiring a lease: %j", async (body) => {
+  it("generates a block visual with the same owner-scoped step image pipeline", async () => {
+    expect((await submit({ source: "block", instructions: "Compare plant and animal cells." })).status).toBe(201);
+    expect(createGeneratedImageAsset).toHaveBeenCalledWith(ownerId, courseId,
+      expect.stringContaining("explains the supplied content block"), { purpose: "process-step-guide" });
+    const prompt = vi.mocked(createGeneratedImageAsset).mock.calls[0][2];
+    expect(prompt).toContain("Compare plant and animal cells.");
+    expect(prompt).not.toContain("this single process step");
+  });
+  it("lets custom instructions replace the source block content", async () => {
+    expect((await submit({ source: "block", instructions: "Original block", customPrompt: "Show a cell diagram" })).status).toBe(201);
+    const prompt = vi.mocked(createGeneratedImageAsset).mock.calls[0][2];
+    expect(prompt).toContain("Show a cell diagram");
+    expect(prompt).not.toContain("Original block");
+  });
+  it("passes selected visual type and look to the shared image pipeline", async () => {
+    expect((await submit({ source: "block", instructions: "Style this HTML heading using CSS.", visualType: "beforeAfter", look: "screenshotUi" })).status).toBe(201);
+    expect(createGeneratedImageAsset).toHaveBeenCalledWith(ownerId, courseId, expect.stringContaining("Visual type: Before & After."), { purpose: "process-step-guide" });
+    expect(vi.mocked(createGeneratedImageAsset).mock.calls[0][2]).toContain("Look: Screenshot / UI Mockup.");
+  });
+  it.each([{ look: "invalid" }, { visualType: "courseCover" }, { look: { style: "auto" } }, { visualType: null }])("rejects invalid visual choices before generation: %j", async (choices) => {
+    expect((await submit({ instructions: "Show a cell", ...choices })).status).toBe(400);
+    expect(acquireGenerationLease).not.toHaveBeenCalled();
+    expect(createGeneratedImageAsset).not.toHaveBeenCalled();
+  });
+  it.each([{}, { instructions: "  " }, { instructions: "x".repeat(5001) }, { customPrompt: "x".repeat(5001) }, { title: "x".repeat(161), instructions: "Draw" }, { source: "invalid", instructions: "Draw" }])("rejects invalid input before acquiring a lease: %j", async (body) => {
     expect((await submit(body)).status).toBe(400);
     expect(acquireGenerationLease).not.toHaveBeenCalled();
     expect(createGeneratedImageAsset).not.toHaveBeenCalled();

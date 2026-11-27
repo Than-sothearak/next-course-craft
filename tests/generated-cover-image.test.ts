@@ -78,6 +78,16 @@ describe("fast generated course cover assets", () => {
     expect(request.input).toContain("friendly 3D cartoon style");
     expect(Asset.create).toHaveBeenCalledWith(expect.objectContaining({ metadata: expect.objectContaining({ imageStyle: "3dCartoon" }) }));
   });
+  it("carries an explicit block illustration look through the provider prompt without changing image output settings", async () => {
+    output(await webp());
+    await createGeneratedImageAsset(ownerId, courseId, processStepImagePrompt({ source: "block", title: "", instructions: "Explain how water moves through a plant.", customPrompt: "", visualType: "diagram", look: "flatIllustration" }), { purpose: "process-step-guide" });
+    const request = JSON.parse(fetchMock.mock.calls[0][1].body);
+    expect(request.input).toContain("Look: Flat Illustration.");
+    expect(request.input).toContain("Honor the selected visual type and look");
+    expect(request.input).toContain("without forcing a software screenshot");
+    expect(request.input).not.toContain("For software, create a realistic application screenshot");
+    expect(request.tools[0]).toMatchObject({ size: "1280x720", quality: "high", output_format: "webp", output_compression: 60 });
+  });
   it.each([
     { title: "Style a heading", instructions: "In styles.css, set h1 color to blue and preview the HTML page.", customPrompt: "" },
     { title: "Page layout", instructions: "Create a web page.", customPrompt: "Use WebStorm with the CSS editor and browser result." },
