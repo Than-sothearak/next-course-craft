@@ -585,10 +585,11 @@ describe("AI course generation contracts", () => {
       interactivity: "high",
       postTestCount: 5,
       imageStyle: "auto",
-      imageQuality: "optimized",
+      imageQuality: "medium",
       customImageStyle: "",
       coverImageStyle: "auto",
       coverCustomImageStyle: "",
+      coverImageQuality: "medium",
     });
     expect(courseGenerationInputSchema.safeParse({ ...input, targetLanguage: "Khmer" }).success).toBe(true);
     expect(courseGenerationInputSchema.safeParse({ ...input, targetLanguage: "French" }).success).toBe(false);
@@ -599,6 +600,8 @@ describe("AI course generation contracts", () => {
     expect(courseGenerationInputSchema.safeParse({ ...input, imageStyle: "flatIllustration", generateCoverImage: true, coverImageStyle: "custom" }).success).toBe(false);
     expect(courseGenerationInputSchema.safeParse({ ...input, imageStyle: "flatIllustration", customImageStyle: "Lesson art", generateCoverImage: true, coverImageStyle: "custom", coverCustomImageStyle: "Cover photo collage" }).success).toBe(true);
     expect(courseGenerationInputSchema.parse({ ...input, imageStyle: "photorealistic" }).coverImageStyle).toBe("photorealistic");
+    expect(courseGenerationInputSchema.parse({ ...input, imageQuality: "high" }).coverImageQuality).toBe("high");
+    expect(courseGenerationInputSchema.parse({ ...input, imageQuality: "medium", coverImageQuality: "high" }).coverImageQuality).toBe("high");
     expect(courseGenerationInputSchema.safeParse({ ...input, customImageStyle: "x".repeat(241) }).success).toBe(false);
     expect(defaultCourseGenerationModel).toBe("gpt-6-luna");
   });
@@ -659,15 +662,14 @@ describe("AI course generation contracts", () => {
         backImagePrompt: index === 0 ? "An agent responding to the customer." : "",
         backImageAlt: index === 0 ? "Agent responding to the customer" : "",
       }));
-      const png = Buffer.from("iVBORw0KGgo=", "base64");
-      const webp = await sharp({ create: { width: 1280, height: 720, channels: 3, background: "#345678" } }).webp().toBuffer();
-      const lessonWebp = await sharp({ create: { width: 1536, height: 512, channels: 3, background: "#345678" } }).webp().toBuffer();
+      const webp = await sharp({ create: { width: 1152, height: 656, channels: 3, background: "#345678" } }).webp().toBuffer();
+      const lessonWebp = await sharp({ create: { width: 1440, height: 480, channels: 3, background: "#345678" } }).webp().toBuffer();
       vi.stubEnv("OPENAI_API_KEY", "test-key");
       const fetchMock = vi.fn()
         .mockResolvedValueOnce(providerResponse([{ ...block("flipCard"), cards }]))
         .mockImplementation(async (_url, init) => {
           const request = JSON.parse(String(init?.body));
-          const bytes = request.tools[0].size === "1536x512" ? lessonWebp : request.tools[0].output_format === "webp" ? webp : png;
+          const bytes = request.tools[0].size === "1440x480" ? lessonWebp : webp;
           return new Response(JSON.stringify({ output: [{ type: "image_generation_call", result: bytes.toString("base64") }] }), { status: 200 });
         });
       vi.stubGlobal("fetch", fetchMock);
@@ -683,7 +685,7 @@ describe("AI course generation contracts", () => {
       const course = await generateCourseDraft({
         ownerId,
         courseId,
-        input: courseGenerationInputSchema.parse({ ...input, includeImages, imageStyle: includeImages ? "flatIllustration" : "auto" }),
+        input: courseGenerationInputSchema.parse({ ...input, includeImages, imageStyle: includeImages ? "flatIllustration" : "auto", imageModel: "gpt-image-2.6-flare" }),
       });
 
       const flipCard = course.lessons[0].blocks.find((value) => value.type === "flipCard" && value.data.cards.length === 4);
@@ -709,6 +711,8 @@ describe("AI course generation contracts", () => {
       if (includeImages) {
         expect(JSON.parse(fetchMock.mock.calls[1][1].body).input).toContain("flat vector illustration");
         expect(createdAssets.every((asset) => asset.metadata.imageStyle === "flatIllustration")).toBe(true);
+        expect(createdAssets.every((asset) => asset.metadata.imageModel === "gpt-image-2.6-flare")).toBe(true);
+        expect(fetchMock.mock.calls.slice(1).every((call) => JSON.parse(call[1].body).tools[0].model === "gpt-image-2.6-flare")).toBe(true);
       }
       for (const asset of createdAssets) {
         const storedBytes = await mediaService.storedMediaBytes(asset);
@@ -720,15 +724,11 @@ describe("AI course generation contracts", () => {
           storageKey: `${ownerId}/${courseId}/${asset._id}`,
           status: "ready",
         });
-        if (asset.mimeType === "image/webp") {
-          expect(storedBytes.subarray(0, 4).toString("ascii")).toBe("RIFF");
-          expect(storedBytes.subarray(8, 12).toString("ascii")).toBe("WEBP");
-          expect(asset.size).toBeLessThan(1_000_000);
-        } else {
-          expect(asset.mimeType).toBe("image/png");
-          expect(asset.size).toBe(png.length);
-          expect(storedBytes).toEqual(png);
-        }
+        expect(asset.mimeType).toBe("image/webp");
+        expect(asset.size).toBeLessThan(100_000);
+        const expectedBytes = asset.metadata.purpose === "lesson-cover" ? lessonWebp : webp;
+        expect(asset.size).toBe(expectedBytes.length);
+        expect(storedBytes).toEqual(expectedBytes);
       }
     } finally {
       await rm(directory, { recursive: true, force: true });
@@ -1327,13 +1327,13 @@ describe("AI course generation contracts", () => {
       request.input[1].content.map((part: { text?: string }) => part.text ?? "").join("\n").includes(khmerStyle),
     )).toBe(true);
     expect(learnerStages.every((request) =>
-      request.input[1].content.map((part: { text?: string }) => part.text ?? "").join("\n").includes("do not translate English sentence structures word for word"),
+      request.input[1].content.map((part: { text?: string }) => part.text ?? "").join("\n").includes("rather than translating English sentence structures word for word"),
     )).toBe(true);
     expect(learnerStages.every((request) =>
-      request.input[1].content.map((part: { text?: string }) => part.text ?? "").join("\n").includes("keep HTML, CSS, JavaScript, Flexbox, API, variable, and algorithm in English"),
+      request.input[1].content.map((part: { text?: string }) => part.text ?? "").join("\n").includes("អថេរ (variable)"),
     )).toBe(true);
     expect(learnerStages.every((request) =>
-      request.input[1].content.map((part: { text?: string }) => part.text ?? "").join("\n").includes("Do not translate or transliterate them, and do not replace them with a Khmer technical equivalent"),
+      request.input[1].content.map((part: { text?: string }) => part.text ?? "").join("\n").includes("natural Khmer equivalent first, followed immediately by the exact English term in parentheses"),
     )).toBe(true);
   });
 
@@ -1820,7 +1820,8 @@ describe("AI course generation contracts", () => {
 
   it("removes a stored image when the owner-scoped asset record cannot be created", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
-    const webp = await sharp({ create: { width: 1536, height: 512, channels: 3, background: "#345678" } }).webp().toBuffer();
+    const webp = await sharp({ create: { width: 1440, height: 480, channels: 3, background: "#345678" } }).webp().toBuffer();
+    const illustration = await sharp({ create: { width: 1152, height: 656, channels: 3, background: "#345678" } }).webp().toBuffer();
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(providerResponse([block("image")], {
         lessonOverview: [{ focus: "Read a request", slideRange: "" }],
@@ -1829,7 +1830,7 @@ describe("AI course generation contracts", () => {
       }, 1))
       .mockImplementation(async (_url, init) => {
         const request = JSON.parse(String(init?.body));
-        const bytes = request.tools[0].output_format === "webp" ? webp : Buffer.from("iVBORw0KGgo=", "base64");
+        const bytes = request.tools[0].size === "1440x480" ? webp : illustration;
         return new Response(JSON.stringify({ output: [{ type: "image_generation_call", result: bytes.toString("base64") }] }), { status: 200 });
       });
     vi.stubGlobal("fetch", fetchMock);

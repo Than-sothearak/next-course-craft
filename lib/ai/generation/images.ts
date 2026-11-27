@@ -6,14 +6,15 @@ import { DashboardError } from "@/lib/dashboard/rules";
 import { defaultCourseGenerationModel } from "../course-generation-schemas";
 import { activeStorageConfiguration, deleteStoredMedia, storageProvider } from "@/lib/media/service";
 import { providerConnectionError } from "./provider";
-import { courseImageStyleInstruction, defaultCourseImageGenerationModel, type CourseImageQuality, type CourseImageStyle } from "../image-style";
+import { courseImageStyleInstruction, defaultCourseImageGenerationModel, generatedCourseImageMaxBytes, generatedCourseImageOutputCompression, generatedImageDimensions, type CourseImageModel, type CourseImageQuality, type CourseImageStyle, type GeneratedImagePurpose } from "../image-style";
 import { generationConnectionErrorCode } from "../generation-retry";
 import { logGenerationUsage } from "./usage";
 
 export type GeneratedImageOptions = {
-  purpose?: "course-cover" | "lesson-cover" | "process-step-guide";
+  purpose?: GeneratedImagePurpose;
   imageStyle?: CourseImageStyle;
   imageQuality?: CourseImageQuality;
+  imageModel?: CourseImageModel;
   customImageStyle?: string;
 };
 
@@ -21,11 +22,13 @@ async function generateImage(prompt: string, options: GeneratedImageOptions, cou
   const cover = options.purpose === "course-cover" || options.purpose === "lesson-cover";
   const lessonCover = options.purpose === "lesson-cover";
   const stepGuide = options.purpose === "process-step-guide";
-  const optimizedCourseImage = options.imageQuality === "optimized" && !stepGuide && options.purpose !== "course-cover";
-  const fullSizeCourseImage = options.imageQuality === "fullSize" && !stepGuide && options.purpose !== "course-cover";
+  const imageModel = options.imageModel ?? (process.env.OPENAI_IMAGE_MODEL || defaultCourseImageGenerationModel);
+  const imageQuality = options.imageQuality ?? "medium";
+  const { width, height } = generatedImageDimensions(imageQuality, imageModel, options.purpose);
+  const panoramicLessonCover = lessonCover && width === height * 3;
   const imagePrompt = stepGuide
-    ? `Create one clear, accurate instructional demonstration image for a learner. ${prompt}\nCompose a readable 16:9 landscape visual guide. Honor the selected visual type and look. When Auto chooses software screens or Screenshot / UI Mockup is selected, use authentic interface chrome, realistic controls, sharp text and the actual working screen. For web-development screens, default to a recognizable VS Code workspace and a matching browser preview when the step produces a web page, including paired Before & After views when appropriate. Keep the code, CSS styling and rendered app consistent. Use the selected illustration, photographic or clean educational treatment when explicitly requested, without forcing a software screenshot. Prioritize accurate actions, useful detail and legibility. Demonstrate the task visually without printing the instructions, custom prompt or step title in the image. Do not add instruction paragraphs, written directions or captions. Use subtle highlights or arrows only where useful. Include only minimal short labels, necessary interface text or a small worked example. All visible text must be in English only, regardless of the input language or any language requested in the custom prompt. Translate human-readable text into English while preserving code syntax and numeric values. Do not add watermarks or decorative branding.`
-    : `Create one polished, original educational image for a course. ${prompt}. ${cover ? lessonCover ? "Compose this as a clean, full-width, extra-wide 3:1 panoramic banner. Keep the main subject inside a central horizontal band so the image can fill a wider 1200 by 312 cover frame without losing important details." : "Compose this as a clean, full-width 16:9 landscape course cover with the main subject clearly readable on desktop and mobile." : "Use a clear educational composition."} ${courseImageStyleInstruction(options.imageStyle ?? "auto", options.customImageStyle)} Do not add words, labels, watermarks, logos, or captions to the image. Keep clear subject separation.`;
+    ? `Create one clear, accurate instructional demonstration image for a learner. ${prompt}\nCompose a readable landscape visual guide in the requested ${width} by ${height} dimensions. Honor the selected visual type and look. When Auto chooses software screens or Screenshot / UI Mockup is selected, use authentic interface chrome, realistic controls, sharp text and the actual working screen. For web-development screens, default to a recognizable VS Code workspace and a matching browser preview when the step produces a web page, including paired Before & After views when appropriate. Keep the code, CSS styling and rendered app consistent. Use the selected illustration, photographic or clean educational treatment when explicitly requested, without forcing a software screenshot. Prioritize accurate actions, useful detail and legibility. Demonstrate the task visually without printing the instructions, custom prompt or step title in the image. Do not add instruction paragraphs, written directions or captions. Use subtle highlights or arrows only where useful. Include only minimal short labels, necessary interface text or a small worked example. All visible text must be in English only, regardless of the input language or any language requested in the custom prompt. Translate human-readable text into English while preserving code syntax and numeric values. Do not add watermarks or decorative branding.`
+    : `Create one polished, original educational image for a course. ${prompt}. ${cover ? lessonCover ? panoramicLessonCover ? "Compose this as a clean, full-width 3:1 panoramic lesson banner. Keep the main subject inside a central horizontal band so important details are retained in a 1440 by 480 cover frame." : `Compose a clean landscape lesson cover in the requested ${width} by ${height} dimensions. Keep the main subject inside a central horizontal band so important details stay visible in a wide lesson banner.` : "Compose this as a clean landscape course cover in the requested image dimensions with the main subject clearly readable on desktop and mobile." : "Use a clear educational composition in the requested landscape dimensions."} ${courseImageStyleInstruction(options.imageStyle ?? "auto", options.customImageStyle)} Do not add words, labels, watermarks, logos, or captions to the image. Keep clear subject separation.`;
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey)
     throw new DashboardError(
@@ -33,11 +36,26 @@ async function generateImage(prompt: string, options: GeneratedImageOptions, cou
       503,
     );
   const model = process.env.OPENAI_TEXT_MODEL || defaultCourseGenerationModel;
-  const imageModel = process.env.OPENAI_IMAGE_MODEL || defaultCourseImageGenerationModel;
+  const imageSize = `${width}x${height}`;
+  const imageOutputFormat = "webp";
+  const imageOutputCompression = stepGuide ? 60 : generatedCourseImageOutputCompression;
+  const imageToolSettings = {
+    size: imageSize,
+    output_format: imageOutputFormat,
+    output_compression: imageOutputCompression,
+    quality: imageQuality,
+  };
   const usageContext = {
     operationId: randomUUID(), kind: "image" as const,
     stage: options.purpose ?? "lesson-illustration", attempt: 1,
     requestedModel: model, imageModel, courseId, startedAt: Date.now(),
+    imageRequest: {
+      size: imageSize,
+      quality: imageQuality,
+      outputFormat: imageOutputFormat,
+      outputCompression: imageOutputCompression,
+      imageCount: 1,
+    },
   };
   let response: Response;
   try {
@@ -55,14 +73,7 @@ async function generateImage(prompt: string, options: GeneratedImageOptions, cou
           {
             type: "image_generation",
             model: imageModel,
-            size: lessonCover ? "1536x512" : "1280x720",
-            ...(cover || stepGuide || optimizedCourseImage || (lessonCover && fullSizeCourseImage)
-              ? {
-                output_format: "webp",
-                output_compression: stepGuide ? 60 : lessonCover ? fullSizeCourseImage ? 100 : optimizedCourseImage ? 60 : 90 : cover ? 70 : 60,
-              }
-              : {}),
-            quality: lessonCover || stepGuide || fullSizeCourseImage || optimizedCourseImage ? "high" : cover ? "medium" : "low",
+            ...imageToolSettings,
           },
         ],
         tool_choice: { type: "image_generation" },
@@ -86,6 +97,14 @@ async function generateImage(prompt: string, options: GeneratedImageOptions, cou
         "The AI provider rejected the configured API key.",
         503,
       );
+    const providerError = body && typeof body === "object" && "error" in body
+      && body.error && typeof body.error === "object" ? body.error : null;
+    const errorParam = providerError && "param" in providerError && typeof providerError.param === "string" ? providerError.param : "";
+    const errorCode = providerError && "code" in providerError && typeof providerError.code === "string" ? providerError.code : "";
+    if (response.status === 400 && /(?:^|\.)size$/.test(errorParam))
+      throw new DashboardError("The configured image model does not support the requested size. Check OPENAI_IMAGE_MODEL and its supported image dimensions.", 502);
+    if (errorCode === "model_not_found")
+      throw new DashboardError("The configured image model is unavailable to this account. Check OPENAI_IMAGE_MODEL and your provider model access.", 503);
     throw new DashboardError(
       "An image could not be generated. Disable generated images or try again.",
       502,
@@ -120,72 +139,28 @@ async function generateImage(prompt: string, options: GeneratedImageOptions, cou
       502,
     );
   const bytes = Buffer.from(imageItem.result, "base64");
-  const expectsWebp = cover || stepGuide || optimizedCourseImage || (lessonCover && fullSizeCourseImage);
   const isWebp = bytes.length >= 12 && bytes.subarray(0, 4).toString("ascii") === "RIFF" && bytes.subarray(8, 12).toString("ascii") === "WEBP";
-  const signature = expectsWebp ? Buffer.from("RIFF") : Buffer.from([
-    0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
-  ]);
   if (
-    bytes.length < signature.length ||
     bytes.length > 25 * 1024 * 1024 ||
-    !bytes.subarray(0, signature.length).equals(signature) ||
-    (expectsWebp && !isWebp)
+    !isWebp
   )
     throw new DashboardError(
       "The generated image did not pass file validation.",
       502,
     );
-  if (stepGuide) {
-    try {
-      // Inspect the provider's WebP without resizing or re-encoding its bytes.
-      // API compression is a best-effort size target, not a byte-size limit.
-      const metadata = await sharp(bytes, { limitInputPixels: 40_000_000 }).metadata();
-      if (metadata.format !== "webp" || metadata.width !== 1280 || metadata.height !== 720)
-        throw new DashboardError("The image service returned an invalid step guide image or unexpected dimensions.", 502);
-      return { bytes, mimeType: "image/webp", extension: "webp", width: metadata.width, height: metadata.height };
-    } catch (error) {
-      if (error instanceof DashboardError) throw error;
-      throw new DashboardError("The generated image did not pass file validation.", 502);
-    }
-  }
-  if (!cover) return expectsWebp
-    ? { bytes, mimeType: "image/webp", extension: "webp", width: 1280, height: 720 }
-    : { bytes, mimeType: "image/png", extension: "png", width: 1280, height: 720 };
-
   try {
-    if (lessonCover) {
-      const metadata = await sharp(bytes, { limitInputPixels: 40_000_000 }).metadata();
-      if (metadata.width !== 1536 || metadata.height !== 512)
-        throw new DashboardError("The image service returned lesson cover dimensions other than 1536x512.", 502);
-      if (fullSizeCourseImage)
-        return { bytes, mimeType: "image/webp", extension: "webp", width: metadata.width, height: metadata.height };
-      if (bytes.length < 1_000_000)
-        return { bytes, mimeType: "image/webp", extension: "webp", width: metadata.width, height: metadata.height };
-      for (const quality of [90, 85, 80, 75, 70, 65, 60]) {
-        const optimized = await sharp(bytes, { limitInputPixels: 40_000_000 }).webp({ quality }).toBuffer();
-        if (optimized.length < 1_000_000)
-          return { bytes: optimized, mimeType: "image/webp", extension: "webp", width: metadata.width, height: metadata.height };
-      }
-      throw new DashboardError("The generated lesson cover could not be compressed below 1 MB without resizing it.", 502);
-    }
+    const metadata = await sharp(bytes, { limitInputPixels: 40_000_000 }).metadata();
+    if (metadata.format !== "webp" || metadata.width !== width || metadata.height !== height)
+      throw new DashboardError(`The image service returned an invalid image or dimensions other than ${imageSize}.`, 502);
 
-    const widths = [1200, 1120, 1040, 960, 880, 800];
-    for (const width of widths) {
-      const height = Math.round(width * 9 / 16);
-      for (const quality of [70, 65, 60, 55, 50, 45, 40]) {
-        const optimized = await sharp(bytes, { limitInputPixels: 40_000_000 })
-          .resize(width, height, { fit: "cover", position: "attention" })
-          .webp({ quality })
-          .toBuffer();
-        if (optimized.length < 1_000_000)
-          return { bytes: optimized, mimeType: "image/webp", extension: "webp", width, height };
-      }
-    }
+    // Preserve the exact API bytes; compression is controlled by the provider.
+    if (!stepGuide && bytes.length >= generatedCourseImageMaxBytes)
+      throw new DashboardError("The image service returned an image of 100 KB or larger. Try generating it again; the provider cannot guarantee an exact file size.", 502);
+    return { bytes, mimeType: "image/webp", extension: "webp", width, height };
   } catch (error) {
     if (error instanceof DashboardError) throw error;
     throw new DashboardError("The generated image did not pass file validation.", 502);
   }
-  throw new DashboardError("The generated image could not be compressed below 1 MB.", 502);
 }
 
 let activeImageGenerationJobs = 0;
@@ -242,7 +217,8 @@ async function createGeneratedImageAssetNow(
         source: "ai-course-generation",
         prompt,
         imageStyle: options.imageStyle ?? "auto",
-        ...(options.imageQuality ? { imageQuality: options.imageQuality } : {}),
+        imageQuality: options.imageQuality ?? "medium",
+        imageModel: options.imageModel ?? (process.env.OPENAI_IMAGE_MODEL || defaultCourseImageGenerationModel),
         ...(options.imageStyle === "custom" && options.customImageStyle ? { customImageStyle: options.customImageStyle } : {}),
         width,
         height,

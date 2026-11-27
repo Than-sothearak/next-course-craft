@@ -10,7 +10,7 @@ import { getCourseEditor } from "@/lib/editor/services/course";
 import { sessionRequestSchema } from "@/lib/ai/course-generation-session-schema";
 import { getSession, planSession, approveSession, prepareNextLesson, commitNextLesson, cancelSession, cleanupCancelledSessionLessons } from "@/lib/ai/generation/session-workflow";
 import { DashboardError } from "@/lib/dashboard/rules";
-import { logGenerationProgress } from "@/lib/ai/generation/progress-log";
+import { logGenerationProgress, writeGenerationLog } from "@/lib/ai/generation/progress-log";
 
 export const maxDuration = 960;
 type Context = { params: Promise<{ courseId: string }> };
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest, { params }: Context) {
     }
   } catch (error) { return dashboardErrorResponse(error); }
   finally {
-    if (lease) await releaseGenerationLease(lease).catch(() => console.error("Generation lease release failed; it will expire automatically."));
+    if (lease) await releaseGenerationLease(lease).catch(() => writeGenerationLog("DEBUG", "DATABASE", "Generation lease release failed; it will expire automatically."));
     if (cleanupTarget && !cancellationAction) {
       try {
         const cleanup = await cleanupCancelledSessionLessons(cleanupTarget, cleanupTarget.sessionId);
@@ -88,12 +88,17 @@ export async function POST(request: NextRequest, { params }: Context) {
         // cancellation cleanup fails; the next cancel request can retry it.
         if (error instanceof DashboardError && error.status === 404) {
           logGenerationProgress({
-            status: "SKIPPED", task: "Deferred cancellation cleanup",
+            status: "SKIPPED", category: "DATABASE", task: "Deferred cancellation cleanup",
             courseId: cleanupTarget.courseId, sessionId: cleanupTarget.sessionId,
             detail: "Course or generation session unavailable or expired. Cleanup skipped.",
           });
         } else {
-          console.error(`Deferred cancelled-generation cleanup failed. [Course: ${cleanupTarget.courseId}] [Session: ${cleanupTarget.sessionId}]`, error);
+          writeGenerationLog("ERROR", "DATABASE", "Deferred cancelled-generation cleanup failed", {
+            courseId: cleanupTarget.courseId,
+            sessionId: cleanupTarget.sessionId,
+            errorType: error instanceof Error ? error.name : "UnknownError",
+            statusCode: error instanceof DashboardError ? error.status : undefined,
+          }, console.error);
         }
       }
     }

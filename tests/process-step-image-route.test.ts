@@ -34,6 +34,15 @@ beforeEach(() => {
 });
 
 describe("process step image generation", () => {
+  it("passes a selected image model through the owner-scoped generation endpoint", async () => {
+    expect((await submit({ instructions: "Draw a seedling", imageModel: "gpt-image-1-mini" })).status).toBe(201);
+    expect(createGeneratedImageAsset).toHaveBeenCalledWith(ownerId, courseId, expect.any(String), { purpose: "process-step-guide", imageModel: "gpt-image-1-mini" });
+  });
+  it("rejects an unsupported image model before acquiring a generation lease", async () => {
+    expect((await submit({ instructions: "Draw a seedling", imageModel: "not-a-model" })).status).toBe(400);
+    expect(acquireGenerationLease).not.toHaveBeenCalled();
+    expect(createGeneratedImageAsset).not.toHaveBeenCalled();
+  });
   it("uses draft instructions and stores media under the resolved course owner", async () => {
     const response = await submit();
     expect(response.status).toBe(201);

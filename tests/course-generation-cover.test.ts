@@ -28,11 +28,23 @@ describe("course cover preparation during outline generation", () => {
   it("generates a card image when the course card has no image", async () => {
     const result = await prepareOutlineCover(ownerId, courseId, outline);
     expect(result).toMatchObject({ generatedCover: true, cover: { imageSrc: src } });
-    expect(createGeneratedImageAsset).toHaveBeenCalledWith(ownerId, courseId, expect.stringContaining("HTML basics"), { purpose: "course-cover", imageStyle: "auto", customImageStyle: "" });
+    expect(createGeneratedImageAsset).toHaveBeenCalledWith(ownerId, courseId, expect.stringContaining("HTML basics"), { purpose: "course-cover", imageStyle: "auto", imageQuality: "medium", customImageStyle: "" });
+  });
+  it("regenerates a prepared cover when its selected model changes", async () => {
+    vi.mocked(CourseGenerationSession.findOne).mockReturnValue({ sort: async () => ({ cover, input: defaultInput }) } as never);
+    await prepareOutlineCover(ownerId, courseId, outline, { coverImageModel: "gpt-image-1-mini" });
+    expect(createGeneratedImageAsset).toHaveBeenCalledWith(ownerId, courseId, expect.any(String), expect.objectContaining({ imageModel: "gpt-image-1-mini" }));
   });
   it("passes a selected visual style to the generated course cover", async () => {
-    await prepareOutlineCover(ownerId, courseId, outline, { coverImageStyle: "photorealistic", coverCustomImageStyle: "" });
+    await prepareOutlineCover(ownerId, courseId, outline, { coverImageStyle: "photorealistic", coverCustomImageStyle: "", coverImageQuality: "high" });
     expect(createGeneratedImageAsset).toHaveBeenCalledWith(ownerId, courseId, expect.stringContaining("HTML basics"), expect.objectContaining({ purpose: "course-cover", imageStyle: "photorealistic" }));
+  });
+  it("passes the selected image quality to the generated course cover", async () => {
+    await prepareOutlineCover(ownerId, courseId, outline, { coverImageStyle: "auto", coverCustomImageStyle: "", coverImageQuality: "high" });
+    expect(createGeneratedImageAsset).toHaveBeenCalledWith(ownerId, courseId, expect.stringContaining("HTML basics"), expect.objectContaining({
+      purpose: "course-cover",
+      imageQuality: "high",
+    }));
   });
   it("can generate a missing card image independently of an existing learner cover", async () => {
     currentCourse({ theme: { cover } });
@@ -68,6 +80,11 @@ describe("course cover preparation during outline generation", () => {
     await prepareOutlineCover(ownerId, courseId, outline, { coverImageStyle: "photorealistic", coverCustomImageStyle: "" });
     expect(assertCourseCoverAsset).toHaveBeenCalledWith(ownerId, courseId, cover);
     expect(createGeneratedImageAsset).not.toHaveBeenCalled();
+  });
+  it("regenerates a prepared cover when the image quality changes", async () => {
+    vi.mocked(CourseGenerationSession.findOne).mockReturnValue({ sort: async () => ({ cover, input: defaultInput }) } as never);
+    await prepareOutlineCover(ownerId, courseId, outline, { coverImageStyle: "auto", coverCustomImageStyle: "", coverImageQuality: "high" });
+    expect(createGeneratedImageAsset).toHaveBeenCalledOnce();
   });
   it("regenerates a missing prior asset instead of reusing a broken cover", async () => {
     vi.mocked(CourseGenerationSession.findOne).mockReturnValue({ sort: async () => ({ cover }) } as never);

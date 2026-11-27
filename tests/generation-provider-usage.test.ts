@@ -68,7 +68,16 @@ describe("provider usage tracking", () => {
     transport.mockResolvedValueOnce(response({ id: "resp_test", status: "completed", output_text: '{"title":"Course"}' }));
     await expect(request()).resolves.toEqual({ title: "Course" });
     expect(events()).toHaveLength(1);
-    expect(events()[0]).toMatchObject({ kind: "text", stage: "test_course", attempt: 1, outcome: "response_received", usage: { inputTokens: 2_000, cachedInputTokens: 1_000, cacheWriteTokens: 0 }, inputCostEstimate: { usd: 0.00011 } });
+    expect(events()[0]).toMatchObject({
+      category: "AI COST",
+      operationCategory: "AI TEXT",
+      kind: "text",
+      stage: "test_course",
+      attempt: 1,
+      outcome: "response_received",
+      usage: { inputTokens: 2_000, cachedInputTokens: 1_000, cacheWriteTokens: 0 },
+      inputCostEstimate: { usd: 0.00011 },
+    });
     expect(events()[0].schemaHash).toMatch(/^[a-f0-9]{64}$/);
     expect(events()[0].developerPromptHash).toMatch(/^[a-f0-9]{64}$/);
     expect(JSON.stringify(events())).not.toContain("PRIVATE");

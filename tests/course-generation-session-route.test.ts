@@ -31,14 +31,15 @@ describe("generation session authorization and mutations", () => {
   it.each([200, 404])("logs unavailable deferred cleanup concisely while preserving the original %i response", async (status) => {
     const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
     const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const cleanupSessionId = status === 200 ? sessionId : "507f1f77bcf86cd799439014";
     if (status === 404) vi.mocked(prepareNextLesson).mockRejectedValueOnce(new DashboardError("Generation session expired or was not found. Saved lessons remain in your course.", 404));
     else vi.mocked(prepareNextLesson).mockResolvedValueOnce(null);
     vi.mocked(cleanupCancelledSessionLessons).mockRejectedValueOnce(new DashboardError("Generation session expired or was not found. Saved lessons remain in your course.", 404));
-    const response = await submit({ action: "prepare", sessionId });
+    const response = await submit({ action: "prepare", sessionId: cleanupSessionId });
     expect(response.status).toBe(status);
     expect(log).toHaveBeenCalledTimes(1);
-    expect(log.mock.calls[0][0]).toContain("[COURSE GENERATION] [SKIPPED] [Deferred cancellation cleanup]");
-    expect(log.mock.calls[0][0]).toContain(`[Course: course] [Session: ${sessionId}]`);
+    expect(log.mock.calls[0][0]).toContain("[WARNING] [DATABASE] ⚠ Deferred cancellation cleanup");
+    expect(log.mock.calls[0][0]).toContain(`course: course | session: ${cleanupSessionId.slice(0, 8)}...`);
     expect(log.mock.calls[0][0]).toContain("Course or generation session unavailable or expired. Cleanup skipped.");
     expect(error).not.toHaveBeenCalled();
     expect(releaseGenerationLease).toHaveBeenCalledOnce();
@@ -51,7 +52,10 @@ describe("generation session authorization and mutations", () => {
     vi.mocked(prepareNextLesson).mockResolvedValueOnce(null);
     vi.mocked(cleanupCancelledSessionLessons).mockRejectedValueOnce(failure);
     expect((await submit({ action: "prepare", sessionId })).status).toBe(200);
-    expect(error).toHaveBeenCalledWith(`Deferred cancelled-generation cleanup failed. [Course: course] [Session: ${sessionId}]`, failure);
+    expect(error).toHaveBeenCalledOnce();
+    expect(error.mock.calls[0][0]).toContain("[ERROR] [DATABASE] ✗ Deferred cancelled-generation cleanup failed");
+    expect(error.mock.calls[0][0]).toContain(`course: course | session: ${sessionId.slice(0, 8)}...`);
+    expect(error.mock.calls[0][0]).toContain("errorType: Error");
     expect(log).not.toHaveBeenCalled();
     expect(releaseGenerationLease).toHaveBeenCalledOnce();
   });

@@ -8,6 +8,7 @@ import { requestStructuredJson } from "./provider";
 import { sourceInventorySystemPrompt } from "./prompts";
 import { sourcePageBatchResponseSchema } from "./response-schemas";
 import { readStringField } from "./source-coverage";
+import { writeGenerationLog } from "./progress-log";
 
 export async function generateSourceInventory(
   input: CourseGenerationInput,
@@ -154,7 +155,10 @@ export async function finalizeSourceInventory(
     pages: normalizedPages,
   });
   if (!validated.success) {
-    console.error("Source inventory failed deterministic page validation", validated.error.issues.slice(0, 10));
+    writeGenerationLog("ERROR", "STORAGE", "Source inventory failed deterministic page validation", {
+      issueCount: validated.error.issues.length,
+      issuePaths: validated.error.issues.slice(0, 10).map((issue) => issue.path.join(".")),
+    }, console.error);
     throw new DashboardError(
       "The AI provider could not return a complete page-by-page source inventory. Please retry with a clearer file.",
       422,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useContext, useEffect, useRef, useState, type FormEvent } from "react";
 import { ArrowRight, BookOpen, Check, ClipboardList, FileText, ImagePlus, LoaderCircle, Sparkles, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,8 @@ import {
   type GeneratedCourseDraft,
   type SourceGenerationJobSnapshot,
 } from "@/lib/ai/course-generation-schemas";
-import { courseImageQualityOptions, courseImageStyleOptions, type CourseImageStyle } from "@/lib/ai/image-style";
+import { courseImageQualityDescription, courseImageQualityOptions, courseImageStyleOptions, lessonCoverImageDescription, type CourseImageStyle } from "@/lib/ai/image-style";
+import { DefaultImageModelContext, ImageModelSelect } from "@/components/image-model-select";
 
 import { advanceSourceGenerationJobUntil, isMissingGenerationJob, postCourseGenerationForm, postSourceGenerationAction, responseError } from "./(course_generation_dialog_components)/generation-job-request";
 import { GenerationPromptInput, starterGenerationPrompt } from "./(course_generation_dialog_components)/generation-prompt-input";
@@ -265,6 +266,7 @@ export function CourseGenerationDialog({
   courseDescription,
   existingLessonCount,
   onApply,
+  imageGenerationModel,
 }: {
   open: boolean;
   onClose: () => void;
@@ -273,7 +275,10 @@ export function CourseGenerationDialog({
   courseDescription: string;
   existingLessonCount: number;
   onApply: (course: GeneratedCourseDraft, mode: ApplyMode) => void;
+  imageGenerationModel?: string;
 }) {
+  const environmentImageModel = useContext(DefaultImageModelContext);
+  const configuredImageModel = imageGenerationModel ?? environmentImageModel;
   const [prompt, setPrompt] = useState(starterGenerationPrompt);
   const [template, setTemplate] = useState<CourseGenerationInput["template"]>("preLearnPost");
   const [previewTemplate, setPreviewTemplate] = useState<StructurePreviewTemplate | null>(null);
@@ -289,7 +294,8 @@ export function CourseGenerationDialog({
   const [selectedModel, setSelectedModel] = useState<CourseGenerationModel>(defaultCourseGenerationModel);
   const [includeImages, setIncludeImages] = useState(true);
   const [imageStyle, setImageStyle] = useState<CourseImageStyle>("auto");
-  const [imageQuality, setImageQuality] = useState<CourseGenerationInput["imageQuality"]>("optimized");
+  const [imageQuality, setImageQuality] = useState<CourseGenerationInput["imageQuality"]>("medium");
+  const [imageModel, setImageModel] = useState<CourseGenerationInput["imageModel"]>();
   const [customImageStyle, setCustomImageStyle] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [generationJobId, setGenerationJobId] = useState<string | null>(null);
@@ -449,6 +455,7 @@ export function CourseGenerationDialog({
     formData.set("includeImages", String(includeImages));
     formData.set("imageStyle", imageStyle);
     formData.set("imageQuality", imageQuality);
+    if (imageModel) formData.set("imageModel", imageModel);
     formData.set("customImageStyle", customImageStyle);
     formData.set("courseTitle", courseTitle);
     formData.set("courseDescription", courseDescription);
@@ -931,7 +938,8 @@ export function CourseGenerationDialog({
                 </label>
               </>}
             </div>
-            {includeImages && <p className="text-xs text-slate-500">Optimized WebP images use compressed files for faster loading. Full size uses larger files. Image generation may take longer than a typical response, so wait for the generation to finish.</p>}
+            {includeImages && <label className="block text-sm font-medium text-slate-700">Image model<ImageModelSelect aria-label="Image generation model" defaultModel={configuredImageModel} value={imageModel} onChange={setImageModel} className="mt-1.5" /></label>}
+            {includeImages && <p className="text-xs text-slate-500">{courseImageQualityDescription(imageQuality, imageModel ?? configuredImageModel)} Supporting lesson images use this resolution. {lessonCoverImageDescription(imageQuality, imageModel ?? configuredImageModel)} Image generation may take longer than a typical response, so wait for the generation to finish.</p>}
             {includeImages && imageStyle === "custom" && <label className="block text-sm font-medium text-slate-700">Custom style direction
               <Input value={customImageStyle} maxLength={240} placeholder="e.g. warm editorial paper-cut illustration" onChange={(event) => setCustomImageStyle(event.target.value)} className="mt-1.5" />
               <span className="mt-1 block text-xs font-normal leading-5 text-slate-500">Describe the visual treatment for generated images.</span>

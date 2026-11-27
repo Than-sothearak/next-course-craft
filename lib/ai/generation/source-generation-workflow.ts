@@ -25,8 +25,8 @@ import {
   updateGenerationCheckpoints,
   updateGenerationJob,
 } from "./generation-job-store";
-import { logGenerationProgress } from "./progress-log";
-import { withCourseUsage } from "./usage-scope";
+import { generationTimeSummary, logGenerationProgress, logGenerationSummary, writeGenerationLog } from "./progress-log";
+import { generationUsageSummary, generationUsageSummaryFields, withCourseUsage } from "./usage-scope";
 
 export async function summarizeCourseSource({
   input,
@@ -551,7 +551,12 @@ export const advanceSourceGenerationJob = withCourseUsage(async function({
     await updateGenerationCheckpoints({ jobId: job._id, ownerId, courseId }, { $set: { expiresAt: expiry } });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Course generation failed. Please retry this stage.";
-    console.error("Resumable source generation stage failed", { jobId: claimed._id.toString(), status: claimed.status, message });
+    writeGenerationLog("ERROR", "COURSE", "Resumable source generation stage failed", {
+      jobId: claimed._id.toString(),
+      stage: claimed.status,
+      errorType: error instanceof Error ? error.name : "UnknownError",
+      statusCode: error instanceof DashboardError ? error.status : undefined,
+    }, console.error);
     await updateGenerationJob(
       { _id, ownerId, courseId, status: { $ne: "cancelled" } },
       {
@@ -569,8 +574,39 @@ export const advanceSourceGenerationJob = withCourseUsage(async function({
   }
   const finalJob = await getSourceGenerationJob({ ownerId, courseId, jobId });
   if (finalJob.status === "cancelled") await deleteGenerationCheckpoints({ jobId: _id, ownerId, courseId });
+  if (["completed", "failed", "cancelled"].includes(finalJob.status)) {
+    const usage = generationUsageSummary(jobId);
+    const times = generationTimeSummary(jobId, claimed.createdAt?.getTime());
+    const status = finalJob.status === "completed" ? "DONE" : finalJob.status === "cancelled" ? "CANCELLED" : "FAILED";
+    logGenerationSummary({
+      courseTitle: finalJob.course?.title ?? null,
+      courseId,
+      totalLessons: finalJob.course?.lessons.length ?? null,
+      generatedImages: finalJob.course?.generatedImageCount ?? null,
+      totalAiRequests: usage?.requests ?? null,
+      inputTokens: usage?.inputTokens ?? null,
+      cachedInputTokens: usage?.cachedInputTokens ?? null,
+      uncachedInputTokens: usage?.uncachedInputTokens ?? null,
+      outputTokens: usage?.outputTokens ?? null,
+      imageTokens: usage?.imageTokens ?? null,
+      totalTokens: usage?.totalTokens ?? null,
+      cacheHitPercent: usage?.cacheHitPercent ?? null,
+      estimatedCacheSavingsUsd: usage?.estimatedCacheSavingsUsd ?? null,
+      textGenerationCostUsd: usage?.textGenerationCostUsd ?? null,
+      imageGenerationCostUsd: usage?.imageGenerationCostUsd ?? null,
+      combinedGenerationCostUsd: usage?.combinedGenerationCostUsd ?? null,
+      failedRequests: usage?.failedRequests ?? null,
+      retries: usage?.retries ?? null,
+      activeProcessingMs: times.activeProcessingMs,
+      userWaitingMs: times.userWaitingMs,
+      totalElapsedMs: times.totalElapsedMs,
+      ...generationUsageSummaryFields(usage),
+      finalStatus: status,
+      jobId,
+    });
+  }
   return finalJob;
-});
+}, ({ jobId }) => jobId);
 
 async function findOwnedGenerationJob(ownerId: string, courseId: string, jobId: string) {
   if (!Types.ObjectId.isValid(jobId)) throw new DashboardError("Invalid generation job identifier.", 400);

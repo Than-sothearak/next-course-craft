@@ -78,11 +78,34 @@ describe("offline generation usage report", () => {
     expect(report.totals).toMatchObject({ inconsistentCostEvents: 1, estimatedInputCost: { usd: 0.01 }, estimatedOutputCost: { usd: null, missingEvents: 1 }, estimatedTextCost: { usd: null, missingEvents: 1 } });
   });
 
-  it("includes the text subtotal for image requests but does not add image-tool charges", () => {
+  it("keeps image charges unavailable for legacy records without image-tool usage", () => {
     const report = summarize([pricedEvent("course-a", "image", 0.01, 0.02, { kind: "image", imageCalls: [{ usd: 100 }] })]);
     expect(report.courses[0].totals.imageRequests).toBe(1);
     expect(report.courses[0].totals.estimatedTextCost.usd).toBeCloseTo(0.03);
-    expect(formatUsageReport(report)).toContain("Image-generation charges: excluded (1 image requests observed)");
+    expect(report.courses[0].totals.estimatedImageCost).toMatchObject({ usd: null, knownEvents: 0, missingEvents: 1 });
+    expect(formatUsageReport(report)).toContain("Estimated image-generation cost: unknown (0/1 attempts priced; partial coverage)");
+  });
+
+  it("aggregates image tokens and calculated image cost separately from orchestration cost", () => {
+    const report = summarize([pricedEvent("course-a", "image", 0.01, 0.02, {
+      kind: "image",
+      imageUsage: {
+        inputTokens: 20, textInputTokens: 7, imageInputTokens: 13,
+        cachedInputTokens: 0, cachedTextInputTokens: 0, cachedImageInputTokens: 0,
+        outputTokens: 31, textOutputTokens: 0, imageOutputTokens: 31, totalTokens: 51,
+      },
+      imageCostEstimate: {
+        usd: 0.001069, status: "calculated", unavailableReason: null,
+        pricingAsOf: "2026-11-27", cacheAssumption: null,
+      },
+    })]);
+    expect(report.courses[0].totals.imageTokens).toMatchObject({
+      textInputTokens: { sum: 7 }, imageInputTokens: { sum: 13 }, imageOutputTokens: { sum: 31 }, totalTokens: { sum: 51 },
+    });
+    expect(report.courses[0].totals.estimatedTextCost.usd).toBeCloseTo(0.03);
+    expect(report.courses[0].totals.estimatedImageCost).toMatchObject({ usd: 0.001069, calculatedEvents: 1, estimatedEvents: 0 });
+    expect(report.courses[0].totals.estimatedCombinedCost.usd).toBeCloseTo(0.031069);
+    expect(formatUsageReport(report)).toContain("Estimated image-generation cost: $0.00106900 (1/1 attempts priced)");
   });
 
   it("calculates a token-weighted read rate, sums disjoint writes and counts retries", () => {

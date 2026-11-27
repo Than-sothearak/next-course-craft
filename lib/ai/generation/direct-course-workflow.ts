@@ -12,8 +12,8 @@ import { generateSourceInventory } from "./source-inventory";
 import type { GenerationSourceFile } from "./types";
 import { generateSourceCourseSeed } from "./source-generation-content";
 import { assembleCourseDraft } from "./course-draft-assembler";
-import { logGenerationProgress } from "./progress-log";
-import { withCourseUsage } from "./usage-scope";
+import { generationImageCount, logGenerationProgress, logGenerationSummary, writeGenerationLog } from "./progress-log";
+import { generationUsageId, generationUsageSummary, generationUsageSummaryFields, withCourseUsage } from "./usage-scope";
 
 function courseSeedResponseSchema(input: CourseGenerationInput, includeCustomFirstLessonActivities: boolean) {
   const properties = courseResponseSchema.properties;
@@ -147,7 +147,10 @@ export async function generateCourseSeed(
     validationFeedback = JSON.stringify(validationIssues);
   }
 
-  console.error("AI course output failed application validation after retry", validationIssues);
+  writeGenerationLog("ERROR", "AI TEXT", "Course output failed application validation after retry", {
+    issueCount: validationIssues.length,
+    issuePaths: validationIssues.slice(0, 5).map((issue) => issue.path),
+  }, console.error);
   const issueSummary = validationIssues
     .slice(0, 5)
     .map((issue) => `${issue.path || "course"}: ${issue.message}`)
@@ -169,6 +172,10 @@ export const generateCourseDraft = withCourseUsage(async function({
   input: CourseGenerationInput;
   sourceFile?: GenerationSourceFile;
 }): Promise<GeneratedCourseDraft> {
+  const startedAt = Date.now();
+  const generationId = generationUsageId();
+  let courseTitle: string | null = null;
+  let totalLessons: number | null = null;
   logGenerationProgress({ status: "STARTED", task: "Generate course draft", courseId });
   try {
     const model = input.model ?? (process.env.OPENAI_TEXT_MODEL || defaultCourseGenerationModel);
@@ -204,6 +211,8 @@ export const generateCourseDraft = withCourseUsage(async function({
         detail: `${seed.sections.reduce((total, section) => total + section.lessons.length, 0)} lessons prepared`,
       });
     }
+    courseTitle = seed.title;
+    totalLessons = seed.sections.reduce((total, section) => total + section.lessons.length, 0);
 
     logGenerationProgress({ status: "IN PROGRESS", task: "Assemble course and generate lesson images", courseId });
     const draft = await assembleCourseDraft({ ownerId, courseId, input, seed, sourceInventory, sourcePlan, coverageIssuesByItem });
@@ -213,6 +222,33 @@ export const generateCourseDraft = withCourseUsage(async function({
       courseId,
       detail: `${draft.lessons.length} lessons and ${draft.generatedImageCount} images saved`,
     });
+    const usage = generationId ? generationUsageSummary(generationId) : null;
+    const elapsed = Math.max(0, Date.now() - startedAt);
+    logGenerationSummary({
+      courseTitle,
+      courseId,
+      totalLessons: draft.lessons.length,
+      generatedImages: draft.generatedImageCount,
+      totalAiRequests: usage?.requests ?? null,
+      inputTokens: usage?.inputTokens ?? null,
+      cachedInputTokens: usage?.cachedInputTokens ?? null,
+      uncachedInputTokens: usage?.uncachedInputTokens ?? null,
+      outputTokens: usage?.outputTokens ?? null,
+      imageTokens: usage?.imageTokens ?? null,
+      totalTokens: usage?.totalTokens ?? null,
+      cacheHitPercent: usage?.cacheHitPercent ?? null,
+      estimatedCacheSavingsUsd: usage?.estimatedCacheSavingsUsd ?? null,
+      textGenerationCostUsd: usage?.textGenerationCostUsd ?? null,
+      imageGenerationCostUsd: usage?.imageGenerationCostUsd ?? null,
+      combinedGenerationCostUsd: usage?.combinedGenerationCostUsd ?? null,
+      failedRequests: usage?.failedRequests ?? null,
+      retries: usage?.retries ?? null,
+      activeProcessingMs: elapsed,
+      userWaitingMs: 0,
+      totalElapsedMs: elapsed,
+      ...generationUsageSummaryFields(usage),
+      finalStatus: "DONE",
+    });
     return draft;
   } catch (error) {
     logGenerationProgress({
@@ -220,6 +256,33 @@ export const generateCourseDraft = withCourseUsage(async function({
       task: "Generate course draft",
       courseId,
       detail: error instanceof DashboardError ? `Request failed with status ${error.status}` : "Unexpected server error; see the server error above",
+    });
+    const usage = generationId ? generationUsageSummary(generationId) : null;
+    const elapsed = Math.max(0, Date.now() - startedAt);
+    logGenerationSummary({
+      courseTitle,
+      courseId,
+      totalLessons,
+      generatedImages: generationImageCount(courseId),
+      totalAiRequests: usage?.requests ?? null,
+      inputTokens: usage?.inputTokens ?? null,
+      cachedInputTokens: usage?.cachedInputTokens ?? null,
+      uncachedInputTokens: usage?.uncachedInputTokens ?? null,
+      outputTokens: usage?.outputTokens ?? null,
+      imageTokens: usage?.imageTokens ?? null,
+      totalTokens: usage?.totalTokens ?? null,
+      cacheHitPercent: usage?.cacheHitPercent ?? null,
+      estimatedCacheSavingsUsd: usage?.estimatedCacheSavingsUsd ?? null,
+      textGenerationCostUsd: usage?.textGenerationCostUsd ?? null,
+      imageGenerationCostUsd: usage?.imageGenerationCostUsd ?? null,
+      combinedGenerationCostUsd: usage?.combinedGenerationCostUsd ?? null,
+      failedRequests: usage?.failedRequests ?? null,
+      retries: usage?.retries ?? null,
+      activeProcessingMs: elapsed,
+      userWaitingMs: 0,
+      totalElapsedMs: elapsed,
+      ...generationUsageSummaryFields(usage),
+      finalStatus: "FAILED",
     });
     throw error;
   }

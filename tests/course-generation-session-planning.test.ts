@@ -32,8 +32,8 @@ describe("reviewable outline planning", () => {
     await planGenerationSession(requestedInKhmer, "test-model");
 
     const request = vi.mocked(requestStructuredJson).mock.calls[0][0];
-    expect(request.developerPrompt).toContain("Technical and subject-specific terms must remain in English");
-    expect(request.developerPrompt).toContain("Do not translate or transliterate them");
+    expect(request.developerPrompt).toContain("Write every learner-facing value in Khmer");
+    expect(request.developerPrompt).toContain("natural Khmer equivalent first, followed immediately by the exact English term in parentheses");
     expect(request.content[0].text).toContain('"targetLanguage":"Khmer"');
   });
   it("rejects an incorrect lesson count instead of approving it silently", async () => {

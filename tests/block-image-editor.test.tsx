@@ -1,11 +1,12 @@
 /** @vitest-environment jsdom */
-import { act, useRef, type ReactNode } from "react";
+import { act, useEffect, useRef, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { StandardLessonEditor } from "@/app/courses/[courseId]/edit/standard-mode/_components/standard-lesson-editor";
 import { useEditorDraft, type Draft } from "@/app/courses/[courseId]/edit/_components/_components/use-editor-draft";
 import { useEditorBlockOperations } from "@/app/courses/[courseId]/edit/_components/_components/use-editor-block-operations";
 import { blockSchema, richTextBlockSchema } from "@/lib/schemas/block";
+import { DefaultImageModelContext } from "@/components/image-model-select";
 
 vi.mock("@/app/courses/[courseId]/edit/standard-mode/_components/lesson-title-editor", () => ({ LessonTitleEditor: () => null }));
 vi.mock("@/app/courses/[courseId]/edit/standard-mode/_components/sortable-item", () => ({ SortableItem: ({ children }: { children: ReactNode }) => <div>{children}</div> }));
@@ -28,17 +29,18 @@ function Harness() {
     lessons: [{ id: "lesson", sectionId: "section", title: "Lesson", order: 0, lessonType: "content", quizQuestions: [], blocks: startingBlocks }],
   };
   const titleValidRef = useRef(true);
-  editor = useEditorDraft({ initialDraft, initialRevision: 1, courseId: "course", titleValid: true, titleValidRef, onNavigate: vi.fn() });
-  const lesson = editor.draft.lessons[0];
-  operations = useEditorBlockOperations({ draft: editor.draft, draftRef: editor.draftRef, activeLesson: lesson, activeLessonId: lesson.id, slideCourse: false,
-    updateDraft: editor.updateDraft,
-    updateLesson: (id, update) => editor.updateDraft((current) => ({ ...current, lessons: current.lessons.map((item) => item.id === id ? update(item) : item) })),
+  const currentEditor = useEditorDraft({ initialDraft, initialRevision: 1, courseId: "course", titleValid: true, titleValidRef, onNavigate: vi.fn() });
+  const lesson = currentEditor.draft.lessons[0];
+  const currentOperations = useEditorBlockOperations({ draft: currentEditor.draft, draftRef: currentEditor.draftRef, activeLesson: lesson, activeLessonId: lesson.id, slideCourse: false,
+    updateDraft: currentEditor.updateDraft,
+    updateLesson: (id, update) => currentEditor.updateDraft((current) => ({ ...current, lessons: current.lessons.map((item) => item.id === id ? update(item) : item) })),
   });
-  return <StandardLessonEditor lesson={lesson} courseId="course" sections={editor.draft.sections} lessons={editor.draft.lessons}
-    saveState={editor.saveState} hasUnsavedChanges={editor.hasUnsavedChanges} saveMessage="" onRetrySave={vi.fn()} onTitleChange={vi.fn()} onTitleValidityChange={vi.fn()}
-    onReorderBlocks={operations.reorderBlocks} onAddBlock={vi.fn()} onMoveBlock={operations.moveBlock} onDuplicateBlock={operations.duplicateBlock}
-    onDeleteBlock={operations.deleteBlock} onChangeBlock={operations.updateBlock} onReplaceTemplate={vi.fn()}
-    onAddGeneratedImage={(id, image) => operations.addGeneratedBlockImage(lesson.id, id, image)} />;
+  useEffect(() => { editor = currentEditor; operations = currentOperations; });
+  return <DefaultImageModelContext.Provider value="gpt-image-2.6-flare"><StandardLessonEditor lesson={lesson} courseId="course" sections={currentEditor.draft.sections} lessons={currentEditor.draft.lessons}
+    saveState={currentEditor.saveState} hasUnsavedChanges={currentEditor.hasUnsavedChanges} saveMessage="" onRetrySave={vi.fn()} onTitleChange={vi.fn()} onTitleValidityChange={vi.fn()}
+    onReorderBlocks={currentOperations.reorderBlocks} onAddBlock={vi.fn()} onMoveBlock={currentOperations.moveBlock} onDuplicateBlock={currentOperations.duplicateBlock}
+    onDeleteBlock={currentOperations.deleteBlock} onChangeBlock={currentOperations.updateBlock} onReplaceTemplate={vi.fn()}
+    onAddGeneratedImage={(id, image) => currentOperations.addGeneratedBlockImage(lesson.id, id, image)} /></DefaultImageModelContext.Provider>;
 }
 
 const dialogButton = (text: string) => [...document.querySelectorAll<HTMLButtonElement>("dialog button")].find((button) => button.textContent === text)!;
@@ -62,6 +64,24 @@ afterEach(() => {
 });
 
 describe("Standard block image action", () => {
+  it("uses the environment default, sends a selected model and clears the preview when it changes", async () => {
+    await act(async () => root.render(<Harness />));
+    await open();
+    const dialog = document.querySelector("dialog")!;
+    const model = dialog.querySelector<HTMLSelectElement>('[aria-label="Image generation model"]')!;
+    expect(model.value).toBe("");
+    expect(model.selectedOptions[0].textContent).toBe("Default (gpt-image-2.6-flare)");
+    expect([...model.options].some((option) => option.value === "gpt-image-1-mini")).toBe(true);
+    await act(async () => { model.value = "gpt-image-1-mini"; model.dispatchEvent(new Event("change", { bubbles: true })); });
+    await click("Generate image");
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body).imageModel).toBe("gpt-image-1-mini");
+    expect(dialog.querySelector("img")).not.toBeNull();
+    await act(async () => { model.value = ""; model.dispatchEvent(new Event("change", { bubbles: true })); });
+    expect(dialog.querySelector("img")).toBeNull();
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ media }), { status: 201 }));
+    await click("Generate image");
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).not.toHaveProperty("imageModel");
+  });
   it("opens beside Move block up, uses draft content, inserts below and supports undo/redo/save", async () => {
     await act(async () => root.render(<Harness />));
     const generate = container.querySelector('[aria-label="Generate image for block"]')!;

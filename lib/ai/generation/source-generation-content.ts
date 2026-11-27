@@ -25,6 +25,7 @@ import { sourceIdsForRange, validateLearnItemCoverage } from "./source-coverage"
 import { lessonDepthIssues, learningActivityIssues, lessonDesignInstruction, learningActivityUsage } from "./lesson-design";
 import { blockSelectionGuide, previousBlockMixInstruction } from "./block-selection";
 import { courseDescriptionGenerationInstruction } from "./prompts";
+import { writeGenerationLog } from "./progress-log";
 
 export async function generateSourcePlan(
   input: CourseGenerationInput,
@@ -172,7 +173,7 @@ export async function generateLearnContentItem({
     const prompt = [
       `Generate only Learn content item ${item.startPage}-${item.endPage}: “${item.title}”.`,
       `Course: ${plan.title}. Item focus: ${item.focus}.`,
-      `Source language: ${plan.sourceLanguage}. Write learner-facing content in ${plan.targetLanguage}. Preserve technical names and all HTML/CSS/JavaScript code exactly.`,
+      `Source language: ${plan.sourceLanguage}. Write learner-facing content in ${plan.targetLanguage}. Preserve all HTML/CSS/JavaScript code exactly; follow target-language terminology rules for technical names in prose.`,
       learnerLanguageStyleInstruction(plan.targetLanguage),
       `Audience: ${input.audience || "General adult learners"}. Difficulty: ${input.level}. Content depth: ${input.contentDepth}. Interactivity: ${input.interactivity}.`,
       lessonDesignInstruction(input, pages),
@@ -335,10 +336,10 @@ export async function generatePostActivities(
     ].join("\n");
   }
 
-  console.error("AI post-activities failed validation after a correction attempt", {
+  writeGenerationLog("ERROR", "AI TEXT", "AI post-activities failed validation after a correction attempt", {
     issueCount: validationIssues.length,
-    issues: validationIssues.slice(0, 8),
-  });
+    issuePaths: validationIssues.slice(0, 8).map((issue) => issue.split(":")[0]),
+  }, console.error);
   throw new DashboardError(
     "The AI provider could not complete the configured post-activities after a correction attempt. Retry this stage.",
     422,
@@ -420,7 +421,10 @@ export function buildSourceCourseSeed(
     nextLesson: postActivities.nextLesson || (input.template === "preLearnPost" ? plan.items.at(-1)?.title ?? "" : "Continue learning"),
   });
   if (!seed.success) {
-    console.error("Staged source course failed final seed validation", seed.error.issues.slice(0, 20));
+    writeGenerationLog("ERROR", "AI TEXT", "Staged source course failed final seed validation", {
+      issueCount: seed.error.issues.length,
+      issuePaths: seed.error.issues.slice(0, 20).map((issue) => issue.path.join(".")),
+    }, console.error);
     const issueSummary = seed.error.issues
       .slice(0, 5)
       .map((issue) => `${issue.path.join(".") || "course"}: ${issue.message}`)

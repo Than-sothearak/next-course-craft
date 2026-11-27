@@ -11,6 +11,7 @@ import { createGeneratedImageAsset } from "@/lib/ai/generation/images";
 import { processStepImagePrompt, processStepImageRequestSchema } from "@/lib/ai/process-step-image";
 import { processStepMediaSchema } from "@/lib/schemas/block";
 import { Asset } from "@/models/Asset";
+import { writeGenerationLog } from "@/lib/ai/generation/progress-log";
 
 export const maxDuration = 120;
 type Context = { params: Promise<{ courseId: string }> };
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest, { params }: Context) {
     await requireAIEnabled();
     const input = await readJson(request, processStepImageRequestSchema);
     lease = await acquireGenerationLease(ownerId, courseId);
-    const generated = await createGeneratedImageAsset(ownerId, courseId, processStepImagePrompt(input), { purpose: "process-step-guide" });
+    const generated = await createGeneratedImageAsset(ownerId, courseId, processStepImagePrompt(input), { purpose: "process-step-guide", ...(input.imageModel ? { imageModel: input.imageModel } : {}) });
     const access = await resolveCourseAccess(userId, courseId, "courses.edit");
     if (access.ownerId !== ownerId) throw new DashboardError("Course ownership changed. Please reload the editor.", 409);
     const asset = await Asset.findOne({ _id: generated.id, ownerId, courseId, status: "ready" })
@@ -39,6 +40,6 @@ export async function POST(request: NextRequest, { params }: Context) {
   } catch (error) {
     return dashboardErrorResponse(error);
   } finally {
-    if (lease) await releaseGenerationLease(lease).catch(() => console.error("Generation lease release failed; it will expire automatically."));
+    if (lease) await releaseGenerationLease(lease).catch(() => writeGenerationLog("DEBUG", "DATABASE", "Generation lease release failed; it will expire automatically."));
   }
 }

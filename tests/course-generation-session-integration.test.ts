@@ -151,6 +151,7 @@ describe.skipIf(!uri)("incremental course generation in MongoDB", () => {
     expect(prepareOutlineCover).toHaveBeenCalledWith(ownerId, scope.courseId, outline, {
       coverImageStyle: "photorealistic",
       coverCustomImageStyle: "",
+      coverImageQuality: "medium",
     });
   });
   it("preserves a course image added by an author while the outline is being reviewed", async () => {

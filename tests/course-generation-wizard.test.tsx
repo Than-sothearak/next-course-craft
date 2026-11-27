@@ -17,7 +17,7 @@ let container: HTMLDivElement, root: Root;
 const fetchMock = vi.fn();
 const onStarted = vi.fn(), onClose = vi.fn();
 const runServerMutation: ComponentProps<typeof CourseGenerationWizard>["runServerMutation"] = async (operation) => operation(1);
-const renderWizard = (savedSession: GenerationSessionSnapshot | null = null) => act(async () => root.render(<CourseGenerationWizard open onClose={onClose} courseId="course" courseTitle="" courseDescription="" existingLessonCount={0} savedSession={savedSession} runServerMutation={runServerMutation} onStarted={onStarted} />));
+const renderWizard = (savedSession: GenerationSessionSnapshot | null = null, imageGenerationModel?: string) => act(async () => root.render(<CourseGenerationWizard open onClose={onClose} courseId="course" courseTitle="" courseDescription="" existingLessonCount={0} savedSession={savedSession} runServerMutation={runServerMutation} onStarted={onStarted} imageGenerationModel={imageGenerationModel} />));
 const click = async (text: string) => act(async () => { const button = [...container.querySelectorAll("button")].find((button) => button.textContent?.includes(text)); expect(button).toBeTruthy(); button!.click(); });
 const type = async (element: HTMLInputElement | HTMLTextAreaElement, value: string) => act(async () => { const prototype = element instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype; Object.getOwnPropertyDescriptor(prototype, "value")!.set!.call(element, value); element.dispatchEvent(new Event("input", { bubbles: true })); });
 const select = async (element: HTMLSelectElement, value: string) => act(async () => { Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, "value")!.set!.call(element, value); element.dispatchEvent(new Event("change", { bubbles: true })); });
@@ -128,6 +128,22 @@ describe("AI course review wizard", () => {
     expect(estimateOutlinePlanningProgress(35_000)).toBe(80);
     expect(estimateOutlinePlanningProgress(50_000)).toBe(80);
   });
+  it("shows native Mini dimensions for both cover and supporting image settings", async () => {
+    await renderWizard(null, "gpt-image-1-mini");
+    const coverSwitch = container.querySelector<HTMLInputElement>('[role="switch"][aria-label="Generate course cover image"]')!;
+    await act(async () => coverSwitch.click());
+    expect(container.textContent).toContain("Medium AI generation quality · 1536 × 1024 pixels.");
+    await click("Continue to course details");
+    const imageSwitch = container.querySelector<HTMLInputElement>('[role="switch"][aria-label="Generate image"]')!;
+    await act(async () => imageSwitch.click());
+    expect(container.textContent).toContain("Lesson covers use 1536 × 1024 pixels");
+    const qualitySelect = container.querySelector<HTMLSelectElement>('select[aria-label="Image quality"]')!;
+    await select(qualitySelect, "low");
+    expect(container.textContent).toContain("Low AI generation quality · 1536 × 1024 pixels.");
+    await select(qualitySelect, "high");
+    expect(container.textContent).toContain("High AI generation quality · 1536 × 1024 pixels.");
+    expect(container.textContent).not.toContain("1440 × 480");
+  });
   it("keeps the course cover image style separate from supplemental lesson images", async () => {
     await renderWizard();
     const coverSwitch = container.querySelector<HTMLInputElement>('[role="switch"][aria-label="Generate course cover image"]')!;
@@ -140,20 +156,29 @@ describe("AI course review wizard", () => {
     expect(coverSwitch.checked).toBe(false);
     const coverStyle = container.querySelector<HTMLSelectElement>('select[aria-label="Course cover image style"]')!;
     expect(coverStyle).toBeTruthy();
-    const coverImageModel = container.querySelector<HTMLSelectElement>('select[aria-label="Image generation model"]')!;
-    expect(coverImageModel.value).toBe("gpt-image-2.5-sunburst");
-    expect(coverImageModel.disabled).toBe(true);
+    const coverImageModel = container.querySelector<HTMLSelectElement>('select[aria-label="Course cover image model"]')!;
+    expect(coverImageModel.value).toBe("");
+    expect(coverImageModel.selectedOptions[0].textContent).toBe("Default (gpt-image-2.5-sunburst)");
+    expect(coverImageModel.disabled).toBe(false);
     expect(container.textContent).not.toContain("Used on the dashboard card and as the learner cover");
     await act(async () => coverSwitch.click());
     expect(coverSwitch.checked).toBe(true);
     expect(container.textContent).toContain("Image generation may take longer than a typical response, so wait for the generation to finish.");
-    expect(coverImageModel.value).toBe("gpt-image-2.5-sunburst");
-    expect(coverImageModel.disabled).toBe(true);
+    expect(coverImageModel.value).toBe("");
+    expect(coverImageModel.disabled).toBe(false);
     await select(coverStyle, "custom");
     await click("Set cover direction");
     const coverStyleDialog = [...container.querySelectorAll("dialog")].find((dialog) => dialog.textContent?.includes("Describe the visual treatment"))!;
     await type(coverStyleDialog.querySelector("textarea")!, "Editorial cover art");
     await click("Save style");
+    const coverQualitySelect = container.querySelector<HTMLSelectElement>('select[aria-label="Course cover image quality"]')!;
+    expect(coverQualitySelect.value).toBe("medium");
+    expect([...coverQualitySelect.options].map((option) => option.textContent)).toEqual(["Low", "Medium", "High"]);
+    expect(container.textContent).toContain("Medium AI generation quality · 1152 × 656 pixels.");
+    await select(coverQualitySelect, "high");
+    expect(container.textContent).toContain("High AI generation quality · 1280 × 720 pixels.");
+    await select(coverImageModel, "gpt-image-1-mini");
+    expect(container.textContent).toContain("High AI generation quality · 1536 × 1024 pixels.");
     await click("Continue to course details");
     const supplementalSwitch = container.querySelector<HTMLInputElement>('[role="switch"][aria-label="Generate image"]')!;
     const supplementalLabel = supplementalSwitch.closest("label")!;
@@ -163,8 +188,8 @@ describe("AI course review wizard", () => {
     expect(supplementalLabel.children[1].getAttribute("aria-hidden")).toBe("true");
     expect(supplementalLabel.children[2].textContent).toBe("Generate image");
     const imageModelSelect = container.querySelector<HTMLSelectElement>('select[aria-label="Image generation model"]')!;
-    expect(imageModelSelect.value).toBe("gpt-image-2.5-sunburst");
-    expect(imageModelSelect.disabled).toBe(true);
+    expect(imageModelSelect.value).toBe("");
+    expect(imageModelSelect.disabled).toBe(false);
     const styleSelect = container.querySelector<HTMLSelectElement>('select[aria-label="Generated image style"]')!;
     expect([...styleSelect.options].map((option) => option.textContent)).toContain("3D cartoon");
     expect(container.querySelector('select[aria-label="Image quality"]')).toBeNull();
@@ -172,15 +197,21 @@ describe("AI course review wizard", () => {
     await act(async () => supplementalSwitch.click());
     expect(supplementalSwitch.checked).toBe(true);
     const imageQualitySelect = container.querySelector<HTMLSelectElement>('select[aria-label="Image quality"]')!;
-    expect(imageQualitySelect.value).toBe("optimized");
+    expect(imageQualitySelect.value).toBe("medium");
+    expect([...imageQualitySelect.options].map((option) => option.textContent)).toEqual(["Low", "Medium", "High"]);
+    expect(container.textContent).toContain("Lesson covers use 1440 × 480 pixels");
+    await select(imageQualitySelect, "low");
+    expect(container.textContent).toContain("Low AI generation quality · 1024 × 640 pixels.");
+    expect(container.textContent).toContain("Compressed WebP, below 100 KB.");
     expect(container.textContent).toContain("Image generation may take longer than a typical response, so wait for the generation to finish.");
-    expect(imageModelSelect.value).toBe("gpt-image-2.5-sunburst");
-    expect(imageModelSelect.disabled).toBe(true);
+    expect(imageModelSelect.value).toBe("");
+    expect(imageModelSelect.disabled).toBe(false);
     expect([...styleSelect.options].map((option) => option.textContent)).toContain("3D cartoon");
     expect(styleSelect.closest('[class*="sm:flex-row"]')?.contains(supplementalSwitch)).toBe(true);
     expect(styleSelect.closest('[class*="sm:flex-row"]')?.contains(imageModelSelect)).toBe(true);
     await select(styleSelect, "custom");
-    await select(imageQualitySelect, "fullSize");
+    await select(imageQualitySelect, "high");
+    await select(imageModelSelect, "gpt-image-2.6-flare");
     await click("Set direction");
     const lessonStyleDialog = [...container.querySelectorAll("dialog")].find((dialog) => dialog.textContent?.includes("Describe the visual treatment"))!;
     await type(lessonStyleDialog.querySelector("textarea")!, "Warm paper-cut lesson illustrations");
@@ -192,10 +223,13 @@ describe("AI course review wizard", () => {
       includeImages: true,
       generateCoverImage: true,
       imageStyle: "custom",
-      imageQuality: "fullSize",
+      imageQuality: "high",
       customImageStyle: "Warm paper-cut lesson illustrations",
       coverImageStyle: "custom",
       coverCustomImageStyle: "Editorial cover art",
+      coverImageQuality: "high",
+      coverImageModel: "gpt-image-1-mini",
+      imageModel: "gpt-image-2.6-flare",
     });
   });
   it("removes and reorders Custom sections and preserves the reviewed lesson order", async () => {

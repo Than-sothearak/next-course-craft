@@ -18,8 +18,8 @@ import { planGenerationSession } from "./session-planning";
 import { prepareSessionLesson } from "./session-lesson";
 import { initializeBlockProgress } from "@/lib/editor/progress-settings";
 import type { SourceCoursePlan } from "./types";
-import { logGenerationProgress } from "./progress-log";
-import { withCourseUsage } from "./usage-scope";
+import { generationTimeSummary, logGenerationProgress, logGenerationSummary } from "./progress-log";
+import { adoptGenerationUsageId, generationUsageId, generationUsageSummary, generationUsageSummaryFields, withCourseUsage } from "./usage-scope";
 
 type Scope = { ownerId: string; courseId: string };
 const modelFor = (input: CourseGenerationInput) => input.model ?? process.env.OPENAI_TEXT_MODEL ?? defaultCourseGenerationModel;
@@ -61,6 +61,7 @@ export async function getSession(scope: Scope, sessionId?: string): Promise<Gene
   };
 }
 export const planSession = withCourseUsage(async function(scope: Scope, input: CourseGenerationInput, sourceJobId?: string) {
+  const startedAt = Date.now();
   const active = await CourseGenerationSession.exists({ ...scope, status: "generating", expiresAt: { $gt: new Date() } });
   if (active) throw new DashboardError("Finish or cancel the current generation before starting another.", 409);
   if (!input.prompt.trim() && !sourceJobId) throw new DashboardError("Write a course prompt or add source material.", 400);
@@ -69,12 +70,15 @@ export const planSession = withCourseUsage(async function(scope: Scope, input: C
     const inventory = sourceJobId ? await inventoryFor(scope, sourceJobId) : undefined;
     const plan = await planGenerationSession(input, modelFor(input), inventory);
     const session = await CourseGenerationSession.create({ ...scope, input, ...plan, sourceJobId, expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1_000) });
+    adoptGenerationUsageId(String(session._id));
     if (input.generateCoverImage) {
       logGenerationProgress({ status: "IN PROGRESS", task: "Generate course cover image", courseId: scope.courseId, sessionId: String(session._id) });
       try {
         const cover = await prepareOutlineCover(scope.ownerId, scope.courseId, plan.outline, {
           coverImageStyle: input.coverImageStyle,
           coverCustomImageStyle: input.coverCustomImageStyle,
+          coverImageQuality: input.coverImageQuality,
+          ...(input.coverImageModel ? { coverImageModel: input.coverImageModel } : {}),
         });
         await CourseGenerationSession.updateOne({ _id: session._id, ...scope }, { $set: cover });
         logGenerationProgress({ status: "DONE", task: "Generate course cover image", courseId: scope.courseId, sessionId: String(session._id) });
@@ -94,9 +98,37 @@ export const planSession = withCourseUsage(async function(scope: Scope, input: C
     return getSession(scope, String(session._id));
   } catch (error) {
     logGenerationProgress({ status: "FAILED", task: "Plan course outline", courseId: scope.courseId, detail: "See the server error above for details" });
+    const generationId = generationUsageId();
+    const usage = generationId ? generationUsageSummary(generationId) : null;
+    const elapsed = Math.max(0, Date.now() - startedAt);
+    logGenerationSummary({
+      courseTitle: input.courseTitle || null,
+      courseId: scope.courseId,
+      totalLessons: null,
+      generatedImages: null,
+      totalAiRequests: usage?.requests ?? null,
+      inputTokens: usage?.inputTokens ?? null,
+      cachedInputTokens: usage?.cachedInputTokens ?? null,
+      uncachedInputTokens: usage?.uncachedInputTokens ?? null,
+      outputTokens: usage?.outputTokens ?? null,
+      imageTokens: usage?.imageTokens ?? null,
+      totalTokens: usage?.totalTokens ?? null,
+      cacheHitPercent: usage?.cacheHitPercent ?? null,
+      estimatedCacheSavingsUsd: usage?.estimatedCacheSavingsUsd ?? null,
+      textGenerationCostUsd: usage?.textGenerationCostUsd ?? null,
+      imageGenerationCostUsd: usage?.imageGenerationCostUsd ?? null,
+      combinedGenerationCostUsd: usage?.combinedGenerationCostUsd ?? null,
+      failedRequests: usage?.failedRequests ?? null,
+      retries: usage?.retries ?? null,
+      activeProcessingMs: elapsed,
+      userWaitingMs: 0,
+      totalElapsedMs: elapsed,
+      ...generationUsageSummaryFields(usage),
+      finalStatus: "FAILED",
+    });
     throw error;
   }
-});
+}, () => undefined);
 export async function approveSession(scope: Scope, sessionId: string, outline: CourseOutline, mode: "append" | "replace", revision: number) {
   const session = await ownedSession(scope, sessionId);
   const state = (await getSession(scope, sessionId))!;
@@ -180,8 +212,19 @@ export const prepareNextLesson = withCourseUsage(async function(scope: Scope, se
   const items = state.outline.sections.flatMap((section) => section.lessons);
   const lessonNumber = items.findIndex((lesson) => lesson.id === state.currentLessonId) + 1;
   const item = items[lessonNumber - 1]!;
+  const startedAt = Date.now();
   const task = `Generate lesson ${lessonNumber} of ${items.length}`;
-  logGenerationProgress({ status: "IN PROGRESS", task, courseId: scope.courseId, sessionId: String(session._id), current: lessonNumber, total: items.length });
+  logGenerationProgress({
+    status: "IN PROGRESS",
+    category: "LESSON",
+    task,
+    courseId: scope.courseId,
+    sessionId: String(session._id),
+    current: lessonNumber,
+    total: items.length,
+    completedLessons: state.completedLessonIds.length,
+    progressPercent: items.length ? Math.round(state.completedLessonIds.length / items.length * 100) : 0,
+  });
   try {
     const input = courseGenerationInputSchema.parse(session.input);
     const draft = await prepareSessionLesson({ job: session, input, model: modelFor(input), outline: state.outline, item,
@@ -192,14 +235,28 @@ export const prepareNextLesson = withCourseUsage(async function(scope: Scope, se
       if (draft) await saveGenerationCheckpoint(session, "sessionDraft", item.id, draft);
       await CourseGenerationSession.updateOne({ _id: session._id, ...scope, status: "generating" }, { $set: { error: null } });
     }
-    logGenerationProgress({ status: "WAITING", task: `Lesson ${lessonNumber} is ready to save`, courseId: scope.courseId, sessionId: String(session._id), current: lessonNumber, total: items.length });
+    const ready = Boolean(draft);
+    logGenerationProgress({
+      status: ready ? "WAITING" : "IN PROGRESS",
+      category: "LESSON",
+      task: ready ? `Lesson ${lessonNumber} is ready to save` : `Continue lesson ${lessonNumber} source work`,
+      courseId: scope.courseId,
+      sessionId: String(session._id),
+      current: lessonNumber,
+      total: items.length,
+      completedLessons: state.completedLessonIds.length,
+      progressPercent: items.length ? Math.round(state.completedLessonIds.length / items.length * 100) : 0,
+      generatedImageCount: draft?.blocks.filter((block) => block.type === "image").length,
+      durationMs: Date.now() - startedAt,
+      detail: ready ? item.title : "Source-backed lesson work has not completed yet",
+    });
   } catch (error) {
     await CourseGenerationSession.updateOne({ _id: session._id, ...scope, status: "generating" }, { $set: { error: (error instanceof Error ? error.message : "Lesson generation failed.").slice(0, 2_000) } });
-    logGenerationProgress({ status: "FAILED", task, courseId: scope.courseId, sessionId: String(session._id), current: lessonNumber, total: items.length, detail: "See the server error above for details" });
+    logGenerationProgress({ status: "FAILED", category: "LESSON", task, courseId: scope.courseId, sessionId: String(session._id), current: lessonNumber, total: items.length, completedLessons: state.completedLessonIds.length, durationMs: Date.now() - startedAt, detail: "See the server error above for details" });
     throw error;
   }
   return getSession(scope, sessionId);
-});
+}, (_scope, sessionId) => sessionId);
 export async function commitNextLesson(scope: Scope, sessionId: string, revision: number) {
   const session = await ownedSession(scope, sessionId);
   const state = (await getSession(scope, sessionId))!;
@@ -217,14 +274,56 @@ export async function commitNextLesson(scope: Scope, sessionId: string, revision
   await CourseGenerationSession.updateOne({ _id: session._id, ...scope }, { $set: { error: null } });
   const nextSession = await getSession(scope, sessionId);
   const totalLessons = nextSession?.outline.sections.reduce((total, section) => total + section.lessons.length, 0);
+  const completedLessons = nextSession?.completedLessonIds.length ?? 0;
+  const outlineLessonIds = new Set(nextSession?.outline.sections.flatMap((section) => section.lessons.map((item) => item.id)) ?? []);
+  const generatedImages = snapshot.lessons
+    .filter((item) => outlineLessonIds.has(item.id))
+    .reduce((total, item) => total + item.blocks.filter((block) => block.type === "image").length, 0);
   logGenerationProgress({
     status: nextSession?.status === "completed" ? "DONE" : "WAITING",
-    task: nextSession?.status === "completed" ? "Course generation completed" : `Lesson ${lesson.order + 1} saved; waiting for the next lesson`,
+    category: "LESSON",
+    task: `Lesson ${completedLessons} saved`,
     courseId: scope.courseId,
     sessionId: String(session._id),
-    current: nextSession?.completedLessonIds.length,
+    current: completedLessons,
     total: totalLessons,
+    completedLessons,
+    progressPercent: totalLessons ? Math.round(completedLessons / totalLessons * 100) : 100,
+    generatedImageCount: generatedImages,
+    detail: `${completedLessons}/${totalLessons ?? "?"} lessons complete`,
   });
+  if (nextSession?.status === "completed") {
+    const usage = generationUsageSummary(String(session._id));
+    const times = generationTimeSummary(String(session._id), session.createdAt?.getTime());
+    const inputTokens = usage?.inputTokens ?? null;
+    const outputTokens = usage?.outputTokens ?? null;
+    logGenerationSummary({
+      courseTitle: nextSession.outline.title,
+      courseId: scope.courseId,
+      totalLessons: totalLessons ?? null,
+      generatedImages,
+      totalAiRequests: usage?.requests ?? null,
+      inputTokens,
+      cachedInputTokens: usage?.cachedInputTokens ?? null,
+      uncachedInputTokens: usage?.uncachedInputTokens ?? null,
+      outputTokens,
+      imageTokens: usage?.imageTokens ?? null,
+      totalTokens: usage?.totalTokens ?? null,
+      cacheHitPercent: usage?.cacheHitPercent ?? null,
+      estimatedCacheSavingsUsd: usage?.estimatedCacheSavingsUsd ?? null,
+      textGenerationCostUsd: usage?.textGenerationCostUsd ?? null,
+      imageGenerationCostUsd: usage?.imageGenerationCostUsd ?? null,
+      combinedGenerationCostUsd: usage?.combinedGenerationCostUsd ?? null,
+      failedRequests: usage?.failedRequests ?? null,
+      retries: usage?.retries ?? null,
+      activeProcessingMs: times.activeProcessingMs,
+      userWaitingMs: times.userWaitingMs,
+      totalElapsedMs: times.totalElapsedMs,
+      ...generationUsageSummaryFields(usage),
+      finalStatus: "DONE",
+      sessionId: String(session._id),
+    });
+  }
   return { session: nextSession, editor: await getCourseEditor(scope.ownerId, scope.courseId) };
 }
 
@@ -279,6 +378,46 @@ export async function cancelSession(scope: Scope, sessionId: string) {
   const session = await ownedSession(scope, sessionId);
   await CourseGenerationSession.updateOne({ _id: sessionId, ...scope, status: { $ne: "completed" } }, { $set: { status: "cancelled", error: null } });
   const result = await cleanupCancelledSessionLessons(scope, String(session._id));
-  logGenerationProgress({ status: "CANCELLED", task: "Course generation cancelled", courseId: scope.courseId, sessionId: String(session._id) });
+  const outlineResult = courseOutlineSchema.safeParse(session.outline);
+  const outline = outlineResult.success ? outlineResult.data : null;
+  const totalLessons = outline?.sections.reduce((total, section) => total + section.lessons.length, 0) ?? null;
+  logGenerationProgress({
+    status: "CANCELLED",
+    task: "Course generation cancelled",
+    courseId: scope.courseId,
+    sessionId: String(session._id),
+    current: result.session?.completedLessonIds.length,
+    total: totalLessons ?? undefined,
+    completedLessons: result.session?.completedLessonIds.length,
+    progressPercent: totalLessons ? Math.round((result.session?.completedLessonIds.length ?? 0) / totalLessons * 100) : undefined,
+  });
+  const usage = generationUsageSummary(String(session._id));
+  const times = generationTimeSummary(String(session._id), session.createdAt?.getTime());
+  logGenerationSummary({
+    courseTitle: outline?.title ?? null,
+    courseId: scope.courseId,
+    totalLessons,
+    generatedImages: null,
+    totalAiRequests: usage?.requests ?? null,
+    inputTokens: usage?.inputTokens ?? null,
+    cachedInputTokens: usage?.cachedInputTokens ?? null,
+    uncachedInputTokens: usage?.uncachedInputTokens ?? null,
+    outputTokens: usage?.outputTokens ?? null,
+    imageTokens: usage?.imageTokens ?? null,
+    totalTokens: usage?.totalTokens ?? null,
+    cacheHitPercent: usage?.cacheHitPercent ?? null,
+    estimatedCacheSavingsUsd: usage?.estimatedCacheSavingsUsd ?? null,
+    textGenerationCostUsd: usage?.textGenerationCostUsd ?? null,
+    imageGenerationCostUsd: usage?.imageGenerationCostUsd ?? null,
+    combinedGenerationCostUsd: usage?.combinedGenerationCostUsd ?? null,
+    failedRequests: usage?.failedRequests ?? null,
+    retries: usage?.retries ?? null,
+    activeProcessingMs: times.activeProcessingMs,
+    userWaitingMs: times.userWaitingMs,
+    totalElapsedMs: times.totalElapsedMs,
+    ...generationUsageSummaryFields(usage),
+    finalStatus: "CANCELLED",
+    sessionId: String(session._id),
+  });
   return result;
 }

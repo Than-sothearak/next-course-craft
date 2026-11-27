@@ -4,6 +4,7 @@ import { createGenerationBudget, generationConnectionErrorCode, GenerationProvid
 import { requestGenerationResponse } from "./transport";
 import { generationUsageHash, logGenerationUsage, type GenerationUsageContext } from "./usage";
 import { structuredPromptCache } from "./prompt-cache";
+import { writeGenerationLog } from "./progress-log";
 
 async function readOutputText(response: Response, context: GenerationUsageContext) {
   const body: unknown = await response.json().catch(() => null);
@@ -197,7 +198,10 @@ export async function requestStructuredJson({
       lastParseError = error;
     }
   }
-  console.error("AI provider returned invalid structured JSON after a retry", { schemaName, lastParseError });
+  writeGenerationLog("ERROR", "AI TEXT", "Provider returned invalid structured JSON after the retry budget", {
+    schemaName,
+    errorType: lastParseError instanceof Error ? lastParseError.name : "UnknownError",
+  }, console.error);
   throw new DashboardError(
     "The AI provider returned invalid structured content twice. Please retry this generation stage.",
     502,
@@ -207,11 +211,11 @@ export async function requestStructuredJson({
 export function providerConnectionError(error: unknown, subject: string) {
   const code = generationConnectionErrorCode(error);
   const name = error instanceof Error ? error.name : "UnknownError";
-  console.error("AI generation provider connection failed", {
+  writeGenerationLog("ERROR", subject === "AI provider" ? "AI TEXT" : "AI IMAGE", "AI provider connection failed", {
     subject,
     name,
     code,
-  });
+  }, console.error);
 
   if (name === "TimeoutError" || code === "ETIMEDOUT")
     return new DashboardError(

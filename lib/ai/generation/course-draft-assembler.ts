@@ -53,6 +53,7 @@ export async function assembleCourseDraft({
   const createdAssetIds: string[] = [];
   const generatedBlockBySourceId = new Map<string, { lessonId: string; blockId: string }>();
   const totalLessonCount = lessonProgress?.total ?? seed.sections.reduce((total, section) => total + section.lessons.length, 0);
+  let completedLessonCount = lessonProgress ? Math.max(0, lessonProgress.current - 1) : 0;
   try {
     const generatedSections = await Promise.all(
       seed.sections.map(async (sectionSeed, sectionOrder) => {
@@ -61,7 +62,17 @@ export async function assembleCourseDraft({
           sectionSeed.lessons.map(async (lessonSeed, lessonOrder) => {
             const lessonNumber = lessonProgress?.current ?? seed.sections.slice(0, sectionOrder).reduce((total, section) => total + section.lessons.length, 0) + lessonOrder + 1;
             const lessonTask = `Build lesson ${lessonNumber} of ${totalLessonCount}`;
-            logGenerationProgress({ status: "IN PROGRESS", task: lessonTask, courseId, current: lessonNumber, total: totalLessonCount });
+            const lessonStartedAt = Date.now();
+            logGenerationProgress({
+              status: "IN PROGRESS",
+              task: lessonTask,
+              courseId,
+              current: lessonNumber,
+              total: totalLessonCount,
+              completedLessons: lessonProgress ? lessonNumber - 1 : completedLessonCount,
+              progressPercent: totalLessonCount ? Math.round((lessonProgress ? lessonNumber - 1 : completedLessonCount) / totalLessonCount * 100) : 0,
+              generatedImageCount: createdAssetIds.length,
+            });
             const lessonId = randomUUID();
             const lessonBlocks = splitGeneratedBlockSeeds(lessonSeed.blocks);
             const supportingImageCount = lessonBlocks.filter((block) => block.type === "image" && block.imagePrompt.trim()).length;
@@ -80,7 +91,7 @@ export async function assembleCourseDraft({
                   input.includeImages,
                   khmer,
                   (assetId) => createdAssetIds.push(assetId),
-                  { imageStyle: input.imageStyle, imageQuality: input.imageQuality, customImageStyle: input.customImageStyle },
+                  { imageStyle: input.imageStyle, imageQuality: input.imageQuality, customImageStyle: input.customImageStyle, ...(input.imageModel ? { imageModel: input.imageModel } : {}) },
                 );
                 return imageTask
                   ? conversion.then((result) => {
@@ -97,7 +108,17 @@ export async function assembleCourseDraft({
               (result) => result.status === "rejected",
             );
             if (failure?.status === "rejected") {
-              logGenerationProgress({ status: "FAILED", task: lessonTask, courseId, current: lessonNumber, total: totalLessonCount, detail: "A lesson block could not be generated" });
+              logGenerationProgress({
+                status: "FAILED",
+                task: lessonTask,
+                courseId,
+                current: lessonNumber,
+                total: totalLessonCount,
+                completedLessons: completedLessonCount,
+                generatedImageCount: createdAssetIds.length,
+                durationMs: Date.now() - lessonStartedAt,
+                detail: "A lesson block could not be generated",
+              });
               return {
                 lesson: null,
                 error: failure.reason as unknown,
@@ -143,7 +164,7 @@ export async function assembleCourseDraft({
                   lessonSeed.title,
                   lessonSeed.objective,
                   (assetId) => createdAssetIds.push(assetId),
-                  { imageStyle: input.imageStyle, imageQuality: input.imageQuality, customImageStyle: input.customImageStyle },
+                  { imageStyle: input.imageStyle, imageQuality: input.imageQuality, customImageStyle: input.customImageStyle, ...(input.imageModel ? { imageModel: input.imageModel } : {}) },
                 );
                 logGenerationProgress({ status: "DONE", task: coverTask, courseId, current: lessonNumber, total: totalLessonCount });
               } catch (error) {
@@ -151,12 +172,17 @@ export async function assembleCourseDraft({
                 throw error;
               }
             }
+            completedLessonCount = Math.max(completedLessonCount, lessonProgress ? lessonNumber : completedLessonCount + 1);
             logGenerationProgress({
               status: "DONE",
               task: lessonTask,
               courseId,
               current: lessonNumber,
               total: totalLessonCount,
+              completedLessons: completedLessonCount,
+              progressPercent: totalLessonCount ? Math.round(completedLessonCount / totalLessonCount * 100) : 100,
+              generatedImageCount: createdAssetIds.length,
+              durationMs: Date.now() - lessonStartedAt,
               detail: input.includeImages
                 ? supportingImageCount
                   ? "Lesson content, cover, and selected supporting images are ready"

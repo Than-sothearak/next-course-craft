@@ -1,10 +1,12 @@
 import { z } from "zod";
 import { educationalImageDirections, educationalImageLookSchema, educationalImageVisualTypeSchema } from "./educational-image-options";
+import { courseImageModelSchema } from "./image-style";
 
 export const processStepImageRequestSchema = z.object({
   source: z.enum(["step", "block"]).optional(),
   visualType: educationalImageVisualTypeSchema.optional(),
   look: educationalImageLookSchema.optional(),
+  imageModel: courseImageModelSchema.optional(),
   title: z.string().trim().max(160).default(""),
   instructions: z.string().trim().max(5000).default(""),
   customPrompt: z.string().trim().max(5000).default(""),

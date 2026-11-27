@@ -11,6 +11,7 @@ import { useCourseGenerationSession } from "./_components/use-course-generation-
 import { useFocusedContentBlock } from "./(editor_client_components)/use-focused-content-block";
 import type { Permission } from "@/lib/auth/policy";
 import { defaultCourseImageGenerationModel } from "@/lib/ai/image-style";
+import { DefaultImageModelContext } from "@/components/image-model-select";
 import { createClientId } from "@/lib/client-id";
 import { editorModeHref } from "@/lib/editor/course-routes";
 import { migrateCoverAudio } from "@/lib/editor/audio-instruction";
@@ -196,6 +197,7 @@ export function EditorClient({
   }
 
   return (
+    <DefaultImageModelContext.Provider value={imageGenerationModel}>
     <CourseNavigationModeContext.Provider value={draft.navigationMode}>
     <EditorWorkspace
       courseId={initialData.courseId}
@@ -247,5 +249,6 @@ export function EditorClient({
       generationPanel={generation.progressVisible && <CourseGenerationProgress session={generation.session} running={generation.running} error={generation.error} onClose={generation.dismissProgress} onRetry={generation.resume} onCancel={() => void generation.cancel()} onSelectLesson={courseOperations.openLesson} />}
     />
     </CourseNavigationModeContext.Provider>
+    </DefaultImageModelContext.Provider>
   );
 }

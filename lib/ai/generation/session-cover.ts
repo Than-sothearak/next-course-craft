@@ -12,8 +12,14 @@ export async function prepareOutlineCover(
   ownerId: string,
   courseId: string,
   outline: CourseOutline,
-  coverImageStyle: Pick<CourseGenerationInput, "coverImageStyle" | "coverCustomImageStyle"> = { coverImageStyle: "auto", coverCustomImageStyle: "" },
+  coverImageStyle: Partial<Pick<CourseGenerationInput, "coverImageStyle" | "coverCustomImageStyle" | "coverImageQuality" | "coverImageModel">> = {},
 ) {
+  const coverOptions = {
+    coverImageStyle: coverImageStyle.coverImageStyle ?? "auto",
+    coverCustomImageStyle: coverImageStyle.coverCustomImageStyle ?? "",
+    imageQuality: coverImageStyle.coverImageQuality ?? "medium",
+    imageModel: coverImageStyle.coverImageModel,
+  } as const;
   const course = await Course.findOne({ _id: courseId, ownerId, deletedAt: null }).select("coverImage").lean();
   if (!course) throw new DashboardError("Course not found.", 404);
   if (course.coverImage) {
@@ -26,8 +32,10 @@ export async function prepareOutlineCover(
   const saved = courseCoverSchema.safeParse(previous?.cover);
   const previousInput = courseGenerationInputSchema.safeParse(previous?.input);
   const sameImageStyle = previousInput.success
-    && previousInput.data.coverImageStyle === coverImageStyle.coverImageStyle
-    && previousInput.data.coverCustomImageStyle === coverImageStyle.coverCustomImageStyle;
+    && previousInput.data.coverImageStyle === coverOptions.coverImageStyle
+    && previousInput.data.coverCustomImageStyle === coverOptions.coverCustomImageStyle
+    && previousInput.data.coverImageQuality === coverOptions.imageQuality
+    && previousInput.data.coverImageModel === coverOptions.imageModel;
   if (saved.success && saved.data.imageSrc && sameImageStyle) {
     try {
       await assertCourseCoverAsset(ownerId, courseId, saved.data);
@@ -42,8 +50,10 @@ export async function prepareOutlineCover(
     "Use a clear focal subject that is readable at thumbnail size. No text or lettering in the image.",
   ].join(" "), {
     purpose: "course-cover",
-    imageStyle: coverImageStyle.coverImageStyle,
-    customImageStyle: coverImageStyle.coverCustomImageStyle,
+    imageStyle: coverOptions.coverImageStyle,
+    imageQuality: coverOptions.imageQuality,
+    ...(coverOptions.imageModel ? { imageModel: coverOptions.imageModel } : {}),
+    customImageStyle: coverOptions.coverCustomImageStyle,
   });
   return { generatedCover: true, cover: courseCoverSchema.parse({ template: "image", imageSrc: image.src, imageAlt: `Course cover image for ${outline.title}` }) };
 }

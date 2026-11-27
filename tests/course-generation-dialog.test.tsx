@@ -151,8 +151,11 @@ describe("course generation structure previews", () => {
     expect(Array.from(styleSelect.options, (option) => option.textContent)).toContain("Photorealistic photography");
     const qualityField = Array.from(container.querySelectorAll("label")).find((item) => item.textContent?.includes("Image quality"));
     const qualitySelect = qualityField!.querySelector("select")!;
-    expect(qualitySelect.value).toBe("optimized");
-    expect(Array.from(qualitySelect.options, (option) => option.textContent)).toContain("Optimized");
+    expect(qualitySelect.value).toBe("medium");
+    expect(Array.from(qualitySelect.options, (option) => option.textContent)).toEqual(["Low", "Medium", "High"]);
+    expect(container.textContent).toContain("Medium AI generation quality · 1152 × 656 pixels.");
+    expect(container.textContent).toContain("Lesson covers use 1440 × 480 pixels");
+    expect(container.textContent).toContain("Compressed WebP, below 100 KB.");
     const imageControls = styleSelect.closest('[class*="sm:grid-cols-3"]');
     expect(imageControls?.contains(container.querySelector('input[type="checkbox"]'))).toBe(true);
     await act(async () => {
@@ -160,6 +163,18 @@ describe("course generation structure previews", () => {
       styleSelect.dispatchEvent(new Event("change", { bubbles: true }));
     });
     expect(Array.from(container.querySelectorAll("label")).some((item) => item.textContent?.includes("Custom style direction"))).toBe(true);
+  });
+
+  it("submits a chosen image model and updates its native resolution", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ title: "Example course", sections: [], lessons: [] }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const model = container.querySelector<HTMLSelectElement>('[aria-label="Image generation model"]')!;
+    expect(model.value).toBe("");
+    await act(async () => { model.value = "gpt-image-1-mini"; model.dispatchEvent(new Event("change", { bubbles: true })); });
+    expect(container.textContent).toContain("1536 × 1024 pixels");
+    await enterPrompt();
+    await act(async () => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
+    expect((fetchMock.mock.calls[0][1].body as FormData).get("imageModel")).toBe("gpt-image-1-mini");
   });
 
   it("places the source slides upload directly after the prompt and before course settings", () => {
@@ -204,7 +219,7 @@ describe("course generation structure previews", () => {
     await act(async () => container.querySelector("form")!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })));
     expect(fetchMock).toHaveBeenCalledTimes(1);
     expect((fetchMock.mock.calls[0][1].body as FormData).get("prompt")).toBe(prompt);
-    expect((fetchMock.mock.calls[0][1].body as FormData).get("imageQuality")).toBe("optimized");
+    expect((fetchMock.mock.calls[0][1].body as FormData).get("imageQuality")).toBe("medium");
   });
 
   it("keeps prompt instructions within the existing character limit", async () => {

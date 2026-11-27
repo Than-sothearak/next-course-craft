@@ -9,7 +9,7 @@ import {
   statementStyleSchema,
   timelineStyleSchema,
 } from "../schemas/block";
-import { courseImageQualitySchema, courseImageStyleSchema } from "./image-style";
+import { courseImageModelSchema, courseImageQualitySchema, courseImageStyleSchema } from "./image-style";
 
 const generatedNativeBlockTypes = [
   "heading",
@@ -66,7 +66,7 @@ ACTIVE LEARNING BLOCKS
 - timeline: presents 2–20 ordered historical events, milestones, or phases that are not an instructional procedure. For each event provide an optional short date/period label, a title, and a concise explanation. Use vertical, horizontal, or stacked style. Do not invent dates or chronology; use processSteps for instructions.
 
 VISUAL AND DATA BLOCKS
-- image: one useful generated supporting visual. Provide imagePrompt and accessible imageAlt. The application adds a separate full-width lesson cover when generated images are enabled. The cover uses a 1536x512 WebP source in a 1200x312 frame; course-mode instructions determine the supporting-image layout.
+- image: one useful generated supporting visual. Provide imagePrompt and accessible imageAlt. The application adds a separate full-width lesson cover when generated images are enabled. The cover uses a 960x320 WebP source; course-mode instructions determine the supporting-image layout.
 - gallery: presents 1–8 images. Use galleryImages only with image URLs explicitly present in the source; never invent image URLs.
 - video: embeds a playable direct MP4/WebM source. Use videoSrc only when a direct video URL appears in the source, and provide videoMimeType and captions when available. Never invent a URL.
 - audio: authors upload audio files manually after generation. Do not generate audio blocks or invent audio URLs.
@@ -134,10 +134,13 @@ const courseGenerationInputBaseSchema = z.object({
   includeImages: z.boolean(),
   generateCoverImage: z.boolean().default(false),
   imageStyle: courseImageStyleSchema.default("auto"),
-  imageQuality: courseImageQualitySchema.default("optimized"),
+  imageQuality: courseImageQualitySchema.default("medium"),
+  imageModel: courseImageModelSchema.optional(),
   customImageStyle: z.string().trim().max(240).default(""),
   coverImageStyle: courseImageStyleSchema.optional(),
   coverCustomImageStyle: z.string().trim().max(240).optional(),
+  coverImageQuality: courseImageQualitySchema.optional(),
+  coverImageModel: courseImageModelSchema.optional(),
   courseTitle: z.string().max(160),
   courseDescription: z.string().max(5_000),
   model: courseGenerationModelSchema.optional(),
@@ -150,6 +153,7 @@ export const courseGenerationInputSchema = courseGenerationInputBaseSchema
     // Preserve that choice when the new independent cover fields are absent.
     coverImageStyle: input.coverImageStyle ?? input.imageStyle,
     coverCustomImageStyle: input.coverCustomImageStyle ?? input.customImageStyle,
+    coverImageQuality: input.coverImageQuality ?? input.imageQuality,
   }))
   .superRefine((input, context) => {
     if (input.includeImages && input.imageStyle === "custom" && !input.customImageStyle) {

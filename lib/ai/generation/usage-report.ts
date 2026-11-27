@@ -9,6 +9,11 @@ const usageSchema = z.object({
   cacheWrite30mTokens: count, cacheWrite12hTokens: count,
   outputTokens: count, reasoningTokens: count,
 });
+const imageUsageSchema = z.object({
+  inputTokens: count, textInputTokens: count, imageInputTokens: count,
+  cachedInputTokens: count, cachedTextInputTokens: count, cachedImageInputTokens: count,
+  outputTokens: count, textOutputTokens: count, imageOutputTokens: count, totalTokens: count,
+}).nullable().catch(null);
 const eventSchema = z.object({
   event: z.literal("ai.generation.usage"), version: z.literal(1),
   operationId: label, attempt: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
@@ -23,6 +28,7 @@ const eventSchema = z.object({
   providerStatus: label,
   durationMs: z.number().finite().nonnegative().nullable().catch(null),
   usage: usageSchema.catch(() => usageSchema.parse({})),
+  imageUsage: imageUsageSchema,
   inputCostEstimate: z.object({
     usd: dollars,
     scope: z.literal("mainline_model_input_only"),
@@ -33,11 +39,24 @@ const eventSchema = z.object({
     inputUsd: dollars, outputUsd: dollars, usd: dollars,
     scope: z.literal("mainline_model_text_only"), pricingAsOf: z.iso.date(),
   }).nullable().catch(null),
+  imageCostEstimate: z.object({
+    usd: dollars,
+    status: z.enum(["calculated", "estimated", "unavailable"]),
+    unavailableReason: z.enum(["unsupported_model", "incomplete_usage", "inconsistent_usage"]).nullable().catch(null),
+    pricingAsOf: z.iso.date(),
+    cacheAssumption: z.string().nullable().catch(null),
+  }).nullable().catch(null),
 });
 type UsageEvent = z.infer<typeof eventSchema>;
 type TokenField = keyof UsageEvent["usage"];
 type Counter = { sum: number | null; knownEvents: number; missingEvents: number };
 const tokenFields: TokenField[] = ["inputTokens", "cachedInputTokens", "cacheWriteTokens", "cacheWrite30mTokens", "cacheWrite12hTokens", "outputTokens", "reasoningTokens"];
+type ImageTokenField = keyof NonNullable<UsageEvent["imageUsage"]>;
+const imageTokenFields: ImageTokenField[] = [
+  "inputTokens", "cachedInputTokens",
+  "textInputTokens", "cachedTextInputTokens", "imageInputTokens", "cachedImageInputTokens",
+  "textOutputTokens", "imageOutputTokens", "totalTokens",
+];
 
 function emptyTotals() {
   return {
@@ -48,6 +67,9 @@ function emptyTotals() {
     estimatedInputCost: { usd: null as number | null, knownEvents: 0, missingEvents: 0 },
     estimatedOutputCost: { usd: null as number | null, knownEvents: 0, missingEvents: 0 },
     estimatedTextCost: { usd: null as number | null, knownEvents: 0, missingEvents: 0 },
+    imageTokens: Object.fromEntries(imageTokenFields.map((field) => [field, { sum: null, knownEvents: 0, missingEvents: 0 }])) as Record<ImageTokenField, Counter>,
+    estimatedImageCost: { usd: null as number | null, knownEvents: 0, missingEvents: 0, calculatedEvents: 0, estimatedEvents: 0 },
+    estimatedCombinedCost: { usd: null as number | null, knownEvents: 0, missingEvents: 0 },
     duration: { meanMs: null as number | null, knownEvents: 0, totalMs: 0 },
   };
 }
@@ -73,6 +95,12 @@ function addEvent(totals: ReturnType<typeof emptyTotals>, event: UsageEvent) {
   for (const field of tokenFields) {
     const counter = totals.tokens[field];
     const value = event.usage[field];
+    if (value === null || inconsistent) counter.missingEvents++;
+    else { counter.sum = (counter.sum ?? 0) + value; counter.knownEvents++; }
+  }
+  for (const field of imageTokenFields) {
+    const counter = totals.imageTokens[field];
+    const value = event.kind === "image" ? event.imageUsage?.[field] ?? null : 0;
     if (value === null || inconsistent) counter.missingEvents++;
     else { counter.sum = (counter.sum ?? 0) + value; counter.knownEvents++; }
   }
@@ -107,6 +135,19 @@ function addEvent(totals: ReturnType<typeof emptyTotals>, event: UsageEvent) {
     totals.estimatedTextCost.usd = (totals.estimatedTextCost.usd ?? 0) + cost + text.outputUsd;
     totals.estimatedTextCost.knownEvents++;
   } else totals.estimatedTextCost.missingEvents++;
+  const imageCost = event.kind === "image" ? event.imageCostEstimate?.usd ?? null : 0;
+  if (imageCost !== null && !inconsistent) {
+    totals.estimatedImageCost.usd = (totals.estimatedImageCost.usd ?? 0) + imageCost;
+    totals.estimatedImageCost.knownEvents++;
+    if (event.kind === "image" && event.imageCostEstimate?.status === "calculated")
+      totals.estimatedImageCost.calculatedEvents++;
+    if (event.kind === "image" && event.imageCostEstimate?.status === "estimated")
+      totals.estimatedImageCost.estimatedEvents++;
+  } else totals.estimatedImageCost.missingEvents++;
+  if (text?.usd != null && imageCost !== null && !inconsistent && !invalidCost) {
+    totals.estimatedCombinedCost.usd = (totals.estimatedCombinedCost.usd ?? 0) + text.usd + imageCost;
+    totals.estimatedCombinedCost.knownEvents++;
+  } else totals.estimatedCombinedCost.missingEvents++;
   if (event.durationMs !== null) {
     totals.duration.knownEvents++;
     totals.duration.totalMs += event.durationMs;
@@ -184,7 +225,8 @@ export function createUsageReport() {
           "Observed provider failures do not identify every validation failure. Accepted lessons and cost per valid lesson are unavailable in these logs.",
           "Duplicate operation/attempt entries retain the first occurrence; conflicts are counted. Entries without an operation ID cannot be deduplicated.",
           "Groups are descriptive; differing workloads and cold writes prevent interpreting their cost difference as measured savings.",
-          "Image-tool token counters and image-generation charges are excluded; text-model costs for image requests are included when available.",
+          "Image-tool usage is taken from the Responses tool_usage.image_gen aggregate. Cached token detail may be unavailable; image costs then use standard input rates and are labeled estimates.",
+          "Image-generation charges are estimated from recorded token usage and published rates, not billing records; reconcile with provider billing for final charges.",
         ],
       };
     },
@@ -202,7 +244,9 @@ export function formatUsageReport(report: ReturnType<ReturnType<typeof createUsa
     `Estimated input USD: ${total.estimatedInputCost.usd === null ? "unknown" : total.estimatedInputCost.usd.toFixed(8)} (${total.estimatedInputCost.knownEvents}/${total.events} events priced)`,
     `Estimated output cost: ${money(total.estimatedOutputCost, total.events)}`,
     `Estimated text total: ${money(total.estimatedTextCost, total.events)}`,
-    `Image-generation charges: excluded (${total.imageRequests} image requests observed)`,
+    ...imageTokenFields.map((field) => `Image ${field}: ${value(total.imageTokens[field].sum)} (${total.imageTokens[field].knownEvents}/${total.events} events measured)`),
+    `Estimated image-generation cost: ${money(total.estimatedImageCost, total.events)} (${total.estimatedImageCost.calculatedEvents} calculated, ${total.estimatedImageCost.estimatedEvents} estimated)`,
+    `Estimated combined cost: ${money(total.estimatedCombinedCost, total.events)}`,
     `Inconsistent cost estimates excluded: ${total.inconsistentCostEvents}`,
     `Mean attempt duration ms: ${value(total.duration.meanMs)}`,
   ];
@@ -216,7 +260,8 @@ export function formatUsageReport(report: ReturnType<ReturnType<typeof createUsa
       `Input: ${money(totals.estimatedInputCost, totals.events)}`,
       `Output: ${money(totals.estimatedOutputCost, totals.events)}`,
       `Estimated text total: ${money(totals.estimatedTextCost, totals.events)}`,
-      `Image-generation charges: excluded (${totals.imageRequests} image requests observed)`,
+      `Estimated image-generation cost: ${money(totals.estimatedImageCost, totals.events)}`,
+      `Estimated combined cost: ${money(totals.estimatedCombinedCost, totals.events)}`,
     ]),
     ...report.groups.flatMap((group) => ["", `Group: ${JSON.stringify(group.dimensions)}`, ...describe(group.totals)]),
     "", ...report.limitations,

@@ -7,6 +7,8 @@ import { Dialog } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { Select } from "@/components/ui/select";
+import { ImageModelSelect } from "@/components/image-model-select";
+import type { CourseImageModel } from "@/lib/ai/image-style";
 import { educationalImageLookOptions, educationalImageVisualTypeOptions, type EducationalImageLook, type EducationalImageVisualType } from "@/lib/ai/educational-image-options";
 import { processStepMediaSchema, type ContentBlock } from "@/lib/schemas/block";
 
@@ -25,6 +27,8 @@ export function ContentImageDialog({ title, instructions, dialogTitle, fallbackL
   const promptId = useId();
   const visualTypeId = useId();
   const lookId = useId();
+  const modelId = useId();
+  const [imageModel, setImageModel] = useState<CourseImageModel>();
   const [visualType, setVisualType] = useState<EducationalImageVisualType>("auto");
   const [look, setLook] = useState<EducationalImageLook>("auto");
   const [customPrompt, setCustomPrompt] = useState("");
@@ -56,7 +60,7 @@ export function ContentImageDialog({ title, instructions, dialogTitle, fallbackL
     try {
       const response = await fetch(`/api/courses/${courseId}/process-step-image`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, instructions, customPrompt, ...(source === "block" ? { source } : {}), ...(visualType !== "auto" ? { visualType } : {}), ...(look !== "auto" ? { look } : {}) }),
+        body: JSON.stringify({ title, instructions, customPrompt, ...(source === "block" ? { source } : {}), ...(visualType !== "auto" ? { visualType } : {}), ...(look !== "auto" ? { look } : {}), ...(imageModel ? { imageModel } : {}) }),
         signal: controller.signal,
       });
       const body = await response.json();
@@ -110,6 +114,10 @@ export function ContentImageDialog({ title, instructions, dialogTitle, fallbackL
           </Select>
           <p className="text-xs text-slate-500">{educationalImageLookOptions.find((option) => option.value === look)?.description}</p>
         </div>
+      </div>
+      <div className="space-y-2">
+        <label htmlFor={modelId} className="text-sm font-medium">Image model</label>
+        <ImageModelSelect id={modelId} aria-label="Image generation model" value={imageModel} disabled={busy} onChange={(model) => { setImageModel(model); setImage(undefined); setError(null); }} />
       </div>
       <div className="space-y-2">
         <label htmlFor={promptId} className="text-sm font-medium">Custom image instructions (optional)</label>

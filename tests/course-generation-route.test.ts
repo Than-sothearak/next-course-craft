@@ -32,6 +32,14 @@ beforeEach(() => {
 });
 
 describe("prompt-only course generation requests", () => {
+  it("retains independent image model selections from multipart generation input", async () => {
+    expect((await submit({ imageModel: "gpt-image-1-mini", coverImageModel: "gpt-image-2.6-flare", coverImageQuality: "high" })).status).toBe(200);
+    expect(generateCourseDraft).toHaveBeenCalledWith(expect.objectContaining({ input: expect.objectContaining({ imageModel: "gpt-image-1-mini", coverImageModel: "gpt-image-2.6-flare", coverImageQuality: "high" }) }));
+  });
+  it.each(["imageModel", "coverImageModel"])("rejects unsupported %s selections before generation", async (field) => {
+    expect((await submit({ [field]: "unsupported-model" })).status).toBe(400);
+    expect(generateCourseDraft).not.toHaveBeenCalled();
+  });
   it("generates Custom content without a file and ignores hidden Pre/Post and source settings", async () => {
     const response = await submit({ postTestCount: "0", slidesPerContent: "-1", learnGroupingMode: "fixed" });
     expect(response.status).toBe(200);
@@ -66,7 +74,7 @@ describe("prompt-only course generation requests", () => {
   it("uses defaults for blank optional settings", async () => {
     const response = await submit({ lessonCount: "", model: "", level: "", contentDepth: "", targetLanguage: "" });
     expect(response.status).toBe(200);
-    expect(generateCourseDraft).toHaveBeenCalledWith(expect.objectContaining({ input: expect.objectContaining({ lessonCount: 5, model: undefined, level: "beginner", contentDepth: "detailed", targetLanguage: "English", imageQuality: "optimized" }) }));
+    expect(generateCourseDraft).toHaveBeenCalledWith(expect.objectContaining({ input: expect.objectContaining({ lessonCount: 5, model: undefined, level: "beginner", contentDepth: "detailed", targetLanguage: "English", imageQuality: "medium" }) }));
   });
 
   it("identifies invalid visible settings before contacting the AI provider", async () => {

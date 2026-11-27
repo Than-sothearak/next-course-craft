@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { estimateGenerationInputCost, logGenerationUsage, readGenerationTokenUsage } from "@/lib/ai/generation/usage";
+import { generationUsageSummary, withCourseUsage } from "@/lib/ai/generation/usage-scope";
 
 const measured = {
   input_tokens: 12_000,
@@ -87,14 +88,121 @@ describe("generation usage measurements and input estimates", () => {
     expect(JSON.parse(log.mock.calls[0][0]).inputCostEstimate).toMatchObject({ usd: null, unavailableReason: reason });
   });
 
-  it("keeps optional image-tool measurements separate and leaves unreported cache reads unknown", () => {
+  it("reads separate image-tool usage, cached modality splits, and output totals", () => {
     const log = vi.spyOn(console, "info").mockImplementation(() => undefined);
     logGenerationUsage({ ...context, kind: "image", imageModel: "gpt-image-2.6-flare" }, { response: new Response(), body: {
-      usage: measured, output: [{ type: "image_generation_call", result: "PRIVATE BASE64", usage: { input_tokens: 20, input_tokens_details: { text_tokens: 20, image_tokens: 0 }, output_tokens: 300 } }],
+      usage: measured,
+      tool_usage: { image_gen: {
+        input_tokens: 20,
+        input_tokens_details: { text_tokens: 7, image_tokens: 13 },
+        cached_tokens: 0,
+        cached_tokens_details: { cached_text_tokens: 0, cached_image_tokens: 0 },
+        output_tokens: 31,
+        output_tokens_details: { text_tokens: 0, image_tokens: 31 },
+        total_tokens: 51,
+      } },
+      output: [{ type: "image_generation_call", status: "completed", result: "PRIVATE BASE64", output_format: "webp", quality: "high", size: "1280x720" }],
     } });
     const event = JSON.parse(log.mock.calls[0][0]);
-    expect(event.imageCalls).toEqual([{ model: "gpt-image-2.6-flare", usage: { inputTokens: 20, cachedInputTokens: null, cacheWriteTokens: null, cacheWrite30mTokens: null, cacheWrite12hTokens: null, outputTokens: 300, reasoningTokens: null }, textInputTokens: 20, imageInputTokens: 0 }]);
+    expect(event.imageUsage).toEqual({
+      inputTokens: 20, textInputTokens: 7, imageInputTokens: 13,
+      cachedInputTokens: 0, cachedTextInputTokens: 0, cachedImageInputTokens: 0,
+      outputTokens: 31, textOutputTokens: 0, imageOutputTokens: 31, totalTokens: 51,
+    });
+    expect(event.imageGeneration).toMatchObject({
+      model: "gpt-image-2.6-flare", size: "1280x720", quality: "high", outputFormat: "webp",
+      requestedImageCount: 1, generatedImageCount: 1,
+    });
+    expect(event.imageCostEstimate).toMatchObject({ status: "calculated", unavailableReason: null });
+    expect(event.imageCostEstimate.usd).toBeCloseTo(0.001069, 12);
     expect(event.inputCostEstimate.scope).toBe("mainline_model_input_only");
     expect(log.mock.calls[0][0]).not.toContain("PRIVATE");
+  });
+
+  it("estimates image cost with an explicit assumption when cache breakdowns are omitted", () => {
+    const log = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    logGenerationUsage({ ...context, kind: "image", imageModel: "gpt-image-2.6-flare" }, { response: new Response(), body: {
+      usage: measured,
+      tool_usage: { image_gen: {
+        input_tokens: 20,
+        input_tokens_details: { text_tokens: 7, image_tokens: 13 },
+        output_tokens: 31,
+        output_tokens_details: { text_tokens: 0, image_tokens: 31 },
+        total_tokens: 51,
+      } },
+    } });
+    const event = JSON.parse(log.mock.calls[0][0]);
+    expect(event.imageUsage).toMatchObject({
+      cachedInputTokens: null, cachedTextInputTokens: null, cachedImageInputTokens: null,
+    });
+    expect(event.imageCostEstimate).toMatchObject({
+      status: "estimated",
+      cacheAssumption: expect.stringContaining("standard input rates"),
+    });
+    expect(event.imageCostEstimate.usd).toBeCloseTo(0.001069, 12);
+  });
+
+  it("aggregates text and image model totals once, without adding reasoning twice", async () => {
+    const log = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    const run = withCourseUsage(async () => {
+      logGenerationUsage(context, { response: new Response(), body: { model: "gpt-6-luna", service_tier: "default", usage: measured } });
+      logGenerationUsage({ ...context, kind: "image", imageModel: "gpt-image-2.6-flare" }, { response: new Response(), body: {
+        model: "gpt-6-luna", service_tier: "default", usage: measured,
+        tool_usage: { image_gen: {
+          input_tokens: 20,
+          input_tokens_details: { text_tokens: 7, image_tokens: 13 },
+          cached_tokens: 0,
+          cached_tokens_details: { cached_text_tokens: 0, cached_image_tokens: 0 },
+          output_tokens: 31,
+          output_tokens_details: { text_tokens: 0, image_tokens: 31 },
+          total_tokens: 51,
+        } },
+      } });
+      return generationUsageSummary("image-summary-session");
+    }, () => "image-summary-session");
+
+    const result = await run({ courseId: "course-image-summary" });
+
+    expect(result).toMatchObject({
+      inputTokens: 24_000,
+      outputTokens: 500,
+      reasoningTokens: 100,
+      imageTextInputTokens: 7,
+      imageInputTokens: 13,
+      imageOutputTokens: 31,
+      imageTotalTokens: 51,
+      recordedTextTokens: 24_507,
+      recordedImageTokens: 44,
+      totalTokens: 24_551,
+      usageCompleteness: "complete",
+      imageGenerationCostStatus: "calculated",
+    });
+    expect(result?.imageGenerationCostUsd).toBeCloseTo(0.001069, 12);
+    expect(log).toHaveBeenCalledTimes(2);
+  });
+
+  it("aggregates actual usage without adding reasoning tokens twice", async () => {
+    const log = vi.spyOn(console, "info").mockImplementation(() => undefined);
+    const run = withCourseUsage(async () => {
+      logGenerationUsage(context, { response: new Response(), body: { model: "gpt-6-luna", service_tier: "default", status: "completed", usage: measured } });
+      logGenerationUsage({ ...context, attempt: 2 }, { response: new Response(), body: { model: "gpt-6-luna", service_tier: "default", status: "completed", usage: measured } });
+      return generationUsageSummary("usage-summary-session");
+    }, () => "usage-summary-session");
+
+    const result = await run({ courseId: "course-usage-summary" });
+
+    expect(result).toMatchObject({
+      requests: 2,
+      retries: 1,
+      inputTokens: 24_000,
+      cachedInputTokens: 8_000,
+      uncachedInputTokens: 16_000,
+      outputTokens: 500,
+      imageTokens: 0,
+      totalTokens: 24_500,
+      failedRequests: 0,
+    });
+    expect(result?.cacheHitPercent).toBeCloseTo(100 / 3, 10);
+    expect(log).toHaveBeenCalledTimes(2);
   });
 });

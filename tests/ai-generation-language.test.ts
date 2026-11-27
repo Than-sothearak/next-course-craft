@@ -15,25 +15,24 @@ const input = courseGenerationInputSchema.parse({
 });
 
 describe("Khmer course generation guidance", () => {
-  it("keeps Khmer prose natural and established technical vocabulary in English", () => {
+  it("keeps learner-facing prose in Khmer and pairs technical terms with English", () => {
     const style = learnerLanguageStyleInstruction("Khmer");
 
     expect(style).toContain("natural Khmer");
-    expect(style).toContain("do not translate English sentence structures word for word");
-    expect(style).toContain("Technical and subject-specific terms must remain in English");
-    expect(style).toContain("Do not translate or transliterate them");
-    expect(style).toContain("exact source spelling and capitalization");
-    expect(style).toContain("HTML, CSS, JavaScript, Flexbox, API");
-    expect(style).toContain("explain its meaning in Khmer");
-    expect(style).toContain("every learner-facing field");
+    expect(style).toContain("rather than translating English sentence structures word for word");
+    expect(style).toContain("Write every learner-facing value in Khmer");
+    expect(style).toContain("natural Khmer equivalent first, followed immediately by the exact English term in parentheses");
+    expect(style).toContain("អថេរ (variable)");
+    expect(style).toContain("never leave such a term by itself in English");
+    expect(style).toContain("Write every learner-facing value in Khmer");
   });
 
   it("applies the Khmer style rules to the course generation prompt", () => {
     const prompt = buildUserPrompt({ ...input, targetLanguage: "Khmer" }, false);
 
     expect(prompt).toContain("Target language: Khmer.");
-    expect(prompt).toContain("Technical and subject-specific terms must remain in English");
-    expect(prompt).toContain("Do not translate or transliterate them");
+    expect(prompt).toContain("Write every learner-facing value in Khmer");
+    expect(prompt).toContain("natural Khmer equivalent first, followed immediately by the exact English term in parentheses");
   });
 
   it("uses explicit Khmer author language requests consistently", () => {

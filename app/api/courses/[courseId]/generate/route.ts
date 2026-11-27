@@ -8,6 +8,7 @@ import { requireAIEnabled } from "@/lib/auth/authorization";
 import { acquireGenerationLease, getGenerationLeaseStatus, releaseGenerationLease } from "@/lib/ai/generation-lease";
 import { assertMutationOrigin } from "@/lib/auth/http-security";
 import { generationSettingsError, parseCourseGenerationForm } from "@/lib/ai/course-generation-request";
+import { writeGenerationLog } from "@/lib/ai/generation/progress-log";
 import {
   advanceSourceGenerationJob,
   cancelSourceGenerationJob,
@@ -176,6 +177,6 @@ export async function POST(request: NextRequest, context: Context) {
   } catch (error) {
     return dashboardErrorResponse(error);
   } finally {
-    if (lease) await releaseGenerationLease(lease).catch(() => console.error("Generation lease release failed; it will expire automatically."));
+    if (lease) await releaseGenerationLease(lease).catch(() => writeGenerationLog("DEBUG", "DATABASE", "Generation lease release failed; it will expire automatically."));
   }
 }
