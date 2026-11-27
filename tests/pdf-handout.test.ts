@@ -67,6 +67,14 @@ describe("PDF handout content", () => {
     expect(getHandoutBlockText(block)).toEqual(["Compare x < y > z", "A plain explanation", "Formatted title", "Details"]);
   });
 
+  it("strips inline formatting markers from explore hotspot labels and explanations", () => {
+    const graphic = blockSchema.parse({ id: "graphic", version: 1, type: "labeledGraphic", data: {
+      src: "/diagram.png", alt: "System diagram", interactionMode: "explore",
+      markers: [{ id: "input", label: "**Input**", description: "Use ***data*** and ==values== with `code`.", x: 20, y: 30 }],
+    } });
+    expect(getHandoutBlockText(graphic)).toEqual(["Graphic: System diagram", "1. Input: Use data and values with code."]);
+  });
+
   it("prints hotspot game prompts without revealing the winning target", () => {
     const game = blockSchema.parse({
       id: "field-scout-game",

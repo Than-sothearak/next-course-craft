@@ -1,5 +1,7 @@
 # Delivery roadmap
 
+Requested Explore hotspot formatting refinement: render padded `***keyword***` backgrounds and `**bold**` labels/explanations through the existing shared formatter in authoring, preview and static learners. Preserve existing schema/save paths, readable accessible names and marker-free PDF handouts within the current interactive-block slice.
+
 Requested Phase 14 image-model selection: shared enabled dropdowns list supported image-tool models for course covers, lesson images and manual block/step generation. Default uses `OPENAI_IMAGE_MODEL`; explicit independently selected cover/lesson model IDs persist through validated generation sessions and jobs, and manual image requests carry their selection through the existing route. Preserve model-specific native dimensions, generation quality, direct API bytes and existing storage/export behavior; clear stale previews/prepared covers when their model changes.
 
 Requested Phase 14 image-model compatibility: use native 1536×1024 landscape output for fixed-size GPT Image 1 mini/1.5 models and snapshots, preserving selected AI quality, direct API bytes and the existing file-size checks. Share model-aware dimensions across provider validation and settings descriptions; retain custom quality-based resolutions for GPT Image 2.x. Explain size/model-access configuration errors without exposing provider messages. No additional application or generation retries are introduced.

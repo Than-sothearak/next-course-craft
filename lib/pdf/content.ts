@@ -131,7 +131,7 @@ export function getHandoutBlockText(block: ContentBlock): string[] {
         ];
       return [
         `Graphic: ${block.data.alt}`,
-        ...block.data.markers.map((marker, index) => `${index + 1}. ${marker.label}: ${marker.description}`),
+        ...block.data.markers.map((marker, index) => `${index + 1}. ${stripInlineFormatting(marker.label)}: ${stripInlineFormatting(marker.description)}`),
       ];
     case "conceptMap":
       return [

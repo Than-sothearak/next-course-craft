@@ -1,4 +1,5 @@
 /** @vitest-environment jsdom */
+import { readFileSync } from "node:fs";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -34,6 +35,58 @@ afterEach(() => {
   container.remove();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+});
+
+describe("explore hotspot inline formatting", () => {
+  const marker = {
+    id: "formatted", label: "**Input** ***data***", description: 'Use ***text bg padding*** and **text bold**.\n<img src=x onerror="alert(1)">',
+    x: 20, y: 30, displayMode: "text" as const, displayText: "***GO***",
+  };
+  const block = blockSchema.parse({ ...graphic, data: { ...graphic.data, interactionMode: "explore", markers: [marker] } });
+
+  it.each([false, true])("formats point text, popup labels and explanations safely (presentation=%s)", (slideLayout) => {
+    const styles = document.createElement("style");
+    styles.textContent = readFileSync("app/globals.css", "utf8").split("\n").filter((line) => line.startsWith('.lesson-rich-text [data-generated-emphasis=') || line.startsWith('.lesson-rich-text[data-graphic-marker-text]')).join("\n");
+    document.head.append(styles);
+    try {
+      const onInteractiveProgress = vi.fn();
+      act(() => root.render(createElement(PreviewBlock, { block, slideLayout, device: "desktop", orientation: "landscape", onInteractiveProgress })));
+      const point = container.querySelector<HTMLButtonElement>('[aria-label="Input data: show explanation"]')!;
+      expect(point.textContent).toBe("GO");
+      const pointKeyword = point.querySelector('[data-generated-emphasis="true"]')!;
+      expect(getComputedStyle(pointKeyword).padding).toBe("0.06em 0.2em");
+      expect(getComputedStyle(pointKeyword).color).toBe("rgb(15, 23, 42)");
+      act(() => point.click());
+      const popup = container.querySelector(".labeled-graphic-popover")!;
+      const [title, explanation] = popup.querySelectorAll("p");
+      expect(title.textContent).toBe("Input data");
+      expect(title.querySelector("strong")?.textContent).toBe("Input");
+      expect(title.querySelector('[data-generated-emphasis="true"]')?.textContent).toBe("data");
+      expect(explanation.textContent).toBe('Use text bg padding and text bold.\n<img src=x onerror="alert(1)">');
+      expect(explanation.querySelector("strong")?.textContent).toBe("text bold");
+      const keyword = explanation.querySelector('[data-generated-emphasis="true"]')!;
+      expect(keyword.textContent).toBe("text bg padding");
+      expect(getComputedStyle(keyword).padding).toBe("0.06em 0.2em");
+      expect(popup.querySelector("img")).toBeNull();
+      expect(onInteractiveProgress).toHaveBeenCalledWith("graphic:marker:formatted");
+    } finally { styles.remove(); }
+  });
+
+  it("retains formatting markers in the editable popup fields", () => {
+    const onMarkerChange = vi.fn();
+    act(() => root.render(createElement(InteractiveLabeledGraphic, { blockId: "graphic", ...graphic.data, markers: [marker], editable: true, onMarkerChange })));
+    act(() => container.querySelector<HTMLButtonElement>('[aria-label="Input data: show explanation"]')!.click());
+    expect(container.querySelector<HTMLInputElement>('[aria-label="Point title"]')?.value).toBe(marker.label);
+    expect(container.querySelector<HTMLTextAreaElement>('[aria-label="Point explanation"]')?.value).toBe(marker.description);
+    expect(onMarkerChange).not.toHaveBeenCalled();
+  });
+
+  it("includes formatted point text and readable names in static learner markup", () => {
+    container.innerHTML = renderToStaticMarkup(createElement(PreviewBlock, { block, device: "desktop", orientation: "portrait" }));
+    const point = container.querySelector('[aria-label="Input data: show explanation"]')!;
+    expect(point.querySelector('[data-generated-emphasis="true"]')?.textContent).toBe("GO");
+    expect(point.textContent).not.toContain("***");
+  });
 });
 
 describe("presentation graphic sizing and popups", () => {

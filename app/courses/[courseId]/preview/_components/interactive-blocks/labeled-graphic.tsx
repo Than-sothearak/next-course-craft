@@ -14,6 +14,7 @@ import { InteractiveScene } from "@/components/interactive-scene";
 import { fitGraphicImage, projectGraphicPoint, unprojectGraphicPoint, type GraphicImageFit } from "@/lib/editor/graphic-layout";
 import type { ContentBlock, LessonMapTemplate } from "@/lib/schemas/block";
 import { backgroundPaint, parseGradient, solidColor, textPaint } from "@/lib/color";
+import { inlineFormattingHtml, stripInlineFormatting } from "@/lib/editor/inline-formatting";
 
 type GraphicMarker = Extract<ContentBlock, { type: "labeledGraphic" }>['data']['markers'][number];
 const useIsomorphicLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
@@ -315,7 +316,7 @@ export function InteractiveLabeledGraphic({
             <button
               key={marker.id}
               type="button"
-              aria-label={isSpotTargetGame ? `Inspect hotspot ${index + 1}` : `${marker.label || `Marker ${index + 1}`}: show explanation`}
+              aria-label={isSpotTargetGame ? `Inspect hotspot ${index + 1}` : `${stripInlineFormatting(marker.label) || `Marker ${index + 1}`}: show explanation`}
               aria-pressed={isSpotTargetGame ? undefined : selected}
               disabled={isSpotTargetGame && gameSolved}
               onPointerDown={(event) => handlePointerDown(marker.id, event)}
@@ -363,7 +364,7 @@ export function InteractiveLabeledGraphic({
               } as CSSProperties}
             >
               {isSpotTargetGame && radarEnabled && !missed && !found && <span aria-hidden="true" className="absolute rounded-full motion-safe:animate-ping" style={{ inset: `-${radarSize}px`, border: `${radarWeight}px solid ${solidColor(radarColor ?? pointColor)}`, ...backgroundPaint(radarColor ?? pointColor, 40) }} />}
-              <span className="relative z-10 min-w-0 max-w-full truncate" style={!isSpotTargetGame || (!missed && !found && parseGradient(textColor)) ? textPaint(textColor) : undefined}>{found ? <Check size={20} aria-hidden="true" /> : missed ? <X size={18} aria-hidden="true" /> : pointText}</span>
+              <span className="relative z-10 min-w-0 max-w-full truncate" style={!isSpotTargetGame || (!missed && !found && parseGradient(textColor)) ? textPaint(textColor) : undefined}>{found ? <Check size={20} aria-hidden="true" /> : missed ? <X size={18} aria-hidden="true" /> : <span className="lesson-rich-text" data-graphic-marker-text dangerouslySetInnerHTML={{ __html: inlineFormattingHtml(pointText) }} />}</span>
             </button>
           );
         })}
@@ -394,12 +395,8 @@ export function InteractiveLabeledGraphic({
               <label className="flex items-center gap-2 text-xs text-slate-700"><Checkbox aria-label="Point radar animation" checked={activeMarker.radarEnabled !== false} onChange={(event) => onMarkerChange(activeMarker.id, { radarEnabled: event.target.checked })} />Radar animation</label>
               <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => setActiveMarkerId("")}>Done</Button>
             </div> : <>
-            <p className="text-sm font-semibold text-slate-900">
-              {activeMarker.label || `Marker ${markers.findIndex((marker) => marker.id === activeMarker.id) + 1}`}
-            </p>
-            <p className="mt-1 text-sm leading-6 text-slate-700">
-              {activeMarker.description || "Add an explanation for this part of the image."}
-            </p>
+            <p className="lesson-rich-text text-sm font-semibold text-slate-900" dangerouslySetInnerHTML={{ __html: inlineFormattingHtml(activeMarker.label || `Marker ${markers.findIndex((marker) => marker.id === activeMarker.id) + 1}`) }} />
+            <p className="lesson-rich-text mt-1 whitespace-pre-wrap text-sm leading-6 text-slate-700" dangerouslySetInnerHTML={{ __html: inlineFormattingHtml(activeMarker.description || "Add an explanation for this part of the image.") }} />
             </>}
           </section>
         )}

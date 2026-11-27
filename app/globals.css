@@ -430,6 +430,7 @@ video[data-slide-media-player]::-webkit-media-controls-enclosure {
 .lesson-rich-text .tiptap a:hover { text-decoration-thickness: 2px; }
 .lesson-rich-text [data-generated-emphasis="true"] { border-radius: 0.28em; background: color-mix(in srgb, var(--course-primary, #2f5f9f) 18%, white) !important; color: inherit; padding: 0.06em 0.2em; }
 .lesson-rich-text[data-flip-card-text] span[style*="background-color"] { color: #0f172a; }
+.lesson-rich-text[data-graphic-marker-text] span[style*="background-color"] { color: #0f172a; }
 .lesson-rich-text :not(pre) > code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 0.9em; font-weight: 400; font-style: normal; color: #0f172a; background-color: #f1f5f9; border-radius: 0.25em; padding: 0.1em 0.3em; white-space: break-spaces; }
 [data-preview-screen] .lesson-rich-text { min-width: 0; overflow-wrap: anywhere; }
 [data-preview-screen] .lesson-rich-text .tiptap table { display: block; max-width: 100%; overflow-x: auto; }

@@ -85,6 +85,7 @@ export function LabeledGraphicBlockSettings({ block, onChange, setMediaLibraryTa
             placeholder="What should learners find?"
             className="min-h-16 resize-y"
           />
+          <p className="text-xs text-slate-500">Use ***text*** for a padded background and **text** for bold in labels and explanations.</p>
           <Textarea
             aria-label="Mini-game success message"
             value={block.data.successMessage ?? ""}
