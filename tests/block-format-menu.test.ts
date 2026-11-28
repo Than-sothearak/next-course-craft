@@ -32,6 +32,7 @@ describe("block format menu", () => {
   let root: Root;
 
   beforeEach(() => {
+    vi.useFakeTimers();
     Object.defineProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT", { configurable: true, value: true });
     container = document.createElement("div");
     document.body.append(container);
@@ -41,6 +42,7 @@ describe("block format menu", () => {
   afterEach(() => {
     act(() => root.unmount());
     container.remove();
+    vi.useRealTimers();
     Reflect.deleteProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT");
   });
 
@@ -117,6 +119,8 @@ describe("block format menu", () => {
     render({ ...block, backgroundColor: "#aabbcc" });
     expect(hex.value).toBe("#aabbcc");
     act(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
+    expect(panel.getAttribute("data-state")).toBe("closed");
+    act(() => vi.advanceTimersByTime(150));
     expect(document.querySelector('[role="dialog"]')).toBeNull();
     expect(document.activeElement).toBe(container.querySelector('[aria-label="Format block"]'));
   });
@@ -177,6 +181,28 @@ describe("block format menu", () => {
     expect(panel.style.top).toBe("280px");
 
     act(() => document.body.dispatchEvent(new Event("pointerdown", { bubbles: true })));
+    expect(panel.dataset.state).toBe("closed");
+    act(() => vi.advanceTimersByTime(150));
     expect(document.querySelector("#block-format-text-1")).toBeNull();
+  });
+
+  it("uses the shared mouse-leave delay and fade while preserving trigger reentry", () => {
+    const block = blockSchema.parse({ id: "hover", type: "richText", version: 1, data: { html: "<p>Text</p>" } });
+    act(() => root.render(createElement(BlockFormatMenu, { block, onChange: () => {} })));
+    const trigger = container.querySelector<HTMLButtonElement>('[aria-label="Format block"]')!;
+    act(() => trigger.click());
+    const panel = document.querySelector<HTMLElement>("#block-format-hover")!;
+    const leave = () => panel.dispatchEvent(Object.assign(new MouseEvent("pointerout", { bubbles: true, relatedTarget: document.body }), { pointerType: "mouse" }));
+    act(leave);
+    act(() => vi.advanceTimersByTime(200));
+    act(() => trigger.dispatchEvent(Object.assign(new MouseEvent("pointerenter"), { pointerType: "mouse" })));
+    act(() => vi.advanceTimersByTime(300));
+    expect(panel.dataset.state).toBe("open");
+    act(leave);
+    act(() => vi.advanceTimersByTime(250));
+    expect(panel.dataset.state).toBe("closed");
+    expect(document.activeElement).toBe(trigger);
+    act(() => vi.advanceTimersByTime(150));
+    expect(panel.isConnected).toBe(false);
   });
 });

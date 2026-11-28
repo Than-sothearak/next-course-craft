@@ -4,6 +4,7 @@ import { useContext, useEffect, useRef } from "react";
 import { CourseThemeContext } from "@/lib/editor/course-theme-context";
 import { ChevronDown, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Popover } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { StatementTextEditor } from "@/app/courses/[courseId]/edit/_components/(editor_client_components)/(text_editing_components)/statement-text-editor";
 
@@ -93,25 +94,17 @@ export function CourseOverviewEditor({
             <span className="max-w-[240px] truncate text-sm font-medium text-slate-500">
               {authorName}
             </span>
-            <details className="relative">
-              <summary
-                aria-label="Author options"
-                className="grid size-7 cursor-pointer list-none place-items-center rounded-md text-slate-500 hover:bg-slate-100 [&::-webkit-details-marker]:hidden"
-              >
-                <ChevronDown size={15} />
-              </summary>
-              <div className="absolute left-0 top-full z-20 mt-1 w-36 rounded-lg border border-slate-200 bg-white p-1 shadow-lg">
-                <button
-                  type="button"
-                  aria-pressed="true"
+            <Popover title="Author options" triggerLabel="Author options" trigger={<ChevronDown size={15} />} variant="menu" placement="bottom" panelClassName="w-36" triggerProps={{ className: "size-7 text-slate-500" }}>
+                <Button
+                  variant="ghost"
+                  role="menuitem"
                   onClick={() => onAuthorVisibilityChange(false)}
-                  className="flex w-full cursor-pointer items-center gap-2 rounded px-2 py-2 text-left text-xs text-slate-700 hover:bg-slate-50"
+                  className="h-auto min-h-0 w-full justify-start rounded px-2 py-2 text-left text-xs text-slate-700 hover:bg-slate-50"
                 >
                   <EyeOff size={13} />
                   Hide author
-                </button>
-              </div>
-            </details>
+                </Button>
+            </Popover>
           </>
         ) : (
           <Button

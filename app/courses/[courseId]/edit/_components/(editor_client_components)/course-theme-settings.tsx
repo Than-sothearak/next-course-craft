@@ -2,10 +2,10 @@
 
 import { Check, Image, Palette, RotateCcw, Settings2, Type } from "lucide-react";
 import { Select } from "@/components/ui/select";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { SettingsSection, SettingsSectionActions, SettingsSectionsProvider } from "@/components/ui/settings-section";
-import { cn } from "@/lib/utils";
+import { Popover } from "@/components/ui/popover";
 import { courseThemeFontFamilies, courseThemePresets, createCourseThemePreset, defaultCourseTheme, type CourseTheme } from "@/lib/editor/theme";
 import { CourseCoverSettings } from "./(course_theme_settings_components)/course-cover-settings";
 import { CourseTypographySettings } from "./(course_theme_settings_components)/course-typography-settings";
@@ -17,12 +17,12 @@ export function CourseThemeSettings({ theme, onChange, courseId, courseTitle, co
   courseTitle: string;
   compact?: boolean;
 }) {
-  return <details className="relative">
-    <summary aria-label="Course theme settings" title="Course theme" className={compact ? cn(buttonVariants({ variant: "ghost", size: "sm" }), "size-8 min-h-0 cursor-pointer list-none rounded-md p-0 text-xs text-slate-600 [&::-webkit-details-marker]:hidden") : "flex min-h-9 cursor-pointer list-none items-center gap-2 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 [&::-webkit-details-marker]:hidden"}>
-      <Palette size={16} aria-hidden="true" /><span className={compact ? "sr-only" : undefined}>Theme</span>
-    </summary>
-    <SettingsSectionsProvider>
-      <div data-course-theme-settings className="fixed inset-x-4 top-20 z-[60] mt-2 flex max-h-[calc(100dvh-100px)] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white text-xs text-slate-700 shadow-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:w-[380px] [&_input]:text-xs [&_select]:text-xs [&_textarea]:text-xs [&_button]:text-xs [&_label]:text-xs">
+  return <SettingsSectionsProvider>
+    <Popover title="Course theme" triggerLabel="Course theme settings" placement="bottom" variant="panel"
+      trigger={<><Palette size={16} aria-hidden="true" /><span className={compact ? "sr-only" : undefined}>Theme</span></>}
+      triggerProps={{ title: "Course theme", variant: compact ? "ghost" : "outline", size: "sm", className: compact ? "size-8 min-h-0 rounded-md p-0 text-xs text-slate-600" : "h-auto w-auto min-h-9 text-slate-700" }}
+      panelClassName="w-[380px] overflow-hidden text-xs text-slate-700 [&_input]:text-xs [&_select]:text-xs [&_textarea]:text-xs [&_button]:text-xs [&_label]:text-xs" bodyClassName="flex min-h-0 flex-col overflow-hidden p-0">
+      <div data-course-theme-settings className="flex min-h-0 flex-col">
         <div data-settings-panel-header className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-slate-50 px-3 py-2">
           <h2 className="flex items-center gap-2 font-semibold"><Palette size={15} aria-hidden="true" />Course theme</h2>
           <SettingsSectionActions label="Course theme" />
@@ -49,6 +49,6 @@ export function CourseThemeSettings({ theme, onChange, courseId, courseTitle, co
           <p className="text-[11px] leading-5 text-slate-500">Changes save automatically and appear in previews and exports.</p>
         </div>
       </div>
-    </SettingsSectionsProvider>
-  </details>;
+    </Popover>
+  </SettingsSectionsProvider>;
 }

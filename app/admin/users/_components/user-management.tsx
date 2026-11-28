@@ -15,6 +15,7 @@ import { useAdminMutation, useAdminResource } from "@/app/admin/_components/shar
 import { availableActions } from "./_components/user-management-actions";
 import { UserMutationDialog } from "./_components/user-mutation-dialog";
 import type { Authority } from "./_components/user-management-types";
+import { ModalPresence } from "@/components/ui/modal-presence";
 
 export function UserManagement({ authority, approvals = false }: { authority: Authority; approvals?: boolean }) {
   const [filters, setFilters] = useState({ q: "", role: "", status: approvals ? "pending" : "", page: 1 });
@@ -32,6 +33,6 @@ export function UserManagement({ authority, approvals = false }: { authority: Au
       {resource.loading ? <AdminLoading /> : <><Table><TableHeader><TableRow>{["User", "Role", "Status", "Registered", "Last login", "Actions"].map((label) => <TableHead key={label}>{label}</TableHead>)}</TableRow></TableHeader><TableBody>{resource.data?.items.map((user) => <TableRow key={user.id}>
         <TableCell><div className="flex items-center gap-3"><UserAvatar name={user.name} image={user.image} /><div><AdminPrefetchLink href={`/admin/users/${user.id}`} className="font-semibold text-slate-900 hover:text-indigo-600">{user.name}</AdminPrefetchLink><p className="text-xs text-slate-500">{user.email ?? "No email"}</p></div></div></TableCell><TableCell className="capitalize">{user.role.replaceAll("_", " ")}</TableCell><TableCell><StatusBadge status={user.deletedAt ? "removed" : user.status} /></TableCell><TableCell className="whitespace-nowrap text-xs text-slate-500">{dateLabel(user.createdAt)}</TableCell><TableCell className="whitespace-nowrap text-xs text-slate-500">{dateLabel(user.lastLoginAt)}</TableCell><TableCell><div className="flex gap-2"><AdminPrefetchLink href={`/admin/users/${user.id}`} className={buttonVariants({ size: "sm", variant: "ghost" })}>Details</AdminPrefetchLink>{availableActions(user, authority).length > 0 && <Button size="sm" variant="outline" disabled={mutation.busy} onClick={() => setSelected(user)}>{user.status === "pending" ? "Review" : "Manage"}</Button>}</div></TableCell>
       </TableRow>)}</TableBody></Table>{resource.data?.total === 0 && <p className="p-10 text-center text-sm text-slate-500">No accounts match your filters.</p>}{resource.data && <Pagination {...resource.data} onPage={(page) => setFilters((old) => ({ ...old, page }))} disabled={mutation.busy} />}</>}
-    </Card>{selected && <UserMutationDialog key={selected.id} user={selected} authority={authority} mutation={mutation} onClose={() => setSelected(null)} />}
+    </Card><ModalPresence>{selected && <UserMutationDialog key={selected.id} user={selected} authority={authority} mutation={mutation} onClose={() => setSelected(null)} />}</ModalPresence>
   </div>;
 }

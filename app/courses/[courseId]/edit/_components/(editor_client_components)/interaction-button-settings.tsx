@@ -13,6 +13,7 @@ import type { ContentBlock } from "@/lib/schemas/block";
 import { MediaLibraryDialog } from "../media-library-dialog";
 import { InteractionPopupEditor, type PopupTargets } from "@/app/courses/[courseId]/edit/presentation-mode/_components/slide-presentation/interaction-popup-editor";
 import { SlideNumberSettingInput } from "@/app/courses/[courseId]/edit/presentation-mode/_components/slide-presentation/slide-number-setting-input";
+import { ModalPresence } from "@/components/ui/modal-presence";
 
 type Interaction = Extract<ContentBlock, { type: "interactionButton" }>;
 const buttonPositions = [
@@ -59,6 +60,6 @@ export function InteractionButtonSettings({ block, courseId, lessonBlocks, secti
     {data.action === "popup" && <Button variant="outline" size="sm" className="w-full" onClick={() => setPopupOpen(true)}><PanelsTopLeft size={14} />Edit popup mini slide ({popup.blocks.length} objects)</Button>}
     <p className="text-[11px] leading-4 text-slate-500">Click the button on the canvas to preview its popup. Opening it completes this activity when Required for progress is enabled.</p>
     <MediaLibraryDialog courseId={courseId} kind="image" open={imageOpen} onClose={() => setImageOpen(false)} onSelect={(asset) => { update({ imageSrc: asset.fileUrl, imageAlt: asset.originalName }); setImageOpen(false); }} />
-    {popupOpen && <InteractionPopupEditor popup={popup} courseId={courseId} sections={sections} lessons={lessons} onClose={() => setPopupOpen(false)} onApply={(next) => { updatePopup(next); setPopupOpen(false); }} />}
+    <ModalPresence>{popupOpen && <InteractionPopupEditor popup={popup} courseId={courseId} sections={sections} lessons={lessons} onClose={() => setPopupOpen(false)} onApply={(next) => { updatePopup(next); setPopupOpen(false); }} />}</ModalPresence>
   </div>;
 }

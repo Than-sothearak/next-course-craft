@@ -28,7 +28,7 @@ describe("scrolling gallery", () => {
     Object.defineProperty(HTMLDialogElement.prototype, "close", { configurable: true, value: function (this: HTMLDialogElement) { this.open = false; } });
   });
   afterEach(() => {
-    act(() => root.unmount()); container.remove(); vi.restoreAllMocks(); vi.unstubAllGlobals(); delete (HTMLElement.prototype as unknown as Record<string, unknown>).scrollTo;
+    act(() => root.unmount()); container.remove(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); delete (HTMLElement.prototype as unknown as Record<string, unknown>).scrollTo;
     dialogMethods.forEach((name, index) => { const original = originalDialogMethods[index]; if (original) Object.defineProperty(HTMLDialogElement.prototype, name, original); else Reflect.deleteProperty(HTMLDialogElement.prototype, name); });
   });
   const button = (label: string) => container.querySelector<HTMLButtonElement>(`[aria-label="${label}"]`)!;
@@ -83,8 +83,9 @@ describe("scrolling gallery", () => {
     expect(dialog.parentElement).toBe(document.body);
     expect(dialog.querySelector("img")?.getAttribute("src")).toBe("/two.png");
     expect(dialog.querySelector("img")?.classList.contains("object-contain")).toBe(true);
+    vi.useFakeTimers();
     act(() => document.querySelector<HTMLButtonElement>('dialog[open] [aria-label="Close dialog"]')!.click());
-    await act(async () => { await new Promise<void>((resolve) => requestAnimationFrame(() => resolve())); });
+    await act(async () => vi.advanceTimersByTimeAsync(160));
     expect(dialog.open).toBe(false);
     expect(document.activeElement).toBe(trigger);
     expect(container.querySelector('[role="status"]')?.textContent).toBe("2 / 3");

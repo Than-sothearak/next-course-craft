@@ -14,6 +14,7 @@ import {
 import { QuizQuestionPreview } from "./(quiz_assessment_preview_components)/quiz-question-preview";
 import { QuizQuestionProgress } from "@/app/courses/[courseId]/_components/slide-presentation/quiz-question-progress";
 import { useSlidePresentationContext } from "@/app/courses/[courseId]/preview/presentation-mode/_components/slide-presentation/slide-presentation-context";
+import { ModalPresence } from "@/components/ui/modal-presence";
 export function QuizAssessmentPreview({
   questions,
   passingScore,
@@ -81,7 +82,7 @@ export function QuizAssessmentPreview({
   return (
     <div data-quiz-container className="mx-auto w-full min-w-0 max-w-[720px] shrink-0">
     <div data-quiz-assessment={!presentation || undefined} className={`px-4 ${presentation ? "my-3 space-y-3" : "mt-10 mb-16 space-y-6"}`}>
-      {result && <Dialog open={resultDialogOpen} onClose={() => setResultDialogOpen(false)} title={result.passed ? "Congratulations!" : "Keep trying"} className="max-w-md">
+      <ModalPresence>{result && <Dialog open={resultDialogOpen} onClose={() => setResultDialogOpen(false)} title={result.passed ? "Congratulations!" : "Keep trying"} className="max-w-md">
         <div className="text-center">
           <span className={`mx-auto mb-4 grid size-16 place-items-center rounded-full ${result.passed ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
             {result.passed ? <Trophy size={31} aria-hidden="true" /> : <CircleAlert size={31} aria-hidden="true" />}
@@ -94,7 +95,7 @@ export function QuizAssessmentPreview({
             {result.passed ? nextSlide && slidePresentation && <Button type="button" disabled={Boolean(nextLock)} title={nextLock ?? undefined} onClick={() => { setResultDialogOpen(false); slidePresentation.onSelect(nextSlide.id); }}>Continue to next slide</Button> : <Button type="button" onClick={retry}>Try again</Button>}
           </div>
         </div>
-      </Dialog>}
+      </Dialog>}</ModalPresence>
       {wasPassed && result === null && (
         <p role="status" className="rounded-lg bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
           Quiz passed{savedScore === undefined ? "." : ` · Best score ${savedScore}%.`}

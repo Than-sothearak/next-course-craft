@@ -44,6 +44,7 @@ describe("AI course review wizard", () => {
   });
 
   it("asks before closing the outline and keeps edits when continuing", async () => {
+    vi.useFakeTimers();
     await renderWizard(session);
     const title = [...container.querySelectorAll("label")].find((label) => label.textContent === "Course title")!.querySelector("input")!;
     await type(title, "Keep my outline changes");
@@ -52,6 +53,7 @@ describe("AI course review wizard", () => {
     const warning = container.querySelector('[role="alertdialog"]')!;
     expect(warning.textContent).toContain("Unsaved changes to this outline will be lost");
     await click("Continue editing");
+    await act(async () => vi.advanceTimersByTimeAsync(150));
     expect(container.querySelector('[role="alertdialog"]')).toBeNull();
     expect(title.value).toBe("Keep my outline changes");
     expect(onClose).not.toHaveBeenCalled();
@@ -65,10 +67,12 @@ describe("AI course review wizard", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
   it("treats Escape on the confirmation as continuing the outline", async () => {
+    vi.useFakeTimers();
     await renderWizard(session);
     await act(async () => container.querySelector<HTMLButtonElement>('[aria-label="Close dialog"]')!.click());
     const warning = container.querySelector('[role="alertdialog"]')!;
     await act(async () => warning.dispatchEvent(new Event("cancel", { bubbles: true, cancelable: true })));
+    await act(async () => vi.advanceTimersByTimeAsync(150));
     expect(container.querySelector('[role="alertdialog"]')).toBeNull();
     expect(onClose).not.toHaveBeenCalled();
   });

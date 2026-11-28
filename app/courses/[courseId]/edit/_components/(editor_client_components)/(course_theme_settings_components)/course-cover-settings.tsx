@@ -12,6 +12,7 @@ import { CourseCover } from "@/components/course-cover";
 import { courseCoverTemplates, normalizeCourseCover, type CourseCover as Cover } from "@/lib/editor/course-cover";
 import type { CourseTheme } from "@/lib/editor/theme";
 import { MediaLibraryDialog } from "../../media-library-dialog";
+import { ModalPresence } from "@/components/ui/modal-presence";
 
 export function CourseCoverSettings({ courseId, courseTitle, theme, onChange }: { courseId: string; courseTitle: string; theme: CourseTheme; onChange: (theme: CourseTheme) => void }) {
   const [libraryOpen, setLibraryOpen] = useState(false);
@@ -54,6 +55,6 @@ export function CourseCoverSettings({ courseId, courseTitle, theme, onChange }: 
     </div>
     {cover.backgroundColor && <Button type="button" variant="ghost" size="sm" className="mt-1 h-8 px-0 text-xs" onClick={() => onChange({ ...theme, cover: { ...cover, backgroundColor: undefined } })}>Use brand color</Button>}
     <div className="mt-3 space-y-2"><h3 className="text-xs font-medium text-slate-600">Title alignment</h3><TextAlignmentControl label="Cover title alignment" value={cover.alignment} onChange={(alignment) => update({ alignment })} /></div>
-    {libraryOpen && createPortal(<MediaLibraryDialog courseId={courseId} kind="image" open onClose={() => setLibraryOpen(false)} onSelect={(asset) => { update({ template: "image", imageSrc: asset.fileUrl, imageAlt: asset.originalName }); setLibraryOpen(false); }} />, document.body)}
+    <ModalPresence>{libraryOpen && createPortal(<MediaLibraryDialog courseId={courseId} kind="image" open onClose={() => setLibraryOpen(false)} onSelect={(asset) => { update({ template: "image", imageSrc: asset.fileUrl, imageAlt: asset.originalName }); setLibraryOpen(false); }} />, document.body)}</ModalPresence>
   </fieldset>;
 }

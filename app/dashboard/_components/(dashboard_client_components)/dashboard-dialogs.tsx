@@ -6,6 +6,7 @@ import type { DashboardData } from "@/lib/dashboard/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { ModalOverlay, ModalPanel, ModalPresence } from "@/components/ui/modal-presence";
 
 type Props = {
   openFolder: boolean;
@@ -34,9 +35,9 @@ export function DashboardDialogs({
 }: Props) {
   return (
     <>
-      {openFolder && (
-        <div
-          className="dialog-backdrop-in fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/35 p-4 backdrop-blur-[2px]"
+      <ModalPresence>{openFolder && (
+        <ModalOverlay
+          className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/35 p-4 backdrop-blur-[2px]"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) onCloseFolder();
           }}
@@ -44,11 +45,11 @@ export function DashboardDialogs({
             if (event.key === "Escape") onCloseFolder();
           }}
         >
-          <section
+          <ModalPanel
             role="dialog"
             aria-modal="true"
             aria-labelledby="new-folder-title"
-            className="dialog-panel-in w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl"
+            className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl"
           >
             <div className="mb-6 flex items-start justify-between">
               <div>
@@ -113,12 +114,12 @@ export function DashboardDialogs({
                 </Button>
               </div>
             </form>
-          </section>
-        </div>
-      )}
-      {openCourse && (
-        <div
-          className="dialog-backdrop-in fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/35 p-4 backdrop-blur-[2px]"
+          </ModalPanel>
+        </ModalOverlay>
+      )}</ModalPresence>
+      <ModalPresence>{openCourse && (
+        <ModalOverlay
+          className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/35 p-4 backdrop-blur-[2px]"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) onCloseCourse();
           }}
@@ -126,11 +127,11 @@ export function DashboardDialogs({
             if (event.key === "Escape") onCloseCourse();
           }}
         >
-          <section
+          <ModalPanel
             role="dialog"
             aria-modal="true"
             aria-labelledby="new-course-title"
-            className="dialog-panel-in max-h-[calc(100dvh-2rem)] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl"
+            className="max-h-[calc(100dvh-2rem)] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl"
           >
             <div className="mb-6 flex items-start justify-between">
               <div>
@@ -235,9 +236,9 @@ export function DashboardDialogs({
                 </Button>
               </div>
             </form>
-          </section>
-        </div>
-      )}
+          </ModalPanel>
+        </ModalOverlay>
+      )}</ModalPresence>
     </>
   );
 }

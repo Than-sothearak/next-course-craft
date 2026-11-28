@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  useContext,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -12,11 +14,17 @@ import {
 import { createPortal } from "react-dom";
 import { GripVertical } from "lucide-react";
 import { SettingsSectionActions, SettingsSectionsProvider } from "@/components/ui/settings-section";
+import { PopupAncestorsContext } from "@/components/ui/popup-context";
+import { usePopupBehavior } from "@/components/ui/use-popup-behavior";
 
 type FloatingPosition = { left: number; top: number };
 
 export function DraggableSettingsPanel({
   id,
+  open,
+  onOpenChange,
+  triggerRef,
+  busy = false,
   title,
   settingsLabel,
   side,
@@ -26,6 +34,10 @@ export function DraggableSettingsPanel({
   children,
 }: {
   id: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  triggerRef: RefObject<HTMLElement | null>;
+  busy?: boolean;
   title: string;
   settingsLabel: string;
   side: "left" | "right";
@@ -35,6 +47,8 @@ export function DraggableSettingsPanel({
   children: ReactNode;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const ancestors = useContext(PopupAncestorsContext);
+  const { present, close, cancelMouseLeave, scheduleMouseLeave } = usePopupBehavior({ open, onOpenChange, panelRef, triggerRef, id, busy });
   const dragRef = useRef<{
     pointerId: number;
     offsetX: number;
@@ -43,6 +57,7 @@ export function DraggableSettingsPanel({
   const [position, setPosition] = useState<FloatingPosition | null>(null);
 
   useLayoutEffect(() => {
+    if (!open) return;
     const anchor = anchorRef?.current;
     const panel = panelRef.current;
     if (!anchor || !panel) return;
@@ -60,10 +75,15 @@ export function DraggableSettingsPanel({
       left: Math.min(maxLeft, Math.max(gutter, preferredLeft)),
       top: Math.min(maxTop, Math.max(gutter, top)),
     });
-  }, [anchorRef]);
+  }, [anchorRef, open]);
+
+  useEffect(() => {
+    if (open && present) panelRef.current?.querySelector<HTMLElement>("button")?.focus({ preventScroll: true });
+  }, [open, present]);
 
   function startDrag(event: ReactPointerEvent<HTMLDivElement>) {
     if (event.button !== 0) return;
+    cancelMouseLeave();
     const panel = panelRef.current;
     if (!panel) return;
     const rect = panel.getBoundingClientRect();
@@ -122,20 +142,33 @@ export function DraggableSettingsPanel({
       ? { left: "24px", top: "50%", transform: "translateY(-50%)" }
       : { right: "24px", top: "50%", transform: "translateY(-50%)" };
 
+  if (!present) return null;
+
   return createPortal(
+    <PopupAncestorsContext.Provider value={[...ancestors, id]}>
     <SettingsSectionsProvider>
     <section
       ref={panelRef}
       id={id}
       role="dialog"
       aria-label={title}
+      aria-hidden={!open}
+      inert={!open}
+      data-ui-popover
+      data-state={open ? "open" : "closed"}
+      data-popup-ancestors={ancestors.join(" ") || undefined}
+      onPointerEnter={cancelMouseLeave}
+      onPointerLeave={scheduleMouseLeave}
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && !event.defaultPrevented && event.currentTarget.contains(event.target as Node)) { event.preventDefault(); event.stopPropagation(); close(); }
+      }}
       style={{
         position: "fixed",
         zIndex: 9999,
         maxHeight: "min(78vh, 680px)",
         ...positionStyle,
       }}
-      className={`flex max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white text-slate-700 shadow-2xl ${panelClassName}`}
+      className={`ui-popover flex max-w-[calc(100vw-1rem)] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white text-slate-700 shadow-2xl ${panelClassName}`}
     >
       <div data-settings-panel-header className="flex shrink-0 flex-wrap items-center justify-between gap-x-2 gap-y-1 border-b border-slate-200 bg-slate-50 px-3 py-1">
       <div
@@ -159,7 +192,8 @@ export function DraggableSettingsPanel({
         {children}
       </div>
     </section>
-    </SettingsSectionsProvider>,
+    </SettingsSectionsProvider>
+    </PopupAncestorsContext.Provider>,
     document.body,
   );
 }

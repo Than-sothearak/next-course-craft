@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Popover } from "@/components/ui/popover";
 import { signOutAction } from "../actions";
 import type { Permission } from "@/lib/auth/policy";
 
@@ -38,24 +39,15 @@ export function DashboardNavbar({ userName, profile, actions, primaryAction, per
 }
 
 export function DashboardUserProfile({ userName, permissions = [] }: { userName: string; permissions?: Permission[] }) {
-  return <details className="relative">
-          <summary
-            title={userName}
-            aria-label={`Open profile menu for ${userName}`}
-            className="grid size-9 cursor-pointer list-none place-items-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-800 transition-colors hover:bg-indigo-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 [&::-webkit-details-marker]:hidden"
-          >
-            {userInitials(userName)}
-          </summary>
-          <div className="absolute right-0 z-50 mt-2 w-56 rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
+  return <Popover title="Profile menu" triggerLabel={`Open profile menu for ${userName}`} trigger={userInitials(userName)} variant="menu" placement="bottom" panelClassName="w-56" bodyClassName="p-2" triggerProps={{ title: userName, className: "grid size-9 place-items-center rounded-full bg-indigo-100 text-sm font-semibold text-indigo-800 hover:bg-indigo-200 hover:text-indigo-800" }}>
             <p className="truncate px-3 py-2 text-sm font-medium text-slate-700">{userName}</p>
             <div className="my-1 border-t border-slate-100" />
-            {permissions.some((permission) => ["users.view", "courses.manage_all", "roles.manage", "audit.view", "settings.manage"].includes(permission)) && <Link href={permissions.includes("users.view") ? "/admin" : permissions.includes("courses.manage_all") ? "/admin/courses" : permissions.includes("roles.manage") ? "/admin/roles" : permissions.includes("audit.view") ? "/admin/audit-logs" : "/admin/settings"} className="block rounded-md px-3 py-2 text-sm text-indigo-700 hover:bg-indigo-50">Administration</Link>}
-            <Link href="/account-status" className="block rounded-md px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">Account status</Link>
+            {permissions.some((permission) => ["users.view", "courses.manage_all", "roles.manage", "audit.view", "settings.manage"].includes(permission)) && <Link role="menuitem" href={permissions.includes("users.view") ? "/admin" : permissions.includes("courses.manage_all") ? "/admin/courses" : permissions.includes("roles.manage") ? "/admin/roles" : permissions.includes("audit.view") ? "/admin/audit-logs" : "/admin/settings"} className="block rounded-md px-3 py-2 text-sm text-indigo-700 hover:bg-indigo-50">Administration</Link>}
+            <Link role="menuitem" href="/account-status" className="block rounded-md px-3 py-2 text-sm text-slate-700 hover:bg-slate-50">Account status</Link>
             <form action={signOutAction}>
-              <Button type="submit" variant="ghost" size="sm" className="w-full justify-start text-slate-700">
+              <Button type="submit" role="menuitem" variant="ghost" size="sm" className="w-full justify-start text-slate-700">
                 Sign out
               </Button>
             </form>
-          </div>
-    </details>;
+    </Popover>;
 }

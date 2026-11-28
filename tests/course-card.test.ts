@@ -75,7 +75,7 @@ describe("course card actions", () => {
     const publishButton = container.querySelector<HTMLButtonElement>('button[aria-label="Publish course"]')!;
     expect(publishButton.textContent).toBe("Publish");
     act(() => publishButton.click());
-    const menu = container.querySelector('[role="menu"][aria-label="Publish format"]');
+    const menu = document.querySelector('[role="menu"][aria-label="Publish format"]');
     expect([...menu!.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent)).toEqual([
       "HTML",
       "PDF handout",
@@ -84,7 +84,7 @@ describe("course card actions", () => {
       "Share link",
     ]);
     act(() => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })));
-    expect(container.querySelector('[role="menu"]')).toBeNull();
+    expect(menu?.getAttribute("data-state")).toBe("closed");
 
     const trigger = container.querySelector<HTMLButtonElement>('button[aria-haspopup="dialog"]')!;
     act(() => trigger.click());
@@ -263,7 +263,9 @@ describe("course card actions", () => {
     expect(library).toBeDefined();
     expect(container.querySelector('input[type="file"][accept*="image/png"]')).not.toBeNull();
     expect(details.dataset.state).toBe("closed");
+    vi.useFakeTimers();
     act(() => container.querySelector<HTMLButtonElement>('[aria-label="Close media library"]')!.click());
+    act(() => vi.advanceTimersByTime(150));
     expect(library!.isConnected).toBe(false);
     expect(document.querySelector('[data-card-popover][data-state="open"]')).not.toBeNull();
   });

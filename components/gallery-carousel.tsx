@@ -8,6 +8,7 @@ import { ChevronLeft, ChevronRight, ZoomIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import type { ContentBlock } from "@/lib/schemas/block";
+import { ModalPresence } from "@/components/ui/modal-presence";
 
 type GalleryData = Extract<ContentBlock, { type: "gallery" }>["data"];
 
@@ -96,10 +97,10 @@ export function GalleryCarousel({ data, presentation = false, decorative = false
       <span role="status" aria-live={decorative ? "off" : "polite"} aria-atomic="true" className="min-w-16 text-center text-sm tabular-nums">{index + 1} / {count}</span>
       <Button type="button" variant="outline" size="icon" aria-label="Next gallery image" aria-controls={trackId} disabled={decorative || index === count - 1} onClick={() => go(activeRef.current + 1)}><ChevronRight size={18} /></Button>
     </div>
-    {zoomTarget && createPortal(<Dialog open={Boolean(zoomedImage)} onClose={closeZoom} title={`Image preview${zoomedImage?.alt ? `: ${zoomedImage.alt}` : ""}`} className="h-dvh max-h-none w-screen max-w-none rounded-none border-0 bg-black/95 text-white" contentClassName="flex h-full flex-col p-4 sm:p-6">
+    <ModalPresence>{zoomedImage && zoomTarget && createPortal(<Dialog open={Boolean(zoomedImage)} onClose={closeZoom} title={`Image preview${zoomedImage?.alt ? `: ${zoomedImage.alt}` : ""}`} className="h-dvh max-h-none w-screen max-w-none rounded-none border-0 bg-black/95 text-white" contentClassName="flex h-full flex-col p-4 sm:p-6">
       <div className="min-h-0 flex-1" onKeyDown={(event) => event.stopPropagation()}>
         {zoomedImage && <img src={zoomedImage.src} alt={zoomedImage.alt} className="h-full w-full object-contain" />}
       </div>
-    </Dialog>, zoomTarget)}
+    </Dialog>, zoomTarget)}</ModalPresence>
   </section>;
 }

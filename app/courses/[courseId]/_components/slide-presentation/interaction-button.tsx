@@ -8,6 +8,7 @@ import { InteractionIcon } from "@/components/interaction-icon";
 import { backgroundPaint, parseGradient, solidColor, textPaint } from "@/lib/color";
 import type { ContentBlock } from "@/lib/schemas/block";
 import { SlidePlaybackContext, useSlidePlaybackActive } from "./slide-playback-context";
+import { ModalPresence } from "@/components/ui/modal-presence";
 
 export function InteractionButton({ block, children, available = true, presentation = false, authoring = false, onOpen }: { block: Extract<ContentBlock, { type: "interactionButton" }>; children?: ReactNode; available?: boolean; presentation?: boolean; authoring?: boolean; onOpen?: () => void }) {
   const { data } = block;
@@ -20,7 +21,6 @@ export function InteractionButton({ block, children, available = true, presentat
   const active = useSlidePlaybackActive();
   function close() {
     body.current?.querySelectorAll("audio,video").forEach((media) => (media as HTMLMediaElement).pause());
-    body.current?.closest("dialog")?.close();
     setOpen(false);
   }
   useEffect(() => {
@@ -37,8 +37,8 @@ export function InteractionButton({ block, children, available = true, presentat
         {data.showLabel && <span className="relative z-10 max-w-full shrink-0 truncate text-xs" style={textPaint(data.iconColor)}>{data.label}</span>}
       </span>
     </Button>
-    {open && portalHost && createPortal(<Dialog open onClose={close} title={data.popup.title} className={`interaction-popup-${data.popup.animation} max-w-none bg-white`} style={{ width: data.popup.width + 48, maxWidth: "calc(100dvw - 2rem)" }}>
+    <ModalPresence>{open && portalHost && createPortal(<Dialog open customEntrance onClose={close} title={data.popup.title} className={`interaction-popup-${data.popup.animation} max-w-none bg-white`} style={{ width: data.popup.width + 48, maxWidth: "calc(100dvw - 2rem)" }}>
       <div ref={body}><SlidePlaybackContext.Provider value={true}>{children}</SlidePlaybackContext.Provider></div>
-    </Dialog>, portalHost)}
+    </Dialog>, portalHost)}</ModalPresence>
   </div>;
 }

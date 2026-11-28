@@ -37,15 +37,18 @@ describe("course outline editing", () => {
     vi.useRealTimers();
   });
   const render = () => act(async () => root.render(<EditorClient initialData={initialData} authorName="Author" />));
-  const sourceMenu = () => container.querySelector('[aria-label="Content actions for Introduction"]')!.closest("details")!;
+  const sourceTrigger = () => container.querySelector<HTMLButtonElement>('[aria-label="Content actions for Introduction"]')!;
+  const sourceMenu = () => {
+    act(() => sourceTrigger().click());
+    return document.querySelector<HTMLElement>('[data-ui-popover][data-state="open"][aria-label="Content actions for Introduction"]')!;
+  };
 
   it("duplicates and saves content without routing away from the course outline", async () => {
     await render();
     const menu = sourceMenu();
-    menu.open = true;
     const duplicate = Array.from(menu.querySelectorAll("button")).find((button) => button.textContent === "Duplicate content")!;
     await act(async () => duplicate.click());
-    expect(menu.open).toBe(false);
+    expect(menu.getAttribute("data-state")).toBe("closed");
     expect(container.querySelector('[aria-label="Content actions for Introduction copy"]')).not.toBeNull();
     expect(container.querySelector('[aria-label="Course title"]')).not.toBeNull();
     expect(push).not.toHaveBeenCalled();
@@ -62,11 +65,10 @@ describe("course outline editing", () => {
   it("moves content to another section and saves the updated order without routing", async () => {
     await render();
     const menu = sourceMenu();
-    menu.open = true;
     const select = menu.querySelector<HTMLSelectElement>('[aria-label="Move Introduction to section"]')!;
     expect(Array.from(select.options).map((option) => option.value)).toEqual(["", "b", "c"]);
     await act(async () => { select.value = "b"; select.dispatchEvent(new Event("change", { bubbles: true })); });
-    const movedMenu = sourceMenu();
+    const movedMenu = sourceTrigger();
     expect(movedMenu.closest("section")?.querySelector<HTMLInputElement>('[aria-label="Section title"]')?.value).toBe("Learn");
     expect(movedMenu.closest("section")?.textContent).toContain("Existing lesson");
     const snapshot = JSON.parse(fetchMock.mock.calls[0][1].body);
@@ -121,7 +123,7 @@ describe("course outline editing", () => {
     expect(container.querySelector<HTMLElement>('[aria-label="Canvas toolbar"]')?.parentElement?.className).toContain("flex h-full");
     expect(container.querySelector('[aria-label="Edit slide 1: Slide 1"]')?.getAttribute("aria-current")).toBe("step");
     expect(container.querySelector('[data-slide-canvas] [aria-label="Slide navigation"]')).not.toBeNull();
-    expect(container.querySelector("details summary")?.textContent).not.toContain("Course outline");
+    expect(container.querySelector("details summary")?.textContent ?? "").not.toContain("Course outline");
     expect(container.querySelector<HTMLElement>('[data-slide-canvas]')?.parentElement?.style.aspectRatio).toBe("960 / 540");
     expect(container.querySelector('[aria-label="Select slide"]')).toBeNull();
     expect(container.querySelector('[aria-label="Slide actions"]')).toBeNull();

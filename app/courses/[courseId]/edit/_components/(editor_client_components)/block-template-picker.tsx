@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { blockCategories, blockTemplates, type BlockCategory, type BlockTemplate } from "./(block_template_picker_components)/block-template-data";
 import { TemplatePreview } from "./(block_template_picker_components)/template-preview";
+import { ModalOverlay, ModalPanel, ModalPresence } from "@/components/ui/modal-presence";
 
 const categoryIcons = {
   Text: Type,
@@ -58,7 +59,6 @@ export function BlockTemplatePicker({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [open, onClose, nativeDialog]);
 
-  if (!open) return null;
   const visibleTemplates = blockTemplates.filter(
     (template) => template.category === category && (!template.standardOnly || standardOnly),
   );
@@ -117,20 +117,20 @@ export function BlockTemplatePicker({
             </div>
           </div>
         </div>;
-  if (nativeDialog) return <Dialog open onClose={onClose} title={mode === "replace" ? "Change block template" : "Add a block"} className="max-w-5xl [&>div]:flex [&>div]:h-[min(820px,80dvh)] [&>div]:flex-col">{pickerContent}</Dialog>;
+  if (nativeDialog) return <ModalPresence>{open && <Dialog open onClose={onClose} title={mode === "replace" ? "Change block template" : "Add a block"} className="max-w-5xl [&>div]:flex [&>div]:h-[min(820px,80dvh)] [&>div]:flex-col">{pickerContent}</Dialog>}</ModalPresence>;
 
-  return (
-    <div
-      className="dialog-backdrop-in fixed inset-0 z-[80] grid place-items-center bg-slate-950/35 p-3 sm:p-6"
+  return <ModalPresence>{open && (
+    <ModalOverlay
+      className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/35 p-3 sm:p-6"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <section
+      <ModalPanel
         role="dialog"
         aria-modal="true"
         aria-labelledby="block-picker-title"
-        className="dialog-panel-in flex h-[min(820px,calc(100dvh-24px))] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl sm:h-[min(820px,calc(100dvh-48px))]"
+        className="flex h-[min(820px,calc(100dvh-24px))] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl sm:h-[min(820px,calc(100dvh-48px))]"
       >
         <header className="flex shrink-0 items-center justify-between border-b border-slate-100 px-5 py-4 sm:px-6">
           <div>
@@ -154,7 +154,7 @@ export function BlockTemplatePicker({
           </Button>
         </header>
         {pickerContent}
-      </section>
-    </div>
-  );
+      </ModalPanel>
+    </ModalOverlay>
+  )}</ModalPresence>;
 }

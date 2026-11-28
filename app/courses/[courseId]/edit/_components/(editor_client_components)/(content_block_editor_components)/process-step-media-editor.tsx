@@ -9,6 +9,7 @@ import { processStepMediaSchema, type ContentBlock } from "@/lib/schemas/block";
 import { resolveProcessStepAssets } from "@/lib/editor/process-steps";
 import { MediaLibraryDialog } from "../../media-library-dialog";
 import { ProcessStepImageDialog } from "./process-step-image-dialog";
+import { ModalPresence } from "@/components/ui/modal-presence";
 
 type Step = Extract<ContentBlock, { type: "processSteps" }>["data"]["steps"][number];
 
@@ -34,17 +35,17 @@ export function ProcessStepMediaEditor({ step, index, courseId, onChange }: { st
       <Button variant="outline" size="sm" aria-label={`${attachment ? "Replace" : "Add"} process step ${index + 1} file`} onClick={(event) => { setLibraryHost(event.currentTarget.closest("dialog[open]") ?? document.fullscreenElement ?? document.body); setPicker("attachment"); }}><Paperclip size={14} />{attachment ? "Replace file" : "Add file"}</Button>
       {attachment && <Button variant="ghost" size="icon" aria-label={`Remove process step ${index + 1} file`} onClick={() => onChange({ attachment: undefined, ...(legacyFile ? { media: undefined } : {}) })}><Trash2 size={14} /></Button>}
     </div>
-    {picker && libraryHost && createPortal(<div className="relative z-[10020]" onPointerDown={(event) => event.stopPropagation()}><MediaLibraryDialog courseId={courseId} kind={picker} open onClose={() => setPicker(null)} onSelect={(asset) => {
+    <ModalPresence>{picker && libraryHost && createPortal(<div className="relative z-[10020]" onPointerDown={(event) => event.stopPropagation()}><MediaLibraryDialog courseId={courseId} kind={picker} open onClose={() => setPicker(null)} onSelect={(asset) => {
       const selected = processStepMediaSchema.safeParse({ src: asset.fileUrl, fileName: asset.originalName, mimeType: asset.contentType, size: asset.size });
       if (!selected.success) return;
       if (picker === "attachment") onChange({ attachment: selected.data, ...(legacyFile ? { media: undefined } : {}) });
       else if (selected.data.mimeType.startsWith(`${picker}/`)) onChange({ media: selected.data, ...(legacyFile && !step.attachment ? { attachment: legacyFile } : {}) });
       setPicker(null);
-    }} /></div>, libraryHost)}
-    {generateOpen && libraryHost && createPortal(<div className="relative z-[10020]" onPointerDown={(event) => event.stopPropagation()}><ProcessStepImageDialog key={step.id} step={step} index={index} courseId={courseId} onClose={() => setGenerateOpen(false)} onSelect={(image) => {
+    }} /></div>, libraryHost)}</ModalPresence>
+    <ModalPresence>{generateOpen && libraryHost && createPortal(<div className="relative z-[10020]" onPointerDown={(event) => event.stopPropagation()}><ProcessStepImageDialog key={step.id} step={step} index={index} courseId={courseId} onClose={() => setGenerateOpen(false)} onSelect={(image) => {
       onChange({ media: image, ...(legacyFile && !step.attachment ? { attachment: legacyFile } : {}) });
       setKind("image");
       setGenerateOpen(false);
-    }} /></div>, libraryHost)}
+    }} /></div>, libraryHost)}</ModalPresence>
   </div>;
 }

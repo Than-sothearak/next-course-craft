@@ -26,6 +26,7 @@ import type { Draft } from "./_components/use-editor-draft";
 import { useEditorDraft } from "./_components/use-editor-draft";
 import { useEditorCourseOperations } from "./_components/use-editor-course-operations";
 import { useEditorBlockOperations } from "./_components/use-editor-block-operations";
+import { ModalPresence } from "@/components/ui/modal-presence";
 
 type SaveState = ReturnType<typeof useEditorDraft>["saveState"];
 type CourseOperations = ReturnType<typeof useEditorCourseOperations>;
@@ -588,7 +589,7 @@ export function EditorWorkspace({
           </section>
         </div>
       </div>
-      {templatePicker && (
+      <ModalPresence>{templatePicker && (
         <BlockTemplatePicker
           open
           standardOnly={!slideCourse}
@@ -597,8 +598,8 @@ export function EditorWorkspace({
           onClose={() => setTemplatePicker(null)}
           onSelect={applyTemplate}
         />
-      )}
-      {courseGenerationOpen && <CourseGenerationWizard
+      )}</ModalPresence>
+      <ModalPresence>{courseGenerationOpen && <CourseGenerationWizard
         open={courseGenerationOpen}
         standardMode={!slideCourse}
         imageGenerationModel={imageGenerationModel}
@@ -610,7 +611,7 @@ export function EditorWorkspace({
         runServerMutation={runServerMutation}
         savedSession={generationSession}
         onStarted={onGenerationStarted}
-      />}
+      />}</ModalPresence>
       {activeLesson && activeLesson.lessonType !== "quiz" && (
         <BlockManagerSidebar
           open={blockManagerOpen}

@@ -13,6 +13,7 @@ describe("lesson preview image", () => {
   let originalClose: PropertyDescriptor | undefined;
 
   beforeEach(() => {
+    vi.useFakeTimers();
     Object.defineProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT", {
       configurable: true,
       value: true,
@@ -46,6 +47,7 @@ describe("lesson preview image", () => {
   afterEach(() => {
     act(() => root.unmount());
     container.remove();
+    vi.useRealTimers();
     Reflect.deleteProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT");
     if (originalShowModal) {
       Object.defineProperty(
@@ -92,6 +94,7 @@ describe("lesson preview image", () => {
       'button[aria-label="Close image preview"]',
     );
     act(() => close?.click());
+    act(() => vi.advanceTimersByTime(150));
     expect(dialog?.open).toBe(false);
   });
 
@@ -113,6 +116,7 @@ describe("lesson preview image", () => {
     act(() => dialog.dispatchEvent(new Event("cancel", { bubbles: true, cancelable: true })));
     expect(onCancel).not.toHaveBeenCalled();
     act(() => dialog.querySelector<HTMLButtonElement>('[aria-label="Close image preview"]')!.click());
+    act(() => vi.advanceTimersByTime(150));
     expect(dialog.open).toBe(false);
     expect(onClose).not.toHaveBeenCalled();
   });

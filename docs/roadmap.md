@@ -1,5 +1,9 @@
 # Delivery roadmap
 
+Requested general popup consistency extends the existing dashboard, administration, authoring and preview UI with shared 150 ms fade in/out and retained exit content. Conditional features/portals use ModalPresence; native Dialog and custom modal frames share motion, reduced-motion handling and inactive closing surfaces. Preserve feature handlers, explicit modal dismissal protections, authored learner entrance effects and static export independence. No new workflow or application is introduced.
+
+Requested shared popup consistency extends the completed dashboard and existing authoring UI: course/folder settings, profile, publishing, theme/navigation and movable Content/Block format settings reuse one nonmodal lifecycle for fades, delayed mouse dismissal, keyboard/focus behavior and nested dialogs. Preserve feature handlers and shared settings-section styling; future compact popups reuse the same UI primitives. This adds no application, API or learner/export behavior.
+
 Requested Explore hotspot formatting refinement: render padded `***keyword***` backgrounds and `**bold**` labels/explanations through the existing shared formatter in authoring, preview and static learners. Preserve existing schema/save paths, readable accessible names and marker-free PDF handouts within the current interactive-block slice.
 
 Requested Phase 14 image-model selection: shared enabled dropdowns list supported image-tool models for course covers, lesson images and manual block/step generation. Default uses `OPENAI_IMAGE_MODEL`; explicit independently selected cover/lesson model IDs persist through validated generation sessions and jobs, and manual image requests carry their selection through the existing route. Preserve model-specific native dimensions, generation quality, direct API bytes and existing storage/export behavior; clear stale previews/prepared covers when their model changes.

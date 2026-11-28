@@ -13,6 +13,7 @@ import { dateLabel, Notice, StatusBadge } from "@/app/admin/_components/shared/a
 import { useAdminResource } from "@/app/admin/_components/shared/use-admin-resource";
 import { WorkspaceMutationDialog } from "../../_components/_components/workspace-mutation-dialog";
 import type { WorkspaceAction } from "../../_components/_components/workspace-management-types";
+import { ModalPresence } from "@/components/ui/modal-presence";
 
 export function WorkspaceDetail({ workspaceId }: { workspaceId: string }) {
   const router = useRouter();
@@ -60,6 +61,6 @@ export function WorkspaceDetail({ workspaceId }: { workspaceId: string }) {
       <Table><TableHeader><TableRow><TableHead>Email</TableHead><TableHead>Workspace role</TableHead><TableHead>Expires</TableHead></TableRow></TableHeader><TableBody>{invitations.map((invitation) => <TableRow key={invitation.id}><TableCell>{invitation.email}</TableCell><TableCell><StatusBadge status={invitation.role} /></TableCell><TableCell className="text-xs text-slate-500">{dateLabel(invitation.expiresAt)}</TableCell></TableRow>)}</TableBody></Table>
       {!invitations.length && <p className="p-6 text-sm text-slate-500">No pending invitations.</p>}
     </Card>
-    {selected && <WorkspaceMutationDialog {...selected} onClose={() => setSelected(null)} onSaved={saved} />}
+    <ModalPresence>{selected && <WorkspaceMutationDialog {...selected} onClose={() => setSelected(null)} onSaved={saved} />}</ModalPresence>
   </div>;
 }

@@ -7,6 +7,7 @@ import { Dialog } from "@/components/ui/dialog";
 import type { DashboardNavigation, FolderTreeNode } from "@/lib/dashboard/types";
 import { DashboardSidebar } from "./(dashboard_client_components)/dashboard-sidebar";
 import { useDashboard } from "./dashboard-provider";
+import { ModalPresence } from "@/components/ui/modal-presence";
 
 function expandedFolderIds(nodes: FolderTreeNode[]): Set<string> {
   return new Set(nodes.flatMap((node) => [
@@ -80,8 +81,8 @@ export function DashboardNavigationClient({ initialNavigation, initialError }: {
       <span className="min-w-0 flex-1 truncate text-sm text-slate-500" title={data.workspaceName}>{data.workspaceName}</span>
     </div>
     <DashboardSidebar {...sidebarProps} />
-    {mobileOpen && <Dialog open title="Folders & workspaces" onClose={() => { restoreFocus.current = true; setMobileOpen(false); }} className="max-w-sm">
+    <ModalPresence>{mobileOpen && <Dialog open title="Folders & workspaces" onClose={() => { restoreFocus.current = true; setMobileOpen(false); }} className="max-w-sm">
       <DashboardSidebar {...sidebarProps} mobile onNavigate={() => setMobileOpen(false)} />
-    </Dialog>}
+    </Dialog>}</ModalPresence>
   </>;
 }

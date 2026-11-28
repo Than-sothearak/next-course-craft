@@ -11,6 +11,7 @@ import type { ContentBlock } from "@/lib/schemas/block";
 import { fitSlideMediaFrame, resolveSlideFrame, type SlideSize } from "@/lib/editor/slide-design";
 import { isSlideMediaObject, resolveSlideMedia } from "@/lib/editor/slide-objects";
 import { cropToAspect, croppedDimensions, fullCrop, isSlideVideoFile, moveCrop, resizeCrop, resolveSlideCrop, type CropCorner, type CropRect } from "@/lib/editor/slide-crop";
+import { ModalPresence } from "@/components/ui/modal-presence";
 
 type MediaBlock = Extract<ContentBlock, { type: "image" | "video" }>;
 type Props = { block: MediaBlock; index: number; total: number; area: SlideSize; onChange: (block: ContentBlock) => void };
@@ -92,6 +93,6 @@ export function SlideMediaCropControls({ block, ...props }: Omit<Props, "block">
   return <div className="space-y-2">
     <Button variant="outline" size="sm" className="w-full" onClick={() => setOpen(true)} disabled={!block.data.src}><Crop size={14} aria-hidden="true" />{crop ? "Edit crop" : `Crop ${block.type}`}</Button>
     {crop && <Button variant="ghost" size="sm" className="w-full" onClick={() => { const frame = resolveSlideFrame(block, props.index, props.total, props.area), media = resolveSlideMedia(block); props.onChange({ ...block, slideCrop: undefined, slideFrame: media ? fitSlideMediaFrame(frame, media, { width: frame.width }, props.area) : frame }); }}><RotateCcw size={14} aria-hidden="true" />Reset crop</Button>}
-    {open && <CropDialog key={`${block.id}-${block.data.src}`} {...props} block={block} onClose={() => setOpen(false)} />}
+    <ModalPresence>{open && <CropDialog key={`${block.id}-${block.data.src}`} {...props} block={block} onClose={() => setOpen(false)} />}</ModalPresence>
   </div>;
 }

@@ -1,25 +1,34 @@
 "use client";
 
-import { useEffect, useId, useRef, type CSSProperties, type ReactNode } from "react";
+import { useContext, useEffect, useId, useRef, type CSSProperties, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { Button } from "./button";
 import { cn } from "@/lib/utils";
+import { PopupAncestorsContext } from "./popup-context";
+import { useModalOpen, useModalPresence } from "./modal-presence";
 
-export function Dialog({ open, onClose, title, children, footer, overlay, busy = false, className, style, contentClassName, closeOnOutsideClick = true, closeOnEscape = true, role, descriptionId }: { open: boolean; onClose: () => void; title: string; children: ReactNode; footer?: ReactNode; overlay?: ReactNode; busy?: boolean; className?: string; style?: CSSProperties; contentClassName?: string; closeOnOutsideClick?: boolean; closeOnEscape?: boolean; role?: "dialog" | "alertdialog"; descriptionId?: string }) {
+export function Dialog({ open: requestedOpen, onClose, title, children, footer, overlay, busy = false, className, style, contentClassName, closeOnOutsideClick = true, closeOnEscape = true, role, descriptionId, showHeader = true, customEntrance = false }: { open: boolean; onClose: () => void; title: string; children: ReactNode; footer?: ReactNode; overlay?: ReactNode; busy?: boolean; className?: string; style?: CSSProperties; contentClassName?: string; closeOnOutsideClick?: boolean; closeOnEscape?: boolean; role?: "dialog" | "alertdialog"; descriptionId?: string; showHeader?: boolean; customEntrance?: boolean }) {
+  const open = useModalOpen(requestedOpen);
+  const present = useModalPresence(open);
   const ref = useRef<HTMLDialogElement>(null);
+  const popupAncestors = useContext(PopupAncestorsContext);
   const titleId = useId();
   useEffect(() => {
     const dialog = ref.current;
     if (!dialog) return;
     if (open && !dialog.open) dialog.showModal();
-    else if (!open && dialog.open) dialog.close();
-  }, [open]);
+    else if (!present && dialog.open) dialog.close();
+  }, [open, present]);
+  useEffect(() => {
+    const dialog = ref.current;
+    return () => { if (dialog?.open) dialog.close(); };
+  }, []);
   const hasOverlay = Boolean(overlay);
   useEffect(() => {
     if (hasOverlay && ref.current) ref.current.scrollTop = 0;
   }, [hasOverlay]);
-  return <dialog ref={ref} role={role} aria-labelledby={titleId} aria-describedby={descriptionId} style={style} onCancel={(event) => { event.preventDefault(); event.stopPropagation(); if (!busy && closeOnEscape) onClose(); }} onClick={(event) => { if (!busy && closeOnOutsideClick && event.target === event.currentTarget) onClose(); }} className={cn("fixed inset-0 m-auto max-h-[90dvh] w-[calc(100%_-_2rem)] max-w-xl overflow-y-auto rounded-2xl border border-slate-200 p-0 text-slate-900 shadow-2xl backdrop:bg-slate-950/40", hasOverlay && "overflow-hidden", className)}>
-    <div className={cn("p-6", contentClassName)}><div className="mb-5 flex shrink-0 items-center justify-between gap-4"><h2 id={titleId} className="text-xl font-semibold">{title}</h2><Button variant="ghost" size="icon" disabled={busy} onClick={onClose} aria-label="Close dialog"><X size={18} /></Button></div>{children}{footer && <div className="mt-6 flex justify-end gap-3">{footer}</div>}</div>
+  return <dialog ref={ref} data-modal-panel data-state={open ? "open" : "closed"} data-custom-entrance={customEntrance || undefined} aria-hidden={!open || undefined} inert={!open} data-popup-ancestors={popupAncestors.join(" ") || undefined} role={role} aria-labelledby={titleId} aria-describedby={descriptionId} style={style} onClose={(event) => event.stopPropagation()} onCancel={(event) => { event.preventDefault(); event.stopPropagation(); if (!busy && closeOnEscape) onClose(); }} onClick={(event) => { if (!busy && closeOnOutsideClick && event.target === event.currentTarget) onClose(); }} className={cn("ui-native-dialog fixed inset-0 m-auto max-h-[90dvh] w-[calc(100%_-_2rem)] max-w-xl overflow-y-auto rounded-2xl border border-slate-200 p-0 text-slate-900 shadow-2xl backdrop:bg-slate-950/40", hasOverlay && "overflow-hidden", className)}>
+    <div className={cn("p-6", contentClassName)}>{showHeader ? <div className="mb-5 flex shrink-0 items-center justify-between gap-4"><h2 id={titleId} className="text-xl font-semibold">{title}</h2><Button variant="ghost" size="icon" disabled={busy} onClick={onClose} aria-label="Close dialog"><X size={18} /></Button></div> : <h2 id={titleId} className="sr-only">{title}</h2>}{children}{footer && <div className="mt-6 flex justify-end gap-3">{footer}</div>}</div>
     {overlay}
   </dialog>;
 }

@@ -1,8 +1,8 @@
 "use client";
 
 import { Check, PanelLeftOpen } from "lucide-react";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Popover } from "@/components/ui/popover";
 import {
   courseNavigationModeOptions,
   type CourseNavigationMode,
@@ -18,16 +18,10 @@ export function CourseNavigationSettings({
   compact?: boolean;
 }) {
   return (
-    <details className="relative">
-      <summary
-        aria-label="Navigation and progress settings"
-        title="Navigation & Progress"
-        className={compact ? cn(buttonVariants({ variant: "ghost", size: "sm" }), "size-8 min-h-0 cursor-pointer list-none rounded-md p-0 text-xs text-slate-600 [&::-webkit-details-marker]:hidden") : "flex min-h-9 cursor-pointer list-none items-center gap-2 whitespace-nowrap rounded-md border border-slate-300 bg-white px-2 text-xs font-medium text-slate-700 shadow-sm hover:bg-slate-50 sm:px-3 sm:text-sm [&::-webkit-details-marker]:hidden"}
-      >
-        <PanelLeftOpen size={16} aria-hidden="true" />
-        <span className={compact ? "sr-only" : undefined}>Navigation &amp; Progress</span>
-      </summary>
-      <div className={compact ? "fixed inset-x-3 top-20 z-[60] mt-2 max-h-[calc(100dvh-100px)] overflow-y-auto rounded-xl border border-slate-200 bg-white p-4 text-slate-900 shadow-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:w-[400px]" : "absolute right-0 top-full z-[60] mt-2 w-[min(400px,calc(100vw-2rem))] rounded-xl border border-slate-200 bg-white p-4 text-slate-900 shadow-xl"}>
+    <Popover title="Navigation & Progress" triggerLabel="Navigation and progress settings" placement="bottom" variant="panel"
+      trigger={<><PanelLeftOpen size={16} aria-hidden="true" /><span className={compact ? "sr-only" : undefined}>Navigation &amp; Progress</span></>}
+      triggerProps={{ title: "Navigation & Progress", variant: compact ? "ghost" : "outline", size: "sm", className: compact ? "size-8 min-h-0 rounded-md p-0 text-xs text-slate-600" : "h-auto w-auto min-h-9 px-2 text-xs text-slate-700 sm:px-3 sm:text-sm" }}
+      panelClassName="w-[400px]">
         <div>
           <h2 className="text-sm font-semibold">Navigation &amp; Progress</h2>
           <p className="mt-1 text-xs leading-relaxed text-slate-500">
@@ -72,7 +66,6 @@ export function CourseNavigationSettings({
         <p className="mt-3 border-t border-slate-100 pt-3 text-[11px] text-slate-500">
           Changes save automatically and apply to course previews and exports.
         </p>
-      </div>
-    </details>
+    </Popover>
   );
 }

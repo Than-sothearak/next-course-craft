@@ -150,6 +150,7 @@ describe("dashboard loading and shared controls", () => {
     const child = dialog.querySelector<HTMLAnchorElement>('a[title="Nested resources"]')!;
     expect(child.getAttribute("href")).toBe("/dashboard?folderId=nested-folder");
     await act(async () => child.click());
+    act(() => vi.advanceTimersByTime(150));
     expect(container.querySelector("dialog[open]")).toBeNull();
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
     expect(linkNavigation.navigate).toHaveBeenCalledOnce();
@@ -159,6 +160,7 @@ describe("dashboard loading and shared controls", () => {
     render();
     act(() => container.querySelector<HTMLButtonElement>('[aria-label="Open folders and workspaces"]')!.click());
     act(() => container.querySelector<HTMLDialogElement>("dialog[open]")!.querySelector<HTMLButtonElement>('[aria-label="Create folder"]')!.click());
+    act(() => vi.advanceTimersByTime(150));
     expect(container.querySelector("dialog[open]")).toBeNull();
     expect(container.querySelector('[role="dialog"] h2')?.textContent).toBe("Create a folder");
   });
@@ -169,6 +171,7 @@ describe("dashboard loading and shared controls", () => {
     const select = container.querySelector<HTMLDialogElement>("dialog[open]")!.querySelector<HTMLSelectElement>('[aria-label="Switch workspace"]')!;
     act(() => { select.value = "workspace-1"; select.dispatchEvent(new Event("change", { bubbles: true })); });
     expect(router.push).toHaveBeenCalledWith("/dashboard?workspaceId=workspace-1&q=design&status=published");
+    act(() => vi.advanceTimersByTime(150));
     expect(container.querySelector("dialog[open]")).toBeNull();
   });
 
@@ -188,6 +191,7 @@ describe("dashboard loading and shared controls", () => {
     act(() => container.querySelector<HTMLButtonElement>('[aria-label="Open folders and workspaces"]')!.click());
     expect(container.querySelector("dialog[open]")).not.toBeNull();
     act(() => { media.matches = true; resize!(); });
+    act(() => vi.advanceTimersByTime(150));
     expect(container.querySelector("dialog[open]")).toBeNull();
   });
 
@@ -214,6 +218,7 @@ describe("dashboard loading and shared controls", () => {
     });
     expect(fetchMock).toHaveBeenCalledExactlyOnceWith("/api/workspaces", expect.objectContaining({ method: "POST", body: JSON.stringify({ name: "New team" }) }));
     expect(router.push).toHaveBeenCalledWith("/dashboard?workspaceId=workspace-2");
+    act(() => vi.advanceTimersByTime(150));
     expect(container.querySelector('[role="dialog"]')).toBeNull();
   });
 
@@ -306,6 +311,7 @@ describe("dashboard loading and shared controls", () => {
     });
     expect(fetchMock).toHaveBeenNthCalledWith(1, "/api/folders", expect.objectContaining({ method: "POST", body: JSON.stringify({ name: "New folder", parentId: null, workspaceId: null }) }));
     expect(container.querySelector('[role="tree"]')?.textContent).toContain("New folder");
+    act(() => vi.advanceTimersByTime(150));
     expect(container.querySelector('[role="dialog"]')).toBeNull();
   });
 

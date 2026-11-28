@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import type { DashboardWorkspace } from "@/lib/dashboard/types";
+import { ModalOverlay, ModalPanel, ModalPresence } from "@/components/ui/modal-presence";
 
 type WorkspaceRoster = {
   workspace: { id: string; name: string; role: DashboardWorkspace["role"] };
@@ -65,7 +66,6 @@ export function WorkspaceManagerDialog({
     return () => controller.abort();
   }, [open, workspaceId, role]);
 
-  if (!open) return null;
 
   async function createWorkspace(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -165,9 +165,9 @@ export function WorkspaceManagerDialog({
   }
 
   const canManage = role === "owner" || role === "admin";
-  return (
-    <div className="dialog-backdrop-in fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/35 p-4 backdrop-blur-[2px]" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }} onKeyDown={(event) => { if (event.key === "Escape") onClose(); }}>
-      <section role="dialog" aria-modal="true" aria-labelledby="workspace-dialog-title" className="dialog-panel-in my-6 max-h-[calc(100vh-3rem)] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-7">
+  return <ModalPresence>{open && (
+    <ModalOverlay className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/35 p-4 backdrop-blur-[2px]" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }} onKeyDown={(event) => { if (event.key === "Escape") onClose(); }}>
+      <ModalPanel role="dialog" aria-modal="true" aria-labelledby="workspace-dialog-title" className="my-6 max-h-[calc(100vh-3rem)] w-full max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-7">
         <div className="mb-6 flex items-start justify-between gap-4">
           <div>
             <p className="text-sm font-medium text-indigo-700">Team collaboration</p>
@@ -209,7 +209,7 @@ export function WorkspaceManagerDialog({
             <div className="flex justify-end border-t border-slate-100 pt-4"><Button type="button" variant="outline" onClick={onClose}>Done</Button></div>
           </div>
         )}
-      </section>
-    </div>
-  );
+      </ModalPanel>
+    </ModalOverlay>
+  )}</ModalPresence>;
 }

@@ -10,7 +10,7 @@ const fetchMock = vi.fn();
 const clipboard = vi.fn();
 let container: HTMLDivElement;
 let root: Root;
-const button = (text: string) => [...container.querySelectorAll<HTMLButtonElement>("button")].find((node) => node.textContent === text)!;
+const button = (text: string) => [...document.querySelectorAll<HTMLButtonElement>("button")].find((node) => node.textContent === text)!;
 const json = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { "content-type": "application/json" } });
 
 beforeEach(() => {

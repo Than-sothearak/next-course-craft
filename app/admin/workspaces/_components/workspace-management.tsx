@@ -12,6 +12,7 @@ import { dateLabel, Notice, Pagination } from "@/app/admin/_components/shared/ad
 import { useAdminResource } from "@/app/admin/_components/shared/use-admin-resource";
 import { WorkspaceMutationDialog } from "./_components/workspace-mutation-dialog";
 import type { WorkspaceAction } from "./_components/workspace-management-types";
+import { ModalPresence } from "@/components/ui/modal-presence";
 
 export function WorkspaceManagement() {
   const [filters, setFilters] = useState({ page: 1, q: "" });
@@ -58,6 +59,6 @@ export function WorkspaceManagement() {
         {resource.data && <Pagination {...resource.data} onPage={(page) => setFilters((old) => ({ ...old, page }))} />}
       </>}
     </Card>
-    {selected && <WorkspaceMutationDialog {...selected} onClose={() => setSelected(null)} onSaved={saved} />}
+    <ModalPresence>{selected && <WorkspaceMutationDialog {...selected} onClose={() => setSelected(null)} onSaved={saved} />}</ModalPresence>
   </div>;
 }

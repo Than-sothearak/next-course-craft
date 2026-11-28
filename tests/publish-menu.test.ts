@@ -2,7 +2,7 @@
 
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PublishMenu, receiveExport } from "@/components/publish-menu";
 import { createEmbeddedMediaTable, replaceExportMediaReferences } from "@/lib/export/embedded-media";
 
@@ -11,6 +11,7 @@ describe("publish format menu", () => {
   let root: Root;
 
   beforeEach(() => {
+    vi.useFakeTimers();
     Object.defineProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT", {
       configurable: true,
       value: true,
@@ -23,6 +24,7 @@ describe("publish format menu", () => {
   afterEach(() => {
     act(() => root.unmount());
     container.remove();
+    vi.useRealTimers();
     Reflect.deleteProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT");
   });
 
@@ -33,7 +35,7 @@ describe("publish format menu", () => {
 
     act(() => container.querySelector<HTMLButtonElement>("button")?.click());
 
-    const menu = container.querySelector('[role="menu"]');
+    const menu = document.querySelector('[role="menu"][data-state="open"]');
     expect(menu).not.toBeNull();
     expect([...menu!.querySelectorAll('[role="menuitem"]')].map((item) => item.textContent)).toEqual([
       "HTML",
@@ -64,23 +66,28 @@ describe("publish format menu", () => {
     act(() => root.render(createElement(PublishMenu, { courseId: "course-1", title: "Sample course", openUpward: true, closeOnMouseLeave: true })));
     const trigger = container.querySelector<HTMLButtonElement>("button")!;
     act(() => trigger.click());
-    const menu = container.querySelector<HTMLElement>('[role="menu"]')!;
+    const menu = document.querySelector<HTMLElement>('[role="menu"][data-state="open"]')!;
     const format = menu.querySelector("button")!;
     act(() => trigger.dispatchEvent(Object.assign(new MouseEvent("pointerout", { bubbles: true, relatedTarget: format }), { pointerType: "mouse" })));
-    expect(container.querySelector('[role="menu"]')).toBe(menu);
+    expect(document.querySelector('[role="menu"][data-state="open"]')).toBe(menu);
     act(() => format.dispatchEvent(Object.assign(new MouseEvent("pointerout", { bubbles: true, relatedTarget: document.body }), { pointerType: "mouse" })));
-    expect(container.querySelector('[role="menu"]')).toBeNull();
+    act(() => vi.advanceTimersByTime(250));
+    expect(document.querySelector('[role="menu"][data-state="open"]')).toBeNull();
+    expect(menu.getAttribute("aria-hidden")).toBe("true");
+    act(() => vi.advanceTimersByTime(150));
+    expect(menu.isConnected).toBe(false);
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
   });
 
-  it("preserves click dismissal for publishing menus outside course cards", () => {
-    act(() => root.render(createElement(PublishMenu, { courseId: "course-1", title: "Sample course" })));
+  it("supports explicit opt-out from mouse dismissal", () => {
+    act(() => root.render(createElement(PublishMenu, { courseId: "course-1", title: "Sample course", closeOnMouseLeave: false })));
     const trigger = container.querySelector<HTMLButtonElement>("button")!;
     act(() => trigger.click());
     act(() => trigger.dispatchEvent(Object.assign(new MouseEvent("pointerout", { bubbles: true, relatedTarget: document.body }), { pointerType: "mouse" })));
-    expect(container.querySelector('[role="menu"]')).not.toBeNull();
+    act(() => vi.advanceTimersByTime(500));
+    expect(document.querySelector('[role="menu"][data-state="open"]')).not.toBeNull();
     act(() => trigger.click());
-    expect(container.querySelector('[role="menu"]')).toBeNull();
+    expect(document.querySelector('[role="menu"][data-state="open"]')).toBeNull();
   });
 
   it("keeps card formats open after a touch pointer leaves", () => {
@@ -88,10 +95,11 @@ describe("publish format menu", () => {
     const trigger = container.querySelector<HTMLButtonElement>("button")!;
     act(() => trigger.click());
     act(() => trigger.dispatchEvent(Object.assign(new MouseEvent("pointerout", { bubbles: true, relatedTarget: document.body }), { pointerType: "touch" })));
-    expect(container.querySelector('[role="menu"]')).not.toBeNull();
+    expect(document.querySelector('[role="menu"][data-state="open"]')).not.toBeNull();
   });
 
   it("receives streamed export progress and the final binary file", async () => {
+    vi.useRealTimers();
     const filename = "My Presentation មេរៀន-scorm-1.2.zip";
     const header = new TextEncoder().encode(`${JSON.stringify({ type: "progress", stage: "Packaging", value: 70 })}\n${JSON.stringify({ type: "file", filename, size: 3 })}\n`);
     const body = new Uint8Array(header.length + 3);

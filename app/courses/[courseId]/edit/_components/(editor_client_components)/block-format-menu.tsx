@@ -1,6 +1,6 @@
 "use client";
 
-import { useContext, useEffect, useRef, useState } from "react";
+import { useContext, useRef, useState } from "react";
 import { Maximize, Paintbrush, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ColorPicker } from "@/components/ui/color-picker";
@@ -36,34 +36,6 @@ export function BlockFormatMenu({ block, onChange }: { block: ContentBlock; onCh
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelId = `block-format-${block.id}`;
 
-  useEffect(() => {
-    if (!open) return;
-
-    function closeOnOutsidePointerDown(event: PointerEvent) {
-      const target = event.target;
-      if (
-        !(target instanceof Node) ||
-        triggerRef.current?.contains(target) ||
-        document.getElementById(panelId)?.contains(target)
-      )
-        return;
-      setOpen(false);
-    }
-
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key !== "Escape") return;
-      setOpen(false);
-      triggerRef.current?.focus();
-    }
-
-    document.addEventListener("pointerdown", closeOnOutsidePointerDown);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("pointerdown", closeOnOutsidePointerDown);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [open, panelId]);
-
   return <>
     <Button
       ref={triggerRef}
@@ -84,8 +56,10 @@ export function BlockFormatMenu({ block, onChange }: { block: ContentBlock; onCh
     >
       <Settings2 size={15} />
     </Button>
-    {open && (
       <DraggableSettingsPanel
+        open={open}
+        onOpenChange={setOpen}
+        triggerRef={triggerRef}
         id={panelId}
         title="Block format settings"
         settingsLabel="Block format"
@@ -126,6 +100,5 @@ export function BlockFormatMenu({ block, onChange }: { block: ContentBlock; onCh
         </SettingsSection>
         </SettingsPanelContent>
       </DraggableSettingsPanel>
-    )}
   </>;
 }

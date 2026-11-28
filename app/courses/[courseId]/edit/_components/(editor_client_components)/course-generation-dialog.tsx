@@ -21,6 +21,7 @@ import { advanceSourceGenerationJobUntil, isMissingGenerationJob, postCourseGene
 import { GenerationPromptInput, starterGenerationPrompt } from "./(course_generation_dialog_components)/generation-prompt-input";
 
 import { GenerationWaitingPanel } from "./(course_generation_dialog_components)/generation-waiting-panel";
+import { ModalOverlay, ModalPanel, ModalPresence } from "@/components/ui/modal-presence";
 
 const maximumSourceBytes = 12 * 1024 * 1024;
 type ApplyMode = "append" | "replace";
@@ -373,7 +374,6 @@ export function CourseGenerationDialog({
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [open, generating, cancelling, onClose]);
 
-  if (!open) return null;
 
   function clearGenerationJob(jobId: string) {
     if (window.localStorage.getItem(`course-generation:${courseId}`) === jobId) window.localStorage.removeItem(`course-generation:${courseId}`);
@@ -642,18 +642,18 @@ export function CourseGenerationDialog({
     onClose();
   }
 
-  return (
-    <div
-      className="dialog-backdrop-in fixed inset-0 z-[80] grid place-items-center bg-slate-950/40 p-3 sm:p-6"
+  return <ModalPresence>{open && (
+    <ModalOverlay
+      className="fixed inset-0 z-[80] grid place-items-center bg-slate-950/40 p-3 sm:p-6"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget && !generating && !cancelling) closeDialog();
       }}
     >
-      <section
+      <ModalPanel
         role="dialog"
         aria-modal="true"
         aria-labelledby="course-generation-title"
-        className="dialog-panel-in flex max-h-[min(900px,calc(100dvh-24px))] w-full max-w-4xl flex-col overflow-clip rounded-2xl border border-slate-200 bg-white shadow-2xl sm:max-h-[min(900px,calc(100dvh-48px))]"
+        className="flex max-h-[min(900px,calc(100dvh-24px))] w-full max-w-4xl flex-col overflow-clip rounded-2xl border border-slate-200 bg-white shadow-2xl sm:max-h-[min(900px,calc(100dvh-48px))]"
       >
         <header className="flex shrink-0 flex-col items-start justify-between gap-3 border-b border-slate-100 px-5 py-4 sm:flex-row sm:gap-4 sm:px-6">
           <div>
@@ -1093,7 +1093,7 @@ export function CourseGenerationDialog({
             )}
           </aside>
         </div>
-      </section>
-    </div>
-  );
+      </ModalPanel>
+    </ModalOverlay>
+  )}</ModalPresence>;
 }

@@ -17,6 +17,7 @@ import type { useEditorDraft } from "../_components/use-editor-draft";
 import { GenerationPromptInput, starterGenerationPrompt } from "./(course_generation_dialog_components)/generation-prompt-input";
 import { sessionRequest, type SavedSessionResponse } from "./generation-session-request";
 import { advanceSourceGenerationJobUntil, postCourseGenerationForm, postSourceGenerationAction, responseError } from "./(course_generation_dialog_components)/generation-job-request";
+import { ModalPresence } from "@/components/ui/modal-presence";
 
 const steps = ["Source material", "Course details", "Course outline", "Lesson drafts"];
 const outlineProgressDurationMs = 25_000;
@@ -354,11 +355,11 @@ export function CourseGenerationWizard({ open, onClose, courseId, courseTitle, c
       <Field label="Describe the visual treatment"><Textarea value={customImageStyleDraft} maxLength={240} rows={4} placeholder="e.g. warm editorial paper-cut illustration" onChange={(event) => setCustomImageStyleDraft(event.target.value)} /></Field>
       <p className="mt-2 text-xs text-slate-500">This direction is used for generated lesson images and the course cover.</p>
     </Dialog>
-    {closeConfirmationOpen && <Dialog open role="alertdialog" title="Close course outline?" descriptionId={closeDescriptionId} onClose={() => setCloseConfirmationOpen(false)} closeOnOutsideClick={false} footer={<>
+    <ModalPresence>{closeConfirmationOpen && <Dialog open role="alertdialog" title="Close course outline?" descriptionId={closeDescriptionId} onClose={() => setCloseConfirmationOpen(false)} closeOnOutsideClick={false} footer={<>
       <Button autoFocus onClick={() => setCloseConfirmationOpen(false)}>Continue editing</Button>
       <Button variant="destructive" onClick={() => { setCloseConfirmationOpen(false); onClose(); }}>Close</Button>
     </>}>
       <p id={closeDescriptionId} className="text-sm text-slate-600">Unsaved changes to this outline will be lost if you close. Would you like to close or continue editing?</p>
-    </Dialog>}
+    </Dialog>}</ModalPresence>
   </>;
 }

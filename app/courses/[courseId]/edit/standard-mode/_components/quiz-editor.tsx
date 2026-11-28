@@ -21,6 +21,7 @@ import { Check, ImagePlus, MoreHorizontal, Plus, Trash2 } from "lucide-react";
 import type { QuizQuestion } from "@/lib/schemas/quiz";
 import { createQuizChoice, createQuizQuestion } from "@/lib/editor/quiz-question";
 import { Button } from "@/components/ui/button";
+import { Popover } from "@/components/ui/popover";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
@@ -268,24 +269,19 @@ export function QuizEditor({
                     >
                       {question.prompt.trim() || `Question ${index + 1}`}
                     </button>
-                    <details className="relative self-center">
-                      <summary
-                        aria-label={`Question ${index + 1} actions`}
-                        className="grid size-8 cursor-pointer list-none place-items-center text-slate-500 hover:bg-slate-200 [&::-webkit-details-marker]:hidden"
-                      >
-                        <MoreHorizontal size={15} />
-                      </summary>
-                      <div className="absolute right-1 top-full z-30 w-36 rounded-md border border-slate-200 bg-white p-1 shadow-lg">
-                        <button
-                          type="button"
+                    <div className="self-center">
+                      <Popover title={`Question ${index + 1} actions`} triggerLabel={`Question ${index + 1} actions`} trigger={<MoreHorizontal size={15} />} variant="menu" placement="bottom" panelClassName="w-36" triggerProps={{ className: "size-8 text-slate-500 hover:bg-slate-200" }}>
+                        <Button
+                          variant="ghost"
+                          role="menuitem"
                           onClick={() => deleteQuestion(question.id)}
-                          className="cursor-pointer flex w-full items-center gap-2 rounded px-2 py-2 text-left text-xs text-rose-700 hover:bg-rose-50"
+                          className="h-auto min-h-0 w-full justify-start rounded px-2 py-2 text-left text-xs text-rose-700 hover:bg-rose-50"
                         >
                           <Trash2 size={13} />
                           Delete question
-                        </button>
-                      </div>
-                    </details>
+                        </Button>
+                      </Popover>
+                    </div>
                   </div>
                 </SortableItem>
               ))}

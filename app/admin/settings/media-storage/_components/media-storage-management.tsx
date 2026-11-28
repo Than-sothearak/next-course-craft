@@ -15,6 +15,7 @@ import { Notice } from "@/app/admin/_components/shared/admin-common";
 import { useAdminResource } from "@/app/admin/_components/shared/use-admin-resource";
 import { ServerFolderDialog } from "./_components/server-folder-dialog";
 import { formatStorageBytes } from "./_components/format-storage-bytes";
+import { ModalPresence } from "@/components/ui/modal-presence";
 
 const endpoint = "/api/admin/settings/media-storage";
 type Provider = MediaStorageSettings["provider"];
@@ -111,6 +112,6 @@ export function MediaStorageManagement() {
       <p className="text-sm leading-6 text-slate-500">Saving tests the selected provider again before activation. Switching providers does not move or delete files.</p>
       <div className="flex flex-col gap-3 sm:flex-row sm:justify-end"><Button variant="outline" disabled={busy !== null} onClick={() => void submit("test")}>{busy === "test" && <LoaderCircle size={16} className="animate-spin" />}{busy === "test" ? "Testing…" : "Test Connection"}</Button><Button disabled={busy !== null} onClick={() => void submit("save")}>{busy === "save" && <LoaderCircle size={16} className="animate-spin" />}{busy === "save" ? "Testing and saving…" : "Save Settings"}</Button></div>
     </>}
-    {folderDialogOpen && <ServerFolderDialog initialPath={directory} onClose={() => setFolderDialogOpen(false)} onSelect={(path) => { setDirectorySelection(path); setTest(null); setNotice(null); setFolderDialogOpen(false); }} />}
+    <ModalPresence>{folderDialogOpen && <ServerFolderDialog initialPath={directory} onClose={() => setFolderDialogOpen(false)} onSelect={(path) => { setDirectorySelection(path); setTest(null); setNotice(null); setFolderDialogOpen(false); }} />}</ModalPresence>
   </div>;
 }

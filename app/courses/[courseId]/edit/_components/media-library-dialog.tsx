@@ -1,14 +1,16 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useContext, useEffect, useId, useRef, useState } from "react";
 import { FileDown, ImagePlus, LoaderCircle, Music2, RefreshCw, Search, Video, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { PopupAncestorsContext } from "@/components/ui/popup-context";
 import { audioUploadContentType } from "@/lib/media/audio-upload";
 import { mediaStorageUploadError } from "@/lib/media/messages";
 import { filterAndSortMedia, matchesMediaKind, mediaFileTypeLabel, mediaLibrarySortOptions, type MediaLibraryAsset, type MediaLibraryKind, type MediaLibrarySort } from "@/lib/media/library";
 import { MediaLibraryAssetCard } from "./media-library-asset-card";
+import { ModalOverlay, ModalPanel, ModalPresence, useModalOpen } from "@/components/ui/modal-presence";
 
 export type { MediaLibraryAsset } from "@/lib/media/library";
 
@@ -32,10 +34,12 @@ type MediaLibraryDialogProps = {
 };
 
 export function MediaLibraryDialog(props: MediaLibraryDialogProps) {
-  return props.open ? <OpenMediaLibrary key={`${props.courseId}:${props.kind}`} {...props} /> : null;
+  return <ModalPresence>{props.open && <OpenMediaLibrary key={`${props.courseId}:${props.kind}`} {...props} />}</ModalPresence>;
 }
 
 function OpenMediaLibrary({ courseId, kind, onClose, onSelect, embedded = false }: MediaLibraryDialogProps) {
+  const visible = useModalOpen();
+  const popupAncestors = useContext(PopupAncestorsContext);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const libraryRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
@@ -57,6 +61,10 @@ function OpenMediaLibrary({ courseId, kind, onClose, onSelect, embedded = false 
   function pausePreviews() {
     libraryRef.current?.querySelectorAll<HTMLMediaElement>("audio, video").forEach(player => { if (!player.paused) player.pause(); });
   }
+
+  useEffect(() => {
+    if (!visible) pausePreviews();
+  }, [visible]);
 
   function closeLibrary() {
     pausePreviews();
@@ -225,10 +233,11 @@ function OpenMediaLibrary({ courseId, kind, onClose, onSelect, embedded = false 
   const kindLabel = kind === "audio" ? "audio file" : kind;
 
   return (
-    <div
+    <ModalOverlay
       ref={libraryRef}
       data-media-library
-      className={embedded ? "flex min-h-0 flex-1 flex-col" : "dialog-backdrop-in fixed inset-0 z-[10020] flex items-center justify-center bg-slate-950/45 p-3 sm:p-6"}
+      data-popup-ancestors={popupAncestors.join(" ") || undefined}
+      className={embedded ? "flex min-h-0 flex-1 flex-col" : "fixed inset-0 z-[10020] flex items-center justify-center bg-slate-950/45 p-3 sm:p-6"}
       onClick={(event) => {
         if (!embedded && event.target === event.currentTarget) { event.stopPropagation(); closeLibrary(); }
       }}
@@ -247,12 +256,12 @@ function OpenMediaLibrary({ courseId, kind, onClose, onSelect, embedded = false 
         else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
       }}
     >
-      <section
+      <ModalPanel
         role={embedded ? undefined : "dialog"}
         aria-modal={embedded ? undefined : true}
         aria-label={embedded ? "Media library" : undefined}
         aria-labelledby={embedded ? undefined : titleId}
-        className={embedded ? "@container/media-library flex min-h-0 flex-1 flex-col overflow-hidden bg-white" : "@container/media-library dialog-panel-in flex h-[min(800px,calc(100dvh-24px))] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl sm:h-[min(800px,calc(100dvh-48px))]"}
+        className={embedded ? "@container/media-library flex min-h-0 flex-1 flex-col overflow-hidden bg-white" : "@container/media-library flex h-[min(800px,calc(100dvh-24px))] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl sm:h-[min(800px,calc(100dvh-48px))]"}
       >
         {!embedded && <header className="flex shrink-0 items-center justify-between border-b border-slate-100 px-5 py-4 sm:px-6">
           <div>
@@ -394,7 +403,7 @@ function OpenMediaLibrary({ courseId, kind, onClose, onSelect, embedded = false 
             Close
           </Button>
         </footer>}
-      </section>
-    </div>
+      </ModalPanel>
+    </ModalOverlay>
   );
 }

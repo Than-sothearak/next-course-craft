@@ -7,6 +7,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { guidanceStorageKey, guidanceWasSeen, rememberGuidance } from "@/lib/editor/slide-guidance";
 import { SlideCoverSurface } from "@/app/courses/[courseId]/_components/slide-presentation/slide-cover-surface";
 import { useSlidePresentationContext } from "./slide-presentation-context";
+import { ModalPresence } from "@/components/ui/modal-presence";
 
 export function SlideCoverRuntime({ visible, lessonId, ...props }: ComponentProps<typeof SlideCoverSurface> & { visible: boolean; lessonId: string }) {
   const presentation = useSlidePresentationContext();
@@ -42,6 +43,6 @@ export function SlideCoverRuntime({ visible, lessonId, ...props }: ComponentProp
   }
   return <>
     <SlideCoverSurface {...props} onStart={props.onStart ? start : undefined} instructionsControl={instructions?.audioSrc ? <Button variant="ghost" size="sm" className="min-h-8 bg-black/20 text-xs text-white hover:bg-black/30 hover:text-white" onClick={() => audioPlaying ? presentation?.pauseInstructionAudio() : play?.(instructions.audioSrc)}><Volume2 size={14} aria-hidden="true" />{audioPlaying ? "Pause instructions" : "Listen to instructions"}</Button> : undefined} />
-    {instructions?.noticeEnabled && <Dialog open={visible && noticeOpen} onClose={dismiss} title={instructions.noticeTitle} footer={<>{instructions.audioSrc && <Button variant="outline" onClick={() => audioPlaying ? presentation?.pauseInstructionAudio() : play?.(instructions.audioSrc)}>{audioPlaying ? "Pause instructions" : "Play instructions"}</Button>}<Button onClick={dismiss}>{pendingStart ? "Start course" : "Got it"}</Button></>}><p className="whitespace-pre-wrap text-sm leading-6">{instructions.noticeText}</p></Dialog>}
+    <ModalPresence>{instructions?.noticeEnabled && <Dialog open={visible && noticeOpen} onClose={dismiss} title={instructions.noticeTitle} footer={<>{instructions.audioSrc && <Button variant="outline" onClick={() => audioPlaying ? presentation?.pauseInstructionAudio() : play?.(instructions.audioSrc)}>{audioPlaying ? "Pause instructions" : "Play instructions"}</Button>}<Button onClick={dismiss}>{pendingStart ? "Start course" : "Got it"}</Button></>}><p className="whitespace-pre-wrap text-sm leading-6">{instructions.noticeText}</p></Dialog>}</ModalPresence>
   </>;
 }

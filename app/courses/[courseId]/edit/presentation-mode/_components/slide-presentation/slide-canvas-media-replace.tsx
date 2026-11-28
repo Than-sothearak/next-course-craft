@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import type { ContentBlock } from "@/lib/schemas/block";
 import { SlideMediaPicker, slideMediaKind } from "./slide-media-picker";
+import { ModalPresence } from "@/components/ui/modal-presence";
 
 export function SlideCanvasMediaReplace({ block, courseId, onChange }: {
   block: ContentBlock | null | undefined;
@@ -66,8 +67,8 @@ function CanvasMediaReplace({ block, courseId, onChange }: { block: ContentBlock
 
   return <div ref={frameRef} data-slide-canvas-media-tools className="pointer-events-none absolute inset-0 z-20" onPointerDown={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
     <Button ref={buttonRef} type="button" size="sm" variant="outline" aria-label="Replace media" aria-haspopup="dialog" aria-expanded={open} className="pointer-events-auto fixed bg-white shadow-md" style={{ left: buttonPosition?.left, top: buttonPosition?.top, maxWidth: buttonPosition?.maxWidth, visibility: buttonPosition?.visible ? "visible" : "hidden" }} onClick={() => setOpen(true)}><ImagePlus size={15} aria-hidden="true" />Replace media</Button>
-    {open && <Dialog open title="Replace media" onClose={() => setOpen(false)} className="pointer-events-auto h-[min(800px,calc(100dvh-24px))] max-h-[calc(100dvh-24px)] w-[calc(100vw-24px)] max-w-5xl overflow-hidden sm:h-[min(800px,calc(100dvh-48px))] sm:max-h-[calc(100dvh-48px)] sm:w-[calc(100vw-48px)]" contentClassName="flex h-full min-h-0 flex-col p-3 sm:p-4">
+    <ModalPresence>{open && <Dialog open title="Replace media" onClose={() => setOpen(false)} className="pointer-events-auto h-[min(800px,calc(100dvh-24px))] max-h-[calc(100dvh-24px)] w-[calc(100vw-24px)] max-w-5xl overflow-hidden sm:h-[min(800px,calc(100dvh-48px))] sm:max-h-[calc(100dvh-48px)] sm:w-[calc(100vw-48px)]" contentClassName="flex h-full min-h-0 flex-col p-3 sm:p-4">
       <SlideMediaPicker block={block} courseId={courseId} onChange={onChange} embedded onClose={() => setOpen(false)} />
-    </Dialog>}
+    </Dialog>}</ModalPresence>
   </div>;
 }

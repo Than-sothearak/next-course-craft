@@ -67,7 +67,7 @@ beforeEach(() => {
   }));
   container = document.createElement("div"); document.body.append(container); root = createRoot(container);
 });
-afterEach(() => { act(() => root.unmount()); container.remove(); vi.unstubAllGlobals(); });
+afterEach(() => { act(() => root.unmount()); container.remove(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 describe("workspace administration UI", () => {
   it("shows the Workspaces navigation entry only for Super Admin", async () => {
@@ -169,6 +169,7 @@ describe("workspace administration UI", () => {
     setInput("#workspace-name", "Renamed team");
     act(() => button("Save changes").click()); await flush();
     expect(calls.find((call) => call.method === "PATCH")).toEqual({ url: `/api/admin/workspaces/${workspace.id}`, method: "PATCH", body: { name: "Renamed team", expectedUpdatedAt: "2026-10-21T00:00:00.000Z" } });
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 160)); });
     expect(container.querySelector("dialog")).toBeNull();
     expect(container.textContent).toContain("Workspace updated.");
     expect(container.textContent).toContain("Renamed team");

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { LayoutGrid, Settings2, SlidersHorizontal } from "lucide-react";
 import type { ContentBlock } from "@/lib/schemas/block";
 import { Button } from "@/components/ui/button";
@@ -75,24 +75,6 @@ export function ContentBlockEditor({
   >(null);
   const settingsButtonRef = useRef<HTMLButtonElement>(null);
   const settingsPanelId = `content-settings-${block.id}`;
-  useEffect(() => {
-    if (!editing) return;
-    function closeOnOutsidePointerDown(event: PointerEvent) {
-      const target = event.target;
-      if (!(target instanceof Node)) return;
-      if (
-        settingsButtonRef.current?.contains(target) ||
-        (target instanceof Element && target.closest("[data-media-library]")) ||
-        document.getElementById(settingsPanelId)?.contains(target)
-      )
-        return;
-      setEditing(false);
-    }
-    document.addEventListener("pointerdown", closeOnOutsidePointerDown);
-    return () =>
-      document.removeEventListener("pointerdown", closeOnOutsidePointerDown);
-  }, [editing, settingsPanelId]);
-
   function selectMedia(asset: MediaLibraryAsset) {
     if (block.type === "image")
       onChange({ ...block, data: { ...block.data, src: asset.fileUrl } });
@@ -222,8 +204,11 @@ export function ContentBlockEditor({
       : <p className="leading-5 text-slate-500">Edit text directly in the lesson. Select text to format it.</p>;
     if (inlineSettings) return <div className="space-y-3">{replaceTemplateAction()}{contentSettings}</div>;
     return (
-      editing && (
         <DraggableSettingsPanel
+          open={editing}
+          onOpenChange={setEditing}
+          triggerRef={settingsButtonRef}
+          busy={mediaLibraryTarget !== null}
           id={settingsPanelId}
           title="Content settings"
           settingsLabel="Content"
@@ -233,7 +218,6 @@ export function ContentBlockEditor({
         >
           {standardSettingsContent(contentSettings)}
         </DraggableSettingsPanel>
-      )
     );
   }
 
@@ -329,8 +313,12 @@ export function ContentBlockEditor({
       {!inlineSettings && settingsButton()}
       {(!inlineSettings || (block.type !== "flipCard" && block.type !== "accordion" && block.type !== "processSteps" && block.type !== "timeline" && block.type !== "conceptMap" && block.type !== "databaseSchema")) && <div className="block w-full rounded-md text-left">{preview}</div>}
       {inlineSettings && <div className="mt-3 space-y-3">{settingsContent}</div>}
-      {!inlineSettings && editing && (
+      {!inlineSettings && (
         <DraggableSettingsPanel
+          open={editing}
+          onOpenChange={setEditing}
+          triggerRef={settingsButtonRef}
+          busy={mediaLibraryTarget !== null}
           id={settingsPanelId}
           title="Content settings"
           settingsLabel="Content"

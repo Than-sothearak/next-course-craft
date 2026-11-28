@@ -34,10 +34,11 @@ describe("interaction button presentation authoring", () => {
 
   it("applies global mode changes, keeps individual overrides on reselection, and reloads the saved choices", async () => {
     await start();
-    const setMode = async (title: string) => act(async () => {
-      const menu = container.querySelector('[aria-label="Navigation and progress settings"]')!.closest("details")!;
-      [...menu.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent?.startsWith(title))!.click();
-    });
+    const setMode = async (title: string) => {
+      const trigger = container.querySelector<HTMLButtonElement>('[aria-label="Navigation and progress settings"]')!;
+      if (trigger.getAttribute("aria-expanded") !== "true") await act(async () => trigger.click());
+      await act(async () => [...document.querySelectorAll<HTMLButtonElement>('[data-ui-popover][data-state="open"] button')].find((button) => button.textContent?.startsWith(title))!.click());
+    };
     await setMode("Restricted navigation");
     expect((await saved()).lessons[0].blocks[0].requiredForProgress).toBe(true);
     await act(async () => container.querySelector<HTMLInputElement>('[aria-label="Required for progress"]')!.click());

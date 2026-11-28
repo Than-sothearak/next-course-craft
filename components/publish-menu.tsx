@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { ChevronDown, Download, FileCode2, FileText, Link2, LoaderCircle, Package, type LucideIcon } from "lucide-react";
 import { CourseShareDialog } from "@/components/course-share-dialog";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Popover } from "@/components/ui/popover";
 import { courseExportFilename, type CourseExportFormat } from "@/lib/export/filename";
+import { ModalPresence } from "@/components/ui/modal-presence";
 
 type PublishFormat = CourseExportFormat;
 
@@ -77,7 +79,7 @@ export function PublishMenu({
   disabledReason,
   className,
   openUpward = false,
-  closeOnMouseLeave = false,
+  closeOnMouseLeave = true,
   compact = false,
   onPublished,
   onShareChanged,
@@ -99,23 +101,7 @@ export function PublishMenu({
   const [progress, setProgress] = useState<{ stage: string; value: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [failedFormat, setFailedFormat] = useState<PublishFormat | null>(null);
-  const menuRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
-
-  useEffect(() => {
-    function closeOutside(event: PointerEvent) {
-      if (event.target instanceof Node && !menuRef.current?.contains(event.target)) setOpen(false);
-    }
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("pointerdown", closeOutside);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("pointerdown", closeOutside);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, []);
 
   async function publish(format: PublishFormat) {
     const selected = formats.find((item) => item.id === format)!;
@@ -157,25 +143,30 @@ export function PublishMenu({
   }
 
   return (
-    <div ref={menuRef} className="relative" onPointerLeave={(event) => { if (closeOnMouseLeave && event.pointerType === "mouse") setOpen(false); }}>
-      <Button
-        type="button"
-        variant={compact ? "ghost" : "outline"}
-        size={compact ? "icon" : "sm"}
+    <div className="relative">
+      <Popover
+        open={open}
+        onOpenChange={setOpen}
+        title="Publish format"
+        triggerLabel="Publish course"
+        variant="menu"
+        placement={openUpward ? "top" : "bottom"}
+        closeOnMouseLeave={closeOnMouseLeave}
+        panelClassName="w-52"
         disabled={disabled || publishing !== null}
-        title={disabled ? disabledReason : "Publish course"}
-        aria-label="Publish course"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={() => { setError(null); setProgress(null); setOpen((current) => !current); }}
-        className={compact ? `size-8 min-h-0 rounded-md border-0 bg-transparent p-0 text-slate-600 shadow-none hover:bg-slate-100 hover:text-slate-900 ${className ?? ""}` : className}
-      >
+        triggerProps={{
+          variant: compact ? "ghost" : "outline",
+          size: compact ? "icon" : "sm",
+          title: disabled ? disabledReason : "Publish course",
+          onClick: () => { setError(null); setProgress(null); },
+          className: compact ? `size-8 min-h-0 rounded-md border-0 bg-transparent p-0 text-slate-600 shadow-none hover:bg-slate-100 hover:text-slate-900 ${className ?? ""}` : `h-auto w-auto text-slate-700 ${className ?? ""}`,
+        }}
+        trigger={<>
         {publishing ? <LoaderCircle size={14} className="animate-spin" /> : <Download size={14} />}
         {!compact && (publishing ? "Exporting…" : "Publish")}
         {!compact && !publishing && <ChevronDown size={14} />}
-      </Button>
-      {open && (
-        <div role="menu" aria-label="Publish format" className={`absolute right-0 z-[70] w-52 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl ${openUpward ? "bottom-full mb-2" : "top-full mt-2"} ${closeOnMouseLeave ? `after:absolute after:inset-x-0 after:h-3 ${openUpward ? "after:top-full" : "after:bottom-full"}` : ""}`}>
+        </>}
+      >
           {formats.map((format) => (
             <Button
               key={format.id}
@@ -196,8 +187,7 @@ export function PublishMenu({
             <Link2 size={14} className="shrink-0" aria-hidden="true" />Share link
           </Button>
           {error && <p role="alert" className="mx-2 my-1 border-t border-slate-100 pt-2 text-xs leading-5 text-rose-700">{error}</p>}
-        </div>
-      )}
+      </Popover>
       {progress && (publishing || progress.value === 100) && (
         <section role="status" aria-live="polite" aria-label={`${formats.find((item) => item.id === publishing)?.label} export progress`} className={`absolute right-0 z-[71] w-72 rounded-xl border border-slate-200 bg-white p-4 shadow-xl ${openUpward ? "bottom-full mb-2" : "top-full mt-2"}`}>
           <div className="mb-2 flex items-center justify-between gap-2"><p className="text-sm font-semibold text-slate-900">{progress.value === 100 ? "Export ready" : `Exporting ${formats.find((item) => item.id === publishing)?.label}`}</p><span className="text-sm tabular-nums text-slate-600">{progress.value}%</span></div>
@@ -207,7 +197,7 @@ export function PublishMenu({
         </section>
       )}
       {error && !open && <div role="alert" className="absolute right-0 top-full z-[71] mt-2 w-72 rounded-xl border border-rose-200 bg-white p-3 text-xs text-rose-700 shadow-xl">{error}{failedFormat && <Button variant="ghost" size="sm" className="ml-2 h-7" onClick={() => void publish(failedFormat)}>Retry</Button>}</div>}
-      {shareOpen && <CourseShareDialog courseId={courseId} onClose={() => setShareOpen(false)} onPublished={onPublished} onShareChanged={onShareChanged} />}
+      <ModalPresence>{shareOpen && <CourseShareDialog courseId={courseId} onClose={() => setShareOpen(false)} onPublished={onPublished} onShareChanged={onShareChanged} />}</ModalPresence>
     </div>
   );
 }

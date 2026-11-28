@@ -40,12 +40,14 @@ describe("learner interaction button", () => {
     expect(onProgress.mock.calls).toEqual([["button:opened"]]);
     const media = [...document.querySelectorAll("audio,video")];
     await act(async () => document.querySelector("dialog[open]")!.dispatchEvent(new Event("cancel", { bubbles: true, cancelable: true })));
+    await act(async () => vi.advanceTimersByTimeAsync(150));
     expect(document.querySelector("dialog[open]")).toBeNull(); expect(document.querySelector("audio,video")).toBeNull();
     for (const element of media) expect(pause.mock.contexts).toContain(element);
   });
 
   it("closes the popup when its presentation slide becomes inactive", async () => {
     await render(); await open(); await render(button, false); await act(async () => vi.advanceTimersByTimeAsync(20));
+    await act(async () => vi.advanceTimersByTimeAsync(150));
     expect(document.querySelector("dialog[open]")).toBeNull(); expect(document.querySelector("audio,video")).toBeNull();
   });
 
@@ -108,6 +110,7 @@ describe("learner interaction button", () => {
     const nested = parent.querySelector<HTMLDialogElement>("dialog[open]")!;
     expect(nested.textContent).toContain("Nested explanation");
     await act(async () => nested.dispatchEvent(new Event("cancel", { bubbles: true, cancelable: true })));
+    await act(async () => vi.advanceTimersByTimeAsync(150));
     expect(parent.open).toBe(true); expect(parent.querySelector("dialog[open]")).toBeNull();
   });
 
