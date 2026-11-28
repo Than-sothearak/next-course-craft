@@ -1,6 +1,7 @@
 "use client";
 
 import type { ContentBlock } from "@/lib/schemas/block";
+import { Video } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MediaSkippingControls } from "@/components/media-skipping-controls";
@@ -15,8 +16,10 @@ export function VideoBlockSettings({ setMediaLibraryTarget, block, onChange }: {
         type="button"
         variant="outline"
         size="sm"
+        className="w-full justify-center"
         onClick={() => setMediaLibraryTarget("video")}
       >
+        <Video size={14} aria-hidden="true" />
         Choose from media library
       </Button>
       <Input

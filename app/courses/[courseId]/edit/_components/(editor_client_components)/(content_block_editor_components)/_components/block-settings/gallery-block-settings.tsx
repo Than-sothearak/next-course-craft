@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus, Trash2 } from "lucide-react";
+import { Crop, ImagePlus, Images, Plus, Trash2 } from "lucide-react";
 import type { ContentBlock } from "@/lib/schemas/block";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,12 +11,20 @@ import type { Dispatch, SetStateAction } from "react";
 export function GalleryBlockSettings({ block, setSelectedGalleryImageIndex, setMediaLibraryTarget, onChange }: { block: Extract<ContentBlock, { type: "gallery" }>; setSelectedGalleryImageIndex: Dispatch<SetStateAction<number | null>>; setMediaLibraryTarget: Dispatch<SetStateAction<MediaLibraryTarget | null>>; onChange: (block: ContentBlock) => void }) {
   return (
     <div className="space-y-3">
-      <label className="block space-y-1 text-xs font-medium text-slate-600">Gallery layout
+      <label className="block space-y-1 text-xs font-medium text-slate-600">
+        <span className="flex items-center gap-1.5">
+          <Images size={14} strokeWidth={1.75} aria-hidden="true" className="shrink-0 text-slate-500" />
+          Gallery layout
+        </span>
         <Select aria-label="Gallery layout" value={block.data.layout ?? "grid"} onChange={(event) => onChange({ ...block, data: { ...block.data, layout: event.target.value as "grid" | "carousel" } })}>
           <option value="grid">Grid</option><option value="carousel">Scrolling carousel</option>
         </Select>
       </label>
-      <label className="block space-y-1 text-xs font-medium text-slate-600">Image fit
+      <label className="block space-y-1 text-xs font-medium text-slate-600">
+        <span className="flex items-center gap-1.5">
+          <Crop size={14} strokeWidth={1.75} aria-hidden="true" className="shrink-0 text-slate-500" />
+          Image fit
+        </span>
         <Select aria-label="Gallery image fit" value={block.data.imageFit ?? "cover"} onChange={(event) => onChange({ ...block, data: { ...block.data, imageFit: event.target.value as "contain" | "cover" | "fill" } })}>
           <option value="contain">Contain — show the whole image</option><option value="cover">Cover — crop to fill the frame</option><option value="fill">Fill — stretch to the frame</option>
         </Select>
@@ -31,11 +39,13 @@ export function GalleryBlockSettings({ block, setSelectedGalleryImageIndex, setM
               type="button"
               variant="outline"
               size="sm"
+              className="w-full justify-center"
               onClick={() => {
                 setSelectedGalleryImageIndex(index);
                 setMediaLibraryTarget("gallery");
               }}
             >
+              <ImagePlus size={14} aria-hidden="true" />
               Choose from media library
             </Button>
             <Input

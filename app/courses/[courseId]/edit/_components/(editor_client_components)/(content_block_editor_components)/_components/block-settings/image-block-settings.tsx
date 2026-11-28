@@ -1,6 +1,7 @@
 "use client";
 
 import { imageAspectRatioSchema, imageFitSchema, imageCoverHeightSchema, imageCoverPositionSchema, type ContentBlock } from "@/lib/schemas/block";
+import { Crosshair, Crop, ImagePlus, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -44,7 +45,10 @@ export function ImageBlockSettings({ block, onChange, setMediaLibraryTarget }: {
       </Select>
       <>
         <label className="block space-y-1 text-xs font-medium text-slate-600">
-          Image fit
+          <span className="flex items-center gap-1.5">
+            <Crop size={14} strokeWidth={1.75} aria-hidden="true" className="shrink-0 text-slate-500" />
+            Image fit
+          </span>
           <Select aria-label="Image fit" value={block.data.imageFit ?? (!block.data.layout || block.data.layout === "full" ? "contain" : "cover")} onChange={(event) => {
             const fit = imageFitSchema.safeParse(event.target.value);
             if (fit.success) onChange({ ...block, data: { ...block.data, imageFit: fit.data } });
@@ -55,7 +59,10 @@ export function ImageBlockSettings({ block, onChange, setMediaLibraryTarget }: {
           </Select>
         </label>
         <label className="block space-y-1 text-xs font-medium text-slate-600">
-          Image focal point
+          <span className="flex items-center gap-1.5">
+            <Crosshair size={14} strokeWidth={1.75} aria-hidden="true" className="shrink-0 text-slate-500" />
+            Image focal point
+          </span>
           <Select aria-label="Image focal point" value={block.data.imagePosition ?? (block.data.layout === "cover" ? block.data.coverPosition : undefined) ?? "center"} onChange={(event) => {
             const position = imageCoverPositionSchema.safeParse(event.target.value);
             if (position.success) onChange({ ...block, data: { ...block.data, imagePosition: position.data } });
@@ -68,7 +75,10 @@ export function ImageBlockSettings({ block, onChange, setMediaLibraryTarget }: {
           </Select>
         </label>
         <label className="block space-y-1 text-xs font-medium text-slate-600">
-          Image frame ratio
+          <span className="flex items-center gap-1.5">
+            <Square size={14} strokeWidth={1.75} aria-hidden="true" className="shrink-0 text-slate-500" />
+            Image frame ratio
+          </span>
           <Select aria-label="Image frame ratio" value={block.data.imageAspectRatio ?? "default"} onChange={(event) => {
             if (event.target.value === "default") { onChange({ ...block, data: { ...block.data, imageAspectRatio: undefined } }); return; }
             const ratio = imageAspectRatioSchema.safeParse(event.target.value);
@@ -127,23 +137,12 @@ export function ImageBlockSettings({ block, onChange, setMediaLibraryTarget }: {
         type="button"
         variant="outline"
         size="sm"
+        className="w-full justify-center"
         onClick={() => setMediaLibraryTarget("image")}
       >
-        Choose from media library
+        <ImagePlus size={14} aria-hidden="true" />
+        {block.data.src ? "Change image" : "Choose or upload image"}
       </Button>
-      <Input
-        aria-label="Image URL"
-        type="url"
-        value={block.data.src}
-        onChange={(event) =>
-          onChange({
-            ...block,
-            data: { ...block.data, src: event.target.value },
-          })
-        }
-        placeholder="Image URL"
-        className="h-9"
-      />
       <Input
         aria-label="Alternative text"
         value={block.data.alt}

@@ -98,6 +98,11 @@ describe("scrolling gallery", () => {
       return <GalleryBlockSettings block={block} onChange={(next) => { if (next.type === "gallery") setBlock(next); }} setSelectedGalleryImageIndex={vi.fn()} setMediaLibraryTarget={vi.fn()} />;
     }
     await act(async () => root.render(<Settings />));
+    expect(container.querySelector('[aria-label="Gallery layout"]')?.closest("label")?.querySelector(".lucide-images")).not.toBeNull();
+    expect(container.querySelector('[aria-label="Gallery image fit"]')?.closest("label")?.querySelector(".lucide-crop")).not.toBeNull();
+    const imagePickers = [...container.querySelectorAll<HTMLButtonElement>("button")].filter((item) => item.textContent?.includes("Choose from media library"));
+    expect(imagePickers).toHaveLength(3);
+    expect(imagePickers.every((item) => item.querySelector(".lucide-image-plus") !== null)).toBe(true);
     const changeSelect = (label: string, value: string) => act(() => { const select = container.querySelector<HTMLSelectElement>(`[aria-label="${label}"]`)!; select.value = value; select.dispatchEvent(new Event("change", { bubbles: true })); });
     changeSelect("Gallery image fit", "cover");
     changeSelect("Gallery image 1 fit", "contain");

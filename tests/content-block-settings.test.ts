@@ -151,6 +151,53 @@ describe("content block settings access", () => {
     expect([...container.querySelectorAll('button')].some((button) => button.textContent?.includes("Change block style"))).toBe(true);
   });
 
+  it("uses an icon-led media picker for image blocks without exposing an image URL field", () => {
+    const image = blocks.find((block) => block.type === "image")!;
+    act(() => root.render(createElement(ContentBlockEditor, {
+      block: image,
+      courseId: "course-1",
+      onChange: () => {},
+    })));
+    act(() => document.querySelector<HTMLButtonElement>('[aria-label="Open content settings"]')!.click());
+
+    const picker = [...document.querySelectorAll<HTMLButtonElement>("button")]
+      .find((button) => button.textContent?.includes("Change image"));
+    expect(picker).not.toBeNull();
+    expect(picker?.querySelector(".lucide-image-plus")).not.toBeNull();
+    expect(document.querySelector('[aria-label="Image URL"]')).toBeNull();
+    expect(document.querySelector('[aria-label="Alternative text"]')).not.toBeNull();
+    expect(document.querySelector('[aria-label="Caption"]')).not.toBeNull();
+    expect(document.querySelector('[aria-label="Image fit"]')?.closest("label")?.querySelector(".lucide-crop")).not.toBeNull();
+    expect(document.querySelector('[aria-label="Image focal point"]')?.closest("label")?.querySelector(".lucide-crosshair")).not.toBeNull();
+    expect(document.querySelector('[aria-label="Image frame ratio"]')?.closest("label")?.querySelector(".lucide-square")).not.toBeNull();
+  });
+
+  it("uses matching icons on video and audio media pickers", () => {
+    const audio: ContentBlock = {
+      ...blockDefaults,
+      id: "audio-icon",
+      type: "audio",
+      data: { src: "", fileName: "", mimeType: "audio/mpeg" },
+    };
+
+    for (const [block, label, icon] of [
+      [blocks.find((entry) => entry.type === "video")!, "Choose from media library", "video"],
+      [audio, "Choose or upload audio", "audio-lines"],
+    ] as const) {
+      act(() => root.render(createElement(ContentBlockEditor, {
+        block,
+        courseId: "course-1",
+        onChange: () => {},
+      })));
+      const openSettings = document.querySelector<HTMLButtonElement>('[aria-label="Open content settings"]');
+      if (openSettings) act(() => openSettings.click());
+
+      const picker = [...document.querySelectorAll<HTMLButtonElement>("button")]
+        .find((button) => button.textContent?.includes(label));
+      expect(picker?.querySelector(`.lucide-${icon}`)).not.toBeNull();
+    }
+  });
+
   it("opens the style replacement action from a block's own settings", () => {
     const onReplaceTemplate = vi.fn();
     act(() => root.render(createElement(ContentBlockEditor, {
