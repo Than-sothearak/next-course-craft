@@ -68,7 +68,7 @@ export function FolderTreeNavigation({
                 <span
                   className={`text-[11px] tabular-nums ${selected ? "text-indigo-600" : "text-slate-400"}`}
                 >
-                  {node.courseCount}
+                  {node.courseCount + node.children.length}
                 </span>
               </DashboardLink>
             </div>

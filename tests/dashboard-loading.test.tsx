@@ -115,6 +115,28 @@ describe("dashboard loading and shared controls", () => {
       .find((button) => Boolean(button.closest("aside")) === (surface === "sidebar"))!;
   }
 
+  it("counts courses and immediate subfolders in sidebar and mobile navigation, including collapsed folders", () => {
+    render(filters, { ...data, folderTree: [{ ...data.folderTree[0], courseCount: 2, children: [
+      { id: "nested-folder", name: "Nested resources", courseCount: 0, children: [
+        { id: "deep-folder", name: "Deep resources", courseCount: 10, children: [] },
+      ] },
+      { id: "empty-folder", name: "Empty resources", courseCount: 0, children: [] },
+    ] }] });
+    const sidebar = container.querySelector("aside")!;
+    expect(sidebar.querySelector('a[title="Training"]')?.textContent).toBe("Training4");
+    expect(sidebar.querySelector('a[title="Nested resources"]')?.textContent).toBe("Nested resources1");
+    expect(sidebar.querySelector('a[title="Deep resources"]')?.textContent).toBe("Deep resources10");
+    expect(sidebar.querySelector('a[title="Empty resources"]')?.textContent).toBe("Empty resources0");
+    act(() => sidebar.querySelector<HTMLButtonElement>('[aria-label="Collapse Training"]')!.click());
+    expect(sidebar.querySelector('a[title="Nested resources"]')).toBeNull();
+    expect(sidebar.querySelector('a[title="Training"]')?.textContent).toBe("Training4");
+    act(() => container.querySelector<HTMLButtonElement>('[aria-label="Open folders and workspaces"]')!.click());
+    const dialog = container.querySelector<HTMLDialogElement>("dialog[open]")!;
+    expect(dialog.querySelector('a[title="Training"]')?.textContent).toBe("Training4");
+    act(() => dialog.querySelector<HTMLButtonElement>('[aria-label="Expand Training"]')!.click());
+    expect(dialog.querySelector('a[title="Nested resources"]')?.textContent).toBe("Nested resources1");
+  });
+
   it("opens the mobile folder tree, expands folders, and closes after selecting a child", async () => {
     render(filters, { ...data, folderTree: [{ ...data.folderTree[0], children: [{ id: "nested-folder", name: "Nested resources", courseCount: 1, children: [] }] }] });
     const trigger = container.querySelector<HTMLButtonElement>('[aria-label="Open folders and workspaces"]')!;

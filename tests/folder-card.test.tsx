@@ -28,6 +28,19 @@ describe("folder card popover", () => {
     Reflect.deleteProperty(globalThis, "IS_REACT_ACT_ENVIRONMENT");
   });
 
+  it.each([
+    { courseCount: 0, subfolderCount: 0, label: "0 items" },
+    { courseCount: 1, subfolderCount: 0, label: "1 item" },
+    { courseCount: 0, subfolderCount: 1, label: "1 item" },
+    { courseCount: 2, subfolderCount: 0, label: "2 items" },
+    { courseCount: 0, subfolderCount: 3, label: "3 items" },
+    { courseCount: 2, subfolderCount: 3, label: "5 items" },
+  ])("shows $label for $courseCount courses and $subfolderCount immediate subfolders", ({ courseCount, subfolderCount, label }) => {
+    act(() => root.render(<FolderCard folder={{ ...folder, courseCount, subfolderCount }} data={data} href="/dashboard" disabled={false} busy={false} onSubmit={async () => {}} onRequest={async () => {}} />));
+    const link = container.querySelector("a")!;
+    expect(link.textContent).toBe(`${folder.name}${label}`);
+  });
+
   it("keeps rename, move, and confirmed delete actions in a panel above the cards", async () => {
     const onSubmit = vi.fn(async (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); });
     const onRequest = vi.fn(async () => {});
